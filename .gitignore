@@ -1,0 +1,20 @@
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.*
+
+# Supabase local temp files
+supabase/.temp/
+
+# Local credentials and secrets
+*.local
+*.secret
+*.key
+*.pem
+*.envrc
+
+# IDE / macOS junk
+.DS_Store
+.vscode/
