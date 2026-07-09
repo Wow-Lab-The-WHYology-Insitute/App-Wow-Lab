@@ -186,3 +186,92 @@ cross join public.capabilities c
 where r.key = 'organization_owner'
   and c.domain <> 'platform'
 on conflict (role_id, capability_id) do nothing;
+
+-- ============================================================================
+-- WOW LAB OS, Phase 0 WS-B (B5): organizations, legal entities, org_settings,
+-- and synthetic TEST users with role assignments.
+-- Idempotent: upsert on stable natural keys (organizations.slug, users.email,
+-- org_settings.organization_id, user_org_roles(organization_id, user_id, role_id)).
+-- legal_entities has no unique constraint on (organization_id, name), so it is
+-- guarded with a NOT EXISTS check instead of ON CONFLICT.
+-- Runs with the service role (bypasses RLS by design).
+-- ============================================================================
+
+-- 6. Organizations.
+-- org_a: the real WOW LAB organization.
+-- org_b: a PERMANENT second test organization for cross-org isolation testing.
+--        This is standing infrastructure, not disposable fixture data — it must
+--        NEVER be deleted, only ever added to, so that cross-org RLS/isolation
+--        tests always have two real orgs to compare against.
+insert into public.organizations (name, slug, is_test, status)
+values
+  ('WOW LAB', 'wow-lab', false, 'active'),
+  ('WOW LAB Test Org B', 'wow-lab-test-b', true, 'active')
+on conflict (slug) do update
+  set name = excluded.name,
+      is_test = excluded.is_test,
+      status = excluded.status,
+      updated_at = now();
+
+-- 7. Legal entities under org_a.
+insert into public.legal_entities (organization_id, name, entity_type)
+select o.id, v.name, v.entity_type
+from public.organizations o
+join (
+  values
+    ('Experimente Wow SRL', 'srl'),
+    ('Bradine ADV SRL', 'srl'),
+    ('Asociatia STEMplicity', 'asociatie')
+) as v(name, entity_type) on true
+where o.slug = 'wow-lab'
+  and not exists (
+    select 1 from public.legal_entities le
+    where le.organization_id = o.id
+      and le.name = v.name
+  );
+
+-- 8. org_settings: one row per org, evaluations_confidential = true for both.
+insert into public.org_settings (organization_id, evaluations_confidential)
+select o.id, true
+from public.organizations o
+where o.slug in ('wow-lab', 'wow-lab-test-b')
+on conflict (organization_id) do update
+  set evaluations_confidential = excluded.evaluations_confidential,
+      updated_at = now();
+
+-- 9. Synthetic TEST users (test+role@wowlab.dev — never real team members' data).
+insert into public.users (id, email, full_name, status, is_platform_owner)
+values
+  (gen_random_uuid(), 'test+platform@wowlab.dev', 'Test Platform Owner', 'active', true),
+  (gen_random_uuid(), 'test+owner-a@wowlab.dev', 'Test Org A Owner', 'active', false),
+  (gen_random_uuid(), 'test+catalina@wowlab.dev', 'Test User Catalina (Ops + Curriculum + Evaluator)', 'active', false),
+  (gen_random_uuid(), 'test+trainer-a@wowlab.dev', 'Test Trainer A', 'active', false),
+  (gen_random_uuid(), 'test+user-b@wowlab.dev', 'Test Org B Owner', 'active', false),
+  (gen_random_uuid(), 'test+finance-ops-a@wowlab.dev', 'Test Finance Operations A', 'active', false),
+  (gen_random_uuid(), 'test+finance-admin-a@wowlab.dev', 'Test Finance Admin Reporting A', 'active', false)
+on conflict (email) do update
+  set full_name = excluded.full_name,
+      status = excluded.status,
+      is_platform_owner = excluded.is_platform_owner,
+      updated_at = now();
+
+-- 10. Test user role assignments.
+-- u_platform is intentionally NOT assigned any user_org_roles row: Platform Owner
+-- is cross-org via users.is_platform_owner alone (convention #3).
+insert into public.user_org_roles (organization_id, user_id, role_id)
+select o.id, u.id, r.id
+from (
+  values
+    ('test+owner-a@wowlab.dev', 'wow-lab', 'organization_owner'),
+    ('test+catalina@wowlab.dev', 'wow-lab', 'operations_manager'),
+    ('test+catalina@wowlab.dev', 'wow-lab', 'curriculum_manager'),
+    ('test+catalina@wowlab.dev', 'wow-lab', 'evaluator'),
+    ('test+trainer-a@wowlab.dev', 'wow-lab', 'trainer'),
+    ('test+user-b@wowlab.dev', 'wow-lab-test-b', 'organization_owner'),
+    ('test+finance-ops-a@wowlab.dev', 'wow-lab', 'finance_operations'),
+    ('test+finance-admin-a@wowlab.dev', 'wow-lab', 'finance_admin_reporting')
+) as m(user_email, org_slug, role_key)
+join public.users u on u.email = m.user_email
+join public.organizations o on o.slug = m.org_slug
+join public.roles r on r.key = m.role_key
+on conflict (organization_id, user_id, role_id) do nothing;
