@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-07-10 16:51 (ora București)
+**Ultima actualizare:** 2026-07-10 17:05 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -96,6 +96,8 @@ Toate cu RLS pornit **deny-by-default** (politicile permisive vin în WS-D). `ro
 14. WS-D D0 done (2026-07-09, commit 47f7612): app schema RLS helpers (is_platform_owner, has_capability with dot-boundary glob, belongs_to_org). Self-test db/tests/rls_d0_helpers.sql 11/11 pass. Note: base-table GRANTs to authenticated still pending (D1).
 
 15. WS-D prep (2026-07-10, commit 056240e): added organization_id to row_history + generic denormalization in row_history_capture(); proven via throwaway-migration transaction that an org_settings UPDATE writes row_history WITH matching organization_id (MATCH=true), rolled back atomically. Note: 1 pre-existing row_history row from Checkpoint B has organization_id NULL (predates column) — harmless test row. Auth switched from .zshrc env var to `supabase login` (stored token) after a paste-corruption issue.
+
+16. WS-D prep complete (2026-07-10, commit fe9d5aa): added 5 org-admin capabilities (org.settings.manage, org.members.manage, org.entities.manage, org.audit.read, org.members.read) to organization_owner only. Counts 43/43/40/129, 0 stray org.* on other roles. Confirmed platform_owner/organization_owner grants are computed dynamically (cross join), so future caps flow automatically.
 
 ---
 
