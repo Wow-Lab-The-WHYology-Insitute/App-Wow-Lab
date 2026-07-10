@@ -50,6 +50,15 @@ values
   ('platform.admin.manage', 'platform', 'admin', 'manage', 'Platform administration capabilities.'),
   ('platform.org_switcher.use', 'platform', 'org_switcher', 'use', 'Use the organization switcher UI.'),
 
+  -- WS-D prep: org-administration family (resolves the "org admin" capability gap
+  -- flagged in docs/ws-d-d1-mapping.md Open Question #1). organization_owner only,
+  -- via the dynamic "all non-platform.* capabilities" grant below.
+  ('org.settings.manage', 'org', 'settings', 'manage', 'Manage organization settings (org_settings).'),
+  ('org.members.manage', 'org', 'members', 'manage', 'Manage organization membership and role assignments (user_org_roles writes).'),
+  ('org.entities.manage', 'org', 'entities', 'manage', 'Manage legal entities under the organization.'),
+  ('org.audit.read', 'org', 'audit', 'read', 'Read the organization''s own audit trail and row-history.'),
+  ('org.members.read', 'org', 'members', 'read', 'Read organization membership beyond own row (org roster).'),
+
   ('clients.create', 'clients', 'clients', 'create', 'Create client/prospect records.'),
   ('clients.convert', 'clients', 'clients', 'convert', 'Convert a prospect into an active client.'),
   ('clients.read', 'clients', 'clients', 'read', 'Read client records.'),
