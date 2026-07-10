@@ -23,15 +23,15 @@
 | Mediu dev (Supabase CLI linkat, repo conectat la GitHub, .gitignore) | ✅ gata |
 | WS-B · B1 convenții | ✅ |
 | WS-B · B2 tenancy + identitate | ✅ aplicat |
-| WS-B · Checkpoint A | ✅ verde |
+| WS-B · Checkpoint A | ✅ |
 | WS-B · B3 permisiuni + audit + storage | ✅ aplicat |
-| WS-B · Checkpoint B | ✅ verde |
+| WS-B · Checkpoint B | ✅ |
 | WS-B · row_history pe legal_entities + file_refs | ✅ |
 | WS-B · B4 seed 14 roluri (14/38/119, idempotent) | ✅ aplicat |
-| WS-B · Checkpoint C (SQL + C.7 reconciliere) | ✅ verde |
+| WS-B · Checkpoint C (SQL + C.7 reconciliere) | ✅ |
 | DATABASE_CONVENTIONS.md creat ca fișier (docs/, commit b8e4d90) | ✅ |
 | WS-B · B5 org + entități + 7 useri test | ✅ aplicat (commit 526bae7) |
-| WS-B · Checkpoint D | ✅ verde |
+| WS-B · Checkpoint D | ✅ |
 | **WS-B COMPLET** | ✅ **2026-07-09** |
 | WS-D (RLS, poartă review developer) | 🔶 în curs (D0 done, D1 next) |
 
@@ -61,7 +61,7 @@ Toate cu RLS pornit **deny-by-default** (politicile permisive vin în WS-D). `ro
 
 3. **B2 — Tenancy + identitate.** Migrări aplicate: `organizations`, `legal_entities`, `users`, `user_org_roles`, `org_settings`. `roles` a apărut ca schelet (pentru FK-ul `user_org_roles.role_id`).
 
-4. **Checkpoint A — verde.**
+4. **Checkpoint A — ✅.**
    - A1: cele 5 tabele există.
    - A2: RLS `true` pe toate (inclusiv `roles`).
    - A3: `organization_id` NOT NULL pe legal_entities/user_org_roles/org_settings; absent pe `organizations` (0).
@@ -70,7 +70,7 @@ Toate cu RLS pornit **deny-by-default** (politicile permisive vin în WS-D). `ro
 
 5. **B3 — Permisiuni + audit + storage** (prompt ajustat idempotent, ca să nu recreeze `roles`). Aplicat: `capabilities`, `role_capabilities`, `audit_log` (append-only), `row_history`, `file_refs`; `roles` aliniat.
 
-6. **Checkpoint B — verde.**
+6. **Checkpoint B — ✅.**
    - B.1: tabele de referință fără org_id, tabele de business cu org_id.
    - B.2: triggere — `audit_log_prevent_modification` pe UPDATE+DELETE (append-only ✅), row_history pe user_org_roles+org_settings, `set_updated_at` peste tot.
    - B.3 comportamental: TEST 1 append-only **PASS** (UPDATE și DELETE respinse), TEST 2 row_history **PASS** (old/new populate), TEST 3 updated_at „FAIL" = **fals-negativ** (now() e înghețat per tranzacție; funcția `trigger_set_updated_at` confirmată corectă prin inspecția definiției).
@@ -81,13 +81,13 @@ Toate cu RLS pornit **deny-by-default** (politicile permisive vin în WS-D). `ro
    - **Descoperit:** `DATABASE_CONVENTIONS.md` nu fusese scris ca fișier la B1 (doar afișat în chat); convențiile au fost deduse din migrări. De creat ca doc canonic în `docs/`.
    - **Decizie de dus în WS-D:** wildcard-urile (`curriculum.*`, `contracts.*`, `finance.operations.*`, `inventory.*` etc.) sunt stocate ca **un singur rând literal**, nu desfăcute. Resolver-ul de capabilități + RLS din WS-D **trebuie să facă potrivire pe prefix/glob** (și de testat) — altfel un user cu `curriculum.*` nu rezolvă nimic în tăcere.
 
-9. **Checkpoint C — verde** *(2026-07-09, 13:45 București)*. SQL Editor independent: 14 roluri, 0 dubluri, structural corect. C.7 reconciliere: toate cele 14 roluri PASS, zero over/under-grant, zero ambiguitate. `docs/DATABASE_CONVENTIONS.md` creat, comis și împins (b8e4d90).
+9. **Checkpoint C — ✅** *(2026-07-09, 13:45 București)*. SQL Editor independent: 14 roluri, 0 dubluri, structural corect. C.7 reconciliere: toate cele 14 roluri PASS, zero over/under-grant, zero ambiguitate. `docs/DATABASE_CONVENTIONS.md` creat, comis și împins (b8e4d90).
    - **Item deschis (neblocant):** nu există un artefact SAD Phase 5 în repo — C.7 s-a făcut față de catalogul de 14 roluri aprobat (care e și sursa seed-ului), nu față de un SAD independent. De adus matricea de permisiuni din SAD în `docs/` mai târziu, pentru audit cu adevărat independent.
    - **Reparat:** migrările 202607080003 (B3), 202607080004 (row_history) și `supabase/seed.sql` (B4) erau **aplicate pe DB dar necomise** în git (repo-ul diverja de bază). De aici înainte: **fiecare pas se termină cu commit + push**, ca repo-ul să reproducă mereu baza. *(Rezolvat: commit 5b10e32.)*
 
 10. **B5 — seed aplicat** *(2026-07-09, ~13:50 București, commit 526bae7)*. 2 organizații (`wow-lab` + `wow-lab-test-b` permanent), 3 entități legale sub wow-lab, OD-7 pe ambele, 7 useri de test. Idempotent. `u_catalina` = 16 capabilități (reuniunea celor 3 roluri).
 
-11. **Checkpoint D — verde** *(2026-07-09, 13:58 București)*. D1–D3 ok; D4 cei 7 useri corecți; D5 capabilități rezolvate corecte; **D5b segregare finanțe** (ops 0 / admin 1) ✅; **D6 invariant platform_owner** (flag true, 0 rânduri în user_org_roles) ✅.
+11. **Checkpoint D — ✅** *(2026-07-09, 13:58 București)*. D1–D3 ok; D4 cei 7 useri corecți; D5 capabilități rezolvate corecte; **D5b segregare finanțe** (ops 0 / admin 1) ✅; **D6 invariant platform_owner** (flag true, 0 rânduri în user_org_roles) ✅.
 
 12. **WS-B COMPLET** *(2026-07-09)*. Fundația (tenancy, identitate, permisiuni-ca-date, audit, storage) + seed-ul (14 roluri, org-uri, useri de test) sunt aplicate, verificate și pe GitHub. Urmează **WS-D** (RLS) — prima poartă care cere review de developer.
 
@@ -119,6 +119,6 @@ Toate cu RLS pornit **deny-by-default** (politicile permisive vin în WS-D). `ro
 4. `finance_operations` chiar nu vede profitabilitatea companiei (field/record segregation).
 5. **Resolver-ul de capabilități face potrivire pe prefix/glob** pe wildcard-uri (ex. `curriculum.*`) — altfel rezolvă nimic în tăcere.
 
-**Reguli WS-D:** testele trebuie să ruleze **ca utilizatorii de test** (nu ca service role, care ocolește RLS), suita **trebuie să și pică** când strici intenționat o regulă, și e nevoie de **review de developer** (nu te bazezi pe „verde").
+**Reguli WS-D:** testele trebuie să ruleze **ca utilizatorii de test** (nu ca service role, care ocolește RLS), suita **trebuie să și pică** când strici intenționat o regulă, și e nevoie de **review de developer** (nu te bazezi pe ✅).
 
 **Item deschis:** adus matricea de permisiuni din SAD în `docs/` pentru audit independent.
