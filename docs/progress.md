@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-07-10 17:33 (ora București)
+**Ultima actualizare:** 2026-07-10 18:21 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -100,6 +100,8 @@ Toate cu RLS pornit **deny-by-default** (politicile permisive vin în WS-D). `ro
 16. WS-D prep complete (2026-07-10, commit fe9d5aa): added 5 org-admin capabilities (org.settings.manage, org.members.manage, org.entities.manage, org.audit.read, org.members.read) to organization_owner only. Counts 43/43/40/129, 0 stray org.* on other roles. Confirmed platform_owner/organization_owner grants are computed dynamically (cross join), so future caps flow automatically.
 
 17. WS-D D1a done (2026-07-10, commit e1a7907): SELECT policies + base GRANTs to authenticated on all 11 tables. 12/12 read assertions passed live. CROWN JEWEL — cross-org isolation proven: u_user_b sees 0 wow-lab legal_entities but 1 own org-b org_settings row. Trainer sees only own users row; trainer audit_log gated by has_capability('org.audit.read')=false. Test suite: db/tests/rls_ws_d_read.sql. INSERT/UPDATE = D1b next; DELETE deny-all.
+
+18. WS-D D1b done (2026-07-10, commit 796143d): write (INSERT/UPDATE) RLS policies + GRANTs. Caught & fixed a real latent bug — row_history_capture() was SECURITY INVOKER so authenticated writes to audited tables hit "permission denied for row_history"; made it SECURITY DEFINER (search_path='', fully-qualified). 8/8 write assertions pass live incl. audit-trail end-to-end (owner_a UPDATE writes row_history with correct org_id). Negatives: trainer can't assign roles, finance_ops can't change settings, user_b cross-org UPDATE=0 rows, DELETE deny-all. SABOTAGE CHECK: assertion correctly flips to FAIL when policy broken -> suite has teeth. Tests: db/tests/rls_ws_d_write.sql. Follow-up: TRUNCATE still granted to authenticated by Supabase baseline (bypasses RLS) -> hardening next.
 
 ---
 
