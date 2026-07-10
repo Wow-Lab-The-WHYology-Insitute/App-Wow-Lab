@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-07-09 13:58 (ora București)
+**Ultima actualizare:** 2026-07-09 17:33 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -33,7 +33,7 @@
 | WS-B · B5 org + entități + 7 useri test | ✅ aplicat (commit 526bae7) |
 | WS-B · Checkpoint D | ✅ verde |
 | **WS-B COMPLET** | ✅ **2026-07-09** |
-| WS-D (RLS, poartă review developer) | ☐ (Week 3 — următorul) |
+| WS-D (RLS, poartă review developer) | 🔶 în curs (D0) |
 
 ---
 
@@ -90,6 +90,8 @@ Toate cu RLS pornit **deny-by-default** (politicile permisive vin în WS-D). `ro
 11. **Checkpoint D — verde** *(2026-07-09, 13:58 București)*. D1–D3 ok; D4 cei 7 useri corecți; D5 capabilități rezolvate corecte; **D5b segregare finanțe** (ops 0 / admin 1) ✅; **D6 invariant platform_owner** (flag true, 0 rânduri în user_org_roles) ✅.
 
 12. **WS-B COMPLET** *(2026-07-09)*. Fundația (tenancy, identitate, permisiuni-ca-date, audit, storage) + seed-ul (14 roluri, org-uri, useri de test) sunt aplicate, verificate și pe GitHub. Urmează **WS-D** (RLS) — prima poartă care cere review de developer.
+
+13. WS-D pornit (2026-07-09). Plan salvat la docs/ws-d-plan.md (commit 8087c75). Poarta de review developer: AMANATA (risc etichetat). Urmatorul pas: D0 — functii-helper RLS.
 
 ---
 
