@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-07-09 17:33 (ora București)
+**Ultima actualizare:** 2026-07-10 14:57 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -33,7 +33,7 @@
 | WS-B · B5 org + entități + 7 useri test | ✅ aplicat (commit 526bae7) |
 | WS-B · Checkpoint D | ✅ verde |
 | **WS-B COMPLET** | ✅ **2026-07-09** |
-| WS-D (RLS, poartă review developer) | 🔶 în curs (D0) |
+| WS-D (RLS, poartă review developer) | 🔶 în curs (D0 done, D1 next) |
 
 ---
 
@@ -92,6 +92,8 @@ Toate cu RLS pornit **deny-by-default** (politicile permisive vin în WS-D). `ro
 12. **WS-B COMPLET** *(2026-07-09)*. Fundația (tenancy, identitate, permisiuni-ca-date, audit, storage) + seed-ul (14 roluri, org-uri, useri de test) sunt aplicate, verificate și pe GitHub. Urmează **WS-D** (RLS) — prima poartă care cere review de developer.
 
 13. WS-D pornit (2026-07-09). Plan salvat la docs/ws-d-plan.md (commit 8087c75). Poarta de review developer: AMANATA (risc etichetat). Urmatorul pas: D0 — functii-helper RLS.
+
+14. WS-D D0 done (2026-07-09, commit 47f7612): app schema RLS helpers (is_platform_owner, has_capability with dot-boundary glob, belongs_to_org). Self-test db/tests/rls_d0_helpers.sql 11/11 pass. Note: base-table GRANTs to authenticated still pending (D1).
 
 ---
 

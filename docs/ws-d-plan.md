@@ -14,24 +14,26 @@
 
 ## 2. Cum testezi RLS „ca un user” în SQL Editor (tehnica de impersonare)
 
-Într-o tranzacție, te dai drept un user și RLS se aplică. Șablon:
+Într-o tranzacție, te dai drept un user și RLS se aplică. **Ordinea contează:** rezolvi id-urile de test (user, org) în GUC-uri de sesiune **cât timp ești încă privilegiat**, abia apoi treci pe rolul `authenticated` — un subquery direct pe un tabel după schimbarea rolului pică cu „permission denied" până există grant-urile din D1. După schimbare, atingi tabelele doar prin funcțiile `app.*` (SECURITY DEFINER). Șablon:
 
 ```sql
 begin;
-  -- devii rol "authenticated" (nu mai ești superuser care ocolește RLS)
-  select set_config('role', 'authenticated', true);
-  -- setezi identitatea: auth.uid() va întoarce acest sub
+  -- 1) încă privilegiat: rezolvi identitatea + org-ul țintă în GUC-uri de sesiune
   select set_config('request.jwt.claims',
     json_build_object('sub', (select id from users where email = 'test+catalina@wowlab.dev'),
                       'role','authenticated')::text, true);
+  select set_config('app.test_org', (select id::text from organizations where slug = 'wow-lab'), true);
 
-  -- ... aici rulezi interogarea de testat, ex.:
-  select count(*) from legal_entities;   -- ce vede Cătălina
+  -- 2) abia acum devii rol "authenticated" (nu mai ești superuser care ocolește RLS)
+  select set_config('role', 'authenticated', true);
+
+  -- 3) de aici încolo, doar prin funcțiile app.* — ex.:
+  select app.has_capability('curriculum.lessons.read', current_setting('app.test_org')::uuid);
 
 rollback;   -- nu persistă nimic
 ```
 
-Ideea: **schimbi doar emailul** din bloc ca să testezi alt user. `rollback` la final. Claude Code va salva suita completă ca fișier `.sql` în repo (verificat că merge), iar tu o rulezi bloc cu bloc în SQL Editor și-mi spui rezultatele. Așa e „automatizat (fișier versionat) + rulat manual de tine”, cum ai cerut.
+Ideea: **schimbi doar emailul** (și org-ul, dacă e cazul) din bloc ca să testezi alt user. `rollback` la final. Claude Code va salva suita completă ca fișier `.sql` în repo (verificat că merge), iar tu o rulezi bloc cu bloc în SQL Editor și-mi spui rezultatele. Așa e „automatizat (fișier versionat) + rulat manual de tine”, cum ai cerut.
 
 > Regula de aur a testelor: fiecare test are un rezultat **așteptat** („trebuie să vadă X rânduri” / „trebuie să vadă 0”). Un test fără așteptare nu dovedește nimic.
 
