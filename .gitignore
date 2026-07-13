@@ -4,6 +4,8 @@ node_modules/
 # Environment files
 .env
 .env.*
+# ...except templates/documentation (no real secrets, safe to commit)
+!.env*.example
 
 # Supabase local temp files
 supabase/.temp/
@@ -18,3 +20,14 @@ supabase/.temp/
 # IDE / macOS junk
 .DS_Store
 .vscode/
+
+# Next.js
+.next/
+out/
+build/
+next-env.d.ts
+*.tsbuildinfo
+
+# Vercel
+.vercel/
+.vercel

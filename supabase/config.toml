@@ -144,8 +144,10 @@ max_catalogs = 2
 # [storage.analytics.buckets.my-warehouse]
 
 # Store vector embeddings in S3 for large and durable datasets
+# Restored to match the remote project's actual (free-tier) state — pushing
+# `enabled = true` fails with 402 (requires the Pro plan).
 [storage.vector]
-enabled = true
+enabled = false
 max_buckets = 10
 max_indexes = 5
 
@@ -156,11 +158,26 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
+# NOTE: left pointing at the existing, already-live Vercel deployment (found via
+# `supabase config push`'s diff — this project has a real Vercel app under a
+# "anca-tanasescu" account/team that this session had no prior visibility into;
+# see progress.md). Do NOT repoint this to app.wowlab.ro until that's confirmed
+# live and this is deliberately re-pointed.
+site_url = "https://app-wow-lab-anca-tanasescu-s-projects.vercel.app/"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# Original Vercel prod + preview wildcards (already live, do not remove) + the
+# eventual app.wowlab.ro custom domain + localhost for local dev testing.
+additional_redirect_urls = [
+  "https://app-wow-lab-anca-tanasescu-s-projects.vercel.app/",
+  "https://app-wow-lab-anca-tanasescu-s-projects.vercel.app/**",
+  "https://app-*-wow-lab-anca-tanasescu-s-projects.vercel.app",
+  "https://app-*-wow-lab-anca-tanasescu-s-projects.vercel.app/**",
+  "https://app.wowlab.ro/auth/callback",
+  "http://localhost:3000/auth/callback",
+  "http://127.0.0.1:3000/auth/callback",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -173,7 +190,11 @@ enable_refresh_token_rotation = true
 # Requires enable_refresh_token_rotation = true.
 refresh_token_reuse_interval = 10
 # Allow/disallow new user signups to your project.
-enable_signup = true
+# SECURITY-CRITICAL: WOW LAB OS is invite-only (Next.js scaffolding S1, decision #1).
+# There is no public /signup route in the app; this must stay false so that a
+# never-invited email cannot self-create an account via the magic-link flow.
+# New users are created ONLY via the Admin API (inviteUserByEmail, service_role).
+enable_signup = false
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
@@ -218,18 +239,27 @@ web3 = 30
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
-enable_signup = true
+# SECURITY-CRITICAL: same invite-only decision as [auth] enable_signup above —
+# this is the specific flag that governs whether requesting a magic link for an
+# email with no existing auth.users row silently creates one. Must stay false.
+enable_signup = false
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+# Restored to match the value already live on the remote project (found via
+# `supabase config push`'s diff) — not something this task intended to change.
+enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
-max_frequency = "1s"
+# Restored to match the value already live on the remote project (1s would have
+# been a meaningfully weaker rate limit — not something this task intended to change).
+max_frequency = "1m0s"
 # Number of characters used in the email OTP.
-otp_length = 6
+# Restored to match the value already live on the remote project (8 digits, not
+# the template default of 6 — not something this task intended to change).
+otp_length = 8
 # Number of seconds before the email OTP expires (defaults to 1 hour).
 otp_expiry = 3600
 
@@ -299,9 +329,11 @@ auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
 max_enrolled_factors = 10
 
 # Control MFA via App Authenticator (TOTP)
+# Restored to match the value already live on the remote project — not
+# something this task intended to change.
 [auth.mfa.totp]
-enroll_enabled = false
-verify_enabled = false
+enroll_enabled = true
+verify_enabled = true
 
 # Configure MFA via Phone Messaging
 [auth.mfa.phone]
