@@ -1,3 +1,7 @@
+> ⚠️ **SUPERSEDED** — this was the pre-implementation D1 proposal. The policies actually
+> shipped are in migrations `202607100002` (D1a reads) and `202607100004`/`202607100006`
+> (D1b writes) + the org-admin capabilities in `fe9d5aa`. Kept for history only.
+
 # WS-D · D1 — RLS Policy Mapping Proposal (for review)
 
 **Status: PROPOSAL ONLY.** No policy SQL, no migration. This maps, for each of the 11
