@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-07-13 10:37 (ora București)
+**Ultima actualizare:** 2026-07-13 12:24 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -104,6 +104,10 @@ Toate cu RLS pornit **deny-by-default** (politicile permisive vin în WS-D). `ro
 18. WS-D D1b done (2026-07-10, commit 796143d): write (INSERT/UPDATE) RLS policies + GRANTs. Caught & fixed a real latent bug — row_history_capture() was SECURITY INVOKER so authenticated writes to audited tables hit "permission denied for row_history"; made it SECURITY DEFINER (search_path='', fully-qualified). 8/8 write assertions pass live incl. audit-trail end-to-end (owner_a UPDATE writes row_history with correct org_id). Negatives: trainer can't assign roles, finance_ops can't change settings, user_b cross-org UPDATE=0 rows, DELETE deny-all. SABOTAGE CHECK: assertion correctly flips to FAIL when policy broken -> suite has teeth. Tests: db/tests/rls_ws_d_write.sql. Follow-up: TRUNCATE still granted to authenticated by Supabase baseline (bypasses RLS) -> hardening next.
 
 19. WS-D hardening done (2026-07-10, commit d190df4): revoked TRUNCATE/DELETE/REFERENCES/TRIGGER from anon/authenticated on all public tables + fixed default privileges FOR ROLE postgres. authenticated now holds only the D1a/D1b SELECT/INSERT/UPDATE grants. Full re-verification 24/24 live (reads+writes+audit-trail+sabotage). Residual (low risk): a supabase_admin default-privileges entry still grants DELETE etc. to anon/authenticated on FUTURE public tables created as supabase_admin — unfixable from project's postgres role; our migrations create as postgres so our tables are safe; DELETE still RLS-gated, TRUNCATE not exposed via PostgREST. Flagged for developer gate. WS-D CORE COMPLETE.
+
+20. Phase 0 status audit (2026-07-13): DATA + SECURITY FOUNDATION CONFIRMED COMPLETE — 10 migrations, 11 tables (all RLS forced), seed 14/43/129 + 2 orgs/3 entities/7 test users, 4 app.* fns, 3 test suites. No Next.js app yet (DB-only). Remaining: scaffold Next.js app + Supabase auth + Vercel deploy; counties deferred (franchise), locales fold into app i18n; fixed stale docs/ws-d-d1-mapping.md; row_history 4 rows = seed re-run artifacts. Developer review gate still deferred.
+
+21. Housekeeping done (2026-07-13, commit 904b4f6): confirmed row_history's 4 rows are benign idempotent seed re-run artifacts (ON CONFLICT DO UPDATE fires the trigger even on no-op updates), NOT failed test rollbacks — BEGIN/ROLLBACK methodology held. Added SUPERSEDED banner to docs/ws-d-d1-mapping.md. Next: Next.js scaffolding plan (docs/plan-scaffolding-app.md).
 
 ---
 
