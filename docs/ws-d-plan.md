@@ -90,6 +90,8 @@ După ce totul e verde, **strici intenționat o politică** (ex. scoți condiți
 4. Nicio politică nu se bazează pe service role / nu presupune superuser.
 5. `SECURITY DEFINER` + `search_path` fixat pe toate funcțiile-helper (fără hijack).
 6. Threat model scurt: ce se întâmplă cu un JWT expirat / user dezactivat / rol scos.
+7. Residual grant gap: supabase_admin default privileges grant DELETE/TRUNCATE to anon/authenticated on future supabase_admin-created public tables — verify no such tables exist / raise with Supabase support.
+8. Operational rule: every NEW public table must have RLS enabled + explicit grants reviewed before shipping.
 
 ---
 
