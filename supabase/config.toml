@@ -239,10 +239,18 @@ web3 = 30
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
-# SECURITY-CRITICAL: same invite-only decision as [auth] enable_signup above —
-# this is the specific flag that governs whether requesting a magic link for an
-# email with no existing auth.users row silently creates one. Must stay false.
-enable_signup = false
+# CORRECTED (was wrongly documented as signup-scoped, see git history): this
+# is config.toml's only mapping to the Management API's external_email_enabled
+# (confirmed via supabase/cli source, pkg/config/auth.go toAuthConfigBody) —
+# the project-wide switch for the native email provider as a whole
+# (signInWithOtp AND signInWithPassword), not just new-user creation. With
+# this false, already-invited existing users were also blocked from
+# magic-link sign-in — that was the magic-link outage root cause, not a
+# signup-only effect. Invite-only self-registration is still enforced by two
+# independent mechanisms that are unaffected by this field: [auth]
+# enable_signup above (disable_signup) stays false, and the app's
+# signInWithOtp call passes shouldCreateUser:false.
+enable_signup = true
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
