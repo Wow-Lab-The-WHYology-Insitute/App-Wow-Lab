@@ -263,15 +263,23 @@ otp_length = 8
 # Number of seconds before the email OTP expires (defaults to 1 hour).
 otp_expiry = 3600
 
-# Use a production-ready SMTP server
-# [auth.email.smtp]
-# enabled = true
-# host = "smtp.sendgrid.net"
-# port = 587
-# user = "apikey"
-# pass = "env(SENDGRID_API_KEY)"
-# admin_email = "admin@email.com"
-# sender_name = "Admin"
+# Production SMTP: wowlab.ro's own cPanel mailbox, sending as platform@wowlab.ro.
+# Chosen over a dedicated provider (Resend) since DNS was already clean for this
+# server (SPF/DKIM/DMARC in place, sending IP unlisted on Spamhaus/SpamCop/
+# Barracuda — verified read-only before this decision). Also the fix for the
+# free-tier "Email template modification is not available" block from e177af5 —
+# once a custom SMTP provider is configured, template pushes should no longer
+# be rejected.
+# CPANEL_SMTP_PASSWORD is read from the process environment at push time —
+# never hardcoded here, never committed anywhere.
+[auth.email.smtp]
+enabled = true
+host = "mail.wowlab.ro"
+port = 465
+user = "platform@wowlab.ro"
+pass = "env(CPANEL_SMTP_PASSWORD)"
+admin_email = "platform@wowlab.ro"
+sender_name = "WOW LAB OS"
 
 # Custom email templates — invite and magic link both point the CTA link at
 # our own /auth/callback (token_hash + type, verified server-side via
@@ -280,14 +288,11 @@ otp_expiry = 3600
 # subject values match what was already live (confirmed via a read-only
 # Management API fetch before this change) — only the link changes.
 #
-# NOT YET LIVE: `supabase config push` rejects this with 400 — "Email
-# template modification is not available for free tier projects using the
-# default email provider. Please upgrade your plan or configure a custom
-# SMTP provider." Confirmed via a read-only re-fetch that the rejected push
-# changed nothing remote; the live templates still use {{ .ConfirmationURL }}.
-# Left committed here, correct and ready, so the very next `config push`
-# after upgrading the plan or configuring SMTP (see [auth.email.smtp] above)
-# applies this with no further changes needed.
+# LIVE as of the [auth.email.smtp] block above going live: the free-tier
+# "default email provider" restriction that previously rejected this (400)
+# only applies without a custom SMTP provider configured. Re-verified via a
+# read-only fetch immediately after that push — both templates now serve the
+# token_hash link shown here.
 [auth.email.template.invite]
 subject = "You've been invited"
 content_path = "./supabase/templates/invite.html"
