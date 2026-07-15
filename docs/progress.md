@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-07-13 12:24 (ora București)
+**Ultima actualizare:** 2026-07-15 13:32 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -108,6 +108,8 @@ Toate cu RLS pornit **deny-by-default** (politicile permisive vin în WS-D). `ro
 20. Phase 0 status audit (2026-07-13): DATA + SECURITY FOUNDATION CONFIRMED COMPLETE — 10 migrations, 11 tables (all RLS forced), seed 14/43/129 + 2 orgs/3 entities/7 test users, 4 app.* fns, 3 test suites. No Next.js app yet (DB-only). Remaining: scaffold Next.js app + Supabase auth + Vercel deploy; counties deferred (franchise), locales fold into app i18n; fixed stale docs/ws-d-d1-mapping.md; row_history 4 rows = seed re-run artifacts. Developer review gate still deferred.
 
 21. Housekeeping done (2026-07-13, commit 904b4f6): confirmed row_history's 4 rows are benign idempotent seed re-run artifacts (ON CONFLICT DO UPDATE fires the trigger even on no-op updates), NOT failed test rollbacks — BEGIN/ROLLBACK methodology held. Added SUPERSEDED banner to docs/ws-d-d1-mapping.md. Next: Next.js scaffolding plan (docs/plan-scaffolding-app.md).
+
+22. 2026-07-15, 13:32 (ora București) — Auth end-to-end verificat complet: S0→S1→S2 dovedit cu user real (magic link, RLS, /whoami). SMTP trecut de pe cPanel pe Resend (livrare confirmată + domeniu verificat), site_url corectat pe app.wowlab.ro, sender_name "WOW LAB". Vercel Deployment Protection dezactivat pe Production. Framework Preset fixat via vercel.json. Commit a052756, config.toml sincron cu starea live — nimic nereprodus din git. Regulă permanentă adăugată: verificare post-push prin fetch live, nu gate manual (CLI-ul sare peste confirmare în context de agent).
 
 ---
 
