@@ -5,6 +5,25 @@ import { sendMagicLink, type SendMagicLinkState } from "./actions";
 
 const initialState: SendMagicLinkState = { status: "idle" };
 
+const SUPPORT_EMAIL = "info@wowlab.ro";
+
+function renderWithMailtoLink(message: string) {
+  const parts = message.split(SUPPORT_EMAIL);
+  if (parts.length === 1) {
+    return message;
+  }
+  return parts.flatMap((part, i) =>
+    i === 0
+      ? [part]
+      : [
+          <a key={i} href={`mailto:${SUPPORT_EMAIL}`} className="underline">
+            {SUPPORT_EMAIL}
+          </a>,
+          part,
+        ],
+  );
+}
+
 export function LoginForm() {
   const [state, formAction, isPending] = useActionState(
     sendMagicLink,
@@ -41,7 +60,7 @@ export function LoginForm() {
 
       {state.status === "error" && (
         <p className="font-body text-ink rounded-lg bg-brand-pink/10 px-3 py-2 text-sm">
-          {state.message}
+          {renderWithMailtoLink(state.message ?? "")}
         </p>
       )}
 

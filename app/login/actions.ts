@@ -34,7 +34,8 @@ export async function sendMagicLink(
     // Deliberately generic: don't reveal whether an email is invited.
     return {
       status: "error",
-      message: "Couldn't send a link. Check the address and try again.",
+      message:
+        "Couldn't send a link. Check the address and try again or contact us at info@wowlab.ro.",
     };
   }
 
