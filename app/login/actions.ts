@@ -12,6 +12,7 @@ export async function sendMagicLink(
   formData: FormData,
 ): Promise<SendMagicLinkState> {
   const email = String(formData.get("email") ?? "").trim();
+  const captchaToken = String(formData.get("captchaToken") ?? "");
 
   if (!email) {
     return { status: "error", message: "Enter an email address." };
@@ -27,6 +28,7 @@ export async function sendMagicLink(
       // already-invited one.
       shouldCreateUser: false,
       emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+      captchaToken,
     },
   });
 

@@ -8,6 +8,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@marsidev/react-turnstile": "^1.5.3",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.4",
     "next": "^15.4.1",

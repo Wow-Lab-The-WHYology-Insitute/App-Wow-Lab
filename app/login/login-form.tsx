@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { Turnstile } from "@marsidev/react-turnstile";
 import { sendMagicLink, type SendMagicLinkState } from "./actions";
 
 const initialState: SendMagicLinkState = { status: "idle" };
@@ -29,6 +30,7 @@ export function LoginForm() {
     sendMagicLink,
     initialState,
   );
+  const [captchaToken, setCaptchaToken] = useState("");
 
   if (state.status === "sent") {
     return (
@@ -64,9 +66,18 @@ export function LoginForm() {
         </p>
       )}
 
+      <input type="hidden" name="captchaToken" value={captchaToken} />
+      <div className="flex justify-center">
+        <Turnstile
+          siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+          onSuccess={setCaptchaToken}
+          onExpire={() => setCaptchaToken("")}
+        />
+      </div>
+
       <button
         type="submit"
-        disabled={isPending}
+        disabled={isPending || !captchaToken}
         className="font-body mt-1 rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-6 py-3.5 text-sm font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
       >
         {isPending ? "Sending…" : "Send magic link"}

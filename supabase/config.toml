@@ -234,10 +234,14 @@ token_verifications = 30
 web3 = 30
 
 # Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
-# [auth.captcha]
-# enabled = true
-# provider = "hcaptcha"
-# secret = ""
+# Protects the /login magic-link send endpoint (public, unauthenticated) from
+# bot abuse. Site key is public (NEXT_PUBLIC_TURNSTILE_SITE_KEY in the app);
+# secret is never hardcoded here, read from the process environment at push
+# time.
+[auth.captcha]
+enabled = true
+provider = "turnstile"
+secret = "env(TURNSTILE_SECRET_KEY)"
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
