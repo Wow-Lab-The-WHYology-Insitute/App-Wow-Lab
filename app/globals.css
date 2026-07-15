@@ -1,1 +1,10 @@
 @import "tailwindcss";
+
+@theme {
+  --color-brand-pink: #ec008c;
+  --color-brand-orange: #faa21b;
+  --color-ink: #241a22;
+  --color-muted: #8b8088;
+  --font-display: var(--font-tilt-neon);
+  --font-body: var(--font-cabin);
+}

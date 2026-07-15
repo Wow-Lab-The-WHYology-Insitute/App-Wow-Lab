@@ -1,5 +1,18 @@
 import type { Metadata } from "next";
+import { Cabin, Tilt_Neon } from "next/font/google";
 import "./globals.css";
+
+const cabin = Cabin({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-cabin",
+});
+
+const tiltNeon = Tilt_Neon({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-tilt-neon",
+});
 
 export const metadata: Metadata = {
   title: "WOW LAB OS",
@@ -13,7 +26,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">{children}</body>
+      <body
+        className={`${cabin.variable} ${tiltNeon.variable} antialiased`}
+      >
+        {children}
+      </body>
     </html>
   );
 }

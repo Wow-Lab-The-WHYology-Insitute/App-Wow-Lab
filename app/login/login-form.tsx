@@ -13,33 +13,42 @@ export function LoginForm() {
 
   if (state.status === "sent") {
     return (
-      <p className="text-sm text-gray-700">
+      <p className="font-body text-ink rounded-xl bg-brand-pink/10 px-4 py-3 text-center text-sm">
         Check your email for a sign-in link.
       </p>
     );
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
-      <label htmlFor="email" className="text-sm font-medium">
-        Email
-      </label>
-      <input
-        id="email"
-        name="email"
-        type="email"
-        required
-        autoComplete="email"
-        className="rounded border border-gray-300 px-3 py-2"
-        placeholder="you@wowlab.ro"
-      />
+    <form action={formAction} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <label
+          htmlFor="email"
+          className="font-body text-ink text-sm font-medium"
+        >
+          Email
+        </label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          required
+          autoComplete="email"
+          placeholder="you@wowlab.ro"
+          className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+        />
+      </div>
+
       {state.status === "error" && (
-        <p className="text-sm text-red-600">{state.message}</p>
+        <p className="font-body text-ink rounded-lg bg-brand-pink/10 px-3 py-2 text-sm">
+          {state.message}
+        </p>
       )}
+
       <button
         type="submit"
         disabled={isPending}
-        className="rounded bg-black px-3 py-2 text-white disabled:opacity-50"
+        className="font-body mt-1 rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-6 py-3.5 text-sm font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
       >
         {isPending ? "Sending…" : "Send magic link"}
       </button>
