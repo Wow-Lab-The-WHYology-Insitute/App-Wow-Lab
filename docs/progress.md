@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-07-15 13:32 (ora București)
+**Ultima actualizare:** 2026-07-15 19:47 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -110,6 +110,8 @@ Toate cu RLS pornit **deny-by-default** (politicile permisive vin în WS-D). `ro
 21. Housekeeping done (2026-07-13, commit 904b4f6): confirmed row_history's 4 rows are benign idempotent seed re-run artifacts (ON CONFLICT DO UPDATE fires the trigger even on no-op updates), NOT failed test rollbacks — BEGIN/ROLLBACK methodology held. Added SUPERSEDED banner to docs/ws-d-d1-mapping.md. Next: Next.js scaffolding plan (docs/plan-scaffolding-app.md).
 
 22. 2026-07-15, 13:32 (ora București) — Auth end-to-end verificat complet: S0→S1→S2 dovedit cu user real (magic link, RLS, /whoami). SMTP trecut de pe cPanel pe Resend (livrare confirmată + domeniu verificat), site_url corectat pe app.wowlab.ro, sender_name "WOW LAB". Vercel Deployment Protection dezactivat pe Production. Framework Preset fixat via vercel.json. Commit a052756, config.toml sincron cu starea live — nimic nereprodus din git. Regulă permanentă adăugată: verificare post-push prin fetch live, nu gate manual (CLI-ul sare peste confirmare în context de agent).
+
+23. 2026-07-15, 19:47 (ora București) — Follow-up SMTP/auth (aceeași zi cu #22): site_url corectat de la URL-ul automat Vercel la https://app.wowlab.ro (motiv: template-urile de email folosesc {{ .SiteURL }}, separat de NEXT_PUBLIC_SITE_URL din Vercel — cele două nu erau sincronizate). sender_name a deviat direct din dashboard Supabase la "WOW LAB" fără push (WOW LAB OS în config.toml a suprascris-o o dată din greșeală prin push automat --agent auto, apoi corectat definitiv la "WOW LAB", confirmat cu Mihai ca valoare intenționată). INCIDENTE DE SECURITATE (2, separate): (1) parola cPanel expusă în clar printr-un bug de print() într-un script de diagnostic, înainte de trecerea pe Resend — tratată ca arsă, motiv suplimentar (alături de eroarea SMTP 535 nerezolvată) pentru migrarea la Resend. (2) cheia API Resend expusă în clar printr-un grep care a suprapotrivit, în timpul auditului complet post-migrare (smtp_host=smtp.resend.com confirmat în același raport) — tratată ca arsă, rotită complet, cheia veche revocată. Domeniu wowlab.ro confirmat "Verified" în dashboard Resend. Commit final: a052756 (config.toml sincron cu starea live), c86a8d6 (jurnal). Regulă permanentă re-confirmată: supabase config push sare peste gate-ul de confirmare în context de agent (--agent auto) — verificarea reală e fetch live post-push, nu încredere în promptul interactiv.
 
 ---
 
