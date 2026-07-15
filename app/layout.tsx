@@ -17,6 +17,9 @@ const tiltNeon = Tilt_Neon({
 export const metadata: Metadata = {
   title: "WOW LAB OS",
   description: "WOW LAB OS internal platform",
+  icons: {
+    icon: "/wow-lab-fav.png",
+  },
 };
 
 export default function RootLayout({
