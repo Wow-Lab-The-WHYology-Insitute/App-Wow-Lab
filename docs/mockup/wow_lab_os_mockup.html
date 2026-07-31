@@ -222,9 +222,9 @@ const NAV=[
    {k:'contracts',i:'📄',l:'Contracts',lRo:'Contracte',roles:['master','contracts_admin','fin_ops','fin_admin','ops']},
  ]},
  {grp:'Operational',grpRo:'Operațional',items:[
-   {k:'groups',i:'🧪',l:'Groups & Enrollment',lRo:'Grupe & Înscrieri',roles:['master','ops','fin_ops','trainer','senior_trainer']},
-   {k:'schedule',i:'📅',l:'Scheduling & Allocation',lRo:'Planificare & Alocări',roles:['master','ops']},
-   {k:'attendance',i:'✅',l:'Attendance',lRo:'Prezență',roles:['master','ops','fin_ops','trainer','senior_trainer']},
+   {k:'groups',i:'🧪',l:'Groups & Enrollment',lRo:'Grupe & Înscrieri',roles:['master','ops','fin_ops','fin_admin','trainer','senior_trainer']},
+   {k:'schedule',i:'📅',l:'Scheduling & Allocation',lRo:'Planificare & Alocări',roles:['master','ops','fin_admin']},
+   {k:'attendance',i:'✅',l:'Attendance',lRo:'Prezență',roles:['master','ops','fin_ops','fin_admin','trainer','senior_trainer']},
    {k:'delivered',i:'⚗️',l:'Delivered Experiments',lRo:'Experimente livrate',roles:['master','ops','trainer','senior_trainer']},
  ]},
  {grp:'People & Academy',grpRo:'Oameni & Academie',items:[
@@ -239,15 +239,16 @@ const NAV=[
    {k:'media',i:'🎬',l:'Media',lRo:'Media',roles:['master','ops','community']},
  ]},
  {grp:'Inventory',grpRo:'Inventar',items:[
-   {k:'inv_reuse',i:'🔁',l:'Reusables · Custody',lRo:'Refolosibile · Custodie',roles:['master','ops','inventory','trainer','senior_trainer']},
-   {k:'inv_reag',i:'⚠️',l:'Controlled Reagents',lRo:'Reactivi controlați',roles:['master','ops','inventory']},
-   {k:'inv_cons',i:'🧴',l:'Generic Consumables',lRo:'Consumabile generice',roles:['master','ops','inventory']},
-   {k:'procure',i:'🛒',l:'Orders (V1: view-only)',lRo:'Comenzi (V1: vizibilitate)',roles:['master','ops','inventory','procurement']},
+   {k:'inv_reuse',i:'🔁',l:'Reusables · Custody',lRo:'Refolosibile · Custodie',roles:['master','ops','inventory','fin_admin','trainer','senior_trainer']},
+   {k:'inv_reag',i:'⚠️',l:'Controlled Reagents',lRo:'Reactivi controlați',roles:['master','ops','inventory','fin_admin']},
+   {k:'inv_cons',i:'🧴',l:'Generic Consumables',lRo:'Consumabile generice',roles:['master','ops','inventory','fin_admin']},
+   {k:'procure',i:'🛒',l:'Orders (V1: view-only)',lRo:'Comenzi (V1: vizibilitate)',roles:['master','ops','inventory','fin_admin','procurement']},
  ]},
  {grp:'Financial',grpRo:'Financiar',items:[
    {k:'billing',i:'🧾',l:'Billing Code Generator',lRo:'Generator cod facturare',roles:['master','fin_ops','fin_admin','ops']},
    {k:'invoices',i:'🗂️',l:'Invoices & Data',lRo:'Facturi & date',roles:['master','fin_ops','fin_admin']},
-   {k:'pay',i:'💸',l:'Trainer Pay',lRo:'Plată traineri',roles:['master','fin_ops','trainer','senior_trainer']},
+   {k:'pay',i:'💸',l:'Trainer Pay',lRo:'Plată traineri',roles:['master','fin_ops','fin_admin','trainer','senior_trainer']},
+   {k:'admin_costs',i:'🧮',l:'Admin Costs',lRo:'Costuri Admin',roles:['master','fin_ops','fin_admin'],badge:'NEW'},
    {k:'ceo',i:'📈',l:'CEO Dashboard',lRo:'Dashboard CEO',roles:['master','fin_admin']},
    {k:'balance',i:'📊',l:'Balance Import',lRo:'Import balanță',roles:['master','fin_admin']},
  ]},
@@ -320,6 +321,7 @@ const CLIENTS=[
  {n:'Electrica Furnizare',t:'corporate',line:'Projects / Corporate',lineRo:'Proiecte / Companii',st:'active',rule:'project contract',ruleRo:'contract proiect',ent:'Bradine ADV SRL',ac:'AC-10501',contact:'—'},
  {n:'Barlad Value Center',t:'special_project',line:'Mall event',lineRo:'Eveniment mall',st:'active',rule:'event contract',ruleRo:'contract eveniment',ent:'Bradine ADV SRL',ac:'AC-10455',contact:'—'},
  {n:'Zitec',t:'corporate',line:'Corporate party',lineRo:'Party companie',st:'active',rule:'event contract',ruleRo:'contract eveniment',ent:'Bradine ADV SRL',ac:'AC-10388',contact:'—'},
+ {n:'Laptăria',t:'ngo',line:'NGO partnership (non-billable)',lineRo:'Parteneriat ONG (nefacturabil)',st:'active',rule:'no invoicing — tracked for operational visibility only',ruleRo:'fără facturare — urmărit doar pentru vizibilitate operațională',ent:'Asociația STEMplicity',ac:'—',contact:'—'},
 ];
 /* Workshop-type billing taxonomy recovered from an older mockup iteration — real billing codes.
    NOTE: Anca's Phase 1 feedback proposes a restructure into "Workshop Type" with per-module
@@ -406,10 +408,10 @@ S.alerts=()=>{
 
 /* CLIENTS — AC boundary + field visibility */
 S.clients=()=>{
-  const fin=isFinance();
-  const tbadge={private_school:'b-pink',state_school:'b-teal',corporate:'b-purple',parent_b2c:'b-amber',special_project:'b-slate'};
+  const fin=isFinance()||role==='sales'; /* confirmed: Sales Manager sees billing rule for ALL active clients, not just their own */
+  const tbadge={private_school:'b-pink',state_school:'b-teal',corporate:'b-purple',parent_b2c:'b-amber',special_project:'b-slate',ngo:'b-orange'};
   const sbadge={active:'b-teal',paused:'b-amber',churned:'b-slate',prospect:'b-purple'};
-  const typeLabel={private_school:tt('private school','școală privată'),state_school:tt('state school','școală de stat'),corporate:tt('corporate','corporate'),parent_b2c:tt('parent B2C','părinte B2C'),special_project:tt('special project','proiect special')};
+  const typeLabel={private_school:tt('private school','școală privată'),state_school:tt('state school','școală de stat'),corporate:tt('corporate','corporate'),parent_b2c:tt('parent B2C','părinte B2C'),special_project:tt('special project','proiect special'),ngo:tt('NGO / non-billable','ONG / nefacturabil')};
   const statusLabel={active:tt('active','activ'),paused:tt('paused','pauzat'),churned:tt('churned','pierdut'),prospect:tt('prospect','prospect')};
   const rows=CLIENTS.map(c=>`<tr>
      <td style="font-weight:600">${c.n}<div style="font-size:11px;color:var(--text-muted);font-weight:400">${tt(c.line,c.lineRo)}</div></td>
@@ -422,6 +424,7 @@ S.clients=()=>{
   return hero('🏫 '+tt('Clients','Clienți'),tt('Operational client sheet','Fișa de client operațional'),tt('The client account, contract contacts, contracts, groups and history. Sales pipeline stays in ActiveCampaign.','Contul de client, contactele de contract, contractele, grupele și istoricul. Pipeline-ul de vânzări rămâne în ActiveCampaign.'),
     `<button class="btn btn-secondary btn-sm">+ ${tt('Client (bootstrap)','Client (bootstrap)')}</button>`)+
   `<div class="page-body">
+    ${role==='sales'?'<div class="banner banner-amber">🤝 '+tt('NGO partnerships / non-billable activity (e.g. Laptăria) are managed here too, by Sales Manager, until a dedicated role exists — confirmed by Anca.','Parteneriatele ONG / activitatea nefacturată (ex. Laptăria) se gestionează tot aici, de Sales Manager, până va exista un rol dedicat — confirmat de Anca.')+'</div>':''}
     <div class="banner banner-slate">🔗 <b>${tt('AD-15 boundary:','Granița AD-15:')}</b> ${tt('leads, pipeline, offers and campaigns →','lead-uri, pipeline, oferte și campanii →')} <b>ActiveCampaign</b>. ${tt('The platform takes over the client at','Platforma preia clientul la')} <b>"Won"</b>. ${tt('Every client carries an','Fiecare client poartă un')} <code>external_crm_ref</code> ${tt('as the link, without copying marketing data (PII stays in AC, outside the EU).','ca legătură, fără să copieze datele de marketing (PII rămâne în AC, în afara UE).')}</div>
     ${fin?'':'<div class="banner banner-amber">🔒 <b>'+tt('Field Visibility:','Field Visibility:')+'</b> '+tt('you see client sheets, but the <b>billing rule / contract value is masked</b> — visible only to Finance + Master. Switch to "Finance Operations" to see the difference.','vezi fișele de client, dar <b>regula de facturare / valoarea contractului este mascată</b> — vizibilă doar pentru Finance + Master. Comută pe „Finance Operations" ca să vezi diferența.')+'</div>'}
     <div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Client','Client')}</th><th>${tt('Type','Tip')}</th><th>${tt('Status','Status')}</th><th>${tt('Billing rule','Regulă facturare')}</th><th>${tt('Legal entity','Entitate legală')}</th><th>${tt('CRM ref','CRM ref')}</th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -582,7 +585,7 @@ S.billing=()=>hero('🧾 '+tt('Billing Code Generator','Generator cod facturare'
      <div class="field"><label>${tt('Children / participants','Nr. copii')}</label><input id="b_copii" type="number" value="12" oninput="calcBilling()"></div>
      <div class="field"><label>${tt('Workshop hours','Ore atelier')}</label><select id="b_ore" onchange="calcBilling()"><option>0.5</option><option selected>1</option><option>1.5</option><option>2</option></select></div>
      <div class="field"><label>${tt('Number of trainers','Nr. traineri')}</label><input id="b_train" type="number" value="1" oninput="calcBilling()"></div>
-     <div class="field"><label>${tt('Base rate / trainer (lei)','Tarif de bază / trainer (lei)')}</label><input id="b_tarif" type="number" value="150" oninput="calcBilling()"></div>
+     <div class="field"><label>${tt('Base rate / trainer (lei)','Tarif de bază / trainer (lei)')}</label><input id="b_tarif" type="number" value="111" oninput="calcBilling()"><div style="font-size:11px;color:var(--text-muted);margin-top:4px">${tt('Confirmed junior base rate: 111 lei/h (was 100+11% separately). Editable by Finance/Master in Settings — no dev needed when it increases.','Tarif de bază junior confirmat: 111 lei/h (era 100+11% separat). Editabil de Finance/Master din Setări — fără nevoie de developer când crește.')}</div></div>
      <label class="chk"><input type="checkbox" id="b_remote" onchange="calcBilling()"> ${tt('Remote school (+25%)','Școală îndepărtată (+25%)')}</label>
      <label class="chk"><input type="checkbox" id="b_lang" onchange="calcBilling()"> ${tt('Foreign-language workshop (+20%)','Atelier în limbă străină (+20%)')}</label>
    </div>
@@ -631,6 +634,24 @@ S.pay=()=>{ const mine=role==='trainer'||role==='senior_trainer';
  ${(mine?[['M. Popescu','18','9','2,700 lei',tt('to pay','de plată')]]:[['M. Popescu','18','9','2,700 lei',tt('to pay','de plată')],['A. Radu','12','6','1,800 lei',tt('to pay','de plată')],['D. Marin','9','5','1,350 lei',tt('paid','plătit')]]).map(r=>`<tr><td style="font-weight:600">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td><span class="badge ${r[4]===tt('paid','plătit')?'b-teal':'b-amber'}">${r[4]}</span></td></tr>`).join('')}
  </tbody></table></div></div>`; };
 
+/* ADMIN COSTS — new module, surfaced by Laura's detailed feedback answer (not in the original
+   catalog). Admin-only people (not also trainers) have distinct, non-standard rate structures.
+   Real source-of-truth spreadsheets exist (linked by Anca) — this screen aggregates what those
+   feed today; NOT yet built, this is a scoping draft. */
+S.admin_costs=()=>hero('🧮 '+tt('Admin Costs','Costuri Admin'),tt('Aggregated admin-only hours & cost','Costuri agregate — echipă admin'),tt('For people who are admin-ONLY (not also trainers): pay structure varies per person, unlike the standard trainer rate. Feeds invoicing/payroll data prep.','Pentru oamenii care sunt DOAR admin (nu și traineri): structura de plată diferă per persoană, spre deosebire de tariful standard de trainer. Alimentează pregătirea datelor de facturare/salarizare.'),
+ '<span class="badge b-pink">NEW — draft</span>')+
+ `<div class="page-body">
+   <div class="banner banner-purple">📎 ${tt('Real source: monthly Toggl time reports (PDF, archived on Drive today) feed a centralized aggregate spreadsheet including material & transport costs. Anca wants to keep using Toggl for detailed tracking, but move monthly hour entry in-app (like trainers already do), archiving the Toggl PDF each month rather than replacing Toggl itself.','Sursă reală: rapoartele lunare Toggl (PDF, arhivate azi pe Drive) alimentează un tabel centralizator cu costuri de materiale și transport incluse. Anca vrea să păstreze Toggl pentru urmărirea detaliată, dar să mute introducerea lunară a orelor în aplicație (ca la traineri), arhivând PDF-ul Toggl lunar, nu înlocuind Toggl.')}</div>
+   <div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Person','Persoană')}</th><th>${tt('Pay type','Tip plată')}</th><th>${tt('Rate structure','Structură tarif')}</th><th>${tt('Hours this month','Ore luna asta')}</th><th>${tt('Amount','Sumă')}</th><th>${tt('Toggl PDF','PDF Toggl')}</th><th>${tt('Status','Status')}</th></tr></thead><tbody>
+   <tr><td style="font-weight:600">Anka Orban</td><td><span class="badge b-amber">${tt('Invoice','Factură')}</span></td><td style="font-size:12px">${tt('3 hourly rates by task type','3 tarife orare, pe tip de task')}</td><td>62h</td><td>—</td><td><button class="tbl-action">${tt('Upload','Încarcă')}</button></td><td><span class="badge b-amber">${tt('awaiting approval','în așteptare aprobare')}</span></td></tr>
+   <tr><td style="font-weight:600">Laura Moale</td><td><span class="badge b-amber">${tt('Invoice','Factură')}</span></td><td style="font-size:12px">${tt('Single hourly rate','Tarif orar unic')}</td><td>58h</td><td>—</td><td><button class="tbl-action">${tt('Upload','Încarcă')}</button></td><td><span class="badge b-teal">${tt('approved','aprobat')}</span></td></tr>
+   <tr><td style="font-weight:600">Raluca Margean</td><td><span class="badge b-purple">${tt('Royalties (copyright)','Drepturi de autor')}</span></td><td style="font-size:12px">${tt('Per-article rate, varies by piece','Tarif per articol, variabil')}</td><td>—</td><td>—</td><td><button class="tbl-action">${tt('Upload','Încarcă')}</button></td><td><span class="badge b-amber">${tt('awaiting approval','în așteptare aprobare')}</span></td></tr>
+   <tr><td style="font-weight:600">Anca Tănăsescu</td><td><span class="badge b-slate">${tt('Salaried','Salariat')}</span></td><td style="font-size:12px">—</td><td>—</td><td>—</td><td>—</td><td><span class="badge b-slate">${tt('n/a — payroll','n/a — stat de plată')}</span></td></tr>
+   </tbody></table></div>
+   <div class="tint tint-amber" style="margin-top:14px">⚠️ ${tt('Open scoping question (leaning "yes" per Anca): should admin hour entry move fully in-app (like trainers), replacing the manual per-person spreadsheet — while Toggl stays as the detailed source + monthly PDF archive? Rate-structure specifics (Anka\'s 3 task categories, Raluca\'s per-article variability) need precise definition before building — flagged for a short scoping pass, not yet final.','Întrebare deschisă de scoping (Anca înclină spre "da"): mutăm complet introducerea orelor de admin în aplicație (ca la traineri), înlocuind fișierul manual per-persoană — cu Toggl rămas ca sursă detaliată + arhivă PDF lunară? Detaliile structurii de tarif (cele 3 categorii ale Ankăi, variabilitatea per-articol a Ralucăi) trebuie definite precis înainte de construcție — semnalat pentru un scoping scurt, nu final încă.')}</div>
+ </div>`;
+
+
 /* CEO DASHBOARD */
 S.ceo=()=>hero('📈 '+tt('CEO Dashboard','Dashboard CEO'),tt('Revenue, forecast & profitability','Venituri, forecast & profitabilitate'),tt('Data source is the monthly balance import (all columns except Account and Turnover). Only Master + Finance Admin have access.','Sursa de date e importul lunar al balanței (toate coloanele mai puțin Cont și Rulaj). Doar Master + Finance Admin au acces.'))+
  `<div class="page-body">
@@ -656,16 +677,17 @@ S.team=()=>{
   const people=[
    ['Anca Tănăsescu','Master / CEO','pink','👑'],['Cătălina Trusan','Operations & Curriculum','teal','🗂️'],
    ['Laura Moale','Finance Operations','amber','💸'],['Anka Orban','Finance Admin & Reporting','amber','📊'],
-   ['Teo Teodora','Inventory Custodian','teal','📦'],['Alexandra Nuțu','Community & People','pink','💚'],
+   ['Teo Merisan','Inventory Custodian','teal','📦'],['Alexandra Nuțu','Community & People','pink','💚'],
   ];
   return hero('👥 '+tt('Team & Org','Echipă & Org'),tt('The Wow Lab people','Oamenii Wow Lab'),tt('Core team + 21 freelance trainers as independent entities. 14 roles, cumulative permissions (one person can hold several roles).','Nucleul + 21 traineri freelance ca entități independente. 14 roluri, permisiuni cumulative (un om poate avea mai multe roluri).'))+
   `<div class="page-body"><div class="grid3">${people.map(p=>`<div class="card"><div style="display:flex;align-items:center;gap:11px"><div style="width:42px;height:42px;border-radius:50%;background:var(--${p[2]}-soft);display:flex;align-items:center;justify-content:center;font-size:18px">${p[3]}</div><div><div style="font-weight:700;font-size:13px">${p[0]}</div><div style="font-size:11px;color:var(--text-muted)">${p[1]}</div></div></div></div>`).join('')}</div>
   <div class="tint tint-slate" style="margin-top:16px">🧑‍🔬 <b>${tt('21 freelance trainers','21 traineri freelance')}</b> — ${tt('each with Trainer / Senior Trainer role, independent entities.','fiecare cu rol Trainer / Senior Trainer, entități independente.')}</div></div>`;
 };
 S.trainers=()=>hero('🧑‍🔬 '+tt('Trainers','Traineri'),tt('The trainers','Trainerii'),tt('21+ active trainers, classified into 7 levels (determines base rate). Delivery, attendance, certifications, custody. Minimum 80% in-person classes.','21+ traineri activi, clasificați pe 7 niveluri (determină tariful de bază). Livrare, prezență, certificări, custodie. Minim 80% clase livrate în persoană.'))+
- `<div class="page-body"><div class="banner banner-slate">📌 ${tt('"Zone" field (recovered from Anka\'s feedback) — helps allocate a trainer near the school quickly.','Câmp "Zonă" (recuperat din feedback Anka) — ajută la alocarea rapidă a unui trainer aproape de școală.')}</div><div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Trainer','Trainer')}</th><th>${tt('Role','Rol')}</th><th>${tt('Level','Nivel')}</th><th>${tt('Zone','Zonă')}</th><th>${tt('Groups','Grupe')}</th><th>${tt('Certifications','Certificări')}</th><th>${tt('% in-person','% în persoană')}</th></tr></thead><tbody>
- ${[['M. Popescu','Senior Trainer','N5',tt('District 1','Sector 1'),'2','Chemistry L1, Physics L1','96%','teal'],['A. Radu','Trainer','N3',tt('District 3','Sector 3'),'1','Chemistry L1','88%','teal'],['D. Marin','Trainer','N2',tt('District 2','Sector 2'),'1','Physics L1','74%','amber'],['I. Vasile','Trainer','N4',tt('District 1','Sector 1'),'2','Chemistry L1, Bio','91%','teal']].map(r=>`<tr><td style="font-weight:600">${r[0]}</td><td><span class="badge b-purple">${r[1]}</span></td><td><span class="badge b-slate">${r[2]}</span></td><td style="font-size:12px">${r[3]}</td><td>${r[4]}</td><td style="font-size:12px">${r[5]}</td><td><span class="badge b-${r[7]}">${r[6]}</span></td></tr>`).join('')}
- </tbody></table></div></div>`;
+ `<div class="page-body"><div class="banner banner-slate">📌 ${tt('"Zone" field (recovered from Anka\'s feedback) — helps allocate a trainer near the school quickly. "Total hours" and "Bonus" columns per Laura\'s confirmed table structure — hours split by workshop type (Șc. Altfel / Săpt. Verde / recurring / corporate / party) will be pulled automatically once trainers log sessions by category.','Câmp "Zonă" (recuperat din feedback Anka) — ajută la alocarea rapidă a unui trainer aproape de școală. Coloanele "Total ore" și "Bonus" conform structurii confirmate de Laura — split-ul pe tip atelier (Șc. Altfel / Săpt. Verde / recurente / corporate / party) se va prelua automat odată ce trainerii loghează sesiunile pe categorie.')}</div><div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Trainer','Trainer')}</th><th>${tt('Role','Rol')}</th><th>${tt('Level','Nivel')}</th><th>${tt('Zone','Zonă')}</th><th>${tt('Groups','Grupe')}</th><th>${tt('Total hours','Total ore')}</th><th>${tt('Bonus','Bonus')}</th><th>${tt('Certifications','Certificări')}</th><th>${tt('% in-person','% în persoană')}</th></tr></thead><tbody>
+ ${[['M. Popescu','Senior Trainer','N5',tt('District 1','Sector 1'),'2','34h','😊','Chemistry L1, Physics L1','96%','teal'],['A. Radu','Trainer','N3',tt('District 3','Sector 3'),'1','22h','😊','Chemistry L1','88%','teal'],['D. Marin','Trainer','N2',tt('District 2','Sector 2'),'1','16h','😐','Physics L1','74%','amber'],['I. Vasile','Trainer','N4',tt('District 1','Sector 1'),'2','28h','😊','Chemistry L1, Bio','91%','teal']].map(r=>`<tr><td style="font-weight:600">${r[0]}</td><td><span class="badge b-purple">${r[1]}</span></td><td><span class="badge b-slate">${r[2]}</span></td><td style="font-size:12px">${r[3]}</td><td>${r[4]}</td><td style="font-weight:600">${r[5]}</td><td style="font-size:15px">${r[6]}</td><td style="font-size:12px">${r[7]}</td><td><span class="badge b-${r[9]}">${r[8]}</span></td></tr>`).join('')}
+ </tbody></table></div>
+ <div class="tint tint-purple" style="margin-top:14px">🗂️ ${tt('Cătălina, Alexandra Nuțu and Teo Merisan also hold admin roles alongside Trainer/Senior Trainer — their admin hours are tracked separately. See','Cătălina, Alexandra Nuțu și Teo Merisan au și roluri de admin pe lângă Trainer/Senior Trainer — orele lor de admin se urmăresc separat. Vezi')} <b>${tt('Admin Costs','Costuri Admin')}</b> (Financial).</div></div>`;
 S.recruit=()=>hero('🎯 '+tt('Recruitment','Recrutare'),tt('Candidate pipeline','Pipeline candidați'),tt('Candidates have isolated magic-link access (application + test class). They don\'t see the rest of the platform. Only staff (Ops/Community/Master) decides acceptance.','Candidații au acces izolat prin magic-link (aplicație + test class). Nu văd restul platformei. Doar echipa (Ops/Community/Master) decide acceptarea.'))+
  `<div class="page-body"><div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Candidate','Candidat')}</th><th>${tt('Stage','Stadiu')}</th><th>${tt('Test class','Test class')}</th><th>${tt('Action','Acțiune')}</th></tr></thead><tbody>
  <tr><td style="font-weight:600">R. Enache</td><td><span class="badge b-${candidateAccepted?'teal':'amber'}">${candidateAccepted?tt('accepted','acceptat'):tt('applied','aplicat')}</span></td><td>${tt('to schedule','de programat')}</td><td>${candidateAccepted
@@ -687,7 +709,9 @@ S.users=()=>{
 S.audit=()=>hero('📜 '+tt('Audit Log','Jurnal audit'),tt('Append-only audit','Audit append-only'),'audit_log + row_history '+tt('on audited tables (clients, contracts, contacts, user_org_roles, org_settings, legal_entities, file_refs).','pe tabele auditate (clients, contracts, contacts, user_org_roles, org_settings, legal_entities, file_refs).'))+
  `<div class="page-body"><div class="card"><div class="card-title">${tt('Recent events','Evenimente recente')}</div>${[[tt('contract CTR-2026-014 → status "signed"','contract CTR-2026-014 → status „signed"'),'Contract Administrator',tt('today 10:12','azi 10:12')],[tt('client Avenor → status "paused"','client Avenor → status „paused"'),'Master',tt('yesterday 16:40','ieri 16:40')],[tt('evaluator role assigned to M. Popescu','rol evaluator alocat lui M. Popescu'),'Operations',tt('yesterday 09:15','ieri 09:15')]].map(r=>`<div style="padding:9px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:12.5px"><b>${r[0]}</b><div style="font-size:11px;color:var(--text-muted)">${r[1]} · ${r[2]}</div></div>`).join('')}</div></div>`;
 S.settings=()=>hero('⚙️ '+tt('Organization Settings','Setări organizație'),tt('Settings & policies','Setări & politici'),tt('Org-level policies — e.g. evaluation confidentiality, data retention.','Politici la nivel de org_settings — ex. confidențialitatea evaluărilor, retenție date.'))+
- `<div class="page-body"><div class="card"><div class="card-title">${tt('Active policies','Politici active')}</div><div class="kv"><span>🔒 ${tt('Confidential evaluations (OD-7)','Evaluări confidențiale (OD-7)')}</span><span class="badge b-teal">${tt('on','pornit')}</span></div><div class="kv"><span>${tt('Anonymize children 36 months after group ends','Anonimizare copii la 36 luni post-grup')}</span><span class="badge b-teal">${tt('on','pornit')}</span></div><div class="kv"><span>${tt('Rejected-candidate retention — 36 months','Retenție candidați respinși — 36 luni')}</span><span class="badge b-teal">${tt('on','pornit')}</span></div><div class="kv"><span>${tt('Data region','Regiune date')}</span><b>EU / Frankfurt</b></div></div></div>`;
+ `<div class="page-body"><div class="card" style="margin-bottom:14px"><div class="card-title">${tt('Base training rates (editable — confirmed by Anca)','Tarife de bază formare (editabile — confirmate de Anca)')}</div><div class="kv"><span>${tt('Junior rate / hour taught','Tarif junior / oră predată')}</span><b id="settings_junior_rate">111 lei</b> <button class="tbl-action" onclick="editJuniorRate()">${tt('Edit','Editează')}</button></div><div style="font-size:11px;color:var(--text-muted);margin-top:4px">${tt('Expected to rise ~10–12% from Jan 1, 2027, once inflation stabilizes — editable here by Finance/Master, no developer needed.','Se așteaptă o creștere de ~10–12% de la 1 ian 2027, la stabilizarea inflației — editabil aici de Finance/Master, fără nevoie de developer.')}</div></div>
+ <div class="card"><div class="card-title">${tt('Active policies','Politici active')}</div><div class="kv"><span>🔒 ${tt('Confidential evaluations (OD-7)','Evaluări confidențiale (OD-7)')}</span><span class="badge b-teal">${tt('on','pornit')}</span></div><div class="kv"><span>${tt('Anonymize children 36 months after group ends','Anonimizare copii la 36 luni post-grup')}</span><span class="badge b-teal">${tt('on','pornit')}</span></div><div class="kv"><span>${tt('Rejected-candidate retention — 36 months','Retenție candidați respinși — 36 luni')}</span><span class="badge b-teal">${tt('on','pornit')}</span></div><div class="kv"><span>${tt('Data region','Regiune date')}</span><b>EU / Frankfurt</b></div></div></div>`;
+function editJuniorRate(){ const v=prompt(tt('New junior rate (lei/hour):','Noul tarif junior (lei/oră):'),'111'); if(v){ document.getElementById('settings_junior_rate').textContent=v+' lei'; } }
 
 /* ONBOARDING — its own tab, visible to everyone (roles:'*'), for anyone new to the team
    once accepted — distinct from the Candidate Portal (which is strictly PRE-hire) */

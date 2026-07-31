@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-07-15 18:21 (ora București)
+**Ultima actualizare:** 2026-07-31 17:13 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -116,6 +116,18 @@ Toate cu RLS pornit **deny-by-default** (politicile permisive vin în WS-D). `ro
 24. 2026-07-15, 18:21 (ora București) — Branding pass pe autentificare, complet end-to-end. Rate limit email_sent crescut de la 2 la 50/ora (commit 7bf652a). Pagina /login restilizata pe brandul WOW LAB (gradient semnatura, card alb, Tilt Neon + Cabin, buton pill, banda de eroare roz) — commit 74b6e6b; gasit si reparat un bug de asset: cele doua PNG-uri de logo erau de fapt JPEG-uri opace fara canal alpha, recuperata transparenta reala (scripts/dematte-logo.mjs), varianta NEGATIV ramane needitata (needs a proper transparent export from source design file when needed). Template-uri de email brandate (invite + magic link, in engleza per regula de limba a aplicatiei) trimise prin Resend, push-uite in Supabase — commit 8782552, verificate byte-for-byte. Mesaj de eroare la login actualizat cu link mailto:info@wowlab.ro pentru suport — commit 1924349. Cloudflare Turnstile CAPTCHA adaugat (Supabase auth.captcha + widget frontend @marsidev/react-turnstile) — commit 3a234d9; bug gasit si reparat: NEXT_PUBLIC_TURNSTILE_SITE_KEY lipsea din Vercel Production (diagnosticat prin inspectarea bundle-ului JS compilat — literal string vs lookup nerezolvat), adaugat + redeploy, verificat din nou prin aceeasi metoda (bundle confirma valoarea bakuita). Testat end-to-end real: user invitat, widget Turnstile rezolvat, magic link primit si folosit cu succes, sesiune valida pe /whoami.
 
 DESCHISE, NECONFIRMATE (propuse dar fara raport de finalizare): (1) favicon-ul (public/wow-lab-fav.png) prin app/layout.tsx metadata — prompt dat, neconfirmat; (2) pagina intermediara de confirmare pentru /auth/callback (split GET/POST), ca protectie impotriva scanner-elor corporate (Microsoft Defender etc.) care ard linkurile de unica folosinta la pre-fetch — prompt dat, neconfirmat, ramane optional/neblocant.
+
+25. 2026-07-31, 17:13 (ora București) — 6 decizii confirmate de Anca/Laura pe feedback-ul de machetă, aplicate in machetă (docs/mockup/) + notate aici:
+(1) Finance Admin & Reporting (Anka) primeste vizibilitate READ pe Plata traineri, Prezenta copii, Stoc materiale (toate 3 categorii), Comenzi, Planificare/Grupe — confirmat: Anka e singurul punct de conectare a datelor financiare ale firmei, preia temporar activitatea Laurei din septembrie (concediu maternitate), iar decizia ramane valabila si pt un viitor Fractional CFO.
+(2) Tarif de baza junior confirmat la 111 lei/ora predata (elimina cei 100+11% separat) — IMPORTANT: trebuie sa fie editabil manual din aplicatie (Setari), nu hardcodat — se asteapta crestere ~10-12% de la 1 ian 2027.
+(3) Flux Recrutare->Academy->Offboarding: PE HOLD, Anca revine cu descrierea fluxului separat.
+(4) Sales Manager vede regula de facturare pt TOTI clientii activi (nu doar ai lui). Proiectele ONG/nefacturabile (ex. Laptaria) raman gestionate de Sales Manager, fara rol dedicat momentan.
+(5) Franciza/Platform Owner cross-org stats: ramane DEFERRED explicit pana la Phase 2 — acces francizatilor va depinde de contractul de franciza + recomandari juridice/fiscale, nu s-a decis inca.
+(6) Structura tabel Plata traineri confirmata de Laura (Nume/Ore/Recurente/Punctuale/Admin/Total/Status) — CU EXTINDERE MARE: pe ecranul Traineri se adauga split ore pe tip atelier + bonusuri (fete zambitoare) + ore admin pt hibrizii trainer+admin (Catalina, Alexandra Nutu, Teo Merisan). Sursa reala: Google Sheet 'Calculation Aggregate Wow Costs' (link la Anca).
+
+CERINTA NOUA (aparuta din raspunsul Laurei, nu era in feedback-ul initial): modul de Costuri Admin (echipa admin-only: Anka, Laura, Raluca Margean) — structuri de tarif diferite per persoana (Anka: 3 tarife orare pe tip task; Raluca: tarif per-articol variabil, plata prin drepturi de autor; Laura: tarif orar unic). Admin-ii folosesc azi Toggl + raport PDF lunar catre Anca pt aprobare, apoi emit factura (exceptie: Raluca-drepturi de autor, Anca-salariat). Decizie inclinata (nu inca finala): mutam introducerea orelor de admin in aplicatie (similar trainerilor), pastrand Toggl ca sursa detaliata + arhiva PDF lunara. Adaugat ca schelet nou in machetă (ecran 'Costuri Admin', badge NEW) — necesita o sesiune scurta de scoping pe structurile exacte de tarif inainte de constructie reala in Phase 1.
+
+Corectie mica: numele complet al Teodorei e Teo Merisan (era placeholder 'Teo Teodora').
 
 ---
 
