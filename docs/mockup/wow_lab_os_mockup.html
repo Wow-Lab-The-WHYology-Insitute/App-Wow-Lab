@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WOW LAB OS — Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Cabin:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Tilt+Neon&display=swap" rel="stylesheet">
+<style>
+:root{
+  --pink:#EC008C;--pink-soft:#FCE0EF;
+  --orange:#FAA21B;--orange-soft:#FDECCB;
+  --amber:#FAA21B;--amber-soft:#FDECCB;
+  --purple:#B01E77;--purple-soft:#F6D6E7;
+  --teal:#2F9E78;--teal-soft:#DCF0E6;
+  --slate:#2A2230;--slate-mid:#4A4152;--slate-light:#948C9C;
+  --border:#ECE6E9;--bg-page:#F6F2F4;--bg-card:#FFFFFF;--bg-sidebar:#241B26;
+  --text:#241A22;--text-mid:#4A4048;--text-muted:#8B8088;
+  --r:12px;--r-sm:8px;--shadow:0 2px 12px rgba(0,0,0,.06);--shadow-md:0 4px 24px rgba(0,0,0,.10);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Cabin',sans-serif;background:var(--bg-page);color:var(--text);min-height:100vh;display:flex}
+
+.sidebar{width:236px;flex-shrink:0;background:var(--bg-sidebar);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar-logo{padding:18px 18px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+.logo-mark{font-family:'Tilt Neon',cursive;font-size:22px;color:#fff;letter-spacing:.3px}
+.logo-sub{font-size:9px;color:rgba(255,255,255,.4);letter-spacing:.14em;text-transform:uppercase;margin-top:2px}
+.org-chip{margin-top:10px;display:flex;align-items:center;gap:6px;font-size:10px;color:rgba(255,255,255,.55);background:rgba(255,255,255,.06);padding:5px 8px;border-radius:6px}
+.nav-section{padding:10px 10px 2px}
+.nav-label{font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.3);padding:0 8px;margin-bottom:4px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:var(--r-sm);font-size:12.5px;font-weight:500;color:rgba(255,255,255,.55);cursor:pointer;transition:all .15s;margin-bottom:1px;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.85)}
+.nav-item.active{background:var(--pink);color:#fff}
+.nav-icon{font-size:14px;width:18px;text-align:center;flex-shrink:0}
+.nav-badge{margin-left:auto;font-size:9px;font-weight:700;background:rgba(255,255,255,.14);color:#fff;padding:1px 6px;border-radius:10px}
+.nav-lock{margin-left:auto;font-size:10px;opacity:.5}
+.sidebar-foot{padding:12px 16px;margin-top:auto;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:rgba(255,255,255,.35);line-height:1.5}
+
+.main{flex:1;overflow:auto;min-width:0}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 32px;background:var(--bg-card);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.topbar-left{font-size:12px;color:var(--text-muted)}
+.topbar-right{display:flex;align-items:center;gap:18px}
+.role-switch{display:flex;align-items:center;gap:10px}
+.role-switch label{font-size:11px;color:var(--text-muted);white-space:nowrap}
+.role-switch select{font-family:inherit;font-size:12.5px;font-weight:600;color:var(--text);padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--bg-card);cursor:pointer;min-width:230px}
+.role-switch select:hover{border-color:var(--pink)}
+.lang-switch{display:flex;border:1.5px solid var(--border);border-radius:20px;overflow:hidden}
+.lang-btn{font-family:inherit;font-size:11px;font-weight:700;padding:6px 12px;border:none;background:var(--bg-card);color:var(--text-muted);cursor:pointer}
+.lang-btn.active{background:var(--pink);color:#fff}
+
+.page-hero{padding:26px 32px 22px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.page-eyebrow{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px}
+.page-title{font-family:'Tilt Neon',cursive;font-size:27px;font-weight:400;letter-spacing:.2px;line-height:1.15}
+.page-sub{font-size:13.5px;color:var(--text-mid);margin-top:4px;line-height:1.5;max-width:600px}
+.page-actions{display:flex;gap:8px;align-items:center;flex-shrink:0}
+.page-body{padding:24px 32px 60px}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r-sm);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;border:none;font-family:inherit;text-decoration:none}
+.btn-primary{background:var(--pink);color:#fff}.btn-primary:hover{background:#C2007A}
+.btn-secondary{background:var(--bg-card);border:1.5px solid var(--border);color:var(--text-mid)}.btn-secondary:hover{border-color:var(--pink);color:var(--pink)}
+.btn-sm{padding:5px 12px;font-size:12px}
+
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);padding:15px}
+.stat-num{font-family:'Cabin',sans-serif;font-size:29px;font-weight:700;line-height:1;letter-spacing:-.5px}
+.stat-label{font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.4}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);padding:18px;box-shadow:var(--shadow)}
+.card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin-bottom:12px}
+.tint{border-radius:var(--r);padding:16px 18px;margin-bottom:16px}
+.tint-pink{background:linear-gradient(135deg,#FFF0F8,#FFF6EE);border:1px solid #FAD3E7}
+.tint-teal{background:linear-gradient(135deg,#EFF9F3,#F4FBF7);border:1px solid #CDE9DA}
+.tint-purple{background:linear-gradient(135deg,#FBEFF6,#FDF3F8);border:1px solid #F2D3E5}
+.tint-amber{background:linear-gradient(135deg,#FFF7EA,#FFFBF2);border:1px solid #FBE3B8}
+.tint-slate{background:linear-gradient(135deg,#F4F1F3,#F0ECEF);border:1px solid #E4DDE2}
+
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:.03em}
+.b-pink{background:var(--pink-soft);color:#B0006A}.b-teal{background:var(--teal-soft);color:#1E7355}
+.b-purple{background:var(--purple-soft);color:#8A1560}.b-amber{background:var(--amber-soft);color:#9A6208}
+.b-slate{background:#EFEAED;color:#5A4F58}.b-orange{background:var(--orange-soft);color:#9A6208}
+
+.data-table{width:100%;border-collapse:collapse;font-size:13px}
+.data-table th{padding:9px 12px;text-align:left;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);background:#FAFAF8}
+.data-table td{padding:10px 12px;border-bottom:1px solid rgba(0,0,0,.04);color:var(--text-mid);vertical-align:middle}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:#FDFCFB}
+.tbl-action{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);cursor:pointer;font-family:inherit;margin-right:4px}
+.tbl-action:hover{border-color:var(--pink);color:var(--pink)}
+.masked{font-family:monospace;color:var(--text-muted);letter-spacing:1px}
+
+.banner{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:var(--r-sm);font-size:12.5px;margin-bottom:14px;line-height:1.5}
+.banner-amber{background:var(--amber-soft);border:1px solid #F5D898;color:#7A5210}
+.banner-teal{background:var(--teal-soft);border:1px solid #9FE1CB;color:#0A5647}
+.banner-purple{background:var(--purple-soft);border:1px solid #CFC7F5;color:#3E33A0}
+.banner-slate{background:#EAEDF4;border:1px solid #D2D8E6;color:#3A4360}
+
+.tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.tab{font-size:12px;padding:7px 14px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);cursor:pointer;font-family:inherit;font-weight:600}
+.tab.active{background:var(--slate);border-color:var(--slate);color:#fff}
+
+.alert-row{display:flex;align-items:flex-start;gap:12px;padding:13px 15px;background:var(--bg-card);border:1px solid var(--border);border-left:3px solid var(--slate-light);border-radius:var(--r-sm);margin-bottom:8px}
+.alert-row.high{border-left-color:var(--pink)}
+.alert-row.med{border-left-color:var(--amber)}
+.alert-row.low{border-left-color:var(--teal)}
+.alert-ic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.alert-body{flex:1}
+.alert-t{font-size:13px;font-weight:600}
+.alert-s{font-size:11.5px;color:var(--text-muted);margin-top:2px;line-height:1.45}
+
+.field{margin-bottom:12px}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--text-mid);margin-bottom:5px}
+.field input,.field select{width:100%;font-family:inherit;font-size:13px;padding:9px 11px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:#fff;color:var(--text)}
+.field input:focus,.field select:focus{outline:none;border-color:var(--pink)}
+.chk{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-mid);cursor:pointer;padding:6px 0}
+
+.code-out{font-family:'Tilt Neon',cursive;font-size:32px;font-weight:400;color:var(--pink);letter-spacing:1px;word-break:break-all}
+.kv{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:13px}
+.kv:last-child{border-bottom:none}
+.kv b{font-family:'Cabin',sans-serif;font-weight:700;font-size:14px}
+
+.quiz-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:10px}
+.quiz-q{font-size:13.5px;font-weight:600;margin-bottom:10px}
+.quiz-opt{display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:var(--r-sm);border:1.5px solid var(--border);cursor:pointer;font-size:12.5px;margin-bottom:6px;transition:all .12s}
+.quiz-opt:hover{border-color:var(--pink);background:var(--pink-soft)}
+.quiz-opt.selected{border-color:var(--pink);background:var(--pink-soft)}
+.quiz-opt.correct{border-color:var(--teal);background:var(--teal-soft)}
+.quiz-opt.wrong{border-color:var(--pink);background:#FBE3EA}
+
+.pcard{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden;transition:all .2s}
+.pcard:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.pthumb{aspect-ratio:16/10;display:flex;align-items:center;justify-content:center;font-size:30px}
+.pinfo{padding:9px 11px}
+.pname{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pmeta{font-size:10px;color:var(--text-muted);margin-top:2px}
+
+.bars{display:flex;align-items:flex-end;gap:14px;height:150px;padding-top:10px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px}
+.bar{width:100%;max-width:46px;border-radius:6px 6px 0 0;background:var(--pink)}
+.bar-lbl{font-size:10px;color:var(--text-muted)}
+.legend{display:flex;gap:16px;font-size:11px;color:var(--text-muted);margin-top:10px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
+
+.person-pill{display:inline-flex;align-items:center;gap:7px;font-size:11px;color:var(--text-mid);background:#fff;border:1px solid var(--border);padding:5px 10px;border-radius:20px}
+.deferred{opacity:.55}
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">🧪 <span style="background:linear-gradient(90deg,#EC008C,#FAA21B);-webkit-background-clip:text;background-clip:text;color:transparent">WOW LAB OS</span></div>
+    <div class="logo-sub" id="logoSub">Operations Platform</div>
+    <div class="org-chip" id="orgChip">🏢 wow-lab · production</div>
+  </div>
+  <div id="navRoot"></div>
+  <div class="sidebar-foot" id="sidebarFoot">Demo mockup · fictional data<br>RLS deny-by-default · EU/Frankfurt</div>
+</nav>
+
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-left" id="crumb">Home / Dashboard</div>
+    <div class="topbar-right">
+      <div class="lang-switch">
+        <button class="lang-btn" id="langEnBtn" onclick="setLocale('en')">EN</button>
+        <button class="lang-btn" id="langRoBtn" onclick="setLocale('ro')">RO</button>
+      </div>
+      <div class="role-switch">
+        <label id="roleSwitchLbl">👁 View app as:</label>
+        <select id="roleSel" onchange="setRole(this.value)"></select>
+      </div>
+    </div>
+  </div>
+  <div id="screen"></div>
+</main>
+
+<script>
+/* ═══════════ I18N — English default, Romanian switchable. Proper nouns (real school
+   names, people's names, official Romanian program names like "Școala Altfel" /
+   "Săptămâna Verde" / "Wow Lab Party") are NEVER translated — same principle as not
+   translating "Oktoberfest" in an English sentence. ═══════════ */
+let locale='en';
+function tt(en,ro){ return locale==='en'?en:ro; }
+function setLocale(l){ locale=l; document.getElementById('langEnBtn').classList.toggle('active',l==='en'); document.getElementById('langRoBtn').classList.toggle('active',l==='ro'); buildRoleSelect(); renderNav(); renderScreen(); refreshChrome(); }
+function refreshChrome(){
+  document.getElementById('logoSub').textContent=tt('Operations Platform','Platformă Operațională');
+  document.getElementById('roleSwitchLbl').textContent=tt('👁 View app as:','👁 Vezi aplicația ca:');
+  document.getElementById('sidebarFoot').innerHTML=tt('Demo mockup · fictional data<br>RLS deny-by-default · EU/Frankfurt','Machetă demonstrativă · date fictive<br>RLS deny-by-default · UE/Frankfurt');
+  const chip=document.getElementById('orgChip');
+  chip.textContent = role==='platform_owner' ? tt('🌐 cross-org · all organizations','🌐 cross-org · toate organizațiile') : tt('🏢 wow-lab · production','🏢 wow-lab · producție');
+}
+
+/* ═══════════ ROLES (14) — .l/.who kept in English; .lRo/.whoRo hold Romanian pair ═══════════ */
+const ROLES={
+  platform_owner:{l:'Platform Owner',lRo:'Platform Owner',who:'Mihai / Anca (technical)',whoRo:'Mihai / Anca (tehnic)',i:'🛡️',c:'slate'},
+  master:{l:'Master / CEO',lRo:'Master / CEO',who:'Anca',whoRo:'Anca',i:'👑',c:'pink'},
+  sales:{l:'Sales Manager',lRo:'Sales Manager',who:'Anca / designated',whoRo:'Anca / desemnat',i:'🎯',c:'orange'},
+  contracts_admin:{l:'Contract Administrator',lRo:'Contract Administrator',who:'Laura / designated',whoRo:'Laura / desemnat',i:'📑',c:'purple'},
+  ops:{l:'Operations & Curriculum',lRo:'Operations & Curriculum',who:'Cătălina',whoRo:'Cătălina',i:'🗂️',c:'teal'},
+  fin_ops:{l:'Finance Operations',lRo:'Finance Operations',who:'Laura',whoRo:'Laura',i:'💸',c:'amber'},
+  fin_admin:{l:'Finance Admin & Reporting',lRo:'Finance Admin & Reporting',who:'Anka',whoRo:'Anka',i:'📊',c:'amber'},
+  inventory:{l:'Inventory Custodian',lRo:'Inventory Custodian',who:'Teo',whoRo:'Teo',i:'📦',c:'teal'},
+  community:{l:'Community & People',lRo:'Community & People',who:'Alexandra',whoRo:'Alexandra',i:'💚',c:'pink'},
+  senior_trainer:{l:'Senior Trainer',lRo:'Senior Trainer',who:'senior trainers',whoRo:'traineri seniori',i:'🧑‍🔬',c:'purple'},
+  trainer:{l:'Trainer',lRo:'Trainer',who:'trainers',whoRo:'trainerii',i:'🔬',c:'pink'},
+  evaluator:{l:'Evaluator',lRo:'Evaluator',who:'designated seniors',whoRo:'seniori desemnați',i:'⭐',c:'amber'},
+  candidate:{l:'Candidate',lRo:'Candidate',who:'candidates (magic-link)',whoRo:'candidați (magic-link)',i:'🚪',c:'slate'},
+  procurement:{l:'Procurement (deferred V1)',lRo:'Procurement (amânat V1)',who:'— not instantiated',whoRo:'— neinstanțiat',i:'🛒',c:'slate',deferred:true},
+};
+let role='master';
+let candidateAccepted=false; /* demo: simulates candidate -> accepted transition, unlocks the Onboarding tab */
+
+/* ═══════════ NAV ═══════════ */
+const NAV=[
+ {grp:'Home',grpRo:'Acasă',items:[
+   {k:'dashboard',i:'🏠',l:'Dashboard',lRo:'Dashboard',roles:'*'},
+   {k:'onboarding',i:'🚀',l:'Onboarding',lRo:'Onboarding',roles:'*'},
+   {k:'alerts',i:'🔔',l:'Operational Alerts',lRo:'Alerte operaționale',roles:['master','ops','fin_ops','fin_admin','inventory','contracts_admin','sales','community','senior_trainer'],badge:'6'},
+   {k:'team',i:'👥',l:'Team & Org',lRo:'Echipă & Org',roles:['master','ops','fin_ops','fin_admin','community','sales','contracts_admin','inventory','senior_trainer','trainer']},
+ ]},
+ {grp:'Clients & Contracts',grpRo:'Clienți & Contracte',items:[
+   {k:'clients',i:'🏫',l:'Clients',lRo:'Clienți',roles:['master','sales','contracts_admin','fin_ops','fin_admin','ops']},
+   {k:'contracts',i:'📄',l:'Contracts',lRo:'Contracte',roles:['master','contracts_admin','fin_ops','fin_admin','ops']},
+ ]},
+ {grp:'Operational',grpRo:'Operațional',items:[
+   {k:'groups',i:'🧪',l:'Groups & Enrollment',lRo:'Grupe & Înscrieri',roles:['master','ops','fin_ops','trainer','senior_trainer']},
+   {k:'schedule',i:'📅',l:'Scheduling & Allocation',lRo:'Planificare & Alocări',roles:['master','ops']},
+   {k:'attendance',i:'✅',l:'Attendance',lRo:'Prezență',roles:['master','ops','fin_ops','trainer','senior_trainer']},
+   {k:'delivered',i:'⚗️',l:'Delivered Experiments',lRo:'Experimente livrate',roles:['master','ops','trainer','senior_trainer']},
+ ]},
+ {grp:'People & Academy',grpRo:'Oameni & Academie',items:[
+   {k:'trainers',i:'🧑‍🔬',l:'Trainers',lRo:'Traineri',roles:['master','ops','fin_ops','community']},
+   {k:'recruit',i:'🎯',l:'Recruitment',lRo:'Recrutare',roles:['master','ops','community'],badge:'3'},
+   {k:'academy',i:'🎓',l:'WLab Academy',lRo:'WLab Academy',roles:['master','ops','community','trainer','senior_trainer']},
+   {k:'evals',i:'⭐',l:'In-Class Evaluations',lRo:'Evaluări în clasă',roles:['master','evaluator'],lock:true},
+ ]},
+ {grp:'Curriculum',grpRo:'Curriculum',items:[
+   {k:'plans',i:'📚',l:'Lesson Plans',lRo:'Planuri de lecție',roles:['master','ops','trainer','senior_trainer'],badge:'300+'},
+   {k:'presentations',i:'📊',l:'Presentation Library',lRo:'Biblioteca prezentări',roles:['master','ops','trainer','senior_trainer','community']},
+   {k:'media',i:'🎬',l:'Media',lRo:'Media',roles:['master','ops','community']},
+ ]},
+ {grp:'Inventory',grpRo:'Inventar',items:[
+   {k:'inv_reuse',i:'🔁',l:'Reusables · Custody',lRo:'Refolosibile · Custodie',roles:['master','ops','inventory','trainer','senior_trainer']},
+   {k:'inv_reag',i:'⚠️',l:'Controlled Reagents',lRo:'Reactivi controlați',roles:['master','ops','inventory']},
+   {k:'inv_cons',i:'🧴',l:'Generic Consumables',lRo:'Consumabile generice',roles:['master','ops','inventory']},
+   {k:'procure',i:'🛒',l:'Orders (V1: view-only)',lRo:'Comenzi (V1: vizibilitate)',roles:['master','ops','inventory','procurement']},
+ ]},
+ {grp:'Financial',grpRo:'Financiar',items:[
+   {k:'billing',i:'🧾',l:'Billing Code Generator',lRo:'Generator cod facturare',roles:['master','fin_ops','fin_admin','ops']},
+   {k:'invoices',i:'🗂️',l:'Invoices & Data',lRo:'Facturi & date',roles:['master','fin_ops','fin_admin']},
+   {k:'pay',i:'💸',l:'Trainer Pay',lRo:'Plată traineri',roles:['master','fin_ops','trainer','senior_trainer']},
+   {k:'ceo',i:'📈',l:'CEO Dashboard',lRo:'Dashboard CEO',roles:['master','fin_admin']},
+   {k:'balance',i:'📊',l:'Balance Import',lRo:'Import balanță',roles:['master','fin_admin']},
+ ]},
+ {grp:'Admin',grpRo:'Administrare',items:[
+   {k:'users',i:'🔐',l:'Users & Roles',lRo:'Utilizatori & Roluri',roles:['master','platform_owner']},
+   {k:'audit',i:'📜',l:'Audit Log',lRo:'Jurnal audit',roles:['master','platform_owner']},
+   {k:'settings',i:'⚙️',l:'Organization Settings',lRo:'Setări organizație',roles:['master','platform_owner']},
+ ]},
+ {grp:'Portal',grpRo:'Portal',items:[
+   {k:'cand',i:'🚪',l:'Candidate Portal',lRo:'Portal candidat',roles:['candidate']},
+   {k:'platform',i:'🛡️',l:'Cross-org & Franchise',lRo:'Cross-org & franciză',roles:['platform_owner']},
+ ]},
+];
+
+function canSee(it){
+  if(role==='candidate') return it.k==='cand'||it.k==='dashboard'||(it.k==='onboarding'&&candidateAccepted);
+  if(role==='master'||role==='platform_owner'){ if(it.k==='cand') return false; if(it.k==='platform') return role==='platform_owner'; return true; }
+  return it.roles==='*'||it.roles.includes(role);
+}
+
+let currentScreen='dashboard';
+function renderNav(){
+  let h='';
+  NAV.forEach(g=>{
+    const vis=g.items.filter(canSee);
+    if(!vis.length) return;
+    h+=`<div class="nav-section"><div class="nav-label">${tt(g.grp,g.grpRo)}</div>`;
+    vis.forEach(it=>{
+      const active=it.k===currentScreen?' active':'';
+      const badge=it.badge?`<span class="nav-badge">${it.badge}</span>`:'';
+      const lock=it.lock?`<span class="nav-lock">🔒</span>`:'';
+      h+=`<button class="nav-item${active}" onclick="go('${it.k}','${g.grp}','${g.grpRo}','${it.l}','${it.lRo}')"><span class="nav-icon">${it.i}</span>${tt(it.l,it.lRo)}${lock}${badge}</button>`;
+    });
+    h+='</div>';
+  });
+  document.getElementById('navRoot').innerHTML=h;
+}
+function go(k,grp,grpRo,l,lRo){ currentScreen=k; document.getElementById('crumb').textContent=tt(grp,grpRo)+' / '+tt(l,lRo); renderNav(); renderScreen(); window.scrollTo(0,0); }
+
+function setRole(r){
+  role=r; currentScreen='dashboard';
+  document.getElementById('crumb').textContent=tt('Home','Acasă')+' / Dashboard';
+  refreshChrome();
+  renderNav(); renderScreen(); window.scrollTo(0,0);
+}
+function buildRoleSelect(){
+  document.getElementById('roleSel').innerHTML=Object.keys(ROLES).map(k=>`<option value="${k}"${k===role?' selected':''}>${ROLES[k].i} ${tt(ROLES[k].l,ROLES[k].lRo)} — ${tt(ROLES[k].who,ROLES[k].whoRo)}</option>`).join('');
+}
+
+/* ═══════════ HELPERS ═══════════ */
+function hero(eyebrow,title,sub,actions){
+  return `<div class="page-hero"><div><div class="page-eyebrow">${eyebrow}</div><div class="page-title">${title}</div><div class="page-sub">${sub}</div></div><div class="page-actions">${actions||''}</div></div>`;
+}
+const isFinance=()=>['master','fin_ops','fin_admin'].includes(role);
+
+/* ═══════════ DATA — proper nouns (school/company names, contacts, program names) unchanged across locales ═══════════ */
+const CLIENTS=[
+ {n:'Lycée Français',t:'private_school',line:'Recurring',lineRo:'Recurente',st:'active',rule:'95 lei / child / session (VAT incl.)',ruleRo:'95 lei / copil / ședință (TVA incl.)',ent:'Experimente Wow SRL',ac:'AC-10241',contact:'vlad.rasnoveanu@lyceefrancais.ro'},
+ {n:'IBSB',t:'private_school',line:'Recurring',lineRo:'Recurente',st:'active',rule:'80 lei / child + VAT',ruleRo:'80 lei / copil + TVA',ent:'Experimente Wow SRL',ac:'AC-10188',contact:'anamaria.stere@ibsb.ro'},
+ {n:'Cambridge School',t:'private_school',line:'Recurring',lineRo:'Recurente',st:'active',rule:'950 lei / workshop + VAT · min 8',ruleRo:'950 lei / atelier + TVA · min 8',ent:'Experimente Wow SRL',ac:'AC-10312',contact:'elena@cambridgeschool.ro'},
+ {n:'Avenor College',t:'private_school',line:'Recurring',lineRo:'Recurente',st:'active',rule:'950 lei / workshop + VAT · 7–12 children',ruleRo:'950 lei / atelier + TVA · 7–12 copii',ent:'Experimente Wow SRL',ac:'AC-10099',contact:'claudia.andrei@avenor.ro'},
+ {n:'Mark Twain',t:'private_school',line:'Recurring',lineRo:'Recurente',st:'active',rule:'750 lei / workshop (VAT incl.)',ruleRo:'750 lei / atelier (TVA incl.)',ent:'Experimente Wow SRL',ac:'AC-10077',contact:'iulia.dobre@marktwainschool.ro'},
+ {n:'Ioanid',t:'private_school',line:'Recurring',lineRo:'Recurente',st:'active',rule:'750 lei / workshop',ruleRo:'750 lei / atelier',ent:'Experimente Wow SRL',ac:'AC-10066',contact:'officescoala@ioanid.com'},
+ {n:'DSBU (German School)',t:'private_school',line:'Recurring',lineRo:'Recurente',st:'active',rule:'700 lei / workshop + VAT',ruleRo:'700 lei / atelier + TVA',ent:'Experimente Wow SRL',ac:'AC-10055',contact:'O.Stamate@dsbu.ro'},
+ {n:'Verita School',t:'private_school',line:'Recurring',lineRo:'Recurente',st:'active',rule:'1045 lei / workshop + VAT · min 8',ruleRo:'1045 lei / atelier + TVA · min 8',ent:'Experimente Wow SRL',ac:'AC-10312',contact:'ema.nasta@verita.ro'},
+ {n:'AISB',t:'private_school',line:'Recurring',lineRo:'Recurente',st:'active',rule:'500 lei / workshop · billed quarterly',ruleRo:'500 lei / atelier · facturat trimestrial',ent:'Experimente Wow SRL',ac:'AC-10044',contact:'asota@goaisb.ro'},
+ {n:'Finnish School',t:'private_school',line:'Recurring',lineRo:'Recurente',st:'active',rule:'50 lei / child + VAT',ruleRo:'50 lei / copil + TVA',ent:'Experimente Wow SRL',ac:'AC-10033',contact:'larisa.cana@lrfb.ro'},
+ {n:"King's Oak",t:'private_school',line:'Recurring',lineRo:'Recurente',st:'active',rule:'450 lei / workshop (VAT incl.)',ruleRo:'450 lei / atelier (TVA incl.)',ent:'Experimente Wow SRL',ac:'AC-10022',contact:'office@kingsoakschool.ro'},
+ {n:'Montessori',t:'private_school',line:'Recurring',lineRo:'Recurente',st:'paused',rule:'120 lei / child · closing Jun 1, 2026',ruleRo:'120 lei / copil · se închide 1 iun 2026',ent:'Experimente Wow SRL',ac:'AC-10011',contact:'secretariat@montessoribucuresti.ro'},
+ {n:'Electrica Furnizare',t:'corporate',line:'Projects / Corporate',lineRo:'Proiecte / Companii',st:'active',rule:'project contract',ruleRo:'contract proiect',ent:'Bradine ADV SRL',ac:'AC-10501',contact:'—'},
+ {n:'Barlad Value Center',t:'special_project',line:'Mall event',lineRo:'Eveniment mall',st:'active',rule:'event contract',ruleRo:'contract eveniment',ent:'Bradine ADV SRL',ac:'AC-10455',contact:'—'},
+ {n:'Zitec',t:'corporate',line:'Corporate party',lineRo:'Party companie',st:'active',rule:'event contract',ruleRo:'contract eveniment',ent:'Bradine ADV SRL',ac:'AC-10388',contact:'—'},
+];
+/* Workshop-type billing taxonomy recovered from an older mockup iteration — real billing codes.
+   NOTE: Anca's Phase 1 feedback proposes a restructure into "Workshop Type" with per-module
+   granularity — reconcile with this list before treating it as final (see feedback banner below). */
+const TIPS={
+ SP:{l:'Private schools (recurring)',lRo:'Școli private recurente',isSA:false},
+ SPCO:{l:'Private schools (occasional)',lRo:'Școli private ocazional',isSA:false},
+ SA:{l:'Școala Altfel',lRo:'Școala Altfel',isSA:true},
+ SV:{l:'Săptămâna Verde',lRo:'Săptămâna Verde',isSA:true},
+ COM:{l:'Corporate partnership',lRo:'Parteneriat companii',isSA:false},
+ EPC:{l:'Corporate party',lRo:'Party companie',isSA:false},
+ EP:{l:'Mall event',lRo:'Eveniment mall',isSA:false},
+ CD:{l:'Open course',lRo:'Curs deschis',isSA:false},
+ WLP:{l:'Wow Lab Party',lRo:'Wow Lab Party',isSA:false},
+};
+
+/* ═══════════ SCREENS ═══════════ */
+const S={};
+
+S.dashboard=()=>{
+  const R=ROLES[role];
+  const eyebrow=`${R.i} ${tt(R.l,R.lRo)} · ${tt(R.who,R.whoRo)}`;
+  if(role==='candidate') return hero(eyebrow,tt('Welcome! 🚪','Bine ai venit! 🚪'),tt('Here you\'ll find your application and test-class scheduling.','Aici găsești aplicația ta și programarea test class-ului.'))+`<div class="page-body">${S.cand(true)}</div>`;
+
+  let stats='',focus='';
+  const box=(n,l,c)=>`<div class="stat-card"><div class="stat-num" style="color:var(--${c})">${n}</div><div class="stat-label">${l}</div></div>`;
+
+  if(role==='master'||role==='platform_owner'){
+    stats=box('47,320 lei',tt('Monthly revenue (Actual)','Venit lunar (Actual)'),'pink')+box('14',tt('Active clients','Clienți activi'),'teal')+box('21',tt('Active trainers','Traineri activi'),'purple')+box('6',tt('Open alerts','Alerte deschise'),'amber');
+    focus=`<div class="grid2"><div class="card"><div class="card-title">📈 ${tt('Revenue by line (current month)','Venit pe linie (luna curentă)')}</div>${miniBars()}</div><div class="card"><div class="card-title">🔔 ${tt('What needs attention today','Ce cere atenție azi')}</div>${alertMini()}</div></div>`;
+  } else if(role==='ops'){
+    stats=box('132',tt('Sessions this month','Sesiuni luna asta'),'teal')+box('4',tt('Allocations to resolve','Alocări de rezolvat'),'pink')+box('3',tt('Candidates in testing','Candidați în test'),'purple')+box('2',tt('Returns to validate','Retururi de validat'),'amber');
+    focus=`<div class="tint tint-teal">🗂️ <b>${tt('Cătălina — Operations & Curriculum.','Cătălina — Operations & Curriculum.')}</b> ${tt('You plan and allocate trainers, own curriculum and certifications, and see client sheets (no financial terms). You can optionally hold the','Planifici și aloci traineri, ții curriculum-ul și certificările, vezi fișele de client (fără termeni financiari). Poți primi opțional rolul')} <b>Evaluator</b> ${tt('role.','.')}</div><div class="grid2"><div class="card"><div class="card-title">${tt('Allocations to cover','Alocări de acoperit')}</div>${allocMini()}</div><div class="card"><div class="card-title">${tt('Curriculum readiness','Readiness curriculum')}</div>${readyMini()}</div></div>`;
+  } else if(role==='fin_ops'){
+    stats=box('21',tt('Trainers to pay','Traineri de plătit'),'amber')+box('7',tt('Private school invoices','Facturi școli private'),'pink')+box('132',tt('Attendances to invoice','Prezențe de facturat'),'teal')+box('3',tt('Expense reports pending','Deconturi în așteptare'),'purple');
+    focus=`<div class="tint tint-amber">💸 <b>${tt('Laura — Finance Operations.','Laura — Finance Operations.')}</b> ${tt('Trainer pay, expense reports, private-school billing and attendance-based billing.','Plata trainerilor, deconturi, facturare școli private și facturare pe prezență.')} <b>${tt('You don\'t see','Nu vezi')}</b> ${tt('company profitability or the CEO Dashboard (those belong to Anka / Master).','profitabilitatea companiei sau Dashboard-ul CEO (acelea sunt la Anka / Master).')}</div>`;
+  } else if(role==='fin_admin'){
+    stats=box('47,320 lei',tt('Monthly revenue','Venit lunar'),'pink')+box('3',tt('Corporate/state contracts','Contracte corporate/stat'),'purple')+box('1',tt('Missing balance import','Import balanță lipsă'),'amber')+box('92%',tt('Actual vs Forecast','Actual vs Forecast'),'teal');
+    focus=`<div class="tint tint-amber">📊 <b>${tt('Anka — Finance Admin & Reporting.','Anka — Finance Admin & Reporting.')}</b> ${tt('Corporate/state contracts + grants, monthly balance import and company-wide reporting. You are the data source for the','Contracte corporate/stat + granturi, import balanță lunară și raportare la nivel de companie. Ești sursa de date pentru')} <b>CEO Dashboard</b>.</div><div class="card"><div class="card-title">${tt('Forecast vs Actual (year)','Forecast vs Actual (an)')}</div>${lineChart()}</div>`;
+  } else if(role==='inventory'){
+    stats=box('186',tt('Reusable assets','Active refolosibile'),'teal')+box('12',tt('In trainer custody','În custodie la traineri'),'purple')+box('2',tt('Returns to validate','Retururi de validat'),'pink')+box('4',tt('Reagents below threshold','Reactivi sub prag'),'amber');
+    focus=`<div class="tint tint-teal">📦 <b>${tt('Teo — Inventory Custodian.','Teo — Inventory Custodian.')}</b> ${tt('Inventory accuracy, custody, return validation, and material condition. Inventory splits into 3 categories: reusables, controlled reagents, consumables.','Acuratețea inventarului, custodia, validarea retururilor și stările materialelor. Inventarul e pe 3 categorii: refolosibile, reactivi controlați, consumabile.')}</div>`;
+  } else if(role==='community'){
+    stats=box('21',tt('Team members','Membri echipă'),'pink')+box('3',tt('Onboarding in progress','Onboarding în curs'),'teal')+box('48',tt('Media posts','Postări media'),'purple')+box('1',tt('Newsletter to send','Newsletter de trimis'),'amber');
+    focus=`<div class="tint tint-pink">💚 <b>${tt('Alexandra — Community & People.','Alexandra — Community & People.')}</b> ${tt('Onboarding, internal communication, team, media and culture.','Onboarding, comunicare internă, echipă, media și cultură.')}</div>`;
+  } else if(role==='trainer'||role==='senior_trainer'){
+    stats=box('18',tt('Hours this month','Ore luna asta'),'pink')+box('9',tt('Sessions delivered','Sesiuni livrate'),'teal')+box('2',tt('Groups assigned','Grupe alocate'),'purple')+box('1',tt('Certification to renew','Certificare de reînnoit'),'amber');
+    focus=`<div class="tint tint-pink">🔬 <b>${role==='senior_trainer'?'Senior Trainer':'Trainer'}.</b> ${tt('You only see your own groups and data: workshops, attendance, experiment log, your certifications (Academy), your material custody, and presentations (save-as).','Vezi doar grupele și datele tale: ateliere, prezență, log experimente, certificările tale (Academy), custodia materialelor tale și prezentările (save-as).')}${role==='senior_trainer'?tt(' As a senior you are <b>eligible for Evaluator</b>.',' Ca senior ești <b>eligibil pentru Evaluator</b>.'):''}</div>`;
+  } else if(role==='sales'){
+    stats=box('5',tt('Renewals < 45 days','Reînnoiri < 45 zile'),'amber')+box('14',tt('Active clients','Clienți activi'),'teal')+box('2',tt('Won → to onboard','Won → de onboardat'),'pink')+box('—','Pipeline','slate');
+    focus=`<div class="banner banner-slate">🔗 ${tt('Sales pipeline, offers and campaigns live in','Pipeline-ul de vânzări, ofertele și campaniile trăiesc în')} <b>ActiveCampaign</b>. ${tt('Here you take over the client at the','Aici preiei clientul la momentul')} <b>"Won"</b> ${tt('moment and see renewals.','și vezi reînnoirile.')}</div>`;
+  } else if(role==='contracts_admin'){
+    stats=box('19',tt('Active contracts','Contracte active'),'purple')+box('5',tt('Renewals to prepare','Reînnoiri de pregătit'),'amber')+box('2',tt('To mark "signed"','De marcat „semnat"'),'pink')+box('3',tt('Legal entities','Entități legale'),'teal');
+    focus=`<div class="tint tint-purple">📑 <b>Contract Administrator.</b> ${tt('You manage contracts fully in-platform: number, term, signed status, renewal, archive — under the correct legal entity.','Gestionezi contractele complet în platformă: număr, perioadă, status semnat, reînnoire, arhivă — pe entitatea legală corectă.')}</div>`;
+  } else if(role==='evaluator'){
+    stats=box('3',tt('Assigned evaluations','Evaluări alocate'),'amber')+box('1',tt('To complete','De completat'),'pink')+box('2',tt('Completed','Finalizate'),'teal')+box('🔒',tt('Confidential','Confidențial'),'slate');
+    focus=`<div class="banner banner-amber">🔒 ${tt('You only see evaluations assigned to you (minimum-necessary access). Evaluations are confidential — the evaluated trainer never sees them.','Vezi doar evaluările alocate ție (acces minim necesar). Evaluările sunt confidențiale — trainerul evaluat nu le vede.')}</div>`;
+  }
+  return hero(eyebrow,'Dashboard',tt('Each role sees exactly its own slice — the left menu and this screen change with the role switcher top-right.','Fiecare rol vede exact felia lui — meniul din stânga și acest ecran se schimbă cu comutatorul de rol din dreapta sus.'))+`<div class="page-body"><div class="stats-row">${stats}</div>${focus}</div>`;
+};
+
+function miniBars(){
+  const d=[[tt('STEM Clubs','Cluburi STEM'),62,'pink'],[tt('Workshops','Ateliere'),24,'teal'],[tt('Corporate','Corporate'),9,'purple'],[tt('Grants','Granturi'),5,'amber']];
+  return `<div class="bars" style="height:120px">${d.map(x=>`<div class="bar-col"><div class="bar" style="height:${x[1]}%;background:var(--${x[2]})"></div><div class="bar-lbl">${x[0]}</div></div>`).join('')}</div>`;
+}
+function alertMini(){ return ALERTS().slice(0,3).map(a=>`<div class="alert-row ${a.p}" style="margin-bottom:6px"><div class="alert-ic" style="background:var(--${a.c}-soft)">${a.i}</div><div class="alert-body"><div class="alert-t">${a.t}</div></div></div>`).join(''); }
+function allocMini(){ return [tt('Lycée · Cl.2 — Friday 2pm no trainer','Lycée · Cl.2 — vineri 14:00 fără trainer'),tt('IBSB · Preschool — Wednesday substitute','IBSB · Preșcolari — înlocuire miercuri'),tt('Cambridge · Saturday workshop — to confirm','Cambridge · atelier sâmbătă — de confirmat'),tt('Avenor · group resuming (paused→active)','Avenor · reluare grupă (paused→active)')].map(x=>`<div style="font-size:12.5px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.05);color:var(--text-mid)">🔧 ${x}</div>`).join(''); }
+function readyMini(){ return [[tt('Chemistry — Elementary','Chimie primar'),'92%','teal'],[tt('Physics — Middle school','Fizică gimnaziu'),'78%','amber'],[tt('Biology — Preschool','Biologie preșcolar'),'64%','pink']].map(x=>`<div class="kv"><span>${x[0]}</span><span class="badge b-${x[2]}">${x[1]} ${tt('readiness','readiness')}</span></div>`).join(''); }
+
+/* ALERTS — built as a function so text re-evaluates on locale switch */
+function ALERTS(){ return [
+ {p:'high',c:'pink',i:'📄',t:tt('Lycée Français contract expires in 21 days','Contract Lycée Français expiră în 21 zile'),s:tt('Annual renewal — prepare the renewal_of chain. Owner: Contract Administrator.','Reînnoire anuală — de pregătit lanțul renewal_of. Owner: Contract Administrator.'),for:['master','contracts_admin','sales','fin_ops']},
+ {p:'high',c:'pink',i:'📦',t:tt('Unvalidated material return — IBSB Cl.3 group','Retur materiale nevalidat — grupa IBSB Cl.3'),s:tt('"Volcano" kit returned, awaiting custody validation. Owner: Inventory Custodian.','Kit „Vulcan" returnat, în așteptarea validării custodiei. Owner: Inventory Custodian.'),for:['master','inventory','ops']},
+ {p:'med',c:'amber',i:'🎯',t:tt('3 candidates waiting for test class','3 candidați în așteptare pentru test class'),s:tt('Recruitment portal — observation to schedule. Owner: Operations / Community.','Portal recrutare — de programat observare. Owner: Operations / Community.'),for:['master','ops','community']},
+ {p:'med',c:'amber',i:'📊',t:tt('Missing balance import for June','Import balanță lipsă pentru luna Iunie'),s:tt('CEO Dashboard data source is incomplete. Owner: Finance Admin.','Sursa de date a Dashboard-ului CEO nu e completă. Owner: Finance Admin.'),for:['master','fin_admin']},
+ {p:'med',c:'amber',i:'⚠️',t:tt('Controlled reagent below threshold: Citric acid','Reactiv controlat sub prag: Acid citric'),s:tt('Stock 0.4 kg < 1 kg threshold. Batch expires 09/2026.','Stoc 0,4 kg < prag 1 kg. Lot expiră 09/2026.'),for:['master','inventory','ops']},
+ {p:'low',c:'teal',i:'🔬',t:tt('Trainer below 80% in-person delivery','Trainer sub 80% clase livrate în persoană'),s:tt('M. Ionescu at 74% — above the substitution threshold. Owner: Operations.','M. Ionescu la 74% — peste pragul de înlocuiri. Owner: Operations.'),for:['master','ops','senior_trainer']},
+]; }
+S.alerts=()=>{
+  const list=ALERTS().filter(a=>role==='master'||role==='platform_owner'||a.for.includes(role));
+  return hero('🔔 '+tt('Operational Alerts','Alerte operaționale'),tt('What needs attention','Ce cere atenție'),tt('Alerts are derived from data states (contracts, returns, stock thresholds, balance, readiness) and are role-filtered — you only see what concerns you.','Alertele derivă din stările datelor (contracte, retururi, praguri stoc, balanță, readiness) și sunt filtrate pe rol — vezi doar ce ține de tine.'))+
+  `<div class="page-body"><div class="banner banner-slate">🧠 ${tt('Alerts are <b>computed views</b> over real data, not a separate entity — the same principle from the architecture.','Alertele sunt <b>vederi calculate</b> peste date reale, nu o entitate separată — exact principiul din arhitectură.')}</div>${list.map(a=>`<div class="alert-row ${a.p}"><div class="alert-ic" style="background:var(--${a.c}-soft)">${a.i}</div><div class="alert-body"><div class="alert-t">${a.t}</div><div class="alert-s">${a.s}</div></div><span class="badge b-${a.p==='high'?'pink':a.p==='med'?'amber':'teal'}">${a.p==='high'?tt('Urgent','Urgent'):a.p==='med'?tt('To watch','De urmărit'):tt('Info','Info')}</span></div>`).join('')}</div>`;
+};
+
+/* CLIENTS — AC boundary + field visibility */
+S.clients=()=>{
+  const fin=isFinance();
+  const tbadge={private_school:'b-pink',state_school:'b-teal',corporate:'b-purple',parent_b2c:'b-amber',special_project:'b-slate'};
+  const sbadge={active:'b-teal',paused:'b-amber',churned:'b-slate',prospect:'b-purple'};
+  const typeLabel={private_school:tt('private school','școală privată'),state_school:tt('state school','școală de stat'),corporate:tt('corporate','corporate'),parent_b2c:tt('parent B2C','părinte B2C'),special_project:tt('special project','proiect special')};
+  const statusLabel={active:tt('active','activ'),paused:tt('paused','pauzat'),churned:tt('churned','pierdut'),prospect:tt('prospect','prospect')};
+  const rows=CLIENTS.map(c=>`<tr>
+     <td style="font-weight:600">${c.n}<div style="font-size:11px;color:var(--text-muted);font-weight:400">${tt(c.line,c.lineRo)}</div></td>
+     <td><span class="badge ${tbadge[c.t]}">${typeLabel[c.t]}</span></td>
+     <td><span class="badge ${sbadge[c.st]}">${statusLabel[c.st]}</span></td>
+     <td>${fin?tt(c.rule,c.ruleRo):'<span class="masked">•••••• 🔒</span>'}</td>
+     <td style="font-size:11px;color:var(--text-muted)">${c.ent}</td>
+     <td><span class="badge b-slate">🔗 ${c.ac}</span></td>
+   </tr>`).join('');
+  return hero('🏫 '+tt('Clients','Clienți'),tt('Operational client sheet','Fișa de client operațional'),tt('The client account, contract contacts, contracts, groups and history. Sales pipeline stays in ActiveCampaign.','Contul de client, contactele de contract, contractele, grupele și istoricul. Pipeline-ul de vânzări rămâne în ActiveCampaign.'),
+    `<button class="btn btn-secondary btn-sm">+ ${tt('Client (bootstrap)','Client (bootstrap)')}</button>`)+
+  `<div class="page-body">
+    <div class="banner banner-slate">🔗 <b>${tt('AD-15 boundary:','Granița AD-15:')}</b> ${tt('leads, pipeline, offers and campaigns →','lead-uri, pipeline, oferte și campanii →')} <b>ActiveCampaign</b>. ${tt('The platform takes over the client at','Platforma preia clientul la')} <b>"Won"</b>. ${tt('Every client carries an','Fiecare client poartă un')} <code>external_crm_ref</code> ${tt('as the link, without copying marketing data (PII stays in AC, outside the EU).','ca legătură, fără să copieze datele de marketing (PII rămâne în AC, în afara UE).')}</div>
+    ${fin?'':'<div class="banner banner-amber">🔒 <b>'+tt('Field Visibility:','Field Visibility:')+'</b> '+tt('you see client sheets, but the <b>billing rule / contract value is masked</b> — visible only to Finance + Master. Switch to "Finance Operations" to see the difference.','vezi fișele de client, dar <b>regula de facturare / valoarea contractului este mascată</b> — vizibilă doar pentru Finance + Master. Comută pe „Finance Operations" ca să vezi diferența.')+'</div>'}
+    <div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Client','Client')}</th><th>${tt('Type','Tip')}</th><th>${tt('Status','Status')}</th><th>${tt('Billing rule','Regulă facturare')}</th><th>${tt('Legal entity','Entitate legală')}</th><th>${tt('CRM ref','CRM ref')}</th></tr></thead><tbody>${rows}</tbody></table></div>
+  </div>`;
+};
+
+/* CONTRACTS */
+S.contracts=()=>{
+  const fin=isFinance()||role==='contracts_admin';
+  const data=[
+   ['CTR-2026-014','Lycée Français','recurring_annual','signed','01.09.25–30.06.26','Experimente Wow','95 lei/child/session','95 lei/copil/ședință'],
+   ['CTR-2026-021','IBSB','recurring_annual','signed','01.09.25–30.06.26','Experimente Wow','80 lei/child + VAT','80 lei/copil + TVA'],
+   ['CTR-2026-033','ING Bank','one_off_event','sent','15.05.26','Bradine ADV','offer / event','ofertă / eveniment'],
+   ['CTR-2026-040','Primăria S3','framework','signed','01.03.26–31.12.26','STEMplicity','grant framework contract','contract-cadru grant'],
+   ['CTR-2025-118','Avenor College','recurring_annual','expired','01.09.24–30.06.25','Experimente Wow','950 lei/workshop','950 lei/atelier'],
+  ];
+  const sb={signed:'b-teal',sent:'b-amber',draft:'b-slate',expired:'b-slate',renewed:'b-purple'};
+  const typeLabel={recurring_annual:tt('recurring annual','recurent anual'),one_off_event:tt('one-off event','eveniment unic'),framework:tt('framework','contract-cadru')};
+  const statusLabel={signed:tt('signed','semnat'),sent:tt('sent','trimis'),draft:tt('draft','ciornă'),expired:tt('expired','expirat'),renewed:tt('renewed','reînnoit')};
+  return hero('📄 '+tt('Contracts','Contracte'),tt('Contracts, by legal entity','Contractele, pe entitatea legală'),tt('Number, type, term, signed status, renewal chain (renewal_of) and archive link (Drive). Billing happens from the correct legal entity.','Număr, tip, perioadă, status semnat, lanț de reînnoiri (renewal_of) și link de arhivă (Drive). Facturarea se face de pe entitatea legală corectă.'),
+    role==='contracts_admin'||role==='master'?'<button class="btn btn-primary btn-sm">+ '+tt('New contract','Contract nou')+'</button>':'')+
+  `<div class="page-body">
+   ${role==='ops'?'<div class="banner banner-amber">🔒 '+tt('As Operations you see contracts exist for operational context, but <b>financial terms are masked</b>.','Ca Operations vezi existența contractelor pentru context operațional, dar <b>termenii financiari sunt mascați</b>.')+'</div>':''}
+   <div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('No.','Nr.')}</th><th>${tt('Client','Client')}</th><th>${tt('Type','Tip')}</th><th>${tt('Status','Status')}</th><th>${tt('Term','Perioadă')}</th><th>${tt('Entity','Entitate')}</th><th>${tt('Rule (billing_rule)','Regulă (billing_rule)')}</th></tr></thead><tbody>
+   ${data.map(d=>`<tr><td style="font-weight:600">${d[0]}</td><td>${d[1]}</td><td><span class="badge b-slate">${typeLabel[d[2]]}</span></td><td><span class="badge ${sb[d[3]]}">${statusLabel[d[3]]}</span></td><td style="font-size:12px">${d[4]}</td><td style="font-size:11px;color:var(--text-muted)">${d[5]}</td><td>${fin?tt(d[6],d[7]):'<span class="masked">••••• 🔒</span>'}</td></tr>`).join('')}
+   </tbody></table></div></div>`;
+};
+
+/* GROUPS */
+S.groups=()=>{
+  const mine=role==='trainer'||role==='senior_trainer';
+  const g=[
+   ['Lycée · Cl.2–3','Chemistry','Chimie','Tuesday 2pm','Marți 14:00','12','M. Popescu'],
+   ['IBSB · Preschool','Physics','Fizică','Wednesday 10am','Miercuri 10:00','—','A. Radu'],
+   ['Cambridge · Workshop','Biology','Biologie','Saturday 11am','Sâmbătă 11:00','8','M. Popescu'],
+   ['ING · Team Building','Corporate','Corporate','May 15','15 mai','30','team (3)'],
+  ];
+  const rows=(mine?g.filter(x=>x[6].includes('Popescu')):g);
+  return hero('🧪 '+tt('Groups & Enrollment','Grupe & Înscrieri'),mine?tt('Your groups','Grupele tale'):tt('Groups & enrollment','Grupe & înscrieri'),tt('Enrollments can be anonymous (numeric-first): billing derives from the attendance count, without requiring a named child record.','Înscrierile pot fi anonime (numeric-first): facturarea derivă din numărul de prezențe, fără să ceară fișa nominală a copilului.'))+
+  `<div class="page-body">${mine?'<div class="banner banner-teal">👁 '+tt('You only see groups assigned to you.','Vezi doar grupele alocate ție.')+'</div>':''}
+   <div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Group','Grupă')}</th><th>${tt('Subject','Disciplină')}</th><th>${tt('Schedule','Program')}</th><th>${tt('Enrolled','Înscriși')}</th><th>${tt('Trainer','Trainer')}</th></tr></thead><tbody>
+   ${rows.map(x=>`<tr><td style="font-weight:600">${x[0]}</td><td><span class="badge b-purple">${tt(x[1],x[2])}</span></td><td>${tt(x[3],x[4])}</td><td>${x[5]}</td><td style="font-size:12px">${x[6]}</td></tr>`).join('')}
+   </tbody></table></div></div>`;
+};
+
+/* ACADEMY */
+const ACAD_Q=[
+ {q:tt('What\'s the max length of the PPT segment without hands-on activity?','Cât poate dura, la maxim, partea de PPT fără activitate practică?'),o:[['5 min','5 min'],['10 min','10 min'],['20 min','20 min'],['30 min','30 min']],a:1},
+ {q:tt('When a child gives a wrong answer during an experiment, what do you do?','Când un copil dă un răspuns greșit la experiment, ce faci?'),o:[[tt('Correct immediately','Îl corectezi imediat'),tt('Correct immediately','Îl corectezi imediat')],[tt('Ignore it','Îl ignori'),tt('Ignore it','Îl ignori')],[tt('Take the good part and build on it','Iei partea bună din răspuns și construiești pe ea'),tt('Take the good part and build on it','Iei partea bună din răspuns și construiești pe ea')],[tt('Ask them to sit down','Îl rogi să se așeze'),tt('Ask them to sit down','Îl rogi să se așeze')]],a:2},
+ {q:tt('How should the lab coat look in class?','Cum trebuie să arate halatul în clasă?'),o:[[tt('Doesn\'t matter','Oricum'),tt('Doesn\'t matter','Oricum')],[tt('Clean, with Wow Lab logo','Curat, cu logo Wow Lab'),tt('Clean, with Wow Lab logo','Curat, cu logo Wow Lab')],[tt('Optional','Opțional'),tt('Optional','Opțional')],[tt('Only at events','Doar la evenimente'),tt('Only at events','Doar la evenimente')]],a:1},
+ {q:tt('What do you do if you finish the experiment early?','Ce faci dacă termini experimentul mai devreme?'),o:[[tt('Free play','Joacă liberă'),tt('Free play','Joacă liberă')],[tt('Break','Pauză'),tt('Break','Pauză')],[tt('You\'ve prepared a backup experiment','Ai pregătit un experiment de rezervă'),tt('You\'ve prepared a backup experiment','Ai pregătit un experiment de rezervă')],[tt('Put on a video','Pui un video'),tt('Put on a video','Pui un video')]],a:2},
+];
+S.academy=()=>{
+  const tracks=[
+   [tt('Classroom safety','Siguranță în clasă'),'trainer',tt('obtained','obținut'),'teal'],
+   [tt('Chemistry — level 1','Chimie — nivel 1'),'trainer',tt('obtained','obținut'),'teal'],
+   [tt('Physics — level 2','Fizică — nivel 2'),'trainer',tt('in progress','în curs'),'amber'],
+   [tt('Anniversary show','Show aniversar'),'senior_trainer',tt('not started','de început'),'slate'],
+  ];
+  const mgmt=role==='master'||role==='ops'||role==='community';
+  let quiz='';
+  if(role==='trainer'||role==='senior_trainer'){
+    quiz=`<div class="card"><div class="card-title">🎓 ${tt('Certification test — Physics level 2','Test de certificare — Fizică nivel 2')}</div><div id="quizWrap"></div><div id="quizAct" style="margin-top:12px"><button class="btn btn-primary" onclick="submitQuiz()">${tt('Submit test','Trimite testul')}</button></div><div id="quizRes" style="display:none;margin-top:12px;padding:12px 14px;border-radius:var(--r-sm)"></div></div>`;
+  }
+  return hero('🎓 WLab Academy',tt('Certifications & training','Certificări & training'),tt('Certification tracks with quiz tests. Certification unlocks which workshop types a trainer can deliver; readiness feeds into allocation.','Trasee de certificare cu test grilă. Certificarea deblochează tipurile de ateliere pe care trainerul le poate livra; readiness-ul intră în alocări.'))+
+  `<div class="page-body">
+   ${mgmt?'<div class="banner banner-purple">🗂️ '+tt('As management you see every trainer\'s progress and can perform','Ca management vezi progresul tuturor trainerilor și poți face')+' <code>certifications.override</code>.</div>':'<div class="banner banner-teal">👁 '+tt('You only see your own certifications.','Vezi doar certificările tale.')+'</div>'}
+   <div class="grid2"><div class="card"><div class="card-title">${tt('Your tracks','Traseele tale')}</div>${tracks.map(t=>`<div class="kv"><span>${t[0]} <span style="font-size:10px;color:var(--text-muted)">· ${t[1]}</span></span><span class="badge b-${t[3]}">${t[2]}</span></div>`).join('')}</div>${quiz||`<div class="card"><div class="card-title">${tt('Cohort statistics','Statistici cohortă')}</div><div class="kv"><span>${tt('Chemistry L1 certified trainers','Traineri certificați Chimie N1')}</span><b>19/21</b></div><div class="kv"><span>${tt('Physics L2 in progress','Fizică N2 în curs')}</span><b>7</b></div><div class="kv"><span>${tt('Anniversary show (senior)','Show aniversar (senior)')}</span><b>4</b></div></div>`}</div></div>`;
+};
+function renderQuiz(){ const w=document.getElementById('quizWrap'); if(!w)return; w.innerHTML=ACAD_Q.map((q,i)=>`<div class="quiz-card" id="qc${i}"><div class="quiz-q">${i+1}. ${q.q}</div>${q.o.map((o,j)=>`<div class="quiz-opt" id="qo${i}-${j}" onclick="pick(${i},${j})">${o[0]}</div>`).join('')}</div>`).join(''); }
+function pick(i,j){ ACAD_Q[i].sel=j; for(let k=0;k<ACAD_Q[i].o.length;k++)document.getElementById(`qo${i}-${k}`).classList.toggle('selected',k===j); }
+function submitQuiz(){ let s=0; ACAD_Q.forEach((q,i)=>{ for(let j=0;j<q.o.length;j++){const el=document.getElementById(`qo${i}-${j}`); if(j===q.a)el.classList.add('correct'); else if(q.sel===j)el.classList.add('wrong');} if(q.sel===q.a)s++; }); const r=document.getElementById('quizRes'); const pass=s>=3; r.style.display='block'; r.style.background=pass?'var(--teal-soft)':'var(--amber-soft)'; r.style.color=pass?'#0A5647':'#7A5210'; r.innerHTML=pass?tt(`✅ Certification obtained! Score ${s}/4 — the "Physics L2" track is now green.`,`✅ Certificat obținut! Scor ${s}/4 — traseul „Fizică N2" e acum verde.`):tt(`📚 Score ${s}/4 — review the material and try again.`,`📚 Scor ${s}/4 — reia materialul și încearcă din nou.`); document.getElementById('quizAct').style.display='none'; }
+
+/* EVALS — confidential */
+S.evals=()=>{
+  const rows=[
+   ['M. Popescu','Lycée Cl.2','12.05',tt('completed','finalizată'),'—'],
+   ['A. Radu','IBSB Preschool','—',tt('assigned','alocată'),tt('to complete','de completat')],
+   ['D. Marin','Cambridge','08.05',tt('completed','finalizată'),'—'],
+  ];
+  const mine=role==='evaluator'?rows.filter(r=>r[3]!=='—').slice(0,3):rows;
+  return hero('⭐ '+tt('In-Class Evaluations','Evaluări în clasă'),tt('Observation & evaluation','Observare & evaluare'),tt('Evaluations are structured, with an in-class observer. Confidential by design.','Evaluările sunt structurate, cu observator în clasă. Confidențiale prin design.'))+
+  `<div class="page-body">
+   <div class="banner banner-amber">🔒 <b>${tt('Confidential (OD-7 · org_settings).','Confidențial (OD-7 · org_settings).')}</b> ${tt('Evaluations are visible only to management + evaluators —','Evaluările sunt vizibile doar pentru management + evaluatori —')} <b>${tt('not','nu')}</b> ${tt('to the evaluated trainer.','pentru trainerul evaluat.')} ${role==='evaluator'?tt('As Evaluator you only see evaluations <b>assigned to you</b>.','Ca Evaluator vezi <b>doar evaluările alocate ție</b>.'):''}</div>
+   <div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Evaluated trainer','Trainer evaluat')}</th><th>${tt('Group','Grupă')}</th><th>${tt('Date','Dată')}</th><th>${tt('Status','Status')}</th><th>${tt('Action','Acțiune')}</th></tr></thead><tbody>
+   ${mine.map(r=>`<tr><td style="font-weight:600">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td><span class="badge ${r[3]===tt('completed','finalizată')?'b-teal':'b-amber'}">${r[3]}</span></td><td>${r[4]==='—'?'<button class="tbl-action">'+tt('View','Vezi')+'</button>':'<button class="tbl-action">'+tt('Complete','Completează')+'</button>'}</td></tr>`).join('')}
+   </tbody></table></div></div>`;
+};
+
+/* PLANS */
+S.plans=()=>{
+  const mine=role==='trainer'||role==='senior_trainer';
+  /* Module = real Wow Lab program name (recovered from an older mockup iteration) */
+  const P=[[tt('Baking-soda volcano','Vulcan cu bicarbonat'),'Chemistry','Chimie',tt('Elementary','Primar'),'Chemistry for me'],[tt('Eclipse — 3D model','Eclipsă — model 3D'),'Astronomy','Astronomie',tt('Elementary','Primar'),'Wow Astronomy'],[tt('Why does the orange float?','De ce plutește portocala?'),'Physics','Fizică',tt('Elementary','Primar'),'Magic of Physics'],[tt('Colors in milk','Culori în lapte'),'Chemistry','Chimie',tt('Elementary','Primar'),'Chemistry for me'],[tt('DNA from strawberries','ADN din căpșuni'),'Biology','Biologie',tt('Middle school','Gimnaziu'),'Detective Science'],[tt('Water rocket','Rachetă cu apă'),'Physics','Fizică',tt('Elementary','Primar'),'Magic of Physics']];
+  const rows=mine?P.filter(p=>p[3]===tt('Elementary','Primar')):P;
+  const db={Chemistry:'b-pink',Physics:'b-purple',Biology:'b-teal',Astronomy:'b-amber'};
+  return hero('📚 '+tt('Lesson Plans','Planuri de lecție'),mine?tt('Your groups\' plans','Planurile grupelor tale'):tt('Curriculum · Plans','Curriculum · Planuri'),tt('300+ plans across 15 modules. Trainers see filtered plans for their groups; Operations/Master see everything and can edit. Tags + multi-criteria filters — see dedicated Phase 1 epic.','300+ planuri, în 15 module. Trainerii văd filtrat pe grupele lor; Operations/Master văd tot și pot edita. Tag-uri + filtre multi-criteriu — vezi epic Phase 1 dedicat.'))+
+  `<div class="page-body">${mine?'<div class="banner banner-teal">👁 '+tt('Filtered to your groups: Elementary.','Filtrat pe grupele tale: Primar.')+'</div>':''}
+   <div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Title','Titlu')}</th><th>${tt('Module','Modul')}</th><th>${tt('Subject','Disciplină')}</th><th>${tt('Level','Nivel')}</th><th>${tt('Action','Acțiune')}</th></tr></thead><tbody>
+   ${rows.map(p=>`<tr><td style="font-weight:600">${p[0]}</td><td style="font-size:12px;color:var(--text-muted)">${p[4]}</td><td><span class="badge ${db[p[1]]}">${tt(p[1],p[2])}</span></td><td><span class="badge b-slate">${p[3]}</span></td><td><button class="tbl-action">${tt('View','Vezi')}</button>${mine?'':'<button class="tbl-action">'+tt('Edit','Editează')+'</button>'}</td></tr>`).join('')}
+   </tbody></table></div></div>`;
+};
+
+/* PRESENTATIONS */
+S.presentations=()=>{
+  const mine=role==='trainer'||role==='senior_trainer';
+  const P=[[tt('Baking-soda volcano','Vulcan cu bicarbonat'),tt('Chemistry · Elementary','Chimie · Primar'),'pink'],[tt('Solar system','Sistemul solar'),tt('Astronomy · Elementary','Astronomie · Primar'),'amber'],[tt('The Maillard reaction','Reacția Maillard'),tt('Chemistry · Middle school','Chimie · Gimnaziu'),'pink'],[tt('Magnets & materials','Magneți & materiale'),tt('Physics · Elementary','Fizică · Primar'),'purple'],[tt('DNA from strawberries','ADN din căpșuni'),tt('Biology · Middle school','Biologie · Gimnaziu'),'teal'],[tt('Rainbow in a glass','Curcubeu în pahar'),tt('Physics · Preschool','Fizică · Preșcolar'),'purple']];
+  return hero('📊 '+tt('Presentation Library','Biblioteca de prezentări'),tt('Standardized presentations','Prezentări standardizate'),tt('The official source of per-experiment slide decks. Trainers can "save-as" their own copy without modifying the original.','Sursa oficială de PPT-uri pe experiment. Trainerii pot face „save-as" o copie proprie fără să modifice originalul.'))+
+  `<div class="page-body">${mine?'<div class="banner banner-teal">✏️ '+tt('You can open and "save-as" your own copy (presentations.own).','Poți deschide și face „save-as" copia ta (presentations.own).')+'</div>':'<div class="banner banner-purple">🗂️ '+tt('As management you can publish/update the originals.','Ca management poți publica/actualiza originalele.')+'</div>'}
+   <div class="grid3">${P.map(p=>`<div class="pcard"><div class="pthumb" style="background:var(--${p[2]}-soft)">📊</div><div class="pinfo"><div class="pname">${p[0]}</div><div class="pmeta">${p[1]}</div><div style="margin-top:6px;display:flex;gap:5px">${mine?'<button class="tbl-action">Save-as</button>':'<button class="tbl-action">'+tt('Edit','Editează')+'</button>'}<button class="tbl-action">${tt('Open','Deschide')}</button></div></div></div>`).join('')}</div></div>`;
+};
+
+/* MEDIA — recovered from an older mockup iteration, was entirely missing from the prior refresh */
+S.media=()=>{
+  const tiles=[[tt('Wow Lab presentation video','Video prezentare Wow Lab'),'🎬','pink'],[tt('Brand images (press)','Imagini brand (presă)'),'🖼️','orange'],[tt('Workshop photos (no GDPR issues)','Foto ateliere (fără GDPR)'),'📷','teal'],[tt('2026 Key Visual','Key Visual 2026'),'✨','purple'],[tt('Logo & identity','Logo & identitate'),'🅦','amber'],['WhatsApp Media Dump','WhatsApp Media Dump','💬','teal']];
+  return hero('🎬 '+tt('Media','Media'),tt('Approved materials','Materiale aprobate'),tt('Approved materials for press, workshop photos (no GDPR issues), and brand files. Authored documents stay on Google Drive — this is just the index.','Materiale aprobate pentru presă, foto din ateliere (fără probleme GDPR) și fișierele de brand. Documentele autorate rămân pe Google Drive, aici e doar indexul.'),
+   '<button class="btn btn-primary btn-sm">+ '+tt('Upload','Încarcă')+'</button>')+
+  `<div class="page-body"><div class="banner banner-slate">🔗 ${tt('Linked to the WhatsApp satellite (separate decision, OD-9/OD-11) — only manually promoted materials, with GDPR classification applied, reach this screen.','Legătură cu satelitul WhatsApp (decizie separată, OD-9/OD-11) — doar materialele promovate manual, cu clasificare GDPR aplicată, ajung aici.')}</div>
+   <div class="grid3">${tiles.map(t=>`<div class="pcard"><div class="pthumb" style="background:var(--${t[2]}-soft);font-size:30px">${t[1]}</div><div class="pinfo"><div class="pname">${t[0]}</div></div></div>`).join('')}</div></div>`;
+};
+
+/* INVENTORY */
+S.inv_reuse=()=>{
+  const trainer=role==='trainer'||role==='senior_trainer';
+  const items=[
+   [tt('"Volcano" kit (kit-based)','Kit „Vulcan" (kit-based)'),tt('Kit','Kit'),'8 pcs','8 buc','M. Popescu',tt('in custody','în custodie'),'purple'],
+   [tt('Microscopes (quantity)','Microscoape (quantity)'),tt('Quantity','Cantitativ'),'14 pcs','14 buc',tt('warehouse','depozit'),tt('available','disponibil'),'teal'],
+   [tt('Kids\' lab coats (quantity)','Halate copii (quantity)'),tt('Quantity','Cantitativ'),'60 pcs','60 buc',tt('warehouse','depozit'),tt('available','disponibil'),'teal'],
+   [tt('"Water rocket" kit','Kit „Rachetă apă"'),tt('Kit','Kit'),'5 pcs','5 buc','A. Radu',tt('in custody','în custodie'),'purple'],
+   [tt('Magnet sets','Truse magneți'),tt('Quantity','Cantitativ'),'20 pcs','20 buc',tt('warehouse','depozit'),tt('2 pending return validation','2 la retur (de validat)'),'amber'],
+  ];
+  return hero('🔁 '+tt('Reusables · Custody','Refolosibile · Custodie'),trainer?tt('Materials in your custody','Materialele tale în custodie'):tt('Reusable assets','Active refolosibile'),tt('Reusables split into <b>quantity-based</b> and <b>kit-based</b>. Each has custody (who holds it) and return validation.','Refolosibilele se împart în <b>cantitative</b> și <b>kit-based</b>. Fiecare are custodie (cine îl are) și validare la retur.'))+
+  `<div class="page-body">
+   <div class="tabs"><span class="badge b-teal">${tt('Quantity-based','Cantitative')}</span><span class="badge b-purple">${tt('Kit-based','Kit-based')}</span><span class="badge b-amber">${tt('Custody & returns','Custodie & retur')}</span></div>
+   ${trainer?'<div class="banner banner-teal">📦 '+tt('You only see what\'s in your custody. On return, the custodian (Teo) validates condition.','Vezi doar ce ai tu în custodie. La retur, custodele (Teo) validează starea.')+'</div>':''}
+   <div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Item','Articol')}</th><th>${tt('Sub-type','Sub-tip')}</th><th>${tt('Quantity','Cantitate')}</th><th>${tt('Custody','Custodie')}</th><th>${tt('Condition','Stare')}</th></tr></thead><tbody>
+   ${items.map(i=>`<tr><td style="font-weight:600">${i[0]}</td><td><span class="badge b-slate">${i[1]}</span></td><td>${tt(i[2],i[3])}</td><td style="font-size:12px">${i[4]}</td><td><span class="badge b-${i[6]}">${i[5]}</span></td></tr>`).join('')}
+   </tbody></table></div></div>`;
+};
+S.inv_reag=()=>hero('⚠️ '+tt('Controlled Reagents','Reactivi controlați'),tt('Batch-tracked reagents','Reactivi cu control de lot'),tt('Reagents with batch tracking, quantity, stock threshold and expiry — the category with the strictest rules.','Reactivi cu urmărire de lot, cantitate, prag de stoc și expirare — categoria cu cele mai stricte reguli.'))+
+ `<div class="page-body"><div class="banner banner-amber">⚠️ ${tt('1 reagent below threshold. Stock alerts appear automatically in "Operational Alerts".','1 reactiv sub prag. Alertele de stoc apar automat în „Alerte operaționale".')}</div>
+ <div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Reagent','Reactiv')}</th><th>${tt('Batch','Lot')}</th><th>${tt('Quantity','Cantitate')}</th><th>${tt('Threshold','Prag')}</th><th>${tt('Expires','Expiră')}</th><th>${tt('Condition','Stare')}</th></tr></thead><tbody>
+ ${[[tt('Baking soda','Bicarbonat de sodiu'),'L-2411','3.2 kg','1 kg','—',tt('ok','ok')],[tt('Citric acid','Acid citric'),'L-2388','0.4 kg','1 kg','09/2026',tt('below threshold','sub prag')],[tt('Food coloring','Colorant alimentar'),'L-2402','8 bottles','3','12/2026',tt('ok','ok')],[tt('Peroxide 3%','Peroxid 3%'),'L-2377','1.5 L','0.5 L','05/2026',tt('expiring soon','expiră curând')]].map(r=>`<tr><td style="font-weight:600">${r[0]}</td><td style="font-family:monospace;font-size:11px">${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td><span class="badge ${r[5]===tt('ok','ok')?'b-teal':'b-amber'}">${r[5]}</span></td></tr>`).join('')}
+ </tbody></table></div></div>`;
+S.inv_cons=()=>hero('🧴 '+tt('Generic Consumables','Consumabile generice'),tt('Consumables','Consumabile'),tt('Consumables without individual tracking — simple stock records.','Consumabile fără urmărire individuală — evidență simplă de stoc.'))+
+ `<div class="page-body"><div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Consumable','Consumabil')}</th><th>${tt('Stock','Stoc')}</th><th>${tt('Unit','Unitate')}</th></tr></thead><tbody>
+ ${[[tt('Nitrile gloves','Mănuși nitril'),'12',tt('boxes','cutii')],[tt('Plastic cups','Pahare plastic'),'340',tt('pcs','buc')],[tt('Napkins','Șervete'),'60',tt('packs','pachete')],[tt('Balloons','Baloane'),'200',tt('pcs','buc')],[tt('Wooden sticks','Bețișoare lemn'),'500',tt('pcs','buc')]].map(r=>`<tr><td style="font-weight:600">${r[0]}</td><td>${r[1]}</td><td style="color:var(--text-muted)">${r[2]}</td></tr>`).join('')}
+ </tbody></table></div></div>`;
+S.procure=()=>hero('🛒 '+tt('Orders','Comenzi'),tt('Order visibility (V1)','Vizibilitate comenzi (V1)'),tt('<b>Procurement role — deferred from V1</b>. Real orders stay on existing channels (Auchan, WhatsApp); this is view/planning only, no approval workflow.','Rol <b>Procurement — amânat din V1</b>. Comenzile reale rămân pe canalele existente (Auchan, WhatsApp); aici e doar vizibilitate/planificare, fără flux de aprobare.'))+
+ `<div class="page-body"><div class="banner banner-slate">🛒 <code>procurement_manager</code> ${tt('exists in the catalog but is not instantiated in V1. The architecture keeps its place for Phase 2, without a redesign.','există în catalog dar nu e instanțiat în V1. Arhitectura păstrează locul pentru Phase 2, fără redesign.')}</div>
+ <div class="card"><div class="card-title">${tt('Suggested need (from stock thresholds)','Necesar sugerat (din praguri de stoc)')}</div><div class="kv"><span>${tt('Citric acid — below threshold','Acid citric — sub prag')}</span><span class="badge b-amber">${tt('to order','de comandat')}</span></div><div class="kv"><span>${tt('Peroxide 3% — expiring soon','Peroxid 3% — expiră curând')}</span><span class="badge b-amber">${tt('to renew','de reînnoit')}</span></div></div></div>`;
+
+/* BILLING GENERATOR */
+S.billing=()=>hero('🧾 '+tt('Billing Code Generator','Generator cod facturare'),tt('Code + trainer pay','Cod + plată trainer'),tt('Code format: <b>TYPE-numChildren-numWorkshopHours-numTrainerHours</b>. Enter the group data and the platform outputs the code + the trainer\'s calculated pay and material cost.','Format cod: <b>TIP-nrCopii-nrOreAtelier-nrOreTrainer</b>. Introdu datele grupei și platforma scoate codul + plata calculată a trainerului și costul de materiale.'))+
+ `<div class="page-body"><div class="banner banner-amber">⚠️ ${tt('The codes below are the ones historically used for billing. Anca\'s Phase 1 feedback calls for splitting this generator from trainer pay + a new "Workshop Type" taxonomy by module — reconcile before real build, not a final taxonomy.','Codurile de mai jos sunt cele folosite istoric la facturare. Feedback-ul Ancăi (Phase 1) cere separarea acestui generator de plata trainerilor + o taxonomie nouă "Tip atelier" pe module — de reconciliat înainte de construcția reală, nu taxonomie finală.')}</div><div class="grid2" style="align-items:start">
+   <div class="card"><div class="card-title">${tt('Group data','Date grupă')}</div>
+     <div class="field"><label>${tt('Revenue source type','Tip sursă de venit')}</label><select id="b_tip" onchange="calcBilling()">${Object.keys(TIPS).map(k=>`<option value="${k}">${k} — ${tt(TIPS[k].l,TIPS[k].lRo)}</option>`).join('')}</select></div>
+     <div class="field"><label>${tt('Children / participants','Nr. copii')}</label><input id="b_copii" type="number" value="12" oninput="calcBilling()"></div>
+     <div class="field"><label>${tt('Workshop hours','Ore atelier')}</label><select id="b_ore" onchange="calcBilling()"><option>0.5</option><option selected>1</option><option>1.5</option><option>2</option></select></div>
+     <div class="field"><label>${tt('Number of trainers','Nr. traineri')}</label><input id="b_train" type="number" value="1" oninput="calcBilling()"></div>
+     <div class="field"><label>${tt('Base rate / trainer (lei)','Tarif de bază / trainer (lei)')}</label><input id="b_tarif" type="number" value="150" oninput="calcBilling()"></div>
+     <label class="chk"><input type="checkbox" id="b_remote" onchange="calcBilling()"> ${tt('Remote school (+25%)','Școală îndepărtată (+25%)')}</label>
+     <label class="chk"><input type="checkbox" id="b_lang" onchange="calcBilling()"> ${tt('Foreign-language workshop (+20%)','Atelier în limbă străină (+20%)')}</label>
+   </div>
+   <div>
+     <div class="card" style="margin-bottom:14px"><div class="card-title">${tt('Generated code','Cod generat')}</div><div class="code-out" id="b_code">—</div><div style="font-size:12px;color:var(--text-muted);margin-top:8px" id="b_exp"></div></div>
+     <div class="card"><div class="card-title">${tt('Calculation','Calcul')}</div>
+       <div class="kv"><span>${tt('Pay / trainer','Plată / trainer')}</span><b id="b_pt">—</b></div>
+       <div class="kv"><span>${tt('Total trainer pay','Total plată traineri')}</span><b id="b_tt">—</b></div>
+       <div class="kv"><span>${tt('Estimated materials (≈children/12×30)','Cost materiale (≈copii/12×30)')}</span><b id="b_mat">—</b></div>
+       <div class="kv"><span>${tt('Total session cost','Total cost sesiune')}</span><b id="b_tot" style="color:var(--pink)">—</b></div>
+     </div>
+   </div>
+ </div></div>`;
+function calcBilling(){
+  const tip=document.getElementById('b_tip').value;
+  const copii=+document.getElementById('b_copii').value||0;
+  const ore=document.getElementById('b_ore').value;
+  const traineri=+document.getElementById('b_train').value||0;
+  const tarif=+document.getElementById('b_tarif').value||0;
+  const remote=document.getElementById('b_remote').checked;
+  const lang=document.getElementById('b_lang').checked;
+  const isSA=TIPS[tip].isSA; const d=parseFloat(ore);
+  let mult=1; if(d===1.5)mult=1.2; else if(d===2)mult=isSA?2:1.5; else if(d>2)mult=d;
+  let per=tarif*mult; if(remote)per*=1.25; if(lang)per*=1.20;
+  const totalT=per*traineri;
+  const oreTr=Math.round(d*(isSA&&d===2?2:1)*traineri*10)/10;
+  const mat=Math.round(copii/12*30);
+  const oreStr=(''+ore).replace('.',',');
+  const code=`${tip}-${copii}-${oreStr}-${(''+oreTr).replace('.',',')}`;
+  document.getElementById('b_code').textContent=code;
+  document.getElementById('b_exp').textContent=`${tt(TIPS[tip].l,TIPS[tip].lRo)} · ${copii} ${tt('children','copii')} · ${oreStr} ${tt('workshop hours','ore atelier')} · ${(''+oreTr).replace('.',',')} ${tt('trainer hours','ore trainer')}`;
+  document.getElementById('b_pt').textContent=per.toFixed(2)+' lei';
+  document.getElementById('b_tt').textContent=totalT.toFixed(2)+' lei';
+  document.getElementById('b_mat').textContent=mat+' lei';
+  document.getElementById('b_tot').textContent=(totalT+mat).toFixed(2)+' lei';
+}
+
+S.invoices=()=>hero('🗂️ '+tt('Invoices & Data','Facturi & date'),tt('Billing data','Date de facturare'),tt('The platform prepares invoice data (code + billing_rule + attendance). The actual fiscal invoice stays in SmartBill/SAGA.','Platforma pregătește datele de factură (cod + billing_rule + prezențe). Factura fiscală propriu-zisă rămâne în SmartBill/SAGA.'))+
+ `<div class="page-body"><div class="banner banner-slate">🧾 ${tt('Fiscal invoice →','Factura fiscală →')} <b>SmartBill / SAGA</b>. ${tt('Only the data feeding the invoice and balance lives here.','Aici stau doar datele care alimentează factura și balanța.')}</div>
+ <div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Code','Cod')}</th><th>${tt('Client','Client')}</th><th>${tt('Entity','Entitate')}</th><th>${tt('Attendances','Prezențe')}</th><th>${tt('Amount','Sumă')}</th><th>${tt('Status','Status')}</th></tr></thead><tbody>
+ ${[['SP-12-1-1','Lycée Français','Experimente Wow','11','1,045 lei',tt('to issue','de emis')],['SP-8-1-1','Cambridge','Experimente Wow','8','950 lei',tt('issued','emisă')],['COM-30-2-4','Electrica Furnizare','Bradine ADV','30',tt('offer','ofertă'),tt('to issue','de emis')]].map(r=>`<tr><td style="font-family:monospace;font-size:12px;font-weight:600">${r[0]}</td><td>${r[1]}</td><td style="font-size:11px;color:var(--text-muted)">${r[2]}</td><td>${r[3]}</td><td>${isFinance()?r[4]:'<span class="masked">•••</span>'}</td><td><span class="badge ${r[5]===tt('issued','emisă')?'b-teal':'b-amber'}">${r[5]}</span></td></tr>`).join('')}
+ </tbody></table></div></div>`;
+S.pay=()=>{ const mine=role==='trainer'||role==='senior_trainer';
+ return hero('💸 '+tt('Trainer Pay','Plată traineri'),mine?tt('Your pay','Plata ta'):tt('Trainer pay','Plată traineri'),tt('Derived from billing codes and trainer hours. Expense reports are validated separately.','Derivă din codurile de facturare și orele-trainer. Deconturile se validează separat.'))+
+ `<div class="page-body"><div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Trainer','Trainer')}</th><th>${tt('Hours','Ore')}</th><th>${tt('Sessions','Sesiuni')}</th><th>${tt('To pay','De plată')}</th><th>${tt('Status','Status')}</th></tr></thead><tbody>
+ ${(mine?[['M. Popescu','18','9','2,700 lei',tt('to pay','de plată')]]:[['M. Popescu','18','9','2,700 lei',tt('to pay','de plată')],['A. Radu','12','6','1,800 lei',tt('to pay','de plată')],['D. Marin','9','5','1,350 lei',tt('paid','plătit')]]).map(r=>`<tr><td style="font-weight:600">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td><span class="badge ${r[4]===tt('paid','plătit')?'b-teal':'b-amber'}">${r[4]}</span></td></tr>`).join('')}
+ </tbody></table></div></div>`; };
+
+/* CEO DASHBOARD */
+S.ceo=()=>hero('📈 '+tt('CEO Dashboard','Dashboard CEO'),tt('Revenue, forecast & profitability','Venituri, forecast & profitabilitate'),tt('Data source is the monthly balance import (all columns except Account and Turnover). Only Master + Finance Admin have access.','Sursa de date e importul lunar al balanței (toate coloanele mai puțin Cont și Rulaj). Doar Master + Finance Admin au acces.'))+
+ `<div class="page-body">
+   <div class="stats-row"><div class="stat-card"><div class="stat-num" style="color:var(--pink)">47,320 lei</div><div class="stat-label">${tt('Current month revenue','Venit luna curentă')}</div></div><div class="stat-card"><div class="stat-num" style="color:var(--teal)">92%</div><div class="stat-label">Actual vs Forecast</div></div><div class="stat-card"><div class="stat-num" style="color:var(--purple)">31%</div><div class="stat-label">${tt('Operating margin','Marjă operațională')}</div></div><div class="stat-card"><div class="stat-num" style="color:var(--amber)">3</div><div class="stat-label">${tt('Legal entities','Entități legale')}</div></div></div>
+   <div class="grid2"><div class="card"><div class="card-title">${tt('Forecast vs Actual (2026)','Forecast vs Actual (2026)')}</div>${lineChart()}<div class="legend"><span><span class="dot" style="background:var(--slate-light)"></span>Forecast</span><span><span class="dot" style="background:var(--pink)"></span>Actual</span></div></div>
+   <div class="card"><div class="card-title">${tt('Revenue by business line','Venit pe linie de business')}</div>${miniBars()}</div></div>
+ </div>`;
+function lineChart(){
+  const fc=[30,34,38,40,44,50,52,55,58,60,63,66], ac=[28,33,36,41,42,47,0,0,0,0,0,0];
+  const W=340,H=140,max=70,pad=6;
+  const X=i=>pad+i*((W-2*pad)/11), Y=v=>H-pad-(v/max)*(H-2*pad);
+  const line=(arr,col,dash)=>{const pts=arr.map((v,i)=>v?`${X(i)},${Y(v)}`:null).filter(Boolean).join(' ');return `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2.5" ${dash?'stroke-dasharray="4 4"':''} stroke-linecap="round"/>`;};
+  const dots=ac.map((v,i)=>v?`<circle cx="${X(i)}" cy="${Y(v)}" r="3" fill="#EC008C"/>`:'').join('');
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">${line(fc,'#C7BEC5',true)}${line(ac.filter(v=>v),'#EC008C',false)}${dots}</svg>`;
+}
+S.balance=()=>hero('📊 '+tt('Balance Import','Import balanță'),tt('Monthly balance import','Import balanță lunară'),tt('The monthly balance (Excel) feeds the CEO Dashboard. All columns are imported except Account and Turnover.','Balanța lunară (Excel) alimentează Dashboard-ul CEO. Se importă toate coloanele mai puțin Cont și Rulaj.'))+
+ `<div class="page-body"><div class="banner banner-amber">⚠️ ${tt('Missing import for','Lipsă import pentru')} <b>June 2026</b> — ${tt('CEO Dashboard isn\'t complete until it\'s uploaded.','Dashboard CEO nu e complet până la încărcare.')}</div>
+ <div class="card"><div class="card-title">${tt('Import history','Istoric importuri')}</div>${[['May 2026',tt('imported','importat'),'teal'],['April 2026',tt('imported','importat'),'teal'],['June 2026',tt('missing','lipsă'),'amber']].map(r=>`<div class="kv"><span>${r[0]}</span><span class="badge b-${r[2]}">${r[1]}</span></div>`).join('')}
+ <button class="btn btn-primary btn-sm" style="margin-top:12px">⬆ ${tt('Upload June balance','Încarcă balanță Iunie')}</button></div></div>`;
+
+/* PEOPLE / TEAM */
+S.team=()=>{
+  const people=[
+   ['Anca Tănăsescu','Master / CEO','pink','👑'],['Cătălina Trusan','Operations & Curriculum','teal','🗂️'],
+   ['Laura Moale','Finance Operations','amber','💸'],['Anka Orban','Finance Admin & Reporting','amber','📊'],
+   ['Teo Teodora','Inventory Custodian','teal','📦'],['Alexandra Nuțu','Community & People','pink','💚'],
+  ];
+  return hero('👥 '+tt('Team & Org','Echipă & Org'),tt('The Wow Lab people','Oamenii Wow Lab'),tt('Core team + 21 freelance trainers as independent entities. 14 roles, cumulative permissions (one person can hold several roles).','Nucleul + 21 traineri freelance ca entități independente. 14 roluri, permisiuni cumulative (un om poate avea mai multe roluri).'))+
+  `<div class="page-body"><div class="grid3">${people.map(p=>`<div class="card"><div style="display:flex;align-items:center;gap:11px"><div style="width:42px;height:42px;border-radius:50%;background:var(--${p[2]}-soft);display:flex;align-items:center;justify-content:center;font-size:18px">${p[3]}</div><div><div style="font-weight:700;font-size:13px">${p[0]}</div><div style="font-size:11px;color:var(--text-muted)">${p[1]}</div></div></div></div>`).join('')}</div>
+  <div class="tint tint-slate" style="margin-top:16px">🧑‍🔬 <b>${tt('21 freelance trainers','21 traineri freelance')}</b> — ${tt('each with Trainer / Senior Trainer role, independent entities.','fiecare cu rol Trainer / Senior Trainer, entități independente.')}</div></div>`;
+};
+S.trainers=()=>hero('🧑‍🔬 '+tt('Trainers','Traineri'),tt('The trainers','Trainerii'),tt('21+ active trainers, classified into 7 levels (determines base rate). Delivery, attendance, certifications, custody. Minimum 80% in-person classes.','21+ traineri activi, clasificați pe 7 niveluri (determină tariful de bază). Livrare, prezență, certificări, custodie. Minim 80% clase livrate în persoană.'))+
+ `<div class="page-body"><div class="banner banner-slate">📌 ${tt('"Zone" field (recovered from Anka\'s feedback) — helps allocate a trainer near the school quickly.','Câmp "Zonă" (recuperat din feedback Anka) — ajută la alocarea rapidă a unui trainer aproape de școală.')}</div><div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Trainer','Trainer')}</th><th>${tt('Role','Rol')}</th><th>${tt('Level','Nivel')}</th><th>${tt('Zone','Zonă')}</th><th>${tt('Groups','Grupe')}</th><th>${tt('Certifications','Certificări')}</th><th>${tt('% in-person','% în persoană')}</th></tr></thead><tbody>
+ ${[['M. Popescu','Senior Trainer','N5',tt('District 1','Sector 1'),'2','Chemistry L1, Physics L1','96%','teal'],['A. Radu','Trainer','N3',tt('District 3','Sector 3'),'1','Chemistry L1','88%','teal'],['D. Marin','Trainer','N2',tt('District 2','Sector 2'),'1','Physics L1','74%','amber'],['I. Vasile','Trainer','N4',tt('District 1','Sector 1'),'2','Chemistry L1, Bio','91%','teal']].map(r=>`<tr><td style="font-weight:600">${r[0]}</td><td><span class="badge b-purple">${r[1]}</span></td><td><span class="badge b-slate">${r[2]}</span></td><td style="font-size:12px">${r[3]}</td><td>${r[4]}</td><td style="font-size:12px">${r[5]}</td><td><span class="badge b-${r[7]}">${r[6]}</span></td></tr>`).join('')}
+ </tbody></table></div></div>`;
+S.recruit=()=>hero('🎯 '+tt('Recruitment','Recrutare'),tt('Candidate pipeline','Pipeline candidați'),tt('Candidates have isolated magic-link access (application + test class). They don\'t see the rest of the platform. Only staff (Ops/Community/Master) decides acceptance.','Candidații au acces izolat prin magic-link (aplicație + test class). Nu văd restul platformei. Doar echipa (Ops/Community/Master) decide acceptarea.'))+
+ `<div class="page-body"><div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Candidate','Candidat')}</th><th>${tt('Stage','Stadiu')}</th><th>${tt('Test class','Test class')}</th><th>${tt('Action','Acțiune')}</th></tr></thead><tbody>
+ <tr><td style="font-weight:600">R. Enache</td><td><span class="badge b-${candidateAccepted?'teal':'amber'}">${candidateAccepted?tt('accepted','acceptat'):tt('applied','aplicat')}</span></td><td>${tt('to schedule','de programat')}</td><td>${candidateAccepted
+   ?'<button class="tbl-action" onclick="toggleCandidateAccepted()">↩ '+tt('Revoke acceptance (demo)','Revocă acceptarea (demo)')+'</button>'
+   :'<button class="tbl-action" style="border-color:var(--teal);color:var(--teal)" onclick="toggleCandidateAccepted()">✓ '+tt('Accept into team (demo)','Acceptă în echipă (demo)')+'</button>'}</td></tr>
+ ${[['S. Dobre',tt('test class','test class'),'12.05','purple'],['M. Ilie',tt('applied','aplicat'),tt('to schedule','de programat'),'amber']].map(r=>`<tr><td style="font-weight:600">${r[0]}</td><td><span class="badge b-${r[3]}">${r[1]}</span></td><td>${r[2]}</td><td></td></tr>`).join('')}
+ </tbody></table></div></div>`;
+S.schedule=()=>hero('📅 '+tt('Scheduling & Allocation','Planificare & Alocări'),tt('Scheduling','Planificare'),tt('Trainer allocation and substitutions, readiness from certifications.','Alocarea și înlocuirile trainerilor, readiness din certificări.'))+`<div class="page-body"><div class="card"><div class="card-title">${tt('Allocations to cover','Alocări de acoperit')}</div>${allocMini()}</div></div>`;
+S.attendance=()=>hero('✅ '+tt('Attendance','Prezență'),tt('Attendance (numeric-first)','Prezență (numeric-first)'),tt('Billing derives from the attendance count — without requiring the child\'s named record.','Facturarea derivă din numărul de prezențe — fără să ceară fișa nominală a copilului.'))+`<div class="page-body"><div class="banner banner-teal">🔢 ${tt('Principle: no billing/KPI requires a "children" row to exist. Enrollments can be anonymous.','Principiu: nicio facturare/KPI nu cere existența unui rând „children". Înscrierile pot fi anonime.')}</div><div class="card"><div class="card-title">${tt('Recent sessions','Ultimele sesiuni')}</div><div class="kv"><span>Lycée Cl.2 · 12.05</span><b>11 / 12</b></div><div class="kv"><span>IBSB ${tt('Preschool','Preșcolari')} · 14.05</span><b>9 ${tt('anonymous','anonimi')}</b></div><div class="kv"><span>Cambridge · 11.05</span><b>8 / 8</b></div></div></div>`;
+S.delivered=()=>hero('⚗️ '+tt('Delivered Experiments','Experimente livrate'),tt('Experiment log','Log experimente'),tt('What experiment was delivered, where, and by whom — the client\'s operational history.','Ce experiment s-a livrat, unde și de cine — istoricul operațional al clientului.'))+`<div class="page-body"><div class="card"><div class="card-title">${tt('Recent','Recent')}</div><div class="kv"><span>${tt('Baking-soda volcano','Vulcan cu bicarbonat')} · Lycée</span><span class="badge b-teal">${tt('delivered','livrat')}</span></div><div class="kv"><span>${tt('Water rocket','Rachetă cu apă')} · IBSB</span><span class="badge b-teal">${tt('delivered','livrat')}</span></div><div class="kv"><span>${tt('DNA from strawberries','ADN din căpșuni')} · Cambridge</span><span class="badge b-teal">${tt('delivered','livrat')}</span></div></div></div>`;
+
+/* ADMIN */
+S.users=()=>{
+  const rows=Object.keys(ROLES).map(k=>{const R=ROLES[k];return `<tr class="${R.deferred?'deferred':''}"><td style="font-weight:600">${R.i} ${tt(R.l,R.lRo)}</td><td style="font-family:monospace;font-size:11px">${k}</td><td style="font-size:12px">${tt(R.who,R.whoRo)}</td><td>${R.deferred?'<span class="badge b-slate">'+tt('deferred V1','amânat V1')+'</span>':'<span class="badge b-teal">'+tt('active','activ')+'</span>'}</td></tr>`;}).join('');
+  return hero('🔐 '+tt('Users & Roles','Utilizatori & Roluri'),tt('The 14-role catalog','Catalogul de 14 roluri'),tt('Permissions across 4 levels (Menu / Record / Field / Action), enforced at the database level via RLS. Platform Owner is modeled via users.is_platform_owner (RLS bypass), not forced into user_org_roles.','Permisiuni pe 4 niveluri (Menu / Record / Field / Action), aplicate la nivel de bază de date prin RLS. Platform Owner e modelat prin users.is_platform_owner (bypass RLS), nu forțat în user_org_roles.'))+
+  `<div class="page-body"><div class="banner banner-purple">🧩 ${tt('Wildcards (e.g.','Wildcard-urile (ex.')} <code>curriculum.*</code>, <code>finance.operations.*</code>${tt(') are single literal rows — the RLS resolver does prefix/glob-matching.','sunt rânduri literale unice — resolver-ul RLS face prefix/glob-match.')} <b>${tt('Cumulative','Cumulative')}</b> ${tt('permissions across multi-role.','permisiuni pe multi-rol.')}</div>
+   <div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Role','Rol')}</th><th>role_key</th><th>${tt('Who (today)','Cine (azi)')}</th><th>${tt('State','Stare')}</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+};
+S.audit=()=>hero('📜 '+tt('Audit Log','Jurnal audit'),tt('Append-only audit','Audit append-only'),'audit_log + row_history '+tt('on audited tables (clients, contracts, contacts, user_org_roles, org_settings, legal_entities, file_refs).','pe tabele auditate (clients, contracts, contacts, user_org_roles, org_settings, legal_entities, file_refs).'))+
+ `<div class="page-body"><div class="card"><div class="card-title">${tt('Recent events','Evenimente recente')}</div>${[[tt('contract CTR-2026-014 → status "signed"','contract CTR-2026-014 → status „signed"'),'Contract Administrator',tt('today 10:12','azi 10:12')],[tt('client Avenor → status "paused"','client Avenor → status „paused"'),'Master',tt('yesterday 16:40','ieri 16:40')],[tt('evaluator role assigned to M. Popescu','rol evaluator alocat lui M. Popescu'),'Operations',tt('yesterday 09:15','ieri 09:15')]].map(r=>`<div style="padding:9px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:12.5px"><b>${r[0]}</b><div style="font-size:11px;color:var(--text-muted)">${r[1]} · ${r[2]}</div></div>`).join('')}</div></div>`;
+S.settings=()=>hero('⚙️ '+tt('Organization Settings','Setări organizație'),tt('Settings & policies','Setări & politici'),tt('Org-level policies — e.g. evaluation confidentiality, data retention.','Politici la nivel de org_settings — ex. confidențialitatea evaluărilor, retenție date.'))+
+ `<div class="page-body"><div class="card"><div class="card-title">${tt('Active policies','Politici active')}</div><div class="kv"><span>🔒 ${tt('Confidential evaluations (OD-7)','Evaluări confidențiale (OD-7)')}</span><span class="badge b-teal">${tt('on','pornit')}</span></div><div class="kv"><span>${tt('Anonymize children 36 months after group ends','Anonimizare copii la 36 luni post-grup')}</span><span class="badge b-teal">${tt('on','pornit')}</span></div><div class="kv"><span>${tt('Rejected-candidate retention — 36 months','Retenție candidați respinși — 36 luni')}</span><span class="badge b-teal">${tt('on','pornit')}</span></div><div class="kv"><span>${tt('Data region','Regiune date')}</span><b>EU / Frankfurt</b></div></div></div>`;
+
+/* ONBOARDING — its own tab, visible to everyone (roles:'*'), for anyone new to the team
+   once accepted — distinct from the Candidate Portal (which is strictly PRE-hire) */
+S.onboarding=()=>{
+ const steps=[[tt('Welcome video','Video de bun venit'),tt('Anca · ~4 min','Anca · ~4 min'),'b-pink',tt('✔ Watched','✔ Vizionat')],[tt('Mission, values & principles','Misiune, valori & principii'),tt('5 values · 17 principles','5 valori · 17 principii'),'b-purple',tt('In progress','În curs')],[tt('Your job description','Fișa ta de post'),tt('per your role','conform rolului tău'),'b-teal','—'],[tt('Beginner\'s guide','Ghidul începătorului'),tt('5 golden rules · checklist','5 reguli de aur · checklist'),'b-amber','—'],[tt('Safety rules','Reguli de siguranță'),tt('Mandatory document','Document obligatoriu'),'b-orange','—']];
+ return hero('🚀 '+tt('Onboarding','Onboarding'),tt('Getting-started kit','Kit-ul de început'),tt('For every new team member, regardless of role. Progress is tracked step by step — also visible to Community & People.','Pentru fiecare coleg(ă) nou(ă), indiferent de rol. Progresul e urmărit pas cu pas — vizibil și pentru Community & People.'),
+  '<span class="badge b-teal">1 / 5 '+tt('complete','complet')+'</span>')+
+ `<div class="page-body"><div class="grid2">${steps.map(s=>`<div class="card"><div class="kv"><span>${s[0]}<div style="font-size:11px;color:var(--text-muted);font-weight:400">${s[1]}</div></span><span class="badge ${s[2]}">${s[3]}</span></div></div>`).join('')}</div></div>`;
+};
+
+function toggleCandidateAccepted(){ candidateAccepted=!candidateAccepted; renderNav(); renderScreen(); }
+
+/* CANDIDATE PORTAL — strictly pre-hire, read-only regarding acceptance status
+   (the candidate cannot self-accept — that action lives in Recruitment, staff-only) */
+S.cand=(embed)=>{
+ const inner=`${candidateAccepted
+   ?`<div class="tint tint-teal" style="margin-bottom:14px">✅ <b>${tt('Accepted into the team!','Acceptat în echipă!')}</b> ${tt('The <b>Onboarding</b> tab just appeared in the menu — click it to see the getting-started kit.','Tab-ul <b>Onboarding</b> tocmai a apărut în meniu — apasă-l ca să vezi kit-ul de început.')}</div>`
+   :`<div class="tint tint-amber" style="margin-bottom:14px">⏳ <b>${tt('Application under review.','Aplicație în evaluare.')}</b> ${tt('You can start the Onboarding process as soon as you receive the team\'s acceptance.','Poți începe procesul de Onboarding imediat ce vei primi acceptul echipei.')}</div>`}
+ <div class="card" style="margin-bottom:14px"><div class="card-title">${tt('Team contacts & org chart','Contacte & organigramă echipă')}</div><div class="kv"><span>Anca Tănăsescu — Master/CEO</span><span class="badge b-pink">👑</span></div><div class="kv"><span>Cătălina Trusan — Operations & Curriculum</span><span class="badge b-teal">🗂️</span></div><div class="kv"><span>Alexandra Nuțu — Community & People</span><span class="badge b-pink">💚</span></div></div>
+ <div class="grid2"><div class="card"><div class="card-title">${tt('My application','Aplicația mea')}</div><div class="kv"><span>${tt('CV uploaded','CV încărcat')}</span><span class="badge b-teal">✓</span></div><div class="kv"><span>${tt('Motivation form','Formular motivație')}</span><span class="badge b-amber">${tt('to complete','de completat')}</span></div></div>
+ <div class="card"><div class="card-title">${tt('Test class','Test class')}</div><div class="kv"><span>${tt('Scheduling','Programare')}</span><b>${tt('to be set','de stabilit')}</b></div><button class="btn btn-primary btn-sm" style="margin-top:10px">${tt('Propose a time slot','Propune interval')}</button></div></div>`;
+ return embed?inner:hero('🚪 '+tt('Candidate Portal','Portal candidat'),tt('Your application','Aplicația ta'),tt('Isolated magic-link access. Per Anca\'s feedback: Recruitment→Academy flow — see dedicated Phase 1 epic, this screen is a draft.','Acces izolat prin magic-link. Conform feedback Anca: flux Recrutare→Academy — vezi epic Phase 1 dedicat, acest ecran e un draft.'))+`<div class="page-body">${inner}</div>`; };
+S.platform=()=>hero('🛡️ '+tt('Cross-org & Franchise','Cross-org & franciză'),'Platform Owner',tt('Cross-org superuser, the RLS-bypass condition. Franchise-ready: multiple organizations under the same platform.','Superuser cross-org, condiția de bypass RLS. Pregătit-de-franciză: mai multe organizații sub aceeași platformă.'))+
+ `<div class="page-body"><div class="banner banner-slate">🌐 ${tt('You see <b>all organizations</b>. Every other role is strictly isolated by organization_id via RLS.','Vezi <b>toate organizațiile</b>. Restul rolurilor sunt izolate strict pe organization_id prin RLS.')}</div>
+ <div class="card"><div class="card-title">${tt('Organizations','Organizații')}</div><div class="kv"><span>🏢 wow-lab (${tt('production','producție')})</span><span class="badge b-teal">${tt('active','activ')}</span></div><div class="kv"><span>🧪 wow-lab-test-b (is_test)</span><span class="badge b-purple">${tt('isolation test','test izolare')}</span></div><div class="kv"><span>➕ ${tt('Future franchise','Franciză viitoare')}</span><span class="badge b-slate">${tt('ready','pregătit')}</span></div></div></div>`;
+
+/* fallback */
+['schedule','attendance','delivered','trainers','recruit'].forEach(k=>{ if(!S[k])S[k]=()=>hero('','Work in progress',''); });
+
+function renderScreen(){
+  const fn=S[currentScreen]||S.dashboard;
+  document.getElementById('screen').innerHTML=fn();
+  if(currentScreen==='billing') calcBilling();
+  if(currentScreen==='academy') renderQuiz();
+}
+
+/* BOOT */
+(function initFromURL(){
+  try{
+    const params = new URLSearchParams(window.location.search);
+    const r = params.get('role');
+    if(r && ROLES[r]) role = r;
+    const l = params.get('locale');
+    if(l==='ro'||l==='en') locale=l;
+  }catch(e){}
+})();
+document.getElementById('langEnBtn').classList.toggle('active',locale==='en');
+document.getElementById('langRoBtn').classList.toggle('active',locale==='ro');
+buildRoleSelect(); renderNav(); renderScreen(); refreshChrome();
+</script>
+</body>
+</html>
