@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-07-31 17:13 (ora București)
+**Ultima actualizare:** 2026-08-05 17:22 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -128,6 +128,10 @@ DESCHISE, NECONFIRMATE (propuse dar fara raport de finalizare): (1) favicon-ul (
 CERINTA NOUA (aparuta din raspunsul Laurei, nu era in feedback-ul initial): modul de Costuri Admin (echipa admin-only: Anka, Laura, Raluca Margean) — structuri de tarif diferite per persoana (Anka: 3 tarife orare pe tip task; Raluca: tarif per-articol variabil, plata prin drepturi de autor; Laura: tarif orar unic). Admin-ii folosesc azi Toggl + raport PDF lunar catre Anca pt aprobare, apoi emit factura (exceptie: Raluca-drepturi de autor, Anca-salariat). Decizie inclinata (nu inca finala): mutam introducerea orelor de admin in aplicatie (similar trainerilor), pastrand Toggl ca sursa detaliata + arhiva PDF lunara. Adaugat ca schelet nou in machetă (ecran 'Costuri Admin', badge NEW) — necesita o sesiune scurta de scoping pe structurile exacte de tarif inainte de constructie reala in Phase 1.
 
 Corectie mica: numele complet al Teodorei e Teo Merisan (era placeholder 'Teo Teodora').
+
+26. 2026-08-05, 17:22 (ora București) — S3: shell de brand persistent pentru /whoami și /admin/users — commit 72a1296. Sidebar închis (wordmark gradient, nav Dashboard + Users & Roles condiționat de org.members.manage prin același RPC has_capability, fără hardcodare de rol), topbar (email + rol(uri), buton Sign out nou). Doar JSX schimbat pe /whoami și /admin/users — fetch de date, verificări de capabilitate și acțiunile invite/edit-roles/disable/enable rămân neatinse. /login, /auth/callback și / (home) confirmate neatinse (git diff gol). Verificat live real: magic link generat pentru Anca (organization_owner, are org.members.manage) — vede ambele intrări din nav și accesează /admin/users; magic link generat pentru Cătălina (operations_manager+curriculum_manager+evaluator, fără org.members.manage) — vede doar Dashboard în nav ȘI primește "Access denied" la acces direct pe /admin/users (blocat și server-side, nu doar ascuns cosmetic). Item deschis, neblocant: sidebar-ul nu e responsive pe mobil (lățime fixă, nu s-a cerut în task, doar semnalat).
+
+27. 2026-08-05, 17:22 (ora București) — Bug preexistent găsit și reparat (separat de S3): tabelul Members din /admin/users era gol dintotdeauna — commit d81db50. Cauză: user_org_roles are 2 foreign keys spre users (user_id și assigned_by), embed-ul `users(...)` era ambiguu, PostgREST respingea cu PGRST201, eroarea nu era verificată → listă goală silențios. Reparat: `users!user_org_roles_user_id_fkey(...)`. Verificat că user_id (nu assigned_by) e alegerea corectă semantic — altfel afișa emailul adminului repetat pe fiecare rând. Verificat live: 13 rânduri reale, fiecare cu emailul și rolurile corecte ale persoanei respective.
 
 ---
 
