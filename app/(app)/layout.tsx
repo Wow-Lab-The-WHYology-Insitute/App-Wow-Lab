@@ -1,8 +1,6 @@
-import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { NavLink } from "./nav-link";
-import { SignOutButton } from "./sign-out-button";
+import { ShellChrome } from "./shell-chrome";
 
 type MembershipRow = {
   organization_id: string;
@@ -54,37 +52,18 @@ export default async function AppLayout({
     }
   }
 
-  return (
-    <div className="flex min-h-screen">
-      <aside className="bg-sidebar sticky top-0 flex h-screen w-60 flex-shrink-0 flex-col">
-        <div className="flex items-center gap-2 p-6">
-          <Image
-            src="/logo-wowlab.png"
-            alt=""
-            width={28}
-            height={28}
-            className="h-7 w-auto"
-          />
-          <span className="font-display bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] bg-clip-text text-lg leading-none text-transparent">
-            WOW LAB OS
-          </span>
-        </div>
-        <nav className="flex flex-col gap-1 px-3">
-          <NavLink href="/whoami" label="Dashboard" />
-          {canManageUsers && <NavLink href="/admin/users" label="Users & Roles" />}
-        </nav>
-      </aside>
+  const navItems = [
+    { href: "/whoami", label: "Dashboard" },
+    ...(canManageUsers ? [{ href: "/admin/users", label: "Users & Roles" }] : []),
+  ];
 
-      <div className="bg-ink/[0.03] flex flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-black/5 bg-white px-8 py-4">
-          <div className="font-body text-sm">
-            <span className="text-ink font-semibold">{user.email}</span>
-            {roleLabel && <span className="text-muted ml-2">· {roleLabel}</span>}
-          </div>
-          <SignOutButton />
-        </header>
-        <main className="flex-1 p-8">{children}</main>
-      </div>
-    </div>
+  return (
+    <ShellChrome
+      navItems={navItems}
+      userEmail={user.email ?? ""}
+      roleLabel={roleLabel}
+    >
+      {children}
+    </ShellChrome>
   );
 }
