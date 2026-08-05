@@ -1,10 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 
-// S2: a bare diagnostic page proving the auth -> RLS loop works for a real
+// S2: a diagnostic page proving the auth -> RLS loop works for a real
 // logged-in session, not SQL Editor impersonation. Every query below runs
 // through the session client (anon key + this user's own JWT) — there is
-// no service_role anywhere in this file. See app/whoami/README.md (or the
-// chat report) for what each section is expected to show and why.
+// no service_role anywhere in this file. S3 (this pass) only restyled the
+// JSX below into the shared brand shell; the data-fetching is untouched.
 
 type OrgRow = { id: string; name: string; slug: string };
 
@@ -112,75 +112,98 @@ export default async function WhoAmIPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-8 font-mono text-sm">
-      <h1 className="mb-1 text-lg font-semibold">whoami (diagnostic)</h1>
-      <p className="mb-6 text-xs text-gray-500">
-        S2 proof: every value below came through your own session (anon key
-        + your JWT), never service_role. Bare page — S3 adds the brand
-        shell.
-      </p>
+    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+      <div>
+        <h1 className="font-display text-2xl text-brand-pink">Dashboard</h1>
+        <p className="font-body text-muted mt-1 text-sm">
+          Diagnostic view: every value below came through your own session
+          (anon key + your JWT), never service_role — proof the auth → RLS
+          loop works, not yet a real Phase 1 dashboard.
+        </p>
+      </div>
 
       <Section title="Signed in as">
-        <p>
-          {ownProfile?.email ?? user.email} ({user.id})
-        </p>
-        <p>is_platform_owner: {String(ownProfile?.is_platform_owner ?? false)}</p>
-        <p>status: {ownProfile?.status ?? "?"}</p>
+        <Kv label="Email" value={ownProfile?.email ?? user.email ?? "?"} />
+        <Kv label="User ID" value={user.id} mono />
+        <Kv
+          label="Platform owner"
+          value={String(ownProfile?.is_platform_owner ?? false)}
+        />
+        <Kv label="Status" value={ownProfile?.status ?? "?"} />
       </Section>
 
-      <Section title="Organizations visible via RLS (organizations table)">
-        {(visibleOrgs ?? []).length === 0 && <p>(none)</p>}
-        <ul className="list-inside list-disc">
-          {(visibleOrgs ?? []).map((o) => (
-            <li key={o.id}>
-              {o.slug} — {o.name}
-            </li>
-          ))}
-        </ul>
-      </Section>
-
-      <Section title="Your role(s) per organization (user_org_roles)">
-        {(memberships ?? []).length === 0 && (
-          <p>(none — no user_org_roles row for this user)</p>
+      <Section title="Organizations visible via RLS">
+        {(visibleOrgs ?? []).length === 0 ? (
+          <Empty>None</Empty>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {(visibleOrgs ?? []).map((o) => (
+              <li key={o.id} className="font-body text-ink text-sm">
+                <span className="font-semibold">{o.slug}</span> — {o.name}
+              </li>
+            ))}
+          </ul>
         )}
-        <ul className="list-inside list-disc">
-          {(memberships ?? []).map((m, i) => (
-            <li key={i}>
-              {m.organizations?.slug ?? m.organization_id}:{" "}
-              {m.roles?.display_name ?? "?"}
-            </li>
-          ))}
-        </ul>
       </Section>
 
-      <Section title="Resolved capabilities per organization (role_capabilities join)">
-        {(memberships ?? []).map((m, i) => (
-          <div key={i} className="mb-3">
-            <p className="font-semibold">
-              {m.organizations?.slug ?? m.organization_id}:
-            </p>
-            <ul className="list-inside list-disc">
+      <Section title="Your role(s) per organization">
+        {(memberships ?? []).length === 0 ? (
+          <Empty>No user_org_roles row for this user</Empty>
+        ) : (
+          <ul className="flex flex-wrap gap-2">
+            {(memberships ?? []).map((m, i) => (
+              <li key={i}>
+                <Badge>
+                  {m.organizations?.slug ?? m.organization_id}:{" "}
+                  {m.roles?.display_name ?? "?"}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      <Section title="Resolved capabilities per organization">
+        <div className="flex flex-col gap-4">
+          {(memberships ?? []).map((m, i) => (
+            <div key={i}>
+              <p className="font-body text-ink mb-2 text-sm font-semibold">
+                {m.organizations?.slug ?? m.organization_id}
+              </p>
               {m.roles && (capsByRole.get(m.roles.id)?.length ?? 0) > 0 ? (
-                capsByRole.get(m.roles.id)!.map((key) => <li key={key}>{key}</li>)
+                <ul className="flex flex-wrap gap-1.5">
+                  {capsByRole.get(m.roles.id)!.map((key) => (
+                    <li key={key}>
+                      <Badge mono>{key}</Badge>
+                    </li>
+                  ))}
+                </ul>
               ) : (
-                <li>(none)</li>
+                <Empty>None</Empty>
               )}
-            </ul>
-          </div>
-        ))}
+            </div>
+          ))}
+        </div>
       </Section>
 
       <Section title="Spot-check via app.has_capability() RPC">
-        <ul className="list-inside list-disc">
+        <ul className="flex flex-col gap-1.5">
           {spotCheckResults.map((r, i) => (
-            <li key={i}>
-              has_capability(&apos;{r.cap}&apos;, {r.org}) ={" "}
-              {String(r.allowed)}
+            <li
+              key={i}
+              className="font-body text-ink flex items-center gap-2 text-sm"
+            >
+              <span className="font-mono text-xs">
+                has_capability(&apos;{r.cap}&apos;, {r.org})
+              </span>
+              <Badge tone={r.allowed ? "neutral" : "pink"}>
+                {String(r.allowed)}
+              </Badge>
             </li>
           ))}
         </ul>
       </Section>
-    </main>
+    </div>
   );
 }
 
@@ -192,9 +215,56 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="mb-6 border-b pb-4">
-      <h2 className="mb-2 font-semibold">{title}</h2>
+    <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+      <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
+        {title}
+      </h2>
       {children}
     </section>
   );
+}
+
+function Kv({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex items-baseline justify-between border-b border-black/5 py-2 text-sm last:border-0">
+      <span className="font-body text-muted">{label}</span>
+      <span className={`text-ink ${mono ? "font-mono text-xs" : "font-body font-medium"}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function Badge({
+  children,
+  mono,
+  tone = "neutral",
+}: {
+  children: React.ReactNode;
+  mono?: boolean;
+  tone?: "neutral" | "pink";
+}) {
+  return (
+    <span
+      className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${mono ? "font-mono" : "font-body"} ${
+        tone === "pink"
+          ? "bg-brand-pink/10 text-brand-pink"
+          : "bg-ink/5 text-ink"
+      }`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function Empty({ children }: { children: React.ReactNode }) {
+  return <p className="font-body text-muted text-sm">{children}</p>;
 }

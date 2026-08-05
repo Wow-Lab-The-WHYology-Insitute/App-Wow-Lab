@@ -94,25 +94,28 @@ export default async function AdminUsersPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl p-8">
-      <h1 className="mb-1 text-xl font-semibold">Users &amp; roles</h1>
-      <p className="mb-6 text-sm text-gray-600">
-        Organization: {managedOrg.name} ({managedOrg.slug})
-      </p>
+    <div className="mx-auto flex max-w-4xl flex-col gap-6">
+      <div>
+        <h1 className="font-display text-2xl text-brand-pink">Users &amp; roles</h1>
+        <p className="font-body text-muted mt-1 text-sm">
+          Organization: <span className="text-ink font-medium">{managedOrg.name}</span>{" "}
+          ({managedOrg.slug})
+        </p>
+      </div>
       <AdminUsersClient
         orgId={managedOrg.id}
         roles={roles ?? []}
         members={Array.from(membersByUser.values())}
       />
-    </main>
+    </div>
   );
 }
 
 function AccessDenied({ reason }: { reason: string }) {
   return (
-    <main className="mx-auto max-w-md p-8">
-      <h1 className="text-lg font-semibold">Access denied</h1>
-      <p className="text-sm text-gray-600">{reason}</p>
-    </main>
+    <div className="mx-auto max-w-md rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+      <h1 className="font-display text-xl text-brand-pink">Access denied</h1>
+      <p className="font-body text-muted mt-1 text-sm">{reason}</p>
+    </div>
   );
 }
