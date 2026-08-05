@@ -29,6 +29,50 @@ export function AdminUsersClient({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // Lifted out of the row/card so the desktop table and the mobile card
+  // list (two separate DOM subtrees, shown/hidden purely via CSS — both
+  // stay mounted) always agree on which member is being edited and what's
+  // currently selected, instead of each holding its own local copy.
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [selectedRolesByUser, setSelectedRolesByUser] = useState<
+    Record<string, string[]>
+  >({});
+
+  function startEditing(member: Member) {
+    setSelectedRolesByUser((prev) => ({ ...prev, [member.userId]: member.roleIds }));
+    setEditingUserId(member.userId);
+  }
+
+  function cancelEditing(member: Member) {
+    setSelectedRolesByUser((prev) => ({ ...prev, [member.userId]: member.roleIds }));
+    setEditingUserId(null);
+  }
+
+  function selectedRolesFor(member: Member) {
+    return selectedRolesByUser[member.userId] ?? member.roleIds;
+  }
+
+  function saveEditing(member: Member) {
+    const roleIds = selectedRolesFor(member);
+    setError(null);
+    startTransition(async () => {
+      const result = await editRoles(orgId, member.userId, roleIds);
+      if (!result.ok) setError(result.error);
+    });
+    setEditingUserId(null);
+  }
+
+  function toggleAccess(member: Member) {
+    setError(null);
+    startTransition(async () => {
+      const result =
+        member.status === "disabled"
+          ? await enableAccess(orgId, member.userId)
+          : await disableAccess(orgId, member.userId);
+      if (!result.ok) setError(result.error);
+    });
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {error && (
@@ -54,7 +98,9 @@ export function AdminUsersClient({
         <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
           Members
         </h2>
-        <table className="w-full border-collapse text-sm">
+
+        {/* Desktop/tablet: unchanged table, shown at md and up. */}
+        <table className="hidden w-full border-collapse text-sm md:table">
           <thead>
             <tr className="font-body text-muted border-b border-black/5 text-left text-xs font-bold tracking-wide uppercase">
               <th className="py-2 pr-4 font-bold">Email</th>
@@ -65,37 +111,46 @@ export function AdminUsersClient({
           </thead>
           <tbody>
             {members.map((member) => (
-              <MemberRow
+              <MemberTableRow
                 key={member.userId}
-                orgId={orgId}
                 member={member}
                 roles={roles}
                 isPending={isPending}
-                onEditRoles={(roleIds) => {
-                  setError(null);
-                  startTransition(async () => {
-                    const result = await editRoles(
-                      orgId,
-                      member.userId,
-                      roleIds,
-                    );
-                    if (!result.ok) setError(result.error);
-                  });
-                }}
-                onToggleAccess={() => {
-                  setError(null);
-                  startTransition(async () => {
-                    const result =
-                      member.status === "disabled"
-                        ? await enableAccess(orgId, member.userId)
-                        : await disableAccess(orgId, member.userId);
-                    if (!result.ok) setError(result.error);
-                  });
-                }}
+                editing={editingUserId === member.userId}
+                selectedRoles={selectedRolesFor(member)}
+                onChangeSelectedRoles={(roleIds) =>
+                  setSelectedRolesByUser((prev) => ({ ...prev, [member.userId]: roleIds }))
+                }
+                onStartEditing={() => startEditing(member)}
+                onCancelEditing={() => cancelEditing(member)}
+                onSave={() => saveEditing(member)}
+                onToggleAccess={() => toggleAccess(member)}
               />
             ))}
           </tbody>
         </table>
+
+        {/* Mobile: table -> cards below md, standard responsive pattern —
+            a horizontal-scroll table isn't a real fix on a narrow screen. */}
+        <div className="flex flex-col gap-3 md:hidden">
+          {members.map((member) => (
+            <MemberCard
+              key={member.userId}
+              member={member}
+              roles={roles}
+              isPending={isPending}
+              editing={editingUserId === member.userId}
+              selectedRoles={selectedRolesFor(member)}
+              onChangeSelectedRoles={(roleIds) =>
+                setSelectedRolesByUser((prev) => ({ ...prev, [member.userId]: roleIds }))
+              }
+              onStartEditing={() => startEditing(member)}
+              onCancelEditing={() => cancelEditing(member)}
+              onSave={() => saveEditing(member)}
+              onToggleAccess={() => toggleAccess(member)}
+            />
+          ))}
+        </div>
       </section>
     </div>
   );
@@ -145,25 +200,31 @@ function InviteForm({
   );
 }
 
-function MemberRow({
-  member,
-  roles,
-  isPending,
-  onEditRoles,
-  onToggleAccess,
-}: {
-  orgId: string;
+type MemberRowProps = {
   member: Member;
   roles: Role[];
   isPending: boolean;
-  onEditRoles: (roleIds: string[]) => void;
+  editing: boolean;
+  selectedRoles: string[];
+  onChangeSelectedRoles: (roleIds: string[]) => void;
+  onStartEditing: () => void;
+  onCancelEditing: () => void;
+  onSave: () => void;
   onToggleAccess: () => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [selectedRoles, setSelectedRoles] = useState<string[]>(
-    member.roleIds,
-  );
+};
 
+function MemberTableRow({
+  member,
+  roles,
+  isPending,
+  editing,
+  selectedRoles,
+  onChangeSelectedRoles,
+  onStartEditing,
+  onCancelEditing,
+  onSave,
+  onToggleAccess,
+}: MemberRowProps) {
   return (
     <tr className="font-body text-ink border-b border-black/5 align-top last:border-0">
       <td className="py-3 pr-4">{member.email}</td>
@@ -173,26 +234,20 @@ function MemberRow({
             <RoleCheckboxes
               roles={roles}
               selected={selectedRoles}
-              onChange={setSelectedRoles}
+              onChange={onChangeSelectedRoles}
             />
             <div className="flex gap-2">
               <button
                 type="button"
                 disabled={isPending}
-                onClick={() => {
-                  onEditRoles(selectedRoles);
-                  setEditing(false);
-                }}
+                onClick={onSave}
                 className="rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-3 py-1 text-xs font-bold text-white uppercase"
               >
                 Save
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedRoles(member.roleIds);
-                  setEditing(false);
-                }}
+                onClick={onCancelEditing}
                 className="text-muted rounded-full border border-black/10 px-3 py-1 text-xs font-semibold uppercase"
               >
                 Cancel
@@ -210,7 +265,7 @@ function MemberRow({
             )}
             <button
               type="button"
-              onClick={() => setEditing(true)}
+              onClick={onStartEditing}
               className="text-brand-pink text-xs font-semibold underline"
             >
               edit
@@ -237,6 +292,91 @@ function MemberRow({
   );
 }
 
+// Mobile card: same info as the table row (email / roles / status /
+// actions), stacked — the standard "table -> cards" responsive pattern,
+// not a horizontal-scroll wrapper around the table.
+function MemberCard({
+  member,
+  roles,
+  isPending,
+  editing,
+  selectedRoles,
+  onChangeSelectedRoles,
+  onStartEditing,
+  onCancelEditing,
+  onSave,
+  onToggleAccess,
+}: MemberRowProps) {
+  return (
+    <div className="rounded-xl border border-black/5 p-4">
+      <p className="font-body text-ink font-semibold break-all">{member.email}</p>
+
+      {editing ? (
+        <div className="mt-3 flex flex-col gap-3">
+          <RoleCheckboxes
+            roles={roles}
+            selected={selectedRoles}
+            onChange={onChangeSelectedRoles}
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={onSave}
+              className="flex-1 rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-3 py-2 text-xs font-bold text-white uppercase disabled:opacity-50"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={onCancelEditing}
+              className="text-muted flex-1 rounded-full border border-black/10 px-3 py-2 text-xs font-semibold uppercase"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {member.roleLabels.length > 0 ? (
+              member.roleLabels.map((label) => (
+                <Badge key={label}>{label}</Badge>
+              ))
+            ) : (
+              <span className="text-muted text-xs">(no roles)</span>
+            )}
+          </div>
+
+          <div className="mt-2">
+            <Badge tone={member.status === "disabled" ? "pink" : "neutral"}>
+              {member.status}
+            </Badge>
+          </div>
+
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={onStartEditing}
+              className="text-brand-pink flex-1 rounded-full border border-black/10 px-3 py-2 text-xs font-semibold uppercase"
+            >
+              Edit roles
+            </button>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={onToggleAccess}
+              className="text-muted flex-1 rounded-full border border-black/10 px-3 py-2 text-xs font-semibold uppercase transition-colors hover:border-brand-pink hover:text-brand-pink disabled:opacity-50"
+            >
+              {member.status === "disabled" ? "Re-enable" : "Disable"}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function RoleCheckboxes({
   roles,
   selected,
@@ -247,7 +387,7 @@ function RoleCheckboxes({
   onChange: (roleIds: string[]) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:gap-3">
       {roles.map((role) => (
         <label
           key={role.id}
