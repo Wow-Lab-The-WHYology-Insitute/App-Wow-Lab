@@ -53,9 +53,16 @@ export default async function AdminUsersPage() {
     .select("id, key, display_name")
     .order("display_name");
 
+  // Disambiguated embed: user_org_roles has two FKs to users (user_id and
+  // assigned_by), so a bare `users(...)` embed is ambiguous and PostgREST
+  // rejects it (PGRST201). user_id (not assigned_by) is the correct
+  // target: this maps by row.user_id below, and email/status must
+  // describe that same member, not whoever assigned them the role.
   const { data: memberRows } = await supabase
     .from("user_org_roles")
-    .select("user_id, role_id, users(email, status), roles(id, key, display_name)")
+    .select(
+      "user_id, role_id, users!user_org_roles_user_id_fkey(email, status), roles(id, key, display_name)",
+    )
     .eq("organization_id", managedOrg.id);
 
   const membersByUser = new Map<
