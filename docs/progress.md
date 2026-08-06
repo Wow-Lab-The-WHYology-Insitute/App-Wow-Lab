@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-08-06 12:07 (ora București)
+**Ultima actualizare:** 2026-08-06 15:42 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -162,6 +162,14 @@ ATENȚIE reconfirmată: la momentul acestei verificări existau minimum 4 proces
 (2) Logo-ul WOW LAB OS trăiește doar în sidebar, invizibil pe mobil cât timp drawer-ul e închis (comportamentul implicit de la #28). Adăugat un logo mic în topbar-ul mobil, lângă butonul de hamburger, vizibil permanent sub 768px; desktop neschimbat (md:hidden pe elementul nou).
 Scope: doar shell-chrome.tsx (git diff --stat: 8 inserții/1 ștergere). Testat de Claude Code doar prin emulare (Playwright, 390×844 și 1280×900) — desktop confirmat neschimbat, mobil confirmat fără spațiu mort și cu logo vizibil în emulare, dar flagged explicit ca neconfirmat pe hardware real la momentul acelui raport.
 CONFIRMAT ULTERIOR de Mihai, pe telefon real: "se vede ok acum, vizual" — spațiul gol dispărut, logo vizibil. Cu asta, întregul lanț de fix-uri de mobil pornit la #26 (sidebar → conținut → dead-space/logo) e confirmat închis pe device fizic, nu doar emulat.
+
+34. 2026-08-06, 15:42 (ora București) — Investigat eșec real de magic-link: maxdigitalro+finops@gmail.com a primit "Couldn't send a link" pe /login (Turnstile trecuse cu succes), în timp ce maxdigitalro+master@gmail.com și maxdigitalro+ops@gmail.com au primit link-ul cu succes cu minute înainte, prin același formular. Fără cod nou — investigație + o descoperire de infrastructură importantă.
+
+Ce s-a putut confirma direct, cu dovezi reale: (1) config live (Management API) — `rate_limit_email_sent = 50` (neschimbat), dar există și `rate_limit_otp = 30`, un bucket SEPARAT, orar, per proiect, care — conform documentației oficiale Supabase — gestionează specific endpoint-ul `/auth/v1/otp` (exact ce apelează `signInWithOtp`), distinct de `rate_limit_email_sent` (care acoperă semnup/recovery/email-change). Există și un cooldown fix de 60s per-adresă, neconfigurabil, separat de ambele bucket-uri orare. (2) Diferența reală din `auth.users`: `recovery_sent_at` (marcajul GoTrue la fiecare dispecerizare reală de OTP/magic-link) e populat azi pentru master (10:10:11Z) și ops (10:00:58Z), dar NU a fost NICIODATĂ setat pentru finops — dovadă directă că request-ul lui a fost respins ÎNAINTE de dispecerizare, deci nu a ajuns niciodată la Resend (răspunde clar la întrebarea "a ajuns la Resend?": nu). (3) Cooldown-ul per-user exclus explicit — nu există nicio dispecerizare anterioară azi către finops cu care să se ciocnească.
+
+Ce NU s-a putut obține, spus direct (nu ghicit): eroarea brută GoTrue pentru acel request specific — API-ul de Logs Explorer (Management API, `/analytics/endpoints/logs.all`) a răspuns gol pentru `auth_logs`/`postgres_logs`/`edge_logs`, cu mai multe ferestre de timp — inaccesibil prin acest API pentru acest proiect, nu doar "fără date". Reproducere directă live (chemare signInWithOtp cu captcha real) blocată intenționat: Cloudflare Turnstile a refuzat corect un browser headless (Playwright) — nu s-a încercat ocolirea protecției anti-bot, nici pentru diagnostic.
+
+DESCOPERIRE IMPORTANTĂ, de reținut: `rate_limit_otp` NU e expus deloc în `config.toml` — confirmat din sursa reală a CLI-ului (`supabase/cli`, `packages/config/src/auth/rate_limit.ts`, ramura `develop`): schema `[auth.rate_limit]` are exact 7 câmpuri (`email_sent`, `sms_sent`, `anonymous_users`, `token_refresh`, `sign_in_sign_ups`, `token_verifications`, `web3`) — niciun câmp `otp`. Spre deosebire de `email_sent` (ridicat cu succes de la 2 la 50 la #24, prin config.toml + push), `rate_limit_otp` nu poate fi schimbat prin `config.toml`/`supabase config push` — singura cale reală ar fi un apel direct la Management API (`PATCH /v1/projects/{ref}/config/auth`), în afara fluxului urmărit în git. Decizie luată acum: NU s-a schimbat valoarea (rămâne 30) — Mihai a ales explicit să nu ridice limita încă, doar să reîncerce trimiterea către finops mai întâi (retrimiterea prin UI-ul real necesită Turnstile rezolvat de un om, nu se poate face din acest fir). Dacă apare din nou nevoia, calea corectă e apelul direct la Management API, cu diff live înainte/după, NU o intrare falsă în config.toml.
 
 ---
 
