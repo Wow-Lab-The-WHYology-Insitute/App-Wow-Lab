@@ -27,7 +27,7 @@ export function ShellChrome({
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-dvh">
       <aside
         className={`bg-sidebar fixed inset-y-0 left-0 z-40 flex w-60 flex-col transition-transform duration-200 ease-in-out md:sticky md:top-0 md:h-screen md:flex-shrink-0 md:translate-x-0 md:transition-none ${
           isOpen ? "translate-x-0" : "-translate-x-full"
@@ -90,6 +90,13 @@ export function ShellChrome({
                 />
               </svg>
             </button>
+            <Image
+              src="/logo-wowlab.png"
+              alt=""
+              width={22}
+              height={22}
+              className="h-[22px] w-auto shrink-0 md:hidden"
+            />
             <div className="font-body truncate text-sm">
               <span className="text-ink font-semibold">{userEmail}</span>
               {roleLabel && <span className="text-muted ml-2">· {roleLabel}</span>}
