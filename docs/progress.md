@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-08-05 18:36 (ora București)
+**Ultima actualizare:** 2026-08-06 12:07 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -156,6 +156,12 @@ Corecție la concluzia de la #31: afirmația "eșec vizibil de fiecare dată" (c
 Răspuns clar la întrebarea lui Mihai: "remove a role" prin /admin/users NU a funcționat niciodată corect înainte de fix-ul #30 — pentru orice utilizator care ajungea cu cel puțin un rol comun între setul vechi și cel nou, acțiunea eșua vizibil (eroare la Save); pentru cazurile de eliminare totală sau înlocuire fără suprapunere, eșua silențios (Save "reușea", dar baza de date rămânea neschimbată sau cu roluri suplimentare nedorite). Fix-ul #30 e cel care face acțiunea să funcționeze corect, pentru prima dată, în toate cazurile — confirmat live acum, a doua oară, independent.
 
 ATENȚIE reconfirmată: la momentul acestei verificări existau minimum 4 procese `claude` native-binary active pe mașină (ps aux), deci coliziunea de sesiuni concurente semnalată la #31 rămâne un risc curent, nu doar unul istoric — dacă Mihai are alte ferestre/sesiuni Claude Code deschise pe acest repo, merită verificat ce lucrează fiecare înainte de commit-uri, ca să nu se suprascrie reciproc modificări necommise (shell-chrome.tsx are în continuare o modificare necommisă, din acest fir, neatinsă de test).
+
+33. 2026-08-06, 11:50 (ora București) — Intrare adăugată retroactiv pentru un commit deja împins fără jurnal propriu: `1718467` (comis odată cu #32, în același push `9c31628`) — două fix-uri de mobil pe shell-chrome.tsx, distincte de #28/#29:
+(1) Spațiu gol mare sub conținut pe mobil, scroll în gol fără nimic afișat — cauză reală: `min-h-screen` (100vh) pe wrapper-ul rădăcină al shell-ului. Pe iOS Safari, `100vh` se calculează față de viewport-ul maxim (bara de adrese ascunsă), nu față de ce se vede efectiv cât timp bara e prezentă — diferența devine spațiu mort, scrollabil. Exact de-asta nu s-a putut reproduce în emulare la #28/#29 (emulatorul n-are bară dinamică, deci 100vh acolo mereu se potrivește cu viewport-ul real). Fix: `min-h-dvh` (dynamic viewport height, utilitar nativ Tailwind v4, fără config nou).
+(2) Logo-ul WOW LAB OS trăiește doar în sidebar, invizibil pe mobil cât timp drawer-ul e închis (comportamentul implicit de la #28). Adăugat un logo mic în topbar-ul mobil, lângă butonul de hamburger, vizibil permanent sub 768px; desktop neschimbat (md:hidden pe elementul nou).
+Scope: doar shell-chrome.tsx (git diff --stat: 8 inserții/1 ștergere). Testat de Claude Code doar prin emulare (Playwright, 390×844 și 1280×900) — desktop confirmat neschimbat, mobil confirmat fără spațiu mort și cu logo vizibil în emulare, dar flagged explicit ca neconfirmat pe hardware real la momentul acelui raport.
+CONFIRMAT ULTERIOR de Mihai, pe telefon real: "se vede ok acum, vizual" — spațiul gol dispărut, logo vizibil. Cu asta, întregul lanț de fix-uri de mobil pornit la #26 (sidebar → conținut → dead-space/logo) e confirmat închis pe device fizic, nu doar emulat.
 
 ---
 
