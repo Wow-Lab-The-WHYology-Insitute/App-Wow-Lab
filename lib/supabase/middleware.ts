@@ -4,7 +4,9 @@ import { NextResponse, type NextRequest } from "next/server";
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
 // Routes reachable without a session. Everything else redirects to /login.
-const PUBLIC_PATHS = ["/login", "/auth/callback"];
+// /mockup.html is a static file in public/ meant for external sharing
+// (e.g. with Anca) without requiring an app account.
+const PUBLIC_PATHS = ["/login", "/auth/callback", "/mockup.html"];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some(
