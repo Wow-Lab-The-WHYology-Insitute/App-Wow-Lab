@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-08-06 15:58 (ora București)
+**Ultima actualizare:** 2026-08-07 12:00 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -178,6 +178,12 @@ Cauza reală, găsită citind sursa GoTrue (`supabase/auth`, `internal/api/magic
 Teoria testată și confirmată live: reinvitare directă prin `admin.inviteUserByEmail` (aceeași cale ca invitațiile noi din admin-users-client.tsx, ocolește complet verificarea `disable_signup` de pe calea publică) — a reușit fără eroare, `confirmation_sent_at` sărit imediat de la data veche de ieri la un timestamp proaspăt (2026-08-06T12:58:35Z). Asta demonstrează atât cauza (calea publică blocată structural) cât și remediul (reinvitare prin admin API). finops ar trebui să aibă acum un email real, proaspăt, în inbox — după ce dă click și se confirmă prima dată, `/login` va funcționa normal pentru el de atunci încolo, la fel ca master/ops.
 
 `rate_limit_otp` a rămas neschimbat (30) — nu s-a mai pus problema să fie ridicat, pentru că teoria pe care s-ar fi bazat decizia s-a dovedit greșită. Lecție de reținut: un eșec care persistă neschimbat peste durata unei ferestre orare cunoscute NU e cauzat de acea fereastră — verifică starea per-user (confirmat/neconfirmat) înainte de a suspecta rate-limiting.
+
+36. 2026-08-07, 12:00 (ora București) — Verificare end-to-end pe toate 7 conturile reale (Anca, Cătălina, Laura, Anka, Alexandra, Teo, trainer de test) — confirmat manual de Mihai, captură cu captură, pe /whoami: rol afișat corect, meniu filtrat corect (doar Anca vede Users & Roles), capabilități rezolvate corect per rol, ambele spot-check-uri RPC corecte (true doar pentru Anca). Zero anomalii pe 7/7.
+
+Pe drum, bug real descoperit și reparat: useri invitați dar niciodată confirmați (n-au dat click pe emailul original de invitație) nu se pot loga prin formularul normal /login — GoTrue tratează userii neconfirmați ca isNewUser și îi redirecționează intern spre Signup(), care e blocat de disable_signup=true (garda de invite-only, intenționată). Nu e legat de rate-limit sau timp — e determinist, se întâmplă mereu pentru orice user în starea asta, indiferent cât se așteaptă. Confirmat prin sursa GoTrue (magic_link.go, signup.go) + dovadă live (recovery_sent_at niciodată populat pentru finops, deși master/ops aveau valori proaspete). Fix: NU un resend de magic-link, ci o invitație nouă (admin.inviteUserByEmail / generateLink(type:'invite')) — cale diferită, nu trece prin Signup(). Aplicat pentru toate 4 conturile rămase neconfirmate (finops, community, inventory, finadmin) — toate confirmate funcționale după.
+
+Ipoteze investigate și eliminate pe drum, cu dovadă: (1) plafonul orar email_sent=50/oră — infirmat direct din dashboard-ul Resend (doar 3 trimiteri reale în ultima oră relevantă, mult sub plafon); (2) plafonul separat rate_limit_otp=30/oră — inițial plauzibil, dar infirmat când eșecul a persistat identic după 2.5+ ore, mult peste orice fereastră glisantă posibilă; (3) linkul de invitație original al finops — expirat (invitat cu 24h în urmă, expirare 1h), confirmat prin eroarea reală auth-callback-failed la click. Descoperire notată pentru referință: rate_limit_otp NU e un câmp expus în schema config.toml a CLI-ului Supabase (confirmat din sursa supabase/cli) — singura cale de modificare e PATCH direct pe Management API, ocolind config.toml/git; NU a fost modificat (a rămas la valoarea implicită 30), pentru că nu era de fapt cauza.
 
 ---
 
