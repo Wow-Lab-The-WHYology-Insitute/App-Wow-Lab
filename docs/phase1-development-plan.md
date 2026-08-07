@@ -20,10 +20,10 @@
 | 6 | **Modul nou: Costuri Admin** (Anka/Laura/Raluca) | 🟡 **Schelet în machetă, needs scoping** | progress.md #25 | **Fără task Asana încă — de creat** |
 | 7 | Recrutare — Academy — Evaluare (flux complet) | 🟢 **Specificat + în machetă azi** | (sesiunea curentă) | Vezi detaliu §3 — offboarding rămâne gol |
 | 8 | Profil & Performanță Trainer | 🟡 **Parțial** | Asana Task 7 (epic) | Zonă/nivel/ore/bonus în machetă; KPI eficiență, disponibilitate, commitment — nefăcute |
-| 9 | Planuri de lecție & taxonomie "Tip Atelier" | 🔴 **Nefăcut** | Asana Task 9 (epic) | Doar banner de atenționare în machetă, taxonomia veche încă în uz |
+| 9 | Planuri de lecție & taxonomie "Tip Atelier" | 🟢 **Construit cu date reale, verificat** | commit d06e3a4 / progress.md #37 | 13 din 15 module reale confirmate, 26 planuri reale, filtrare funcțională. 2 module + cost auto-calc + istoric livrare rămân deschise |
 | 10 | Trainer principal/secundar per grupă | 🔴 **Nefăcut, FĂRĂ task Asana** | feedback rd. 43, 75 | **Gap real — niciodată nu a primit propriul task** |
 | 11 | Separare Generator cod facturare / Plată traineri | 🔴 **Nefăcut** | feedback rd. 34 | Doar banner de atenționare în machetă |
-| 12 | S3 — shell de brand pe restul aplicației reale | ✅ **Complet, verificat pe device real** | progress.md #26-33 | Vezi notă extinsă mai jos |
+| 12 | S3 — shell de brand pe restul aplicației reale | ✅ **Complet, verificat pe device real** | progress.md #26-33 | Vezi detaliu §4 |
 | 13 | Favicon (aplicația reală) | ⚪ **Neconfirmat** | progress.md #24 | Prompt dat, niciun raport de finalizare primit |
 | 14 | Pagină de confirmare /auth/callback (anti-scanner) | ⚪ **Neconfirmat, opțional** | progress.md #24 | Prompt dat, niciun raport primit — neblocant |
 | 15 | Developer security review gate | 🔵 **Închis — risc asumat conștient, decizie explicită Mihai (2026-08-07)** | Phase 0 | NU se face review extern; se merge mai departe pe baza suitei de teste RLS + verificării organice de azi (§4) |
@@ -41,6 +41,8 @@ Am comparat: cele 73 de rânduri din `wowlab_feedback_analiza.xlsx`, cele 9 task
 3. **Offboarding-ul trainerilor** — fluxul desenat de Anca (prin ChatGPT) acoperă recrutare–onboarding–evaluare foarte detaliat, dar **nu atinge deloc ce se întâmplă când un trainer renunță** (procedură menționată explicit ca "în lucru" în răspunsul inițial al Ancăi, rd. 26). Rămâne un gol real, nu doar o simplificare de machetă.
 
 Restul (S3, favicon, pagina anti-scanner, review de securitate) erau deja notate ca deschise în `progress.md` #24 — le-am adus aici doar ca să fie vizibile într-un singur loc, alături de tot restul planului.
+
+**Actualizare 2026-08-07:** toate cele 3 goluri de mai sus au primit task-uri Asana (Costuri Admin, Offboarding traineri — în așteptare, Trainer principal/secundar) — de confirmat de Mihai că au fost adăugate efectiv.
 
 ---
 
@@ -77,8 +79,9 @@ Construit peste `/whoami` și `/admin/users`: sidebar închis (wordmark gradient
 
 ## 5. Ce urmează, în ordine recomandată
 
-1. Creează cele 2 task-uri Asana lipsă (Trainer principal/secundar, Costuri Admin) — closes gap-ul de la §2
+1. Trainer principal/secundar, Costuri Admin, Offboarding traineri — task-uri Asana date, de confirmat că au fost adăugate — closes gap-ul de la §2
 2. Cere-i Ancăi procedura de offboarding, când e gata — al treilea gap de la §2
-3. Taxonomia "Tip Atelier" (Planuri de lecție) — următorul epic mare de atacat, blochează și separarea Generator cod facturare/Plată traineri
+3. ~~Taxonomia "Tip Atelier"~~ — ✅ **construită și verificată** (commit d06e3a4, progress.md #37) — vezi rândul #9 din tabel
+4. **Separare Generator cod facturare / Plată traineri** — era blocată de taxonomie, acum deblocată, următorul pas real de atacat (rândul #11 din tabel)
 
 *(Gate-ul WS-D nu mai apare aici — închis conștient la §4, nu mai e un pas de făcut.)*
