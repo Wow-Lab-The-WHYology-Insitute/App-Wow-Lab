@@ -26,7 +26,7 @@
 | 12 | S3 — shell de brand pe restul aplicației reale | ✅ **Complet, verificat pe device real** | progress.md #26-33 | Vezi notă extinsă mai jos |
 | 13 | Favicon (aplicația reală) | ⚪ **Neconfirmat** | progress.md #24 | Prompt dat, niciun raport de finalizare primit |
 | 14 | Pagină de confirmare /auth/callback (anti-scanner) | ⚪ **Neconfirmat, opțional** | progress.md #24 | Prompt dat, niciun raport primit — neblocant |
-| 15 | Developer security review gate | 🔵 **Închis — risc asumat conștient, decizie explicită Mihai (2026-08-07)** | Phase 0 | NU se face review extern; se merge mai departe pe baza suitei de teste RLS + verificării organice de azi (§5) |
+| 15 | Developer security review gate | 🔵 **Închis — risc asumat conștient, decizie explicită Mihai (2026-08-07)** | Phase 0 | NU se face review extern; se merge mai departe pe baza suitei de teste RLS + verificării organice de azi (§4) |
 
 **Legendă:** ✅ rezolvat/aplicat · 🟢 specificat, gata de construit real · 🟡 parțial/schelet · 🔴 nefăcut · 🔵 amânat conștient · ⚪ neconfirmat (prompt dat, fără raport)
 
@@ -59,7 +59,7 @@ Anca a recreat fluxul cu ChatGPT (2 diagrame: onboarding + evaluare) și a inclu
 
 ---
 
-## 5. Detaliu — S3 (shell de brand), complet și verificat pe device real
+## 4. Detaliu — S3 (shell de brand), complet și verificat pe device real
 
 Construit peste `/whoami` și `/admin/users`: sidebar închis (wordmark gradient), nav condiționată de `org.members.manage` (blocată și server-side, nu doar ascunsă cosmetic — confirmat cu Cătălina, fără acces, primește "Access denied" la acces direct), responsive complet pe mobil (sidebar, checkbox-uri, tabel–carduri, spațiu mort din `100vh`/`dvh`, logo în topbar mobil) — **toate confirmate pe iPhone real de Mihai**, nu doar emulat.
 
@@ -75,10 +75,10 @@ Construit peste `/whoami` și `/admin/users`: sidebar închis (wordmark gradient
 
 ---
 
-## 6. Ce urmează, în ordine recomandată
+## 5. Ce urmează, în ordine recomandată
 
 1. Creează cele 2 task-uri Asana lipsă (Trainer principal/secundar, Costuri Admin) — closes gap-ul de la §2
 2. Cere-i Ancăi procedura de offboarding, când e gata — al treilea gap de la §2
 3. Taxonomia "Tip Atelier" (Planuri de lecție) — următorul epic mare de atacat, blochează și separarea Generator cod facturare/Plată traineri
 
-*(Gate-ul WS-D nu mai apare aici — închis conștient la §5, nu mai e un pas de făcut.)*
+*(Gate-ul WS-D nu mai apare aici — închis conștient la §4, nu mai e un pas de făcut.)*
