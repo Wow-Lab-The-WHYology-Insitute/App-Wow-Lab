@@ -338,6 +338,38 @@ const TIPS={
  WLP:{l:'Wow Lab Party',lRo:'Wow Lab Party',isSA:false},
 };
 
+/* MODULE CURRICULARE — 13 din 15 module reale, confirmate direct din curricula Wow Lab
+   (centralizator cursuri 2025-26 + curricula completă de experimente, Google Sheets).
+   2 module rămân neconfirmate — de completat de Anca/Cătălina. "Tip atelier" (cerut de Anca)
+   s-a împărțit aici în DOUĂ câmpuri distincte — modul curricular vs. format de livrare —
+   pentru că din datele reale sunt clar lucruri diferite (un modul poate fi livrat recurent
+   SAU ca eveniment corporate, de ex.) — interpretare de confirmat cu Anca, nu decizie finală. */
+const MODULES={
+ gaga:{l:'GAGA',lRo:'GAGA',desc:'Geography & Anthropology',descRo:'Geografie & Antropologie'},
+ green_energy:{l:'Green Energy',lRo:'Green Energy',desc:'Sustainability & recycling',descRo:'Sustenabilitate & reciclare'},
+ wow_mix:{l:'Wow Lab Mix',lRo:'Wow Lab Mix',desc:'General mix — 3 age tiers',descRo:'Mix general — 3 niveluri de vârstă'},
+ tiktok:{l:'Wow TikTok Science',lRo:'Wow TikTok Science',desc:'Trend-style physics & chemistry',descRo:'Fizică-chimie, stil trend'},
+ food_science:{l:'Wow Food Science',lRo:'Wow Food Science',desc:'Food-themed physics & chemistry',descRo:'Fizică-chimie pe temă alimentară'},
+ lotions:{l:'Wow Lotions and Potions',lRo:'Wow Lotions and Potions',desc:'Cosmetics & potions',descRo:'Cosmetică & poțiuni'},
+ magic_physics:{l:'Magic of Physics',lRo:'Magic of Physics',desc:'Physics',descRo:'Fizică'},
+ chem_me:{l:'Chemistry for Me',lRo:'Chemistry for Me',desc:'Chemistry',descRo:'Chimie'},
+ chem_hs:{l:'Chemistry for Highschool',lRo:'Chemistry for Highschool',desc:'Advanced chemistry, 14-18y',descRo:'Chimie avansată, 14-18 ani'},
+ lights:{l:'Lights and Colours',lRo:'Lights and Colours',desc:'Optics',descRo:'Optică'},
+ detective:{l:'Detective Science',lRo:'Detective Science',desc:'Forensic chemistry',descRo:'Chimie forensică'},
+ astronomy:{l:'Astronomy',lRo:'Astronomie',desc:'Astronomy',descRo:'Astronomie'},
+ doctor:{l:'I Wanna Be a Doctor',lRo:'I Wanna Be a Doctor',desc:'Anatomy & medicine',descRo:'Anatomie & medicină'},
+};
+/* FORMAT LIVRARE — cum/unde se livrează atelierul; se suprapune parțial cu TIPS (facturare) —
+   de reconciliat, vezi banner pe Generator cod facturare. */
+const DELIVERY_FORMAT={
+ recurring:{l:'Recurring (school club)',lRo:'Recurent (club școală)'},
+ sa:{l:'Școala Altfel',lRo:'Școala Altfel'},
+ sv:{l:'Săptămâna Verde',lRo:'Săptămâna Verde'},
+ party:{l:'Party',lRo:'Party'},
+ corporate:{l:'Corporate',lRo:'Corporate'},
+ custom:{l:'Custom',lRo:'Custom'},
+};
+
 /* ═══════════ SCREENS ═══════════ */
 const S={};
 
@@ -456,17 +488,21 @@ S.contracts=()=>{
 /* GROUPS */
 S.groups=()=>{
   const mine=role==='trainer'||role==='senior_trainer';
+  /* modul: cheie din MODULES · fmt: cheie din DELIVERY_FORMAT · confirmați (după contract) vs facturați (după livrare) — pot diferi */
   const g=[
-   ['Lycée · Cl.2–3','Chemistry','Chimie','Tuesday 2pm','Marți 14:00','12','M. Popescu'],
-   ['IBSB · Preschool','Physics','Fizică','Wednesday 10am','Miercuri 10:00','—','A. Radu'],
-   ['Cambridge · Workshop','Biology','Biologie','Saturday 11am','Sâmbătă 11:00','8','M. Popescu'],
-   ['ING · Team Building','Corporate','Corporate','May 15','15 mai','30','team (3)'],
+   ['Lycée · Cl.2–3','chem_me','recurring','Tuesday 2pm','Marți 14:00','12','11','M. Popescu',tt('New group, first month — mid-year enrollments still settling.','Grupă nouă, prima lună — înscrierile de la mijlocul anului încă se stabilizează.')],
+   ['IBSB · Preschool','magic_physics','recurring','Wednesday 10am','Miercuri 10:00','9','9','A. Radu',''],
+   ['Cambridge · Weekend Workshop','doctor','recurring','Saturday 11am','Sâmbătă 11:00','8','8','M. Popescu',''],
+   ['Zitec · Team Building','wow_mix','corporate','May 15','15 mai','32','30','team (3)',tt('2 no-shows on delivery day — billed count reflects actual attendance.','2 absențe în ziua livrării — nr. facturat reflectă prezența reală.')],
+   ["King's Oak · Șc. Altfel","astronomy",'sa','Apr 20–24','20–24 apr','24','24','A. Radu',''],
   ];
-  const rows=(mine?g.filter(x=>x[6].includes('Popescu')):g);
-  return hero('🧪 '+tt('Groups & Enrollment','Grupe & Înscrieri'),mine?tt('Your groups','Grupele tale'):tt('Groups & enrollment','Grupe & înscrieri'),tt('Enrollments can be anonymous (numeric-first): billing derives from the attendance count, without requiring a named child record.','Înscrierile pot fi anonime (numeric-first): facturarea derivă din numărul de prezențe, fără să ceară fișa nominală a copilului.'))+
+  const rows=(mine?g.filter(x=>x[7].includes('Popescu')):g);
+  const fmtColor={recurring:'teal',sa:'amber',sv:'teal',party:'pink',corporate:'purple',custom:'slate'};
+  return hero('🧪 '+tt('Groups & Enrollment','Grupe & Înscrieri'),mine?tt('Your groups','Grupele tale'):tt('Groups & enrollment','Grupe & înscrieri'),tt('Confirmed count (post-contract) and billed count (post-delivery) are tracked separately — they can differ.','Numărul confirmat (după contract) și cel facturat (după livrare) sunt urmărite separat — pot diferi.'))+
   `<div class="page-body">${mine?'<div class="banner banner-teal">👁 '+tt('You only see groups assigned to you.','Vezi doar grupele alocate ție.')+'</div>':''}
-   <div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Group','Grupă')}</th><th>${tt('Subject','Disciplină')}</th><th>${tt('Schedule','Program')}</th><th>${tt('Enrolled','Înscriși')}</th><th>${tt('Trainer','Trainer')}</th></tr></thead><tbody>
-   ${rows.map(x=>`<tr><td style="font-weight:600">${x[0]}</td><td><span class="badge b-purple">${tt(x[1],x[2])}</span></td><td>${tt(x[3],x[4])}</td><td>${x[5]}</td><td style="font-size:12px">${x[6]}</td></tr>`).join('')}
+   <div class="banner banner-purple">🧩 ${tt('"Module" (what) and "Delivery format" (how/where) are tracked as two separate fields — not one combined "workshop type" as originally suggested. Confirm with Anca this split makes sense.','"Modul" (ce) și "Format livrare" (cum/unde) sunt urmărite ca două câmpuri separate — nu unul combinat "tip atelier", cum s-a sugerat inițial. De confirmat cu Anca dacă împărțirea are sens.')}</div>
+   <div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Group','Grupă')}</th><th>${tt('Module','Modul')}</th><th>${tt('Format','Format')}</th><th>${tt('Schedule','Program')}</th><th>${tt('Confirmed','Confirmați')}</th><th>${tt('Billed','Facturați')}</th><th>${tt('Trainer','Trainer')}</th></tr></thead><tbody>
+   ${rows.map(x=>`<tr><td style="font-weight:600">${x[0]}${x[8]?`<div style="font-size:11px;color:var(--text-muted);font-weight:400;margin-top:2px">${x[8]}</div>`:''}</td><td><span class="badge b-purple">${tt(MODULES[x[1]].l,MODULES[x[1]].lRo)}</span></td><td><span class="badge b-${fmtColor[x[2]]}">${tt(DELIVERY_FORMAT[x[2]].l,DELIVERY_FORMAT[x[2]].lRo)}</span></td><td>${tt(x[3],x[4])}</td><td>${x[5]}</td><td style="font-weight:600${x[5]!==x[6]?';color:var(--pink)':''}">${x[6]}</td><td style="font-size:12px">${x[7]}</td></tr>`).join('')}
    </tbody></table></div></div>`;
 };
 
@@ -478,63 +514,133 @@ const ACAD_Q=[
  {q:tt('What do you do if you finish the experiment early?','Ce faci dacă termini experimentul mai devreme?'),o:[[tt('Free play','Joacă liberă'),tt('Free play','Joacă liberă')],[tt('Break','Pauză'),tt('Break','Pauză')],[tt('You\'ve prepared a backup experiment','Ai pregătit un experiment de rezervă'),tt('You\'ve prepared a backup experiment','Ai pregătit un experiment de rezervă')],[tt('Put on a video','Pui un video'),tt('Put on a video','Pui un video')]],a:2},
 ];
 S.academy=()=>{
-  const tracks=[
-   [tt('Classroom safety','Siguranță în clasă'),'trainer',tt('obtained','obținut'),'teal'],
-   [tt('Chemistry — level 1','Chimie — nivel 1'),'trainer',tt('obtained','obținut'),'teal'],
-   [tt('Physics — level 2','Fizică — nivel 2'),'trainer',tt('in progress','în curs'),'amber'],
-   [tt('Anniversary show','Show aniversar'),'senior_trainer',tt('not started','de început'),'slate'],
+  /* 4-state module progress per the confirmed onboarding flow: assigned -> access granted -> quiz completed -> certified */
+  const modules=[
+   ['Classroom safety','Siguranță în clasă',true,true,true,true],
+   ['Chemistry for Me','Chemistry for Me',true,true,true,true],
+   ['Detective Science','Detective Science',true,true,false,false],
+   ['Green Week','Săptămâna Verde',true,false,false,false],
   ];
+  const stateLabel=(m,i)=>{ const keys=['assigned','access','quiz','certified']; const labels={assigned:tt('Assigned','Alocat'),access:tt('Access','Acces'),quiz:tt('Quiz','Quiz'),certified:tt('Certified','Certificat')}; return `<span class="badge ${m[i+2]?'b-teal':'b-slate'}" style="margin-right:4px" title="${labels[keys[i]]}">${m[i+2]?'✓':'—'} ${labels[keys[i]]}</span>`; };
   const mgmt=role==='master'||role==='ops'||role==='community';
   let quiz='';
   if(role==='trainer'||role==='senior_trainer'){
-    quiz=`<div class="card"><div class="card-title">🎓 ${tt('Certification test — Physics level 2','Test de certificare — Fizică nivel 2')}</div><div id="quizWrap"></div><div id="quizAct" style="margin-top:12px"><button class="btn btn-primary" onclick="submitQuiz()">${tt('Submit test','Trimite testul')}</button></div><div id="quizRes" style="display:none;margin-top:12px;padding:12px 14px;border-radius:var(--r-sm)"></div></div>`;
+    quiz=`<div class="card"><div class="card-title">🎓 ${tt('Certification test — Detective Science','Test de certificare — Detective Science')}</div><div id="quizWrap"></div><div id="quizAct" style="margin-top:12px"><button class="btn btn-primary" onclick="submitQuiz()">${tt('Submit test','Trimite testul')}</button></div><div id="quizRes" style="display:none;margin-top:12px;padding:12px 14px;border-radius:var(--r-sm)"></div></div>`;
   }
-  return hero('🎓 WLab Academy',tt('Certifications & training','Certificări & training'),tt('Certification tracks with quiz tests. Certification unlocks which workshop types a trainer can deliver; readiness feeds into allocation.','Trasee de certificare cu test grilă. Certificarea deblochează tipurile de ateliere pe care trainerul le poate livra; readiness-ul intră în alocări.'))+
+  return hero('🎓 WLab Academy',tt('Certifications & training','Certificări & training'),tt('Module-by-module progress: assigned → resource access → quiz completed → certified for independent teaching. Certification unlocks which workshop types a trainer can deliver.','Progres pe modul: alocat → acces resurse → quiz completat → certificat pentru predare independentă. Certificarea deblochează tipurile de ateliere pe care trainerul le poate livra.'))+
   `<div class="page-body">
-   ${mgmt?'<div class="banner banner-purple">🗂️ '+tt('As management you see every trainer\'s progress and can perform','Ca management vezi progresul tuturor trainerilor și poți face')+' <code>certifications.override</code>.</div>':'<div class="banner banner-teal">👁 '+tt('You only see your own certifications.','Vezi doar certificările tale.')+'</div>'}
-   <div class="grid2"><div class="card"><div class="card-title">${tt('Your tracks','Traseele tale')}</div>${tracks.map(t=>`<div class="kv"><span>${t[0]} <span style="font-size:10px;color:var(--text-muted)">· ${t[1]}</span></span><span class="badge b-${t[3]}">${t[2]}</span></div>`).join('')}</div>${quiz||`<div class="card"><div class="card-title">${tt('Cohort statistics','Statistici cohortă')}</div><div class="kv"><span>${tt('Chemistry L1 certified trainers','Traineri certificați Chimie N1')}</span><b>19/21</b></div><div class="kv"><span>${tt('Physics L2 in progress','Fizică N2 în curs')}</span><b>7</b></div><div class="kv"><span>${tt('Anniversary show (senior)','Show aniversar (senior)')}</span><b>4</b></div></div>`}</div></div>`;
+   ${mgmt?'<div class="banner banner-purple">🗂️ '+tt('As management you see every trainer\'s progress and can perform','Ca management vezi progresul tuturor trainerilor și poți face')+' <code>certifications.override</code>.</div>':'<div class="banner banner-teal">👁 '+tt('You only see your own module progress.','Vezi doar progresul tău pe module.')+'</div>'}
+   <div class="grid2"><div class="card"><div class="card-title">${tt('Your modules','Modulele tale')}</div>${modules.map(m=>`<div class="kv" style="flex-direction:column;align-items:flex-start;gap:6px"><span style="font-weight:600">${tt(m[0],m[1])}</span><span>${[0,1,2,3].map(i=>stateLabel(m,i)).join('')}</span></div>`).join('')}</div>${quiz||`<div class="card"><div class="card-title">${tt('Cohort statistics','Statistici cohortă')}</div><div class="kv"><span>${tt('Chemistry for Me — certified','Chemistry for Me — certificați')}</span><b>19/21</b></div><div class="kv"><span>${tt('Detective Science — quiz pending','Detective Science — quiz în așteptare')}</span><b>7</b></div><div class="kv"><span>${tt('Green Week — access granted only','Săptămâna Verde — doar acces acordat')}</span><b>4</b></div></div>`}</div></div>`;
 };
 function renderQuiz(){ const w=document.getElementById('quizWrap'); if(!w)return; w.innerHTML=ACAD_Q.map((q,i)=>`<div class="quiz-card" id="qc${i}"><div class="quiz-q">${i+1}. ${q.q}</div>${q.o.map((o,j)=>`<div class="quiz-opt" id="qo${i}-${j}" onclick="pick(${i},${j})">${o[0]}</div>`).join('')}</div>`).join(''); }
 function pick(i,j){ ACAD_Q[i].sel=j; for(let k=0;k<ACAD_Q[i].o.length;k++)document.getElementById(`qo${i}-${k}`).classList.toggle('selected',k===j); }
 function submitQuiz(){ let s=0; ACAD_Q.forEach((q,i)=>{ for(let j=0;j<q.o.length;j++){const el=document.getElementById(`qo${i}-${j}`); if(j===q.a)el.classList.add('correct'); else if(q.sel===j)el.classList.add('wrong');} if(q.sel===q.a)s++; }); const r=document.getElementById('quizRes'); const pass=s>=3; r.style.display='block'; r.style.background=pass?'var(--teal-soft)':'var(--amber-soft)'; r.style.color=pass?'#0A5647':'#7A5210'; r.innerHTML=pass?tt(`✅ Certification obtained! Score ${s}/4 — the "Physics L2" track is now green.`,`✅ Certificat obținut! Scor ${s}/4 — traseul „Fizică N2" e acum verde.`):tt(`📚 Score ${s}/4 — review the material and try again.`,`📚 Scor ${s}/4 — reia materialul și încearcă din nou.`); document.getElementById('quizAct').style.display='none'; }
 
-/* EVALS — confidential */
+/* EVALS — confidential. Reworked per Anca's detailed flow: 3-month classroom eval (recurring,
+   auto-calculated) vs trainer-requested support observation vs Annual evaluation (separate cycle,
+   external Google Forms + Sheets — never recreated here, only link/status/responsible/next-action). */
 S.evals=()=>{
-  const rows=[
-   ['M. Popescu','Lycée Cl.2','12.05',tt('completed','finalizată'),'—'],
-   ['A. Radu','IBSB Preschool','—',tt('assigned','alocată'),tt('to complete','de completat')],
-   ['D. Marin','Cambridge','08.05',tt('completed','finalizată'),'—'],
+  const classroom=[
+   ['M. Popescu','Lycée Cl.2','12.05',tt('completed','finalizată'),'—','D. Marin'],
+   ['A. Radu','IBSB Preschool','—',tt('scheduled','programată'),tt('to complete','de completat'),'M. Popescu'],
+   ['D. Marin','Cambridge','08.05',tt('completed','finalizată'),'—','M. Popescu'],
+   ['I. Vasile',tt('requested by trainer','solicitată de trainer'),'—',tt('awaiting evaluator assignment','în așteptarea alocării evaluator'),tt('assign evaluator','alocă evaluator'),'—'],
   ];
-  const mine=role==='evaluator'?rows.filter(r=>r[3]!=='—').slice(0,3):rows;
+  const annual=[
+   ['M. Popescu',tt('self-eval + Forms sent','auto-eval + Forms trimis'),tt('completed','completat'),'Anca',tt('Schedule discussion','Programează discuția')],
+   ['A. Radu',tt('self-eval sent, peer review requested','auto-eval trimis, peer review cerut'),tt('pending','în așteptare'),'Cătălina',tt('Follow up on Forms','Urmărește Forms-ul')],
+  ];
+  const mine=role==='evaluator'?classroom.filter(r=>r[3]!=='—'&&r[3]!==tt('scheduled','programată')).slice(0,3):classroom;
   return hero('⭐ '+tt('In-Class Evaluations','Evaluări în clasă'),tt('Observation & evaluation','Observare & evaluare'),tt('Evaluations are structured, with an in-class observer. Confidential by design.','Evaluările sunt structurate, cu observator în clasă. Confidențiale prin design.'))+
   `<div class="page-body">
    <div class="banner banner-amber">🔒 <b>${tt('Confidential (OD-7 · org_settings).','Confidențial (OD-7 · org_settings).')}</b> ${tt('Evaluations are visible only to management + evaluators —','Evaluările sunt vizibile doar pentru management + evaluatori —')} <b>${tt('not','nu')}</b> ${tt('to the evaluated trainer.','pentru trainerul evaluat.')} ${role==='evaluator'?tt('As Evaluator you only see evaluations <b>assigned to you</b>.','Ca Evaluator vezi <b>doar evaluările alocate ție</b>.'):''}</div>
-   <div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Evaluated trainer','Trainer evaluat')}</th><th>${tt('Group','Grupă')}</th><th>${tt('Date','Dată')}</th><th>${tt('Status','Status')}</th><th>${tt('Action','Acțiune')}</th></tr></thead><tbody>
-   ${mine.map(r=>`<tr><td style="font-weight:600">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td><span class="badge ${r[3]===tt('completed','finalizată')?'b-teal':'b-amber'}">${r[3]}</span></td><td>${r[4]==='—'?'<button class="tbl-action">'+tt('View','Vezi')+'</button>':'<button class="tbl-action">'+tt('Complete','Completează')+'</button>'}</td></tr>`).join('')}
-   </tbody></table></div></div>`;
+   <div class="tabs"><span class="tab active">${tt('3-Month / Requested','3 luni / La cerere')}</span><span class="tab">${tt('Annual','Anual')}</span></div>
+   <div class="card" style="padding:0;overflow:hidden;margin-bottom:16px"><table class="data-table"><thead><tr><th>${tt('Evaluated trainer','Trainer evaluat')}</th><th>${tt('Group','Grupă')}</th><th>${tt('Date','Dată')}</th><th>${tt('Status','Status')}</th><th>${tt('Evaluator','Evaluator')}</th><th>${tt('Action','Acțiune')}</th></tr></thead><tbody>
+   ${mine.map(r=>`<tr><td style="font-weight:600">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td><span class="badge ${r[3]===tt('completed','finalizată')?'b-teal':'b-amber'}">${r[3]}</span></td><td style="font-size:12px">${r[5]}</td><td>${r[4]==='—'?'<button class="tbl-action">'+tt('View','Vezi')+'</button>':'<button class="tbl-action">'+r[4]+'</button>'}</td></tr>`).join('')}
+   </tbody></table></div>
+   <div class="card-title" style="padding-left:2px">📋 ${tt('Annual evaluation cycle','Ciclu evaluare anuală')}</div>
+   <div class="card" style="padding:0;overflow:hidden;margin-top:8px"><table class="data-table"><thead><tr><th>${tt('Trainer','Trainer')}</th><th>${tt('Forms status (external)','Status Forms (extern)')}</th><th>${tt('Completion','Completare')}</th><th>${tt('Evaluator','Evaluator')}</th><th>${tt('Next action','Acțiune următoare')}</th></tr></thead><tbody>
+   ${annual.map(r=>`<tr><td style="font-weight:600">${r[0]}</td><td style="font-size:12px">${r[1]} 🔗</td><td><span class="badge ${r[2]===tt('completed','completat')?'b-teal':'b-amber'}">${r[2]}</span></td><td style="font-size:12px">${r[3]}</td><td style="font-size:12px">${r[4]}</td></tr>`).join('')}
+   </tbody></table></div>
+   <div class="banner banner-slate" style="margin-top:14px">📎 ${tt('Self-evaluation and peer review happen via Google Forms; responses feed a Google Sheet. Neither is recreated here — WOW LAB OS only shows the link, completion status, assigned evaluator, and next action. Conclusions + development plan are logged here after the annual discussion.','Auto-evaluarea și peer review-ul se fac prin Google Forms; răspunsurile alimentează un Google Sheet. Niciunul nu e recreat aici — WOW LAB OS arată doar linkul, statusul de completare, evaluatorul alocat și acțiunea următoare. Concluziile + planul de dezvoltare se loghează aici după discuția anuală.')}</div>
+   </div>`;
 };
 
 /* PLANS */
+/* PLANURI DE LECȚIE — date reale, recuperate din curricula completă Wow Lab (Google Sheets).
+   26 din 300+ planuri reale, 2 per modul, pe toate cele 13 module confirmate. Codul de autor
+   e inițialele din numele real de fișier (ex. "GS" din "TicTok_Rainbow vulcano_GS_28.xlsx") —
+   nume complete de reconfirmat cu Anca/Cătălina, nu presupuse aici. */
+function PLANS(){ return [
+ [tt('Build Your Own Volcano','Creează-ți propriul vulcan'),'gaga',tt('Elementary','Primar'),'GS',tt('Acid-base reaction, neutralization, pH scale','Reacție acid-bază, neutralizare, scală pH')],
+ [tt('Rock Detectives','Detectivi geologici'),'gaga',tt('Middle school','Gimnaziu'),'GS',tt('Properties of materials, geology, density','Proprietăți materiale, geologie, densitate')],
+ [tt('DIY Water Filter','Filtru de apă DIY'),'green_energy',tt('Elementary','Primar'),'LM',tt('Water purification with a carbon filter','Purificarea apei cu filtru de cărbune')],
+ [tt('DIY Solar Oven','Cuptor solar DIY'),'green_energy',tt('Middle school','Gimnaziu'),'GS',tt('Energy, sustainability, climate science','Energie, sustenabilitate, climă')],
+ [tt('Lava Lamp','Lava lamp'),'wow_mix',tt('Elementary','Primar'),'PD',tt('Density & acids/bases','Densitate & acizi-baze')],
+ [tt('Egg Crush Contest','Egg crush contest'),'wow_mix',tt('Elementary','Primar'),'GS',tt('Protective structures — physics','Structuri protectoare — fizică')],
+ [tt('Elephant Toothpaste','Pasta de dinți a elefantului'),'tiktok',tt('Elementary','Primar'),'GS',tt('Decomposition reaction, catalysts','Reacție de descompunere, catalizatori')],
+ [tt('Erupting Rainbow Volcano','Vulcan curcubeu'),'tiktok',tt('Elementary','Primar'),'GS',tt('Acid-base reaction, pH scale','Reacție acid-bază, scală pH')],
+ [tt('The Science of Making Cheese','Știința brânzei'),'food_science',tt('Middle school','Gimnaziu'),'CM',tt('Cheese-making process','Procesul de fabricare a brânzei')],
+ [tt('Candy Molecules','Molecule dulci'),'food_science',tt('Elementary','Primar'),'GS',tt('Molecule types — single/double/triple bonds','Tipuri de molecule — legături')],
+ [tt('Amortentia Potion','Poțiunea Amortentia'),'lotions',tt('Elementary','Primar'),'DS',tt('Acid-base reaction (Harry Potter themed)','Reacție acid-bază (temă Harry Potter)')],
+ [tt('Glowing Water','Apă fosforescentă'),'lotions',tt('Elementary','Primar'),'EB',tt('Phosphorescence, UV light','Fosforescență, lumină UV')],
+ [tt('Kaleidoscope','Kaleidoscop'),'magic_physics',tt('Elementary','Primar'),'DC',tt('Light reflection','Reflexia luminii')],
+ [tt("Bernoulli's Principle",'Principiul lui Bernoulli'),'magic_physics',tt('Middle school','Gimnaziu'),'LM',tt('Air pressure','Presiunea aerului')],
+ [tt('The Chemistry of Perfume','Chimia parfumului'),'chem_me',tt('Middle school','Gimnaziu'),'CM',tt('Beauty & cosmetics chemistry','Chimia cosmeticelor')],
+ [tt('Bath Bombs','Bombe de baie'),'chem_me',tt('Middle school','Gimnaziu'),'CM',tt('Acid-base reaction, cosmetics','Reacție acid-bază, cosmetice')],
+ [tt('Chemical Jellyfish','Meduza chimică'),'chem_hs',tt('High school','Liceu'),'AO',tt('Crystallization','Cristalizare')],
+ [tt('Tin Man','Omul de tinichea'),'chem_hs',tt('High school','Liceu'),'AO',tt('Crystallization, electrochemistry','Cristalizare, electrochimie')],
+ [tt("Newton's Disc",'Discul lui Newton'),'lights',tt('Elementary','Primar'),'DC',tt('Light composition','Compunerea luminii')],
+ [tt('Chromatography Flowers','Flori prin cromatografie'),'lights',tt('Elementary','Primar'),'DC',tt('Color decomposition','Descompunerea culorilor')],
+ [tt('Latent Fingerprints','Amprente latente'),'detective',tt('Middle school','Gimnaziu'),'LM',tt('Fingerprints, ninhydrin, iodine','Amprente, ninhidrină, iod')],
+ [tt('Blood Pattern Analysis','Analiza petelor de sânge'),'detective',tt('Middle school','Gimnaziu'),'LM',tt('Fake blood, viscosity','Sânge artificial, vâscozitate')],
+ [tt('Life of a Star','Viața unei stele'),'astronomy',tt('Middle school','Gimnaziu'),'EP',tt('Stellar explosions, nebulae','Explozii stelare, nebuloase')],
+ [tt('The Big Bang','Big Bang-ul'),'astronomy',tt('Middle school','Gimnaziu'),'DC',tt('Origin of the universe','Originea universului')],
+ [tt('Seeing DNA','Vezi ADN-ul'),'doctor',tt('Elementary','Primar'),'DC',tt('DNA extraction from plants','Extracția ADN-ului din plante')],
+ [tt('Stethoscope','Stetoscop'),'doctor',tt('Elementary','Primar'),'SG',tt('Amplifying and listening to heartbeats','Amplificarea și ascultarea bătăilor inimii')],
+]; }
+let plansFilter={q:'',module:'all'};
+function renderPlansTable(){
+  const tb=document.getElementById('plansTbody'); if(!tb) return;
+  const mine=role==='trainer'||role==='senior_trainer';
+  let rows=PLANS();
+  if(mine) rows=rows.filter(p=>p[2]===tt('Elementary','Primar'));
+  if(plansFilter.module!=='all') rows=rows.filter(p=>p[1]===plansFilter.module);
+  if(plansFilter.q) rows=rows.filter(p=>(p[0]+' '+p[4]).toLowerCase().includes(plansFilter.q.toLowerCase()));
+  tb.innerHTML=rows.length?rows.map(p=>`<tr><td style="font-weight:600">${p[0]}<div style="font-size:11px;color:var(--text-muted);font-weight:400">${p[4]}</div></td><td><span class="badge b-purple">${tt(MODULES[p[1]].l,MODULES[p[1]].lRo)}</span></td><td><span class="badge b-slate">${p[2]}</span></td><td style="font-size:12px;color:var(--text-muted)">${p[3]}</td><td><button class="tbl-action">${tt('View','Vezi')}</button>${mine?'':'<button class="tbl-action">'+tt('Edit','Editează')+'</button>'}</td></tr>`).join(''):`<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px">${tt('No plans match this filter.','Niciun plan nu se potrivește cu acest filtru.')}</td></tr>`;
+  const cnt=document.getElementById('plansCount'); if(cnt) cnt.textContent=rows.length;
+}
+function plansSearch(v){ plansFilter.q=v; renderPlansTable(); }
+function plansModuleFilter(v){ plansFilter.module=v; renderPlansTable(); }
 S.plans=()=>{
   const mine=role==='trainer'||role==='senior_trainer';
-  /* Module = real Wow Lab program name (recovered from an older mockup iteration) */
-  const P=[[tt('Baking-soda volcano','Vulcan cu bicarbonat'),'Chemistry','Chimie',tt('Elementary','Primar'),'Chemistry for me'],[tt('Eclipse — 3D model','Eclipsă — model 3D'),'Astronomy','Astronomie',tt('Elementary','Primar'),'Wow Astronomy'],[tt('Why does the orange float?','De ce plutește portocala?'),'Physics','Fizică',tt('Elementary','Primar'),'Magic of Physics'],[tt('Colors in milk','Culori în lapte'),'Chemistry','Chimie',tt('Elementary','Primar'),'Chemistry for me'],[tt('DNA from strawberries','ADN din căpșuni'),'Biology','Biologie',tt('Middle school','Gimnaziu'),'Detective Science'],[tt('Water rocket','Rachetă cu apă'),'Physics','Fizică',tt('Elementary','Primar'),'Magic of Physics']];
-  const rows=mine?P.filter(p=>p[3]===tt('Elementary','Primar')):P;
-  const db={Chemistry:'b-pink',Physics:'b-purple',Biology:'b-teal',Astronomy:'b-amber'};
-  return hero('📚 '+tt('Lesson Plans','Planuri de lecție'),mine?tt('Your groups\' plans','Planurile grupelor tale'):tt('Curriculum · Plans','Curriculum · Planuri'),tt('300+ plans across 15 modules. Trainers see filtered plans for their groups; Operations/Master see everything and can edit. Tags + multi-criteria filters — see dedicated Phase 1 epic.','300+ planuri, în 15 module. Trainerii văd filtrat pe grupele lor; Operations/Master văd tot și pot edita. Tag-uri + filtre multi-criteriu — vezi epic Phase 1 dedicat.'))+
+  const modOpts=Object.keys(MODULES).map(k=>`<option value="${k}">${tt(MODULES[k].l,MODULES[k].lRo)}</option>`).join('');
+  return hero('📚 '+tt('Lesson Plans','Planuri de lecție'),mine?tt('Your groups\' plans','Planurile grupelor tale'):tt('Curriculum · Plans','Curriculum · Planuri'),tt('300+ real plans across 13 confirmed modules (2 more pending confirmation) — showing a representative 26 here. Trainers see filtered plans for their groups; Operations/Master see everything and can edit.','300+ planuri reale, pe 13 module confirmate (2 rămân de confirmat) — 26 afișate aici, reprezentativ. Trainerii văd filtrat pe grupele lor; Operations/Master văd tot și pot edita.'))+
   `<div class="page-body">${mine?'<div class="banner banner-teal">👁 '+tt('Filtered to your groups: Elementary.','Filtrat pe grupele tale: Primar.')+'</div>':''}
-   <div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Title','Titlu')}</th><th>${tt('Module','Modul')}</th><th>${tt('Subject','Disciplină')}</th><th>${tt('Level','Nivel')}</th><th>${tt('Action','Acțiune')}</th></tr></thead><tbody>
-   ${rows.map(p=>`<tr><td style="font-weight:600">${p[0]}</td><td style="font-size:12px;color:var(--text-muted)">${p[4]}</td><td><span class="badge ${db[p[1]]}">${tt(p[1],p[2])}</span></td><td><span class="badge b-slate">${p[3]}</span></td><td><button class="tbl-action">${tt('View','Vezi')}</button>${mine?'':'<button class="tbl-action">'+tt('Edit','Editează')+'</button>'}</td></tr>`).join('')}
-   </tbody></table></div></div>`;
+   <div class="banner banner-amber">🔢 ${tt('13 of 15 real modules confirmed from Wow Lab curriculum sheets — 2 remain unconfirmed, not guessed here. Cost auto-calc + ingredient lists + delivery history + comment notifications + photo upload are NOT built yet (need real ingredient data first) — see epic.','13 din 15 module reale confirmate din curricula Wow Lab — 2 rămân neconfirmate, nu ghicite aici. Calculul auto de cost + liste de ingrediente + istoric livrare + notificări comentarii + upload foto NU sunt încă construite (necesită mai întâi date reale de ingrediente) — vezi epic.')}</div>
+   <div class="grid2" style="margin-bottom:14px"><input type="text" placeholder="${tt('Search title or concept…','Caută titlu sau concept…')}" oninput="plansSearch(this.value)" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:inherit;font-size:13px">
+   <select onchange="plansModuleFilter(this.value)" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:inherit;font-size:13px"><option value="all">${tt('All modules','Toate modulele')}</option>${modOpts}</select></div>
+   <div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Title','Titlu')} (<span id="plansCount">26</span>)</th><th>${tt('Module','Modul')}</th><th>${tt('Level','Nivel')}</th><th>${tt('Author','Autor')}</th><th>${tt('Action','Acțiune')}</th></tr></thead><tbody id="plansTbody"></tbody></table></div></div>`;
 };
 
 /* PRESENTATIONS */
+let presFilter='all';
+function renderPresentationsGrid(){
+  const grid=document.getElementById('presGrid'); if(!grid) return;
+  const modColor={gaga:'amber',green_energy:'teal',wow_mix:'pink',tiktok:'purple',food_science:'amber',lotions:'purple',magic_physics:'pink',chem_me:'pink',chem_hs:'pink',lights:'amber',detective:'teal',astronomy:'amber',doctor:'teal'};
+  let rows=PLANS();
+  if(presFilter!=='all') rows=rows.filter(p=>p[1]===presFilter);
+  const mine=role==='trainer'||role==='senior_trainer';
+  grid.innerHTML=rows.map(p=>`<div class="pcard"><div class="pthumb" style="background:var(--${modColor[p[1]]}-soft)">📊</div><div class="pinfo"><div class="pname">${p[0]}</div><div class="pmeta">${tt(MODULES[p[1]].l,MODULES[p[1]].lRo)} · ${p[2]}</div><div style="margin-top:6px;display:flex;gap:5px">${mine?'<button class="tbl-action">Save-as</button>':'<button class="tbl-action">'+tt('Edit','Editează')+'</button>'}<button class="tbl-action">${tt('Open','Deschide')}</button></div></div></div>`).join('');
+}
+function presModuleFilter(v){ presFilter=v; renderPresentationsGrid(); }
 S.presentations=()=>{
   const mine=role==='trainer'||role==='senior_trainer';
-  const P=[[tt('Baking-soda volcano','Vulcan cu bicarbonat'),tt('Chemistry · Elementary','Chimie · Primar'),'pink'],[tt('Solar system','Sistemul solar'),tt('Astronomy · Elementary','Astronomie · Primar'),'amber'],[tt('The Maillard reaction','Reacția Maillard'),tt('Chemistry · Middle school','Chimie · Gimnaziu'),'pink'],[tt('Magnets & materials','Magneți & materiale'),tt('Physics · Elementary','Fizică · Primar'),'purple'],[tt('DNA from strawberries','ADN din căpșuni'),tt('Biology · Middle school','Biologie · Gimnaziu'),'teal'],[tt('Rainbow in a glass','Curcubeu în pahar'),tt('Physics · Preschool','Fizică · Preșcolar'),'purple']];
-  return hero('📊 '+tt('Presentation Library','Biblioteca de prezentări'),tt('Standardized presentations','Prezentări standardizate'),tt('The official source of per-experiment slide decks. Trainers can "save-as" their own copy without modifying the original.','Sursa oficială de PPT-uri pe experiment. Trainerii pot face „save-as" o copie proprie fără să modifice originalul.'))+
+  const modOpts=Object.keys(MODULES).map(k=>`<option value="${k}">${tt(MODULES[k].l,MODULES[k].lRo)}</option>`).join('');
+  return hero('📊 '+tt('Presentation Library','Biblioteca de prezentări'),tt('Standardized presentations','Prezentări standardizate'),tt('The official source of per-experiment slide decks — same taxonomy as Lesson Plans. Trainers can "save-as" their own copy without modifying the original.','Sursa oficială de PPT-uri pe experiment — aceeași taxonomie ca Planurile de lecție. Trainerii pot face „save-as" o copie proprie fără să modifice originalul.'))+
   `<div class="page-body">${mine?'<div class="banner banner-teal">✏️ '+tt('You can open and "save-as" your own copy (presentations.own).','Poți deschide și face „save-as" copia ta (presentations.own).')+'</div>':'<div class="banner banner-purple">🗂️ '+tt('As management you can publish/update the originals.','Ca management poți publica/actualiza originalele.')+'</div>'}
-   <div class="grid3">${P.map(p=>`<div class="pcard"><div class="pthumb" style="background:var(--${p[2]}-soft)">📊</div><div class="pinfo"><div class="pname">${p[0]}</div><div class="pmeta">${p[1]}</div><div style="margin-top:6px;display:flex;gap:5px">${mine?'<button class="tbl-action">Save-as</button>':'<button class="tbl-action">'+tt('Edit','Editează')+'</button>'}<button class="tbl-action">${tt('Open','Deschide')}</button></div></div></div>`).join('')}</div></div>`;
+   <select onchange="presModuleFilter(this.value)" style="margin-bottom:14px;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-family:inherit;font-size:13px"><option value="all">${tt('All modules','Toate modulele')}</option>${modOpts}</select>
+   <div class="grid3" id="presGrid"></div></div>`;
 };
 
 /* MEDIA — recovered from an older mockup iteration, was entirely missing from the prior refresh */
@@ -683,17 +789,29 @@ S.team=()=>{
   `<div class="page-body"><div class="grid3">${people.map(p=>`<div class="card"><div style="display:flex;align-items:center;gap:11px"><div style="width:42px;height:42px;border-radius:50%;background:var(--${p[2]}-soft);display:flex;align-items:center;justify-content:center;font-size:18px">${p[3]}</div><div><div style="font-weight:700;font-size:13px">${p[0]}</div><div style="font-size:11px;color:var(--text-muted)">${p[1]}</div></div></div></div>`).join('')}</div>
   <div class="tint tint-slate" style="margin-top:16px">🧑‍🔬 <b>${tt('21 freelance trainers','21 traineri freelance')}</b> — ${tt('each with Trainer / Senior Trainer role, independent entities.','fiecare cu rol Trainer / Senior Trainer, entități independente.')}</div></div>`;
 };
-S.trainers=()=>hero('🧑‍🔬 '+tt('Trainers','Traineri'),tt('The trainers','Trainerii'),tt('21+ active trainers, classified into 7 levels (determines base rate). Delivery, attendance, certifications, custody. Minimum 80% in-person classes.','21+ traineri activi, clasificați pe 7 niveluri (determină tariful de bază). Livrare, prezență, certificări, custodie. Minim 80% clase livrate în persoană.'))+
+S.trainers=()=>{
+const mgmt=role==='master'||role==='ops'||role==='community'||role==='fin_admin';
+return hero('🧑‍🔬 '+tt('Trainers','Traineri'),tt('The trainers','Trainerii'),tt('21+ active trainers, classified into 7 levels (determines base rate). Delivery, attendance, certifications, custody. Minimum 80% in-person classes.','21+ traineri activi, clasificați pe 7 niveluri (determină tariful de bază). Livrare, prezență, certificări, custodie. Minim 80% clase livrate în persoană.'))+
  `<div class="page-body"><div class="banner banner-slate">📌 ${tt('"Zone" field (recovered from Anka\'s feedback) — helps allocate a trainer near the school quickly. "Total hours" and "Bonus" columns per Laura\'s confirmed table structure — hours split by workshop type (Șc. Altfel / Săpt. Verde / recurring / corporate / party) will be pulled automatically once trainers log sessions by category.','Câmp "Zonă" (recuperat din feedback Anka) — ajută la alocarea rapidă a unui trainer aproape de școală. Coloanele "Total ore" și "Bonus" conform structurii confirmate de Laura — split-ul pe tip atelier (Șc. Altfel / Săpt. Verde / recurente / corporate / party) se va prelua automat odată ce trainerii loghează sesiunile pe categorie.')}</div><div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Trainer','Trainer')}</th><th>${tt('Role','Rol')}</th><th>${tt('Level','Nivel')}</th><th>${tt('Zone','Zonă')}</th><th>${tt('Groups','Grupe')}</th><th>${tt('Total hours','Total ore')}</th><th>${tt('Bonus','Bonus')}</th><th>${tt('Certifications','Certificări')}</th><th>${tt('% in-person','% în persoană')}</th></tr></thead><tbody>
- ${[['M. Popescu','Senior Trainer','N5',tt('District 1','Sector 1'),'2','34h','😊','Chemistry L1, Physics L1','96%','teal'],['A. Radu','Trainer','N3',tt('District 3','Sector 3'),'1','22h','😊','Chemistry L1','88%','teal'],['D. Marin','Trainer','N2',tt('District 2','Sector 2'),'1','16h','😐','Physics L1','74%','amber'],['I. Vasile','Trainer','N4',tt('District 1','Sector 1'),'2','28h','😊','Chemistry L1, Bio','91%','teal']].map(r=>`<tr><td style="font-weight:600">${r[0]}</td><td><span class="badge b-purple">${r[1]}</span></td><td><span class="badge b-slate">${r[2]}</span></td><td style="font-size:12px">${r[3]}</td><td>${r[4]}</td><td style="font-weight:600">${r[5]}</td><td style="font-size:15px">${r[6]}</td><td style="font-size:12px">${r[7]}</td><td><span class="badge b-${r[9]}">${r[8]}</span></td></tr>`).join('')}
+ ${[['M. Popescu','Senior Trainer','N5',tt('District 1','Sector 1'),'2','34h','😊','Chemistry for Me, Detective Science','96%','teal'],['A. Radu','Trainer','N3',tt('District 3','Sector 3'),'1','22h','😊','Chemistry for Me','88%','teal'],['D. Marin','Trainer','N2',tt('District 2','Sector 2'),'1','16h','😐','Detective Science','74%','amber'],['I. Vasile','Trainer','N4',tt('District 1','Sector 1'),'2','28h','😊','Chemistry for Me, Green Week','91%','teal']].map(r=>`<tr><td style="font-weight:600">${r[0]}</td><td><span class="badge b-purple">${r[1]}</span></td><td><span class="badge b-slate">${r[2]}</span></td><td style="font-size:12px">${r[3]}</td><td>${r[4]}</td><td style="font-weight:600">${r[5]}</td><td style="font-size:15px">${r[6]}</td><td style="font-size:12px">${r[7]}</td><td><span class="badge b-${r[9]}">${r[8]}</span></td></tr>`).join('')}
  </tbody></table></div>
+ ${mgmt?`<div class="card" style="margin-top:14px"><div class="card-title">⚠️ ${tt('Needs action (onboarding / evaluations)','Necesită acțiune (onboarding / evaluări)')}</div><div class="card" style="padding:0;overflow:hidden;box-shadow:none;border:1px solid var(--border)"><table class="data-table"><thead><tr><th>${tt('Trainer','Trainer')}</th><th>${tt('Item','Element')}</th><th>${tt('Evaluator / owner','Evaluator / responsabil')}</th><th>${tt('Next responsible','Următorul responsabil')}</th><th>${tt('Deadline','Termen')}</th></tr></thead><tbody>
+ <tr><td style="font-weight:600">I. Vasile</td><td><span class="badge b-amber">${tt('Requested support observation — evaluator not yet assigned','Observare de suport solicitată — evaluator neatribuit încă')}</span></td><td style="font-size:12px">—</td><td style="font-size:12px">Anca / Cătălina</td><td style="font-size:12px">2 ${tt('days','zile')}</td></tr>
+ <tr><td style="font-weight:600">A. Radu</td><td><span class="badge b-slate">${tt('Annual self-eval Forms — pending','Auto-eval anuală Forms — în așteptare')}</span></td><td style="font-size:12px">Cătălina</td><td style="font-size:12px">A. Radu</td><td style="font-size:12px">5 ${tt('days','zile')}</td></tr>
+ <tr><td style="font-weight:600">M. Ilie <span style="font-weight:400;color:var(--text-muted);font-size:11px">(${tt('in onboarding','în onboarding')})</span></td><td><span class="badge b-amber">${tt('Module resource access — overdue','Acces resurse module — întârziat')}</span></td><td style="font-size:12px">Cătălina</td><td style="font-size:12px">Cătălina</td><td style="font-size:12px" class="badge b-pink" style="color:var(--pink)">${tt('overdue','întârziat')}</td></tr>
+ </tbody></table></div></div>`:''}
  <div class="tint tint-purple" style="margin-top:14px">🗂️ ${tt('Cătălina, Alexandra Nuțu and Teo Merisan also hold admin roles alongside Trainer/Senior Trainer — their admin hours are tracked separately. See','Cătălina, Alexandra Nuțu și Teo Merisan au și roluri de admin pe lângă Trainer/Senior Trainer — orele lor de admin se urmăresc separat. Vezi')} <b>${tt('Admin Costs','Costuri Admin')}</b> (Financial).</div></div>`;
-S.recruit=()=>hero('🎯 '+tt('Recruitment','Recrutare'),tt('Candidate pipeline','Pipeline candidați'),tt('Candidates have isolated magic-link access (application + test class). They don\'t see the rest of the platform. Only staff (Ops/Community/Master) decides acceptance.','Candidații au acces izolat prin magic-link (aplicație + test class). Nu văd restul platformei. Doar echipa (Ops/Community/Master) decide acceptarea.'))+
- `<div class="page-body"><div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Candidate','Candidat')}</th><th>${tt('Stage','Stadiu')}</th><th>${tt('Test class','Test class')}</th><th>${tt('Action','Acțiune')}</th></tr></thead><tbody>
- <tr><td style="font-weight:600">R. Enache</td><td><span class="badge b-${candidateAccepted?'teal':'amber'}">${candidateAccepted?tt('accepted','acceptat'):tt('applied','aplicat')}</span></td><td>${tt('to schedule','de programat')}</td><td>${candidateAccepted
+};
+S.recruit=()=>hero('🎯 '+tt('Recruitment','Recrutare'),tt('Candidate pipeline','Pipeline candidați'),tt('Candidates have isolated magic-link access from the moment Anca creates their record (handover to Cătălina onward). Screening/CV review/PPT happen outside the app. Only staff decides acceptance.','Candidații au acces izolat prin magic-link din momentul în care Anca le creează fișa (de la handover către Cătălina încolo). Screening/CV/PPT-ul se întâmplă în afara aplicației. Doar echipa decide acceptarea.'))+
+ `<div class="page-body"><div class="banner banner-slate">🔗 ${tt('Screening, CV review and the independent PPT assignment happen outside WOW LAB OS (Anca). The candidate record is created manually in-app only once Anca validates them — that\'s where the pipeline below starts.','Screening-ul, review-ul CV-ului și tema PPT independentă se întâmplă în afara WOW LAB OS (Anca). Fișa candidatului se creează manual în aplicație abia după ce Anca îl validează — de-acolo pornește pipeline-ul de mai jos.')}</div>
+ <div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('Candidate','Candidat')}</th><th>${tt('Stage','Stadiu')}</th><th>${tt('Responsible','Responsabil')}</th><th>${tt('Next action','Acțiune următoare')}</th><th>${tt('Deadline','Termen')}</th><th>${tt('Action','Acțiune')}</th></tr></thead><tbody>
+ <tr><td style="font-weight:600">R. Enache</td><td><span class="badge b-${candidateAccepted?'teal':'amber'}">${candidateAccepted?tt('accepted — contract','acceptat — contract'):tt('final decision pending','decizie finală în așteptare')}</span></td><td>Anca + Cătălina</td><td>${candidateAccepted?tt('Prepare contract','Pregătire contract'):tt('Review trainer feedback + candidate feedback','Revizuire feedback trainer + candidat')}</td><td>${candidateAccepted?'—':'3 '+tt('days','zile')}</td><td>${candidateAccepted
    ?'<button class="tbl-action" onclick="toggleCandidateAccepted()">↩ '+tt('Revoke acceptance (demo)','Revocă acceptarea (demo)')+'</button>'
    :'<button class="tbl-action" style="border-color:var(--teal);color:var(--teal)" onclick="toggleCandidateAccepted()">✓ '+tt('Accept into team (demo)','Acceptă în echipă (demo)')+'</button>'}</td></tr>
- ${[['S. Dobre',tt('test class','test class'),'12.05','purple'],['M. Ilie',tt('applied','aplicat'),tt('to schedule','de programat'),'amber']].map(r=>`<tr><td style="font-weight:600">${r[0]}</td><td><span class="badge b-${r[3]}">${r[1]}</span></td><td>${r[2]}</td><td></td></tr>`).join('')}
+ ${[['S. Dobre',tt('trial lesson scheduled','lecție de test programată'),'Cătălina',tt('Supervise trial lesson','Supervizează lecția de test'),'12.05','purple'],
+    ['M. Ilie',tt('class observation scheduled','asistare programată'),'Cătălina',tt('Confirm observation slot','Confirmă intervalul de asistare'),'2 '+tt('days','zile'),'amber'],
+    ['A. Constantin',tt('handover to Cătălina','handover la Cătălina'),'Anca → Cătălina',tt('Schedule class observation','Programează asistarea'),'1 '+tt('day','zi'),'slate']]
+   .map(r=>`<tr><td style="font-weight:600">${r[0]}</td><td><span class="badge b-${r[5]}">${r[1]}</span></td><td style="font-size:12px">${r[2]}</td><td style="font-size:12px">${r[3]}</td><td style="font-size:12px">${r[4]}</td><td></td></tr>`).join('')}
  </tbody></table></div></div>`;
 S.schedule=()=>hero('📅 '+tt('Scheduling & Allocation','Planificare & Alocări'),tt('Scheduling','Planificare'),tt('Trainer allocation and substitutions, readiness from certifications.','Alocarea și înlocuirile trainerilor, readiness din certificări.'))+`<div class="page-body"><div class="card"><div class="card-title">${tt('Allocations to cover','Alocări de acoperit')}</div>${allocMini()}</div></div>`;
 S.attendance=()=>hero('✅ '+tt('Attendance','Prezență'),tt('Attendance (numeric-first)','Prezență (numeric-first)'),tt('Billing derives from the attendance count — without requiring the child\'s named record.','Facturarea derivă din numărul de prezențe — fără să ceară fișa nominală a copilului.'))+`<div class="page-body"><div class="banner banner-teal">🔢 ${tt('Principle: no billing/KPI requires a "children" row to exist. Enrollments can be anonymous.','Principiu: nicio facturare/KPI nu cere existența unui rând „children". Înscrierile pot fi anonime.')}</div><div class="card"><div class="card-title">${tt('Recent sessions','Ultimele sesiuni')}</div><div class="kv"><span>Lycée Cl.2 · 12.05</span><b>11 / 12</b></div><div class="kv"><span>IBSB ${tt('Preschool','Preșcolari')} · 14.05</span><b>9 ${tt('anonymous','anonimi')}</b></div><div class="kv"><span>Cambridge · 11.05</span><b>8 / 8</b></div></div></div>`;
@@ -717,9 +835,19 @@ function editJuniorRate(){ const v=prompt(tt('New junior rate (lei/hour):','Noul
    once accepted — distinct from the Candidate Portal (which is strictly PRE-hire) */
 S.onboarding=()=>{
  const steps=[[tt('Welcome video','Video de bun venit'),tt('Anca · ~4 min','Anca · ~4 min'),'b-pink',tt('✔ Watched','✔ Vizionat')],[tt('Mission, values & principles','Misiune, valori & principii'),tt('5 values · 17 principles','5 valori · 17 principii'),'b-purple',tt('In progress','În curs')],[tt('Your job description','Fișa ta de post'),tt('per your role','conform rolului tău'),'b-teal','—'],[tt('Beginner\'s guide','Ghidul începătorului'),tt('5 golden rules · checklist','5 reguli de aur · checklist'),'b-amber','—'],[tt('Safety rules','Reguli de siguranță'),tt('Mandatory document','Document obligatoriu'),'b-orange','—']];
+ const trainerChecklist=[[tt('Contract signed','Contract semnat'),'b-teal','✓'],[tt('Availability confirmed','Disponibilitate confirmată'),'b-teal','✓'],[tt('Modules allocated','Module alocate'),'b-teal','✓'],[tt('Module resources accessible','Resurse module accesibile'),'b-amber',tt('in progress','în curs')],[tt('Academy quiz per module','Test Academy per modul'),'b-slate','—'],[tt('Certified for independent teaching','Certificat pentru predare independentă'),'b-slate','—']];
  return hero('🚀 '+tt('Onboarding','Onboarding'),tt('Getting-started kit','Kit-ul de început'),tt('For every new team member, regardless of role. Progress is tracked step by step — also visible to Community & People.','Pentru fiecare coleg(ă) nou(ă), indiferent de rol. Progresul e urmărit pas cu pas — vizibil și pentru Community & People.'),
   '<span class="badge b-teal">1 / 5 '+tt('complete','complet')+'</span>')+
- `<div class="page-body"><div class="grid2">${steps.map(s=>`<div class="card"><div class="kv"><span>${s[0]}<div style="font-size:11px;color:var(--text-muted);font-weight:400">${s[1]}</div></span><span class="badge ${s[2]}">${s[3]}</span></div></div>`).join('')}</div></div>`;
+ `<div class="page-body"><div class="grid2">${steps.map(s=>`<div class="card"><div class="kv"><span>${s[0]}<div style="font-size:11px;color:var(--text-muted);font-weight:400">${s[1]}</div></span><span class="badge ${s[2]}">${s[3]}</span></div></div>`).join('')}</div>
+ ${(role==='trainer'||role==='senior_trainer'||role==='master'||role==='ops'||role==='community')?`
+ <div class="card" style="margin-top:14px"><div class="card-title">🧑‍🔬 ${tt('Trainer operational onboarding — example: M. Ilie','Onboarding operațional trainer — exemplu: M. Ilie')}</div>
+ <div class="kv"><span>${tt('Current stage','Stadiu curent')}</span><span class="badge b-amber">${tt('Module resource access — in progress','Acces resurse module — în curs')}</span></div>
+ <div class="kv"><span>${tt('Responsible person','Persoană responsabilă')}</span><b>Cătălina</b></div>
+ <div class="kv"><span>${tt('Next action','Acțiune următoare')}</span><b>${tt('Grant access to Chemistry for Me + Detective Science','Acordă acces la Chemistry for Me + Detective Science')}</b></div>
+ <div class="kv"><span>${tt('Deadline','Termen')}</span><b>3 ${tt('days','zile')}</b></div>
+ <div style="margin-top:10px">${trainerChecklist.map(c=>`<div class="kv"><span>${c[0]}</span><span class="badge ${c[1]}">${c[2]}</span></div>`).join('')}</div>
+ </div>`:''}
+ </div>`;
 };
 
 function toggleCandidateAccepted(){ candidateAccepted=!candidateAccepted; renderNav(); renderScreen(); }
@@ -729,11 +857,11 @@ function toggleCandidateAccepted(){ candidateAccepted=!candidateAccepted; render
 S.cand=(embed)=>{
  const inner=`${candidateAccepted
    ?`<div class="tint tint-teal" style="margin-bottom:14px">✅ <b>${tt('Accepted into the team!','Acceptat în echipă!')}</b> ${tt('The <b>Onboarding</b> tab just appeared in the menu — click it to see the getting-started kit.','Tab-ul <b>Onboarding</b> tocmai a apărut în meniu — apasă-l ca să vezi kit-ul de început.')}</div>`
-   :`<div class="tint tint-amber" style="margin-bottom:14px">⏳ <b>${tt('Application under review.','Aplicație în evaluare.')}</b> ${tt('You can start the Onboarding process as soon as you receive the team\'s acceptance.','Poți începe procesul de Onboarding imediat ce vei primi acceptul echipei.')}</div>`}
+   :`<div class="tint tint-amber" style="margin-bottom:14px">⏳ <b>${tt('Current stage: trial lesson delivered, final decision pending.','Stadiu curent: lecție de test susținută, decizie finală în așteptare.')}</b> ${tt('You can start the Onboarding process as soon as you receive the team\'s acceptance.','Poți începe procesul de Onboarding imediat ce vei primi acceptul echipei.')}</div>`}
  <div class="card" style="margin-bottom:14px"><div class="card-title">${tt('Team contacts & org chart','Contacte & organigramă echipă')}</div><div class="kv"><span>Anca Tănăsescu — Master/CEO</span><span class="badge b-pink">👑</span></div><div class="kv"><span>Cătălina Trusan — Operations & Curriculum</span><span class="badge b-teal">🗂️</span></div><div class="kv"><span>Alexandra Nuțu — Community & People</span><span class="badge b-pink">💚</span></div></div>
  <div class="grid2"><div class="card"><div class="card-title">${tt('My application','Aplicația mea')}</div><div class="kv"><span>${tt('CV uploaded','CV încărcat')}</span><span class="badge b-teal">✓</span></div><div class="kv"><span>${tt('Motivation form','Formular motivație')}</span><span class="badge b-amber">${tt('to complete','de completat')}</span></div></div>
- <div class="card"><div class="card-title">${tt('Test class','Test class')}</div><div class="kv"><span>${tt('Scheduling','Programare')}</span><b>${tt('to be set','de stabilit')}</b></div><button class="btn btn-primary btn-sm" style="margin-top:10px">${tt('Propose a time slot','Propune interval')}</button></div></div>`;
- return embed?inner:hero('🚪 '+tt('Candidate Portal','Portal candidat'),tt('Your application','Aplicația ta'),tt('Isolated magic-link access. Per Anca\'s feedback: Recruitment→Academy flow — see dedicated Phase 1 epic, this screen is a draft.','Acces izolat prin magic-link. Conform feedback Anca: flux Recrutare→Academy — vezi epic Phase 1 dedicat, acest ecran e un draft.'))+`<div class="page-body">${inner}</div>`; };
+ <div class="card"><div class="card-title">${tt('Trial lesson','Lecție de test')}</div><div class="kv"><span>${tt('Lesson plan received','Plan de lecție primit')}</span><span class="badge b-teal">✓</span></div><div class="kv"><span>${tt('Taught under supervision','Predată sub supervizare')}</span><span class="badge b-teal">✓</span></div></div></div>`;
+ return embed?inner:hero('🚪 '+tt('Candidate Portal','Portal candidat'),tt('Your application','Aplicația ta'),tt('Isolated magic-link access, from the moment your record is created (handover to Cătălina onward).','Acces izolat prin magic-link, din momentul în care ți se creează fișa (de la handover la Cătălina încolo).'))+`<div class="page-body">${inner}</div>`; };
 S.platform=()=>hero('🛡️ '+tt('Cross-org & Franchise','Cross-org & franciză'),'Platform Owner',tt('Cross-org superuser, the RLS-bypass condition. Franchise-ready: multiple organizations under the same platform.','Superuser cross-org, condiția de bypass RLS. Pregătit-de-franciză: mai multe organizații sub aceeași platformă.'))+
  `<div class="page-body"><div class="banner banner-slate">🌐 ${tt('You see <b>all organizations</b>. Every other role is strictly isolated by organization_id via RLS.','Vezi <b>toate organizațiile</b>. Restul rolurilor sunt izolate strict pe organization_id prin RLS.')}</div>
  <div class="card"><div class="card-title">${tt('Organizations','Organizații')}</div><div class="kv"><span>🏢 wow-lab (${tt('production','producție')})</span><span class="badge b-teal">${tt('active','activ')}</span></div><div class="kv"><span>🧪 wow-lab-test-b (is_test)</span><span class="badge b-purple">${tt('isolation test','test izolare')}</span></div><div class="kv"><span>➕ ${tt('Future franchise','Franciză viitoare')}</span><span class="badge b-slate">${tt('ready','pregătit')}</span></div></div></div>`;
@@ -746,6 +874,8 @@ function renderScreen(){
   document.getElementById('screen').innerHTML=fn();
   if(currentScreen==='billing') calcBilling();
   if(currentScreen==='academy') renderQuiz();
+  if(currentScreen==='plans'){ plansFilter={q:'',module:'all'}; renderPlansTable(); }
+  if(currentScreen==='presentations'){ presFilter='all'; renderPresentationsGrid(); }
 }
 
 /* BOOT */
