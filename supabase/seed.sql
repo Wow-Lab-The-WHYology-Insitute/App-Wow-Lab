@@ -121,12 +121,14 @@ from (
     ('sales_manager', 'clients.read'),
     ('sales_manager', 'renewals.read'),
     ('sales_manager', 'crm_link.*'),
+    ('sales_manager', 'contracts.read'),
 
     ('contract_administrator', 'contracts.*'),
     ('contract_administrator', 'clients.read'),
 
     ('operations_manager', 'operations.*'),
     ('operations_manager', 'clients.read'),
+    ('operations_manager', 'contracts.read'),
     ('operations_manager', 'trainers.allocate'),
     ('operations_manager', 'trainers.substitute'),
     ('operations_manager', 'calendars.*'),
@@ -257,7 +259,9 @@ values
   (gen_random_uuid(), 'test+trainer-a@wowlab.dev', 'Test Trainer A', 'active', false),
   (gen_random_uuid(), 'test+user-b@wowlab.dev', 'Test Org B Owner', 'active', false),
   (gen_random_uuid(), 'test+finance-ops-a@wowlab.dev', 'Test Finance Operations A', 'active', false),
-  (gen_random_uuid(), 'test+finance-admin-a@wowlab.dev', 'Test Finance Admin Reporting A', 'active', false)
+  (gen_random_uuid(), 'test+finance-admin-a@wowlab.dev', 'Test Finance Admin Reporting A', 'active', false),
+  (gen_random_uuid(), 'test+sales-a@wowlab.dev', 'Test Sales Manager A', 'active', false),
+  (gen_random_uuid(), 'test+contract-admin-a@wowlab.dev', 'Test Contract Administrator A', 'active', false)
 on conflict (email) do update
   set full_name = excluded.full_name,
       status = excluded.status,
@@ -278,7 +282,9 @@ from (
     ('test+trainer-a@wowlab.dev', 'wow-lab', 'trainer'),
     ('test+user-b@wowlab.dev', 'wow-lab-test-b', 'organization_owner'),
     ('test+finance-ops-a@wowlab.dev', 'wow-lab', 'finance_operations'),
-    ('test+finance-admin-a@wowlab.dev', 'wow-lab', 'finance_admin_reporting')
+    ('test+finance-admin-a@wowlab.dev', 'wow-lab', 'finance_admin_reporting'),
+    ('test+sales-a@wowlab.dev', 'wow-lab', 'sales_manager'),
+    ('test+contract-admin-a@wowlab.dev', 'wow-lab', 'contract_administrator')
 ) as m(user_email, org_slug, role_key)
 join public.users u on u.email = m.user_email
 join public.organizations o on o.slug = m.org_slug
