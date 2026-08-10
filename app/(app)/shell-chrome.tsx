@@ -6,6 +6,7 @@ import { NavLink } from "./nav-link";
 import { SignOutButton } from "./sign-out-button";
 
 type NavItem = { href: string; label: string };
+type NavGroup = { label?: string; items: NavItem[] };
 
 // Desktop (md: and up) is unchanged from S3: sidebar is a normal, always-
 // visible flex child (sticky, in-flow, w-60). Below md, the same <aside>
@@ -14,12 +15,12 @@ type NavItem = { href: string; label: string };
 // collapse pattern, nothing fancier. The drawer also closes itself when a
 // NavLink is actually clicked (onNavigate), not just on backdrop tap.
 export function ShellChrome({
-  navItems,
+  navGroups,
   userEmail,
   roleLabel,
   children,
 }: {
-  navItems: NavItem[];
+  navGroups: NavGroup[];
   userEmail: string;
   roleLabel: string;
   children: React.ReactNode;
@@ -45,14 +46,23 @@ export function ShellChrome({
             WOW LAB OS
           </span>
         </div>
-        <nav className="flex flex-col gap-1 px-3">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.href}
-              href={item.href}
-              label={item.label}
-              onNavigate={() => setIsOpen(false)}
-            />
+        <nav className="flex flex-col gap-4 px-3">
+          {navGroups.map((group, i) => (
+            <div key={group.label ?? i} className="flex flex-col gap-1">
+              {group.label && (
+                <span className="font-body px-3 text-[10px] font-bold tracking-wide text-white/30 uppercase">
+                  {group.label}
+                </span>
+              )}
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.href}
+                  href={item.href}
+                  label={item.label}
+                  onNavigate={() => setIsOpen(false)}
+                />
+              ))}
+            </div>
           ))}
         </nav>
       </aside>
