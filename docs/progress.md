@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-08-10 17:42 (ora București)
+**Ultima actualizare:** 2026-08-10 18:26 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -240,6 +240,16 @@ Corecție de business, documentată: billing_rule era mascat pt Sales Manager (u
 Verificare: 20/20 asertări reale live (nu doar sanity-check structural) — segregare pe tip client, mascare de câmp (inclusiv cazul special Sales Manager), acțiuni pe rol, izolare cross-org, audit trail. Verificare de sabotaj: politică stricată intenționat → asertarea chiar pică (true→false), apoi ROLLBACK confirmat complet (pg_policy re-citit, zero rânduri fixture scăpate în baza vie).
 
 Rămâne: pagini reale Next.js (C2) — schema+RLS sunt gata, dar nimic vizibil încă pentru Anca. Branch develop, neâncă mergeat.
+
+45. 2026-08-10, 18:26 (ora București) — Clients & Contracts (C2) — pagini reale Next.js construite și verificate live, branch develop, commit 3fd0b56 (peste C1, b71ccdc/69a29c1).
+
+Paginile /clients (listă+fișă) și /contracts (listă+fișă) construite, cu mascare de câmp reflectată vizual (••••• 🔒). Confirmat empiric înainte de a scrie vreo pagină: contracts_billing_masked moștenește deja RLS-ul de nivel de rând al lui contracts (security_invoker=true) — nicio nevoie de combinare manuală.
+
+Verificare live, sesiuni reale prin magic-link, 4 roluri (4 useri noi dedicați creați, fixture-urile SQL-only de la C1 rămase neatinse): Operations vede toți clienții, billing_rule mascat peste tot; Finance Operations vede DOAR cele 4 contracte de școală privată (Zitec/corporate absent complet din listă, nu doar ascuns); Sales Manager vede tot, billing_rule nemascat pe toate 5 (confirmă corecția din C1, cap-coadă); Trainer nu vede deloc grupul de nav, ȘI navigarea directă pe URL confirmă 0 rânduri — RLS aplică regula chiar și fără gate-ul de UI.
+
+Date demo: 5 clienți cu nume reale deja stabilite în proiect (Lycée Français, IBSB, Cambridge School, King's Oak, Zitec), 5 contracte cu prefix DEMO- pe număr + text explicit „Example seed record" direct în coloana notes (vizibil chiar la query direct pe tabelă, nu doar în comentariu de cod) — cifrele de billing_rule preluate din machetă doar pt plauzibilitate, NEverificate față de contractele reale actuale, marcat explicit ca atare.
+
+Rămâne: merge pe main (încă pe develop), apoi următorul modul Phase 1 (Grupe & Înscrieri, conform secvențierii stabilite).
 
 ---
 
