@@ -227,6 +227,8 @@ Cele 3 tarife ale Ankăi (Admin/Ateliere/Financiar): Anca a dat cifrele nete (80
 
 Offboarding: checklist real aplicat (halat/materiale/acces/motive/feedback/recomandare/Alumni WhatsApp), owner Cătălina (echipă) + Teo (materiale), exit interview de Anca/Cătălina, acces revocat imediat (politică confirmată). Stare 'pe pauză' confirmată ca reală (nu doar activ/offboarded) — reactivare cu istoric complet intact, deja susținută de arhitectura existentă (audit_log + row_history) — nimic nou de construit pt partea de istoric. Idee nouă de la Anca, agreată dar neconstruită: istoric centralizat al motivelor de plecare, pt raportare internă.
 
+43. 2026-08-10, 13:01 (ora București) — Corecție de la Anca: cele 3 tarife orare ale Ankăi (80/80/90) și tarifele per-articol/newsletter ale Ralucăi sunt FINALE — fără +11% adăugat. Doar tarifele Laurei/Teo/Alexandrei/Cătălinei primesc +11% (factură PFA netă → brută). Presupunerea calculată anterioară pentru Anka (88,8/88,8/99,9) a fost greșită — revenită la 80/80/90, marcată acum ca finală confirmată, nu presupunere calculată.
+
 ---
 
 ## Lecții / capcane (de nu uitat)
