@@ -114,7 +114,9 @@ Predarea e un singur punct: **Won → client activ.** Tot ce e la stânga = Acti
 
 - **Menu:** zona „Clients & Contracts" vizibilă pentru Master, sales_manager, contract_administrator, Finance (ambele), Operations (read).
 - **Record:** Finance Operations vede contractele școli private; Finance Admin vede corporate/stat/granturi (segregare). Operations vede clienții, **fără** termenii financiari.
-- **Field:** valoarea contractului / `billing_rule` / marja → vizibile doar Finance + Master; ascunse pentru Operations/Community/Trainer chiar dacă văd fișa clientului. (Exact cazul „Profit Margin ascuns într-un record altfel vizibil" din brief.)
+- **Field:** valoarea contractului / `billing_rule` / marja → vizibile pentru Finance + Master **+ sales_manager**; ascunse pentru Operations/Community/Trainer chiar dacă văd fișa clientului. (Exact cazul „Profit Margin ascuns într-un record altfel vizibil" din brief.)
+
+> **CORECȚIE (2026-08-10):** formularea inițială de mai sus era „vizibile doar Finance + Master" — excludea explicit sales_manager. Contrazicea o decizie deja confirmată de Anca/Laura, notată în `docs/progress.md` #25: „Sales Manager vede regula de facturare pt TOTI clientii activi". Implementarea inițială (`contracts_billing_masked`, migrația `202608100004`) a urmat formularea SAD-ului de mai sus, ca sursă mai specifică/recentă pentru acest domeniu — semnalat explicit ca posibil conflict în raportul acelei treceri, nu aplicat orbește. Mihai a confirmat: decizia din progress.md #25 rămâne cea corectă, SAD-ul se corectează s-o reflecte. Vezi `docs/progress.md` pentru intrarea corespunzătoare și migrația de corecție a view-ului.
 - **Action:** doar contract_administrator (+ Master) pot crea/edita/marca semnat un contract; sales_manager poate crea client + proposal; Operations doar citește.
 
 Toate aplicate la nivel de bază de date (RLS pe `organization_id` + reguli pe rol), nu doar în meniu.

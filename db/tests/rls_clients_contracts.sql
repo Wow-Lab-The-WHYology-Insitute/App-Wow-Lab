@@ -201,6 +201,50 @@ begin;
 rollback;
 
 -- ============================================================================
+-- Point 3b — sales_manager sees billing_rule UNMASKED through
+-- contracts_billing_masked (docs/progress.md #25: "Sales Manager vede
+-- regula de facturare pt TOTI clientii activi" — confirmed by Mihai to
+-- override the SAD's original §6 wording, which had been Finance+Master
+-- only; see migration 202608100006 and the dated correction note in
+-- docs/WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md §6). Mirrors Point 3's
+-- structure exactly, opposite expectation on the billing_rule assertion.
+-- ============================================================================
+begin;
+  select set_config('app.test_org_wow_lab', (select id::text from public.organizations where slug = 'wow-lab'), true);
+  select set_config('app.test_legal_entity', (select id::text from public.legal_entities where organization_id = current_setting('app.test_org_wow_lab')::uuid and name = 'Experimente Wow SRL'), true);
+
+  do $$
+  declare
+    v_client uuid;
+    v_contract uuid;
+  begin
+    insert into public.clients (organization_id, name, client_type, status)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Sales Masking Client', 'corporate', 'active')
+    returning id into v_client;
+    insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status, billing_rule)
+    values (current_setting('app.test_org_wow_lab')::uuid, v_client, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-SALES-MASK-001', 'one_off_event', 'signed', 'REAL-RATE-950-lei-atelier')
+    returning id into v_contract;
+
+    perform set_config('app.fixture_contract', v_contract::text, true);
+  end $$;
+
+  select set_config(
+    'request.jwt.claims',
+    json_build_object(
+      'sub', (select id from public.users where email = 'test+sales-a@wowlab.dev'),
+      'role', 'authenticated'
+    )::text,
+    true
+  );
+  select set_config('role', 'authenticated', true);
+
+  select 'sales_a: billing_rule reads as the REAL value through contracts_billing_masked (not NULL)' as check_name,
+    coalesce((select billing_rule from public.contracts_billing_masked where id = current_setting('app.fixture_contract')::uuid), '<NULL>') as actual,
+    'REAL-RATE-950-lei-atelier' as expected,
+    (select billing_rule from public.contracts_billing_masked where id = current_setting('app.fixture_contract')::uuid) = 'REAL-RATE-950-lei-atelier' as pass;
+rollback;
+
+-- ============================================================================
 -- Point 4 — sales_manager can INSERT a client; cannot INSERT/UPDATE a
 -- contract (must fail).
 -- ============================================================================
