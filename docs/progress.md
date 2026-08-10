@@ -219,6 +219,14 @@ Concluzie: ipoteza inițială („Hobby plan nu suportă repo privat de organiza
 
 Notă tehnică găsită pe drum: token-ul CLI Vercel local (`~/Library/Application Support/com.vercel.cli/auth.json`) nu era de fapt invalid cum s-a presupus la #38/#40 — funcționează pentru `/v2/user`, dar contul lui autentificat (`hello@maxdigital.ro`, echipa „hello-8822's projects", `team_ZqAggwlbcsdbLAT7YkQ6rzgZ`) nu are acces la echipa Vercel reală a proiectului App-Wow-Lab (`team_jc5JPRPiybFWLSHA05B3BAKi`) — sunt două echipe Vercel diferite. De asta API-ul Vercel a răspuns constant 403 pe proiectul corect, deși token-ul în sine era valid. Verificarea deploy-urilor de mai sus s-a făcut deci prin dovadă HTTP live (canar), nu prin API-ul Vercel/lista de Deployments — acelea rămân neaccesibile din acest mediu până se folosește un cont/token cu acces la echipa corectă.
 
+42. 2026-08-10, 12:54 (ora București) — Aplicate în machetă răspunsurile Ancăi la 2 din cele 3 decizii Asana (Costuri Admin, Offboarding traineri) — al treilea (Trainer principal/secundar) rămâne deschis, neatins de această actualizare.
+
+Costuri Admin: tarife confirmate — Laura/Teo/Alexandra Nuțu 55.5 lei/h (50 net +11%), Cătălina 79.92 lei/h (72 net +11%, doar orele de admin), Raluca pe trepte de cuvinte (500–1000c: 100 lei · 1000–2000c: 150 · 2000–4000c: 250 · 4000c+: 350) + newsletter intern 150 lei/buc, Anca salariat (informativ, fără flux de facturare). Decizie CONFIRMATĂ FINAL (nu mai e 'înclinație'): introducere ore în aplicație și pt admini, la fel ca la traineri. Descoperire nouă aplicată: orele (admin ȘI trainer) se atribuie uneia din cele 3 entități legale (Experimente Wow / Bradine ADV / STEMplicity) pe proiect — facturile PFA se primesc pe entitatea care a derulat proiectul.
+
+Cele 3 tarife ale Ankăi (Admin/Ateliere/Financiar): Anca a dat cifrele nete (80/80/90 lei/h) dar nu a confirmat explicit versiunile +11% cum a făcut pt restul echipei. La cererea lui Mihai, aceeași formulă (net × 1,11) a fost aplicată pt consecvență — 88,8/88,8/99,9 lei/h — dar marcat explicit în machetă ca PRESUPUNERE CALCULATĂ, nu confirmarea ei directă. Rămâne o întrebare mică de trimis Ancăi: confirmă aceste cifre, sau calculează diferit?
+
+Offboarding: checklist real aplicat (halat/materiale/acces/motive/feedback/recomandare/Alumni WhatsApp), owner Cătălina (echipă) + Teo (materiale), exit interview de Anca/Cătălina, acces revocat imediat (politică confirmată). Stare 'pe pauză' confirmată ca reală (nu doar activ/offboarded) — reactivare cu istoric complet intact, deja susținută de arhitectura existentă (audit_log + row_history) — nimic nou de construit pt partea de istoric. Idee nouă de la Anca, agreată dar neconstruită: istoric centralizat al motivelor de plecare, pt raportare internă.
+
 ---
 
 ## Lecții / capcane (de nu uitat)
