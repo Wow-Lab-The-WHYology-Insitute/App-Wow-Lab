@@ -52,14 +52,61 @@ export default async function AppLayout({
     }
   }
 
-  const navItems = [
-    { href: "/whoami", label: "Dashboard" },
-    ...(canManageUsers ? [{ href: "/admin/users", label: "Users & Roles" }] : []),
+  // Clients & Contracts (C2): each item gated independently on its own
+  // capability (clients.read / contracts.read), not "both or nothing" — a
+  // future role could plausibly hold only one. In the current C1 seed
+  // every role that has either capability has both, so this can't be
+  // demonstrated split with today's fixtures, but the check stays
+  // independent since that's the correct model going forward.
+  let canReadClients = false;
+  let canReadContracts = false;
+  for (const m of memberships ?? []) {
+    if (!canReadClients) {
+      const { data: allowed } = await supabase.rpc("has_capability", {
+        cap: "clients.read",
+        org: m.organization_id,
+      });
+      if (allowed) canReadClients = true;
+    }
+    if (!canReadContracts) {
+      const { data: allowed } = await supabase.rpc("has_capability", {
+        cap: "contracts.read",
+        org: m.organization_id,
+      });
+      if (allowed) canReadContracts = true;
+    }
+    if (canReadClients && canReadContracts) break;
+  }
+
+  const navGroups = [
+    {
+      items: [
+        { href: "/whoami", label: "Dashboard" },
+        ...(canManageUsers
+          ? [{ href: "/admin/users", label: "Users & Roles" }]
+          : []),
+      ],
+    },
+    ...(canReadClients || canReadContracts
+      ? [
+          {
+            label: "Clients & Contracts",
+            items: [
+              ...(canReadClients
+                ? [{ href: "/clients", label: "Clients" }]
+                : []),
+              ...(canReadContracts
+                ? [{ href: "/contracts", label: "Contracts" }]
+                : []),
+            ],
+          },
+        ]
+      : []),
   ];
 
   return (
     <ShellChrome
-      navItems={navItems}
+      navGroups={navGroups}
       userEmail={user.email ?? ""}
       roleLabel={roleLabel}
     >
