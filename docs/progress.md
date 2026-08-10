@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-08-07 17:41 (ora București)
+**Ultima actualizare:** 2026-08-10 17:42 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -228,6 +228,18 @@ Cele 3 tarife ale Ankăi (Admin/Ateliere/Financiar): Anca a dat cifrele nete (80
 Offboarding: checklist real aplicat (halat/materiale/acces/motive/feedback/recomandare/Alumni WhatsApp), owner Cătălina (echipă) + Teo (materiale), exit interview de Anca/Cătălina, acces revocat imediat (politică confirmată). Stare 'pe pauză' confirmată ca reală (nu doar activ/offboarded) — reactivare cu istoric complet intact, deja susținută de arhitectura existentă (audit_log + row_history) — nimic nou de construit pt partea de istoric. Idee nouă de la Anca, agreată dar neconstruită: istoric centralizat al motivelor de plecare, pt raportare internă.
 
 43. 2026-08-10, 13:01 (ora București) — Corecție de la Anca: cele 3 tarife orare ale Ankăi (80/80/90) și tarifele per-articol/newsletter ale Ralucăi sunt FINALE — fără +11% adăugat. Doar tarifele Laurei/Teo/Alexandrei/Cătălinei primesc +11% (factură PFA netă → brută). Presupunerea calculată anterioară pentru Anka (88,8/88,8/99,9) a fost greșită — revenită la 80/80/90, marcată acum ca finală confirmată, nu presupunere calculată.
+
+44. 2026-08-10, 17:42 (ora București) — Domeniul Clients & Contracts (C1) — schemă + RLS complet construit și verificat live, branch develop (nu încă mergeat pe main). Sursă: docs/WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md (adus în repo azi, era doar în proiectul Claude.ai).
+
+Schemă: 3 tabele (clients, client_contacts, contracts), toate 🔒 audited, conform SAD. RLS pe 4 niveluri (Menu/Record/Field/Action): segregare pe tip de client pt Finance Operations (școli private) vs Finance Admin (corporate/stat/granturi), mascare de câmp pe billing_rule prin view dedicat (contracts_billing_masked), acțiuni restricționate pe rol (doar contract_administrator+Master pot crea/semna contracte).
+
+2 bug-uri reale găsite DOAR prin rulare live (nu prin verificare structurală) — confirmă din nou valoarea testării reale față de presupunere: (1) sintaxă Postgres invalidă în fixture-uri (INSERT...RETURNING ca subquery scalar) — reparat cu bloc DO $$; (2) un fals-negativ de test — verificarea de row_history rula sub rolul contract_administrator, care nu are org.audit.read, deci propriul RLS al row_history bloca citirea; NU trigger-ul era stricat. Confirmat cu query privilegiat separat înainte de a trage concluzia.
+
+Corecție de business, documentată: billing_rule era mascat pt Sales Manager (urmând SAD §6 literal), dar Mihai a confirmat explicit că progress.md #25 (decizia directă a Ancăi: Sales Manager vede regula de facturare pt toți clienții activi) are prioritate — SAD-ul era depășit de acel răspuns specific. Corectat: view-ul de mascare + document SAD amendat in-place (notă datată, nu rescriere silențioasă — textul original rămâne vizibil lângă explicație).
+
+Verificare: 20/20 asertări reale live (nu doar sanity-check structural) — segregare pe tip client, mascare de câmp (inclusiv cazul special Sales Manager), acțiuni pe rol, izolare cross-org, audit trail. Verificare de sabotaj: politică stricată intenționat → asertarea chiar pică (true→false), apoi ROLLBACK confirmat complet (pg_policy re-citit, zero rânduri fixture scăpate în baza vie).
+
+Rămâne: pagini reale Next.js (C2) — schema+RLS sunt gata, dar nimic vizibil încă pentru Anca. Branch develop, neâncă mergeat.
 
 ---
 
