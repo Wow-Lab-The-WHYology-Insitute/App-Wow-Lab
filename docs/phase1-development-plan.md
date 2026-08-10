@@ -27,6 +27,7 @@
 | 13 | Favicon (aplicația reală) | ⚪ **Neconfirmat** | progress.md #24 | Prompt dat, niciun raport de finalizare primit |
 | 14 | Pagină de confirmare /auth/callback (anti-scanner) | ⚪ **Neconfirmat, opțional** | progress.md #24 | Prompt dat, niciun raport primit — neblocant |
 | 15 | Developer security review gate | 🔵 **Închis — risc asumat conștient, decizie explicită Mihai (2026-08-07)** | Phase 0 | NU se face review extern; se merge mai departe pe baza suitei de teste RLS + verificării organice de azi (§4) |
+| 16 | Repo GitHub — revenire la Privat | 🔵 **Amânat conștient, cu declanșator clar** | progress.md #38-39 | Momentan PUBLIC (decizie explicită Mihai — deploy automat Vercel > protecție date, pe Hobby plan). Revine Privat quando: (a) upgrade Vercel la Pro, ȘI (b) aplicația la o etapă mai matură. Supabase e neconcordat tehnic cu asta — separat |
 
 **Legendă:** ✅ rezolvat/aplicat · 🟢 specificat, gata de construit real · 🟡 parțial/schelet · 🔴 nefăcut · 🔵 amânat conștient · ⚪ neconfirmat (prompt dat, fără raport)
 
