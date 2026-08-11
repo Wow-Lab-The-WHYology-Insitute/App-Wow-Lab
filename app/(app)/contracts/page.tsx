@@ -13,6 +13,10 @@ type ContractRow = {
   period_start: string | null;
   period_end: string | null;
   billing_rule: string | null;
+  client_contract_number: string | null;
+  signed_date: string | null;
+  estimated_value: number | null;
+  previous_year_value: number | null;
 };
 type ClientLookupRow = { id: string; name: string };
 type LegalEntityLookupRow = { id: string; name: string };
@@ -70,7 +74,7 @@ export default async function ContractsPage() {
   const { data: contracts } = await supabase
     .from("contracts_billing_masked")
     .select(
-      "id, organization_id, client_id, legal_entity_id, contract_number, contract_type, status, period_start, period_end, billing_rule",
+      "id, organization_id, client_id, legal_entity_id, contract_number, contract_type, status, period_start, period_end, billing_rule, client_contract_number, signed_date, estimated_value, previous_year_value",
     )
     .order("contract_number")
     .returns<ContractRow[]>();
@@ -152,7 +156,7 @@ export default async function ContractsPage() {
   }));
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <div>
         <h1 className="font-display text-2xl text-brand-pink">Contracts</h1>
         <p className="font-body text-muted mt-1 text-sm">

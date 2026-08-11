@@ -245,6 +245,99 @@ begin;
 rollback;
 
 -- ============================================================================
+-- Point 3c — estimated_value / previous_year_value (202608110002) are
+-- masked for operations_manager, the exact same as billing_rule already
+-- is — NOT assumed to inherit correctly just because it's the same view;
+-- verified with its own fixture and its own assertions, same as Point 3
+-- did for billing_rule.
+-- ============================================================================
+begin;
+  select set_config('app.test_org_wow_lab', (select id::text from public.organizations where slug = 'wow-lab'), true);
+  select set_config('app.test_legal_entity', (select id::text from public.legal_entities where organization_id = current_setting('app.test_org_wow_lab')::uuid and name = 'Experimente Wow SRL'), true);
+
+  do $$
+  declare
+    v_client uuid;
+    v_contract uuid;
+  begin
+    insert into public.clients (organization_id, name, client_type, status)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Financial Masking Client', 'corporate', 'active')
+    returning id into v_client;
+    insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status, estimated_value, previous_year_value)
+    values (current_setting('app.test_org_wow_lab')::uuid, v_client, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-FIN-MASK-001', 'one_off_event', 'signed', 12345.67, 9876.54)
+    returning id into v_contract;
+
+    perform set_config('app.fixture_contract', v_contract::text, true);
+  end $$;
+
+  select set_config(
+    'request.jwt.claims',
+    json_build_object(
+      'sub', (select id from public.users where email = 'test+catalina@wowlab.dev'),
+      'role', 'authenticated'
+    )::text,
+    true
+  );
+  select set_config('role', 'authenticated', true);
+
+  select 'catalina (ops): estimated_value reads as NULL through contracts_billing_masked' as check_name,
+    coalesce((select estimated_value::text from public.contracts_billing_masked where id = current_setting('app.fixture_contract')::uuid), '<NULL>') as actual,
+    '<NULL>' as expected,
+    (select estimated_value from public.contracts_billing_masked where id = current_setting('app.fixture_contract')::uuid) is null as pass
+  union all
+  select 'catalina (ops): previous_year_value reads as NULL through contracts_billing_masked',
+    coalesce((select previous_year_value::text from public.contracts_billing_masked where id = current_setting('app.fixture_contract')::uuid), '<NULL>'),
+    '<NULL>',
+    (select previous_year_value from public.contracts_billing_masked where id = current_setting('app.fixture_contract')::uuid) is null;
+rollback;
+
+-- ============================================================================
+-- Point 3d — same two financial fields read as REAL values for
+-- finance_admin_reporting (a role not yet exercised against these two
+-- specific columns elsewhere in this file — Point 3b covered sales_manager
+-- for billing_rule only).
+-- ============================================================================
+begin;
+  select set_config('app.test_org_wow_lab', (select id::text from public.organizations where slug = 'wow-lab'), true);
+  select set_config('app.test_legal_entity', (select id::text from public.legal_entities where organization_id = current_setting('app.test_org_wow_lab')::uuid and name = 'Experimente Wow SRL'), true);
+
+  do $$
+  declare
+    v_client uuid;
+    v_contract uuid;
+  begin
+    insert into public.clients (organization_id, name, client_type, status)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Financial Unmasking Client', 'corporate', 'active')
+    returning id into v_client;
+    insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status, estimated_value, previous_year_value)
+    values (current_setting('app.test_org_wow_lab')::uuid, v_client, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-FIN-UNMASK-001', 'one_off_event', 'signed', 55555.00, 44444.00)
+    returning id into v_contract;
+
+    perform set_config('app.fixture_contract', v_contract::text, true);
+  end $$;
+
+  select set_config(
+    'request.jwt.claims',
+    json_build_object(
+      'sub', (select id from public.users where email = 'test+finance-admin-a@wowlab.dev'),
+      'role', 'authenticated'
+    )::text,
+    true
+  );
+  select set_config('role', 'authenticated', true);
+
+  select 'finance_admin_a: estimated_value reads as the REAL value (not NULL)' as check_name,
+    coalesce((select estimated_value::text from public.contracts_billing_masked where id = current_setting('app.fixture_contract')::uuid), '<NULL>') as actual,
+    '55555.00' as expected,
+    (select estimated_value from public.contracts_billing_masked where id = current_setting('app.fixture_contract')::uuid) = 55555.00 as pass
+  union all
+  select 'finance_admin_a: previous_year_value reads as the REAL value (not NULL)',
+    coalesce((select previous_year_value::text from public.contracts_billing_masked where id = current_setting('app.fixture_contract')::uuid), '<NULL>'),
+    '44444.00',
+    (select previous_year_value from public.contracts_billing_masked where id = current_setting('app.fixture_contract')::uuid) = 44444.00;
+rollback;
+
+-- ============================================================================
 -- Point 4 — sales_manager can INSERT a client; cannot INSERT/UPDATE a
 -- contract (must fail).
 -- ============================================================================

@@ -21,6 +21,8 @@ export async function addClient(
   name: string,
   clientType: string,
   businessLine: string,
+  legalName: string,
+  cui: string,
 ): Promise<ActionResult> {
   if (!name.trim() || !clientType) {
     return { ok: false, error: "Name and client type are required." };
@@ -34,6 +36,8 @@ export async function addClient(
       name: name.trim(),
       client_type: clientType,
       business_line: businessLine.trim() || null,
+      legal_name: legalName.trim() || null,
+      cui: cui.trim() || null,
       status: "prospect",
     })
     .select("id")

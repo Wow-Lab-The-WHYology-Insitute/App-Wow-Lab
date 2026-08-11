@@ -8,6 +8,9 @@ type ClientRow = {
   client_type: string;
   status: string;
   business_line: string | null;
+  legal_name: string | null;
+  cui: string | null;
+  created_at: string;
 };
 
 // C2: list page for the Clients & Contracts domain (C1 schema/RLS). No
@@ -50,12 +53,12 @@ export default async function ClientsPage() {
 
   const { data: clients } = await supabase
     .from("clients")
-    .select("id, name, client_type, status, business_line")
+    .select("id, name, client_type, status, business_line, legal_name, cui, created_at")
     .order("name")
     .returns<ClientRow[]>();
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <div>
         <h1 className="font-display text-2xl text-brand-pink">Clients</h1>
         <p className="font-body text-muted mt-1 text-sm">
