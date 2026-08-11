@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-08-11 12:47 (ora București)
+**Ultima actualizare:** 2026-08-11 17:36 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -280,6 +280,16 @@ Cu asta, toate cele 3 decizii originale din Asana (Costuri Admin, Offboarding, T
 Verificare: NU confirmat ca fiind cauza exactă a raportului inițial al lui Mihai (eșecul RPC tranzitoriu n-a fost prins în flagrant). Confirmat: fix-ul e consecvent, comportamentul normal e neschimbat (0.7-1.2s, fără latență adăugată), și dacă se mai întâmplă, va lăsa urmă în logurile Vercel — spre deosebire de data trecută, complet invizibil.
 
 Verificarea live pe develop's Preview a fost blocată A DOUA OARĂ de aceeași problemă cunoscută (env vars Supabase fără scope Preview) — verificat local în schimb, sesiuni reale magic-link, 4 roluri.
+
+49. 2026-08-11, 17:36 (ora București) — Extensia de câmpuri din tracker-ul real (legal_name/cui, câmpuri financiare mascate, UI complet) mergeată develop → main. Merge commit `903d6e0` (--no-ff, istoric vizibil, nu squash). Commit-uri individuale aduse: `c50cf99` (fix defensiv has_capability), `4ec8a33` (sincronizare progress.md #46-47), `3608152` (jurnal #48), `7656370` (schemă+date reale+view de mascare+UI /clients+/contracts). Branch `develop` rămâne activ pentru următorul modul.
+
+Verificare pre-merge: identic cu procedura de la #46 — `develop` avea o singură modificare necomisă, preexistentă și neatinsă de acest fir (admin-users-client.tsx), confirmat că blob-ul comis al fișierului e identic pe main și develop înainte de merge. Checkout main → merge develop --no-ff a rulat curat, fără conflicte; modificarea necomisă a supraviețuit checkout-ului neschimbată (verificat cu git hash-object).
+
+Verificare deploy producție: fișier-canar temporar (`canary-c2-tracker-fields-merge.svg`) — live la prima verificare de după push (sub 10s), conținut confirmat identic cu ce s-a pus în commit, apoi șters la loc.
+
+Verificare live pe PRODUCȚIE reală (app.wowlab.ro) — sesiuni magic-link reale, 11/11 verificări trecute: legal_name/CUI reale afișate corect (Cambridge School → FUNDATIA MATEAS/35807977, Zitec → doar CUI RO15496736 fără legal_name, exact ca pe develop), sortare implicită alfabetică pe Nume confirmată + click pe header inversează ordinea, mascarea financiară corectă per rol (Operations Manager vede 🔒 pe estimated_value/previous_year_value, Finance Operations vede valorile reale sau „Not set"), coloanele Start Date/End Date separate prezente, layout-ul full-width confirmat pe ambele pagini (container ≈ lățime disponibilă, nu mai plafonat la max-w-5xl).
+
+**Semnalare repetată — problema Preview (a 3-a oară în acest fir de lucru):** eroarea `MIDDLEWARE_INVOCATION_FAILED` pe Preview (env vars Supabase fără scope Preview) a blocat verificarea live pe Preview de 3 ori consecutiv (fix has_capability #48, extensia de câmpuri tracker înainte de acest merge, și implicit orice verificare Preview intermediară din acest interval) — de fiecare dată ocolită cu verificare locală sau direct pe producție. Nu mai e un incident izolat, e un cost recurent: fiecare fir de lucru pe `develop` pierde timp reconstruind același ocol (server local + sesiuni magic-link reale prin Playwright instalat temporar). Recomandare fermă: de rezolvat scope-ul variabilelor de mediu pe Preview în Vercel **înainte** de a începe următorul modul Phase 1 (Grupe & Înscrieri) pe `develop` — altfel ocolul se repetă a 4-a oară.
 
 ---
 
