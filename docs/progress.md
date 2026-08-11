@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-08-11 17:36 (ora București)
+**Ultima actualizare:** 2026-08-11 18:38 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -290,6 +290,12 @@ Verificare deploy producție: fișier-canar temporar (`canary-c2-tracker-fields-
 Verificare live pe PRODUCȚIE reală (app.wowlab.ro) — sesiuni magic-link reale, 11/11 verificări trecute: legal_name/CUI reale afișate corect (Cambridge School → FUNDATIA MATEAS/35807977, Zitec → doar CUI RO15496736 fără legal_name, exact ca pe develop), sortare implicită alfabetică pe Nume confirmată + click pe header inversează ordinea, mascarea financiară corectă per rol (Operations Manager vede 🔒 pe estimated_value/previous_year_value, Finance Operations vede valorile reale sau „Not set"), coloanele Start Date/End Date separate prezente, layout-ul full-width confirmat pe ambele pagini (container ≈ lățime disponibilă, nu mai plafonat la max-w-5xl).
 
 **Semnalare repetată — problema Preview (a 3-a oară în acest fir de lucru):** eroarea `MIDDLEWARE_INVOCATION_FAILED` pe Preview (env vars Supabase fără scope Preview) a blocat verificarea live pe Preview de 3 ori consecutiv (fix has_capability #48, extensia de câmpuri tracker înainte de acest merge, și implicit orice verificare Preview intermediară din acest interval) — de fiecare dată ocolită cu verificare locală sau direct pe producție. Nu mai e un incident izolat, e un cost recurent: fiecare fir de lucru pe `develop` pierde timp reconstruind același ocol (server local + sesiuni magic-link reale prin Playwright instalat temporar). Recomandare fermă: de rezolvat scope-ul variabilelor de mediu pe Preview în Vercel **înainte** de a începe următorul modul Phase 1 (Grupe & Înscrieri) pe `develop` — altfel ocolul se repetă a 4-a oară.
+
+50. 2026-08-11, 18:38 (ora București) — Consecvență de design pe cele 4 pagini reale, branch develop, commit b00ebb3. Formularele „New Client"/„New Contract" ascunse acum în spatele unui buton-pilulă (același stil gradient magenta→orange ca restul aplicației) — colaps implicit, se extinde la click, se strânge la al doilea click sau după creare reușită. Butoanele de submit redenumite „Create client"/„Create contract" ca să nu existe etichetă dublă cu butonul de extindere. Verificat: /admin/users nu avea deja un tipar similar (formularul de invitație rămâne mereu expandat, neatins) — noul tipar e stabilit acum, nu doar potrivit cu unul existent.
+
+Lățime: toate 4 paginile reale (/whoami, /admin/users, /clients, /contracts) folosesc acum același container full-width (976px la 1280px viewport) — coerență vizuală completă.
+
+Verificare live pe develop's Preview, sesiuni reale per rol corect (organization_owner pt /admin/users, contract_administrator pt formularul de contract) — toate confirmate. Scope strict: doar clients-client.tsx, contracts-client.tsx, admin/users/page.tsx, whoami/page.tsx — nicio logică de date/RLS/capabilități atinsă.
 
 ---
 

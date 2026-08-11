@@ -103,6 +103,7 @@ export function ContractsClient({
   // Default: End Date ascending (soonest-expiring first).
   const [sortKey, setSortKey] = useState<SortKey>("period_end");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   function onSort(key: SortKey) {
     if (key === sortKey) {
@@ -126,29 +127,26 @@ export function ContractsClient({
       )}
 
       {/* contract_administrator (+Master)-gated, same capability logic as
-          the RLS INSERT policy — see canManageContracts() in page.tsx. */}
+          the RLS INSERT policy — see canManageContracts() in page.tsx.
+          Collapsed by default, same disclosure pattern as /clients (no
+          established pattern to match — /admin/users' InviteForm is
+          always-expanded) — inline, no modal, so the list below never
+          leaves view. */}
       {createOrgId && (
-        <NewContractForm
-          clientOptions={clientOptions}
-          legalEntityOptions={legalEntityOptions}
-          isPending={isPending}
-          onSubmit={(
-            clientId,
-            legalEntityId,
-            number,
-            type,
-            start,
-            end,
-            rule,
-            clientContractNumber,
-            signedDate,
-            estimatedValue,
-            previousYearValue,
-          ) => {
-            setError(null);
-            startTransition(async () => {
-              const result = await addContract(
-                createOrgId,
+        <div className="flex flex-col gap-4">
+          <button
+            type="button"
+            onClick={() => setIsFormOpen((open) => !open)}
+            className="font-body w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity hover:opacity-90"
+          >
+            + New contract
+          </button>
+          {isFormOpen && (
+            <NewContractForm
+              clientOptions={clientOptions}
+              legalEntityOptions={legalEntityOptions}
+              isPending={isPending}
+              onSubmit={(
                 clientId,
                 legalEntityId,
                 number,
@@ -160,11 +158,30 @@ export function ContractsClient({
                 signedDate,
                 estimatedValue,
                 previousYearValue,
-              );
-              if (!result.ok) setError(result.error);
-            });
-          }}
-        />
+              ) => {
+                setError(null);
+                startTransition(async () => {
+                  const result = await addContract(
+                    createOrgId,
+                    clientId,
+                    legalEntityId,
+                    number,
+                    type,
+                    start,
+                    end,
+                    rule,
+                    clientContractNumber,
+                    signedDate,
+                    estimatedValue,
+                    previousYearValue,
+                  );
+                  if (!result.ok) setError(result.error);
+                  else setIsFormOpen(false);
+                });
+              }}
+            />
+          )}
+        </div>
       )}
 
       <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
@@ -449,7 +466,7 @@ function NewContractForm({
         }
         className="font-body mt-3 w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
       >
-        + New contract
+        Create contract
       </button>
     </section>
   );

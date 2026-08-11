@@ -90,6 +90,7 @@ export function ClientsClient({
   const [isPending, startTransition] = useTransition();
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   function onSort(key: SortKey) {
     if (key === sortKey) {
@@ -115,26 +116,41 @@ export function ClientsClient({
       {/* clients.create capability gate — same pattern as admin/users'
           InviteForm, only rendered when the server already found an org
           the caller can create clients in. The RLS INSERT policy is the
-          real gate; this just avoids showing a form that would 403. */}
+          real gate; this just avoids showing a form that would 403.
+          Collapsed by default (no established pattern to match — /admin/
+          users' InviteForm is always-expanded) — inline disclosure, no
+          modal, so the list below never leaves view. */}
       {createOrgId && (
-        <NewClientForm
-          orgId={createOrgId}
-          isPending={isPending}
-          onSubmit={(name, clientType, businessLine, legalName, cui) => {
-            setError(null);
-            startTransition(async () => {
-              const result = await addClient(
-                createOrgId,
-                name,
-                clientType,
-                businessLine,
-                legalName,
-                cui,
-              );
-              if (!result.ok) setError(result.error);
-            });
-          }}
-        />
+        <div className="flex flex-col gap-4">
+          <button
+            type="button"
+            onClick={() => setIsFormOpen((open) => !open)}
+            className="font-body w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity hover:opacity-90"
+          >
+            + New client
+          </button>
+          {isFormOpen && (
+            <NewClientForm
+              orgId={createOrgId}
+              isPending={isPending}
+              onSubmit={(name, clientType, businessLine, legalName, cui) => {
+                setError(null);
+                startTransition(async () => {
+                  const result = await addClient(
+                    createOrgId,
+                    name,
+                    clientType,
+                    businessLine,
+                    legalName,
+                    cui,
+                  );
+                  if (!result.ok) setError(result.error);
+                  else setIsFormOpen(false);
+                });
+              }}
+            />
+          )}
+        </div>
       )}
 
       <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
@@ -320,7 +336,7 @@ function NewClientForm({
           onClick={() => onSubmit(name, clientType, businessLine, legalName, cui)}
           className="font-body w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
         >
-          + New client
+          Create client
         </button>
       </div>
     </section>
