@@ -24,6 +24,10 @@ export async function addContract(
   periodStart: string,
   periodEnd: string,
   billingRule: string,
+  clientContractNumber: string,
+  signedDate: string,
+  estimatedValue: string,
+  previousYearValue: string,
 ): Promise<ActionResult> {
   if (!clientId || !legalEntityId || !contractNumber.trim() || !contractType) {
     return {
@@ -44,6 +48,10 @@ export async function addContract(
       period_start: periodStart || null,
       period_end: periodEnd || null,
       billing_rule: billingRule.trim() || null,
+      client_contract_number: clientContractNumber.trim() || null,
+      signed_date: signedDate || null,
+      estimated_value: estimatedValue.trim() ? Number(estimatedValue) : null,
+      previous_year_value: previousYearValue.trim() ? Number(previousYearValue) : null,
       status: "draft",
     })
     .select("id")
