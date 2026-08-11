@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-08-10 18:26 (ora București)
+**Ultima actualizare:** 2026-08-11 10:21 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -250,6 +250,30 @@ Verificare live, sesiuni reale prin magic-link, 4 roluri (4 useri noi dedicați 
 Date demo: 5 clienți cu nume reale deja stabilite în proiect (Lycée Français, IBSB, Cambridge School, King's Oak, Zitec), 5 contracte cu prefix DEMO- pe număr + text explicit „Example seed record" direct în coloana notes (vizibil chiar la query direct pe tabelă, nu doar în comentariu de cod) — cifrele de billing_rule preluate din machetă doar pt plauzibilitate, NEverificate față de contractele reale actuale, marcat explicit ca atare.
 
 Rămâne: merge pe main (încă pe develop), apoi următorul modul Phase 1 (Grupe & Înscrieri, conform secvențierii stabilite).
+
+46. 2026-08-10, 18:38 (ora București) — Clients & Contracts (C1+C2) mergeat develop → main, prima funcționalitate reală de Phase 1 în producție. Merge commit `5bc18b8` (--no-ff, istoric vizibil, nu squash). Commit-uri individuale: C1 schemă+RLS `63d482c`/`5f7f2dc`/`b71ccdc`, C2 UI `3fd0b56`, jurnal `69a29c1`/`9192937`. Branch `develop` rămâne activ (nu șters) — Phase 1 continuă acolo cu următorul modul (Grupe & Înscrieri).
+
+Verificare pre-merge: `develop` avea o singură modificare necomisă, preexistentă și neatinsă de acest fir (admin-users-client.tsx, dintr-un alt fir de lucru) — confirmat că blob-ul comis al acelui fișier e identic pe main și develop, deci checkout+merge nu-l atinge. `main` confirmat fără drift neașteptat înainte de merge (git pull, „Already up to date").
+
+Verificare deploy producție: fișier-canar temporar (`_deploy_check_c1c2.svg`, ocolește middleware-ul de auth prin extensie) — live în ~40 secunde de la push, apoi șters la loc după confirmare. Regresie verificată: `/` și `/login` neschimbate (307/200) față de baseline dinainte de merge.
+
+Verificare live pe PRODUCȚIE reală (app.wowlab.ro, nu preview) — sesiuni magic-link reale, 2 roluri: Sales Manager (test+ui-sales) vede toate 5 clienți/contracte, billing_rule NEmascat pe toate 5 (confirmă corecția din C1 funcționează end-to-end pe producție, nu doar pe preview); Finance Operations (test+ui-finance-ops) vede DOAR cele 4 contracte de școală privată, Zitec/corporate absent complet din listă. Identic cu comportamentul verificat pe preview la C2 — nicio diferență de mediu descoperită.
+
+Notă separată, nelegată de acest merge (semnalat explicit ca să nu se piardă): problema de scope Preview pt variabilele de mediu (eroarea MIDDLEWARE_INVOCATION_FAILED) rămâne nerezolvată — afectează doar URL-urile de Preview, nu Producție (confirmat în captura din dashboard că variabilele de Producție au fost mereu scopate corect). Acest merge nu a lovit acea eroare (confirmat mai sus). De rezolvat înainte de următoarea nevoie reală de preview pe branch-ul develop.
+
+47. 2026-08-11, 10:21 (ora București) — Decizie închisă: Trainer principal/secundar per grupă/eveniment — răspuns complet al Ancăi.
+
+Cine decide: trainerii se anunță pe grup, Cătălina decide (Anca în lipsa ei), pe bază de senioritate + responsabilitate demonstrată. 3 situații reale: (a) 2 traineri experimentați egali → aleg între ei, Cătălina confirmă; (b) trainer nou + experimentat → clar cine e principal, tot confirmat formal; (c) traineri doar-secundar (ex. Elena Bacalum).
+
+Plată: FĂRĂ tarif diferit — rămâne egal în tabelul de pontaj, ca să nu descurajeze secundarul. Bonus: 1 față zâmbitoare la 3 ateliere livrate ca principal, validat manual de Cătălina, rest reportat luna următoare.
+
+Unde: checkbox Principal/Secundar pe ecranul Planificare & Alocări (Grupe & Înscrieri) — legat de Google Sheet real „Fielduri pentru planificare ateliere" (completat de Cătălina/Anka/traineri), Finance Admin & Reporting cere acces (leagă de #25). AMBIGUITATE notată, de clarificat la construcție: neclar dacă Finance Admin SETEAZĂ bifa sau doar o VEDE — probabil doar vizibilitate, nu presupus ca fapt.
+
+Scop: DOAR proiecte speciale (Șc. Altfel/Verde, Party, Corporate) — NU grupe recurente (max 12-13 copii, un trainer). Rotație: DA, rolurile se inversează sesiune cu sesiune, legate de curs/atelier specific, nu fixe.
+
+Cerințe noi, mici, notate pt mai târziu (nu construite acum): (1) formular obligatoriu de feedback post-atelier pt grupe punctuale — rămâne extern Google Forms, doar linkuit, ideal apare automat la finalul atelierului în ecranul trainerului; (2) document explicativ Principal vs Secundar — extern, doar linkuit. Ambele merg la o secțiune „Linkuri utile/Resurse" pt traineri — încă neconstruită, de adăugat quando construim dashboard-ul de trainer.
+
+Cu asta, toate cele 3 decizii originale din Asana (Costuri Admin, Offboarding, Trainer principal/secundar) sunt închise.
 
 ---
 
