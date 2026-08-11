@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-08-11 10:21 (ora București)
+**Ultima actualizare:** 2026-08-11 12:47 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -274,6 +274,12 @@ Scop: DOAR proiecte speciale (Șc. Altfel/Verde, Party, Corporate) — NU grupe 
 Cerințe noi, mici, notate pt mai târziu (nu construite acum): (1) formular obligatoriu de feedback post-atelier pt grupe punctuale — rămâne extern Google Forms, doar linkuit, ideal apare automat la finalul atelierului în ecranul trainerului; (2) document explicativ Principal vs Secundar — extern, doar linkuit. Ambele merg la o secțiune „Linkuri utile/Resurse" pt traineri — încă neconstruită, de adăugat quando construim dashboard-ul de trainer.
 
 Cu asta, toate cele 3 decizii originale din Asana (Costuri Admin, Offboarding, Trainer principal/secundar) sunt închise.
+
+48. 2026-08-11, 12:47 (ora București) — Fix defensiv pe has_capability RPC în layout.tsx, branch develop, commit c50cf99. Toate 3 apelurile (org.members.manage, clients.read, contracts.read) rutate acum printr-un singur helper checkCapability() — consecvență de cod, nu 3 copii care ar putea diverge. Comportament fail-closed păstrat (RLS rămâne linia reală de apărare) — dar acum LOGAT explicit dacă apelul eșuează, plus un retry imediat înainte de a renunța.
+
+Verificare: NU confirmat ca fiind cauza exactă a raportului inițial al lui Mihai (eșecul RPC tranzitoriu n-a fost prins în flagrant). Confirmat: fix-ul e consecvent, comportamentul normal e neschimbat (0.7-1.2s, fără latență adăugată), și dacă se mai întâmplă, va lăsa urmă în logurile Vercel — spre deosebire de data trecută, complet invizibil.
+
+Verificarea live pe develop's Preview a fost blocată A DOUA OARĂ de aceeași problemă cunoscută (env vars Supabase fără scope Preview) — verificat local în schimb, sesiuni reale magic-link, 4 roluri.
 
 ---
 
