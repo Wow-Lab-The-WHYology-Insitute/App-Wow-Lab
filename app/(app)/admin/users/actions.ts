@@ -62,6 +62,9 @@ export async function inviteUser(
   orgId: string,
   email: string,
   roleIds: string[],
+  firstName: string,
+  lastName: string,
+  phone: string,
 ): Promise<ActionResult> {
   const check = await assertCanManageOrg(orgId);
   if ("error" in check) return { ok: false, error: check.error };
@@ -74,7 +77,10 @@ export async function inviteUser(
   // capability check above. inviteUserByEmail creates the auth.users row;
   // public.handle_new_auth_user() (202607130004) creates the matching
   // public.users row synchronously via an AFTER INSERT trigger, so it
-  // already exists by the time this call returns.
+  // already exists by the time this call returns — confirmed live
+  // (information_schema.triggers) before relying on this, see
+  // 202608120001's own header comment. That's what makes the follow-up
+  // UPDATE below safe to run immediately, no deferral to first login.
   const admin = createServiceRoleClient();
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
@@ -82,6 +88,21 @@ export async function inviteUser(
 
   if (error || !data.user) {
     return { ok: false, error: error?.message ?? "Invite failed." };
+  }
+
+  if (firstName.trim() || lastName.trim() || phone.trim()) {
+    const { error: profileError } = await admin
+      .from("users")
+      .update({
+        first_name: firstName.trim() || null,
+        last_name: lastName.trim() || null,
+        phone: phone.trim() || null,
+      })
+      .eq("id", data.user.id);
+
+    if (profileError) {
+      return { ok: false, error: profileError.message };
+    }
   }
 
   const { error: rolesError } = await admin.from("user_org_roles").insert(

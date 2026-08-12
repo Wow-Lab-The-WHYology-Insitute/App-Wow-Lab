@@ -61,7 +61,7 @@ export default async function AdminUsersPage() {
   const { data: memberRows } = await supabase
     .from("user_org_roles")
     .select(
-      "user_id, role_id, users!user_org_roles_user_id_fkey(email, status), roles(id, key, display_name)",
+      "user_id, role_id, users!user_org_roles_user_id_fkey(email, status, first_name, last_name, avatar_url), roles(id, key, display_name)",
     )
     .eq("organization_id", managedOrg.id);
 
@@ -73,11 +73,20 @@ export default async function AdminUsersPage() {
       status: string;
       roleIds: string[];
       roleLabels: string[];
+      firstName: string | null;
+      lastName: string | null;
+      avatarPath: string | null;
     }
   >();
 
   for (const row of memberRows ?? []) {
-    const u = row.users as unknown as { email: string; status: string } | null;
+    const u = row.users as unknown as {
+      email: string;
+      status: string;
+      first_name: string | null;
+      last_name: string | null;
+      avatar_url: string | null;
+    } | null;
     const r = row.roles as unknown as {
       id: string;
       key: string;
@@ -96,9 +105,38 @@ export default async function AdminUsersPage() {
         status: u.status,
         roleIds: [r.id],
         roleLabels: [r.display_name],
+        firstName: u.first_name,
+        lastName: u.last_name,
+        avatarPath: u.avatar_url,
       });
     }
   }
+
+  // avatar_url on public.users is a Storage PATH in the private `avatars`
+  // bucket, never a public URL — resolved to short-lived signed URLs here,
+  // through this session's own client, so the "authenticated org members
+  // can read any avatar" access model (storage.objects RLS, 202608120001)
+  // is what actually gates this, not a service_role bypass. Batched via
+  // createSignedUrls (one request) rather than one createSignedUrl call
+  // per member.
+  const rawMembers = Array.from(membersByUser.values());
+  const avatarPaths = rawMembers
+    .map((m) => m.avatarPath)
+    .filter((p): p is string => Boolean(p));
+  const signedUrlByPath = new Map<string, string>();
+  if (avatarPaths.length > 0) {
+    const { data: signed } = await supabase.storage
+      .from("avatars")
+      .createSignedUrls(avatarPaths, 3600);
+    for (const s of signed ?? []) {
+      if (s.path && s.signedUrl) signedUrlByPath.set(s.path, s.signedUrl);
+    }
+  }
+
+  const members = rawMembers.map(({ avatarPath, ...m }) => ({
+    ...m,
+    avatarUrl: avatarPath ? (signedUrlByPath.get(avatarPath) ?? null) : null,
+  }));
 
   return (
     <div className="flex w-full flex-col gap-6">
@@ -112,7 +150,7 @@ export default async function AdminUsersPage() {
       <AdminUsersClient
         orgId={managedOrg.id}
         roles={roles ?? []}
-        members={Array.from(membersByUser.values())}
+        members={members}
       />
     </div>
   );

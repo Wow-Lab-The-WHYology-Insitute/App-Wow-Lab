@@ -61,6 +61,23 @@ export default async function AppLayout({
     .eq("user_id", user.id)
     .returns<MembershipRow[]>();
 
+  // avatar_url is a Storage PATH in the private `avatars` bucket, never a
+  // public URL — resolved to a short-lived signed URL here, through this
+  // same session client, same as /whoami and /admin/users.
+  const { data: ownProfile } = await supabase
+    .from("users")
+    .select("avatar_url")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  let avatarUrl: string | null = null;
+  if (ownProfile?.avatar_url) {
+    const { data: signed } = await supabase.storage
+      .from("avatars")
+      .createSignedUrl(ownProfile.avatar_url, 3600);
+    avatarUrl = signed?.signedUrl ?? null;
+  }
+
   const roleLabel = [
     ...new Set((memberships ?? []).map((m) => m.roles?.display_name).filter(Boolean)),
   ].join(", ");
@@ -125,6 +142,7 @@ export default async function AppLayout({
       navGroups={navGroups}
       userEmail={user.email ?? ""}
       roleLabel={roleLabel}
+      avatarUrl={avatarUrl}
     >
       {children}
     </ShellChrome>

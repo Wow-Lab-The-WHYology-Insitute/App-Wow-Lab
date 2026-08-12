@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { ProfileSection } from "./profile-section";
 
 // S2: a diagnostic page proving the auth -> RLS loop works for a real
 // logged-in session, not SQL Editor impersonation. Every query below runs
@@ -35,9 +36,22 @@ export default async function WhoAmIPage() {
 
   const { data: ownProfile } = await supabase
     .from("users")
-    .select("email, is_platform_owner, status")
+    .select("email, is_platform_owner, status, first_name, last_name, phone, avatar_url")
     .eq("id", user.id)
     .maybeSingle();
+
+  // avatar_url is a Storage PATH in the private `avatars` bucket, never a
+  // public URL — resolved to a short-lived signed URL here, through this
+  // same session client, so "authenticated org members can read any
+  // avatar" (storage.objects RLS, 202608120001) is what actually gates
+  // this render, same as the /admin/users members list.
+  let signedAvatarUrl: string | null = null;
+  if (ownProfile?.avatar_url) {
+    const { data: signed } = await supabase.storage
+      .from("avatars")
+      .createSignedUrl(ownProfile.avatar_url, 3600);
+    signedAvatarUrl = signed?.signedUrl ?? null;
+  }
 
   // RLS on organizations: app.is_platform_owner() OR app.belongs_to_org(id).
   // For anyone who isn't platform_owner, this list is the plainest possible
@@ -121,6 +135,14 @@ export default async function WhoAmIPage() {
           loop works, not yet a real Phase 1 dashboard.
         </p>
       </div>
+
+      <ProfileSection
+        email={ownProfile?.email ?? user.email ?? ""}
+        initialFirstName={ownProfile?.first_name ?? null}
+        initialLastName={ownProfile?.last_name ?? null}
+        initialPhone={ownProfile?.phone ?? null}
+        initialAvatarUrl={signedAvatarUrl}
+      />
 
       <Section title="Signed in as">
         <Kv label="Email" value={ownProfile?.email ?? user.email ?? "?"} />
