@@ -18,11 +18,13 @@ export function ShellChrome({
   navGroups,
   userEmail,
   roleLabel,
+  avatarUrl,
   children,
 }: {
   navGroups: NavGroup[];
   userEmail: string;
   roleLabel: string;
+  avatarUrl: string | null;
   children: React.ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -107,7 +109,8 @@ export function ShellChrome({
               height={22}
               className="h-[22px] w-auto shrink-0 md:hidden"
             />
-            <div className="font-body truncate text-sm">
+            <TopbarAvatar url={avatarUrl} label={userEmail} />
+            <div className="font-body min-w-0 truncate text-sm">
               <span className="text-ink font-semibold">{userEmail}</span>
               {roleLabel && <span className="text-muted ml-2">· {roleLabel}</span>}
             </div>
@@ -117,5 +120,31 @@ export function ShellChrome({
         <main className="flex-1 p-8">{children}</main>
       </div>
     </div>
+  );
+}
+
+// Signed URL (already resolved server-side, private `avatars` bucket) or
+// an initials placeholder — same fallback treatment as the /admin/users
+// members list, duplicated locally rather than shared (this codebase's
+// established convention for small presentational helpers).
+function TopbarAvatar({ url, label }: { url: string | null; label: string }) {
+  if (url) {
+    // eslint-disable-next-line @next/next/no-img-element -- dynamic, short-lived signed URL, not a static asset next/image can usefully optimize
+    return <img src={url} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />;
+  }
+  const initials =
+    label
+      .split(/[\s@.]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "?";
+  return (
+    <span
+      aria-hidden="true"
+      className="bg-ink/10 text-ink flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+    >
+      {initials}
+    </span>
   );
 }

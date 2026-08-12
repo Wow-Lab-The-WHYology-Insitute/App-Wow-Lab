@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-08-12 12:21 (ora București)
+**Ultima actualizare:** 2026-08-12 16:16 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -302,6 +302,18 @@ Verificare live pe develop's Preview, sesiuni reale per rol corect (organization
 /clients: căutare live pe name; dropdown-uri Type/Status cu valorile canonice exacte din constrângerile DB. /contracts: căutare live pe nume client SAU număr contract; dropdown-uri Type/Status/Entity — Entity construit din valorile deja prezente în rândurile fetch-uite (scoped RLS), NU din lista globală de entități destinată creatorilor de contract, ca să nu scurgă universul de entități către cineva care n-ar trebui să-l vadă.
 
 Verificare live pe Preview: compoziție triplă (filtru→sortare→căutare) confirmată layer cu layer; stare goală distinctă pt „zero rezultate din filtru" vs „zero vizibile per RLS"; ne-expansiune RLS confirmată prin contrast direct — finance_operations rămâne ≤4 rânduri pe orice combinație, organization_owner vede 5 + dropdown Entity mai larg. Scope strict: doar cele 2 fișiere client, nicio atingere pe page.tsx/RLS/view de mascare.
+
+52. 2026-08-12, 16:16 (ora București) — Câmpuri de profil (nume, telefon) + avatar, branch develop, commit `8b19872` (+ fix RLS `7319b88`).
+
+(a) Schema: `users.first_name/last_name/phone`, toate nullable. Formular de invitație (/admin/users) capătă câmpuri opționale First/Last name + Phone. Investigat înainte de construit (nu presupus): crearea rândului `public.users` la invitație e SINCRONĂ, nu deferată — trigger `AFTER INSERT` pe `auth.users` (`on_auth_user_created`), confirmat live pe `information_schema.triggers`, nu doar din fișierul de migrare. Secțiune nouă „Your profile" pe /whoami — editare self-service a numelui/telefonului propriu, gate RLS (`id = auth.uid()`), fără verificare de capabilitate (nu e acțiune de admin).
+
+(b) Avatar — bucket Storage privat `avatars` (NU public — un bucket public ar face avatarele vizibile oricui are linkul, fără autentificare, ceea ce nu se potrivește cu modelul de acces cerut). Scriere/ștergere: doar proprietarul, restricționat pe folder (`storage.foldername(name)[1] = auth.uid()`). Citire: rezolvată la URL semnat (`createSignedUrl`/`createSignedUrls`, TTL 1h) prin clientul propriu al sesiunii, niciodată `service_role` sau URL public. Limite impuse la nivel de bucket (MIME jpeg/png/webp, 2MB) — verificate live, nu presupuse: test negativ cu două sesiuni reale (utilizatorul B nu poate suprascrie/șterge avatarul lui A), tip greșit și fișier supradimensionat respinse de configurația bucket-ului.
+
+(c) Conflict de fișier rezolvat: `admin-users-client.tsx` avea o modificare necomisă, preexistentă, dintr-un fir de lucru paralel (coloana `#` de numerotare a rândurilor) — semnalat explicit lui Mihai înainte de a atinge fișierul; decizie: păstrată funcțional, comisă împreună cu acest feature (nu suprascrisă, nu abandonată), ca parte din `8b19872`.
+
+(d) Gap de izolare cross-org găsit și reparat înainte de merge pe main (decizia lui Mihai: acum, nu amânat la Phase 2): policy-ul inițial de citire pe `storage.objects` pentru bucket-ul `avatars` permitea oricărui `authenticated` să citească orice avatar, fără verificare de organizație. Prima încercare de reparare (subquery inline pe `user_org_roles` direct în policy) s-a dovedit ea însăși PREA restrictivă — a stricat și cazul in-org (un coleg din același wow-lab nu mai putea vedea avatarul altui coleg), prins prin testul live POZITIV, nu presupus. Cauza: subquery-ul rulează ca rolul apelant, deci e el însuși supus policy-ului restrictiv al `user_org_roles`. Reparat corect cu funcție nouă `app.shares_org_with(other_user_id)`, SECURITY DEFINER, exact tiparul funcțiilor existente (`has_capability`/`belongs_to_org`/`is_platform_owner`) — toate SECURITY DEFINER tocmai ca să ocolească RLS-ul implicit al `user_org_roles`. Verificat live cu sesiuni reale: utilizator din `wow-lab-test-b` nu poate citi/semna avatarul unui utilizator wow-lab (list/download/createSignedUrl, toate respinse); un coleg real din wow-lab poate — inclusiv URL-ul semnat efectiv preluat și confirmat ca imagine reală.
+
+(e) Inventar test+ui-*: 24 rânduri în total în Members list azi (nu 13 cum se presupusese) — 9 membri reali, 15 fixture-uri cu prefix `test+` (dintre care 6 `test+ui-*` create azi + 7 mai vechi din C1 + 2 rânduri orfane), plus un al 7-lea `test+ui-org-b` creat azi într-o organizație separată de test, pentru testul cross-org de mai sus. Rândurile orfane (`test+invite-with-073557`, `test+invite-without-073557`) provin dintr-un cleanup incomplet dintr-un fir anterior — `admin.auth.admin.deleteUser()` a șters rândul din `auth.users`, dar `public.users` nu are `ON DELETE CASCADE`, deci rândurile din `public.users`/`user_org_roles` au rămas.
 
 ---
 

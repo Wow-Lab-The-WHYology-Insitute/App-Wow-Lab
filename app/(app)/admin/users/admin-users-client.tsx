@@ -15,7 +15,22 @@ type Member = {
   status: string;
   roleIds: string[];
   roleLabels: string[];
+  firstName: string | null;
+  lastName: string | null;
+  // Signed URL (private `avatars` bucket), already resolved server-side —
+  // null means no avatar set, not "failed to load".
+  avatarUrl: string | null;
+  // Purely a display label (202608120006) — never touches RLS, sorting,
+  // or filtering. Distinguishes WS-D/C1/C2 test fixtures in the Members
+  // list without hiding them (Mihai's call — still needed for ongoing
+  // Phase 1 verification work).
+  isTestAccount: boolean;
 };
+
+function displayName(member: Pick<Member, "firstName" | "lastName" | "email">) {
+  const full = [member.firstName, member.lastName].filter(Boolean).join(" ");
+  return full || member.email;
+}
 
 export function AdminUsersClient({
   orgId,
@@ -85,10 +100,10 @@ export function AdminUsersClient({
         orgId={orgId}
         roles={roles}
         isPending={isPending}
-        onSubmit={(email, roleIds) => {
+        onSubmit={(email, roleIds, firstName, lastName, phone) => {
           setError(null);
           startTransition(async () => {
-            const result = await inviteUser(orgId, email, roleIds);
+            const result = await inviteUser(orgId, email, roleIds, firstName, lastName, phone);
             if (!result.ok) setError(result.error);
           });
         }}
@@ -96,13 +111,14 @@ export function AdminUsersClient({
 
       <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
         <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
-          Members
+          Members ({members.length})
         </h2>
 
         {/* Desktop/tablet: unchanged table, shown at md and up. */}
         <table className="hidden w-full border-collapse text-sm md:table">
           <thead>
             <tr className="font-body text-muted border-b border-black/5 text-left text-xs font-bold tracking-wide uppercase">
+              <th className="py-2 pr-2 font-bold">#</th>
               <th className="py-2 pr-4 font-bold">Email</th>
               <th className="py-2 pr-4 font-bold">Roles</th>
               <th className="py-2 pr-4 font-bold">Status</th>
@@ -110,10 +126,11 @@ export function AdminUsersClient({
             </tr>
           </thead>
           <tbody>
-            {members.map((member) => (
+            {members.map((member, index) => (
               <MemberTableRow
                 key={member.userId}
                 member={member}
+                index={index}
                 roles={roles}
                 isPending={isPending}
                 editing={editingUserId === member.userId}
@@ -133,10 +150,11 @@ export function AdminUsersClient({
         {/* Mobile: table -> cards below md, standard responsive pattern —
             a horizontal-scroll table isn't a real fix on a narrow screen. */}
         <div className="flex flex-col gap-3 md:hidden">
-          {members.map((member) => (
+          {members.map((member, index) => (
             <MemberCard
               key={member.userId}
               member={member}
+              index={index}
               roles={roles}
               isPending={isPending}
               editing={editingUserId === member.userId}
@@ -164,10 +182,19 @@ function InviteForm({
   orgId: string;
   roles: Role[];
   isPending: boolean;
-  onSubmit: (email: string, roleIds: string[]) => void;
+  onSubmit: (
+    email: string,
+    roleIds: string[],
+    firstName: string,
+    lastName: string,
+    phone: string,
+  ) => void;
 }) {
   const [email, setEmail] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
 
   return (
     <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
@@ -182,6 +209,29 @@ function InviteForm({
           placeholder="email@wowlab.ro"
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         />
+        <div className="flex flex-col gap-3 md:flex-row">
+          <input
+            type="text"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            placeholder="First name (optional)"
+            className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 md:flex-1"
+          />
+          <input
+            type="text"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            placeholder="Last name (optional)"
+            className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 md:flex-1"
+          />
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="Phone (optional)"
+            className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 md:flex-1"
+          />
+        </div>
         <RoleCheckboxes
           roles={roles}
           selected={selectedRoles}
@@ -190,7 +240,7 @@ function InviteForm({
         <button
           type="button"
           disabled={isPending || !email || selectedRoles.length === 0}
-          onClick={() => onSubmit(email, selectedRoles)}
+          onClick={() => onSubmit(email, selectedRoles, firstName, lastName, phone)}
           className="font-body w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
         >
           Invite
@@ -202,6 +252,7 @@ function InviteForm({
 
 type MemberRowProps = {
   member: Member;
+  index: number;
   roles: Role[];
   isPending: boolean;
   editing: boolean;
@@ -215,6 +266,7 @@ type MemberRowProps = {
 
 function MemberTableRow({
   member,
+  index,
   roles,
   isPending,
   editing,
@@ -225,9 +277,24 @@ function MemberTableRow({
   onSave,
   onToggleAccess,
 }: MemberRowProps) {
+  const name = displayName(member);
+  const hasName = name !== member.email;
+
   return (
     <tr className="font-body text-ink border-b border-black/5 align-top last:border-0">
-      <td className="py-3 pr-4">{member.email}</td>
+      <td className="text-muted py-3 pr-2">{index + 1}</td>
+      <td className="py-3 pr-4">
+        <div className="flex items-center gap-2">
+          <Avatar url={member.avatarUrl} label={name} />
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold">{name}</span>
+              {member.isTestAccount && <Badge tone="outline">Test</Badge>}
+            </div>
+            {hasName && <div className="text-muted text-xs">{member.email}</div>}
+          </div>
+        </div>
+      </td>
       <td className="py-3 pr-4">
         {editing ? (
           <div className="flex flex-col gap-2">
@@ -297,6 +364,7 @@ function MemberTableRow({
 // not a horizontal-scroll wrapper around the table.
 function MemberCard({
   member,
+  index,
   roles,
   isPending,
   editing,
@@ -307,9 +375,27 @@ function MemberCard({
   onSave,
   onToggleAccess,
 }: MemberRowProps) {
+  const name = displayName(member);
+  const hasName = name !== member.email;
+
   return (
     <div className="rounded-xl border border-black/5 p-4">
-      <p className="font-body text-ink font-semibold break-all">{member.email}</p>
+      <div className="flex items-center gap-2">
+        <Avatar url={member.avatarUrl} label={name} />
+        <div>
+          <p className="font-body text-ink font-semibold break-all">
+            <span className="text-muted font-normal">#{index + 1}</span> {name}
+            {member.isTestAccount && (
+              <span className="ml-1.5 inline-block align-middle">
+                <Badge tone="outline">Test</Badge>
+              </span>
+            )}
+          </p>
+          {hasName && (
+            <p className="font-body text-muted text-xs break-all">{member.email}</p>
+          )}
+        </div>
+      </div>
 
       {editing ? (
         <div className="mt-3 flex flex-col gap-3">
@@ -377,6 +463,30 @@ function MemberCard({
   );
 }
 
+// Signed URL (already resolved server-side) or an initials placeholder —
+// never a broken-image icon for members who haven't set one.
+function Avatar({ url, label }: { url: string | null; label: string }) {
+  if (url) {
+    // eslint-disable-next-line @next/next/no-img-element -- dynamic, short-lived signed URL, not a static asset next/image can usefully optimize
+    return <img src={url} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />;
+  }
+  const initials =
+    label
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "?";
+  return (
+    <span
+      aria-hidden="true"
+      className="bg-ink/10 text-ink flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+    >
+      {initials}
+    </span>
+  );
+}
+
 function RoleCheckboxes({
   roles,
   selected,
@@ -417,14 +527,16 @@ function Badge({
   tone = "neutral",
 }: {
   children: React.ReactNode;
-  tone?: "neutral" | "pink";
+  tone?: "neutral" | "pink" | "outline";
 }) {
   return (
     <span
       className={`font-body inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
         tone === "pink"
           ? "bg-brand-pink/10 text-brand-pink"
-          : "bg-ink/5 text-ink"
+          : tone === "outline"
+            ? "text-muted border border-black/15"
+            : "bg-ink/5 text-ink"
       }`}
     >
       {children}
