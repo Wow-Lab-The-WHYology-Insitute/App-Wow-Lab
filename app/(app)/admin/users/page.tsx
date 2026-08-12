@@ -61,7 +61,7 @@ export default async function AdminUsersPage() {
   const { data: memberRows } = await supabase
     .from("user_org_roles")
     .select(
-      "user_id, role_id, users!user_org_roles_user_id_fkey(email, status, first_name, last_name, avatar_url), roles(id, key, display_name)",
+      "user_id, role_id, users!user_org_roles_user_id_fkey(email, status, first_name, last_name, avatar_url, is_test_account), roles(id, key, display_name)",
     )
     .eq("organization_id", managedOrg.id);
 
@@ -76,6 +76,7 @@ export default async function AdminUsersPage() {
       firstName: string | null;
       lastName: string | null;
       avatarPath: string | null;
+      isTestAccount: boolean;
     }
   >();
 
@@ -86,6 +87,7 @@ export default async function AdminUsersPage() {
       first_name: string | null;
       last_name: string | null;
       avatar_url: string | null;
+      is_test_account: boolean;
     } | null;
     const r = row.roles as unknown as {
       id: string;
@@ -108,6 +110,7 @@ export default async function AdminUsersPage() {
         firstName: u.first_name,
         lastName: u.last_name,
         avatarPath: u.avatar_url,
+        isTestAccount: u.is_test_account,
       });
     }
   }

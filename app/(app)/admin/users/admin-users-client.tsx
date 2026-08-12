@@ -20,6 +20,11 @@ type Member = {
   // Signed URL (private `avatars` bucket), already resolved server-side —
   // null means no avatar set, not "failed to load".
   avatarUrl: string | null;
+  // Purely a display label (202608120006) — never touches RLS, sorting,
+  // or filtering. Distinguishes WS-D/C1/C2 test fixtures in the Members
+  // list without hiding them (Mihai's call — still needed for ongoing
+  // Phase 1 verification work).
+  isTestAccount: boolean;
 };
 
 function displayName(member: Pick<Member, "firstName" | "lastName" | "email">) {
@@ -282,7 +287,10 @@ function MemberTableRow({
         <div className="flex items-center gap-2">
           <Avatar url={member.avatarUrl} label={name} />
           <div>
-            <div className="font-semibold">{name}</div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold">{name}</span>
+              {member.isTestAccount && <Badge tone="outline">Test</Badge>}
+            </div>
             {hasName && <div className="text-muted text-xs">{member.email}</div>}
           </div>
         </div>
@@ -377,6 +385,11 @@ function MemberCard({
         <div>
           <p className="font-body text-ink font-semibold break-all">
             <span className="text-muted font-normal">#{index + 1}</span> {name}
+            {member.isTestAccount && (
+              <span className="ml-1.5 inline-block align-middle">
+                <Badge tone="outline">Test</Badge>
+              </span>
+            )}
           </p>
           {hasName && (
             <p className="font-body text-muted text-xs break-all">{member.email}</p>
@@ -514,14 +527,16 @@ function Badge({
   tone = "neutral",
 }: {
   children: React.ReactNode;
-  tone?: "neutral" | "pink";
+  tone?: "neutral" | "pink" | "outline";
 }) {
   return (
     <span
       className={`font-body inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
         tone === "pink"
           ? "bg-brand-pink/10 text-brand-pink"
-          : "bg-ink/5 text-ink"
+          : tone === "outline"
+            ? "text-muted border border-black/15"
+            : "bg-ink/5 text-ink"
       }`}
     >
       {children}
