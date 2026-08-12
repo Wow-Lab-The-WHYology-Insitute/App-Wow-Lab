@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-08-12 16:16 (ora București)
+**Ultima actualizare:** 2026-08-12 17:57 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -314,6 +314,14 @@ Verificare live pe Preview: compoziție triplă (filtru→sortare→căutare) co
 (d) Gap de izolare cross-org găsit și reparat înainte de merge pe main (decizia lui Mihai: acum, nu amânat la Phase 2): policy-ul inițial de citire pe `storage.objects` pentru bucket-ul `avatars` permitea oricărui `authenticated` să citească orice avatar, fără verificare de organizație. Prima încercare de reparare (subquery inline pe `user_org_roles` direct în policy) s-a dovedit ea însăși PREA restrictivă — a stricat și cazul in-org (un coleg din același wow-lab nu mai putea vedea avatarul altui coleg), prins prin testul live POZITIV, nu presupus. Cauza: subquery-ul rulează ca rolul apelant, deci e el însuși supus policy-ului restrictiv al `user_org_roles`. Reparat corect cu funcție nouă `app.shares_org_with(other_user_id)`, SECURITY DEFINER, exact tiparul funcțiilor existente (`has_capability`/`belongs_to_org`/`is_platform_owner`) — toate SECURITY DEFINER tocmai ca să ocolească RLS-ul implicit al `user_org_roles`. Verificat live cu sesiuni reale: utilizator din `wow-lab-test-b` nu poate citi/semna avatarul unui utilizator wow-lab (list/download/createSignedUrl, toate respinse); un coleg real din wow-lab poate — inclusiv URL-ul semnat efectiv preluat și confirmat ca imagine reală.
 
 (e) Inventar test+ui-*: 24 rânduri în total în Members list azi (nu 13 cum se presupusese) — 9 membri reali, 15 fixture-uri cu prefix `test+` (dintre care 6 `test+ui-*` create azi + 7 mai vechi din C1 + 2 rânduri orfane), plus un al 7-lea `test+ui-org-b` creat azi într-o organizație separată de test, pentru testul cross-org de mai sus. Rândurile orfane (`test+invite-with-073557`, `test+invite-without-073557`) provin dintr-un cleanup incomplet dintr-un fir anterior — `admin.auth.admin.deleteUser()` a șters rândul din `auth.users`, dar `public.users` nu are `ON DELETE CASCADE`, deci rândurile din `public.users`/`user_org_roles` au rămas.
+
+53. 2026-08-12, 17:57 (ora București) — Actualizare dependențe (npm audit fix, fără --force), branch develop, commit `6cd0ad5`. Doar `package-lock.json` — `package.json` neatins, nicio linie de cod de aplicație atinsă.
+
+GitHub raporta 14 vulnerabilități (7 high, 7 moderate) repetat la fiecare push azi — investigat înainte de a repara orbește. Trei surse, trei cifre diferite (mesajul de push: 14; API-ul de Dependabot Alerts: doar 2, sub-raportat; `npm audit` local: 4 pachete) — reconciliat numărând GHSA-urile individuale din `npm audit`: nanoid(1) + next(8) + postcss(4) + sharp(1) = 14, exact 7 high + 7 moderate. API-ul de Dependabot Alerts s-a dovedit nesigur ca sursă unică — verificarea încrucișată cu `npm audit` a fost esențială.
+
+Aplicat: `next` 15.5.20→15.5.23 (patch, în limita `^15.4.1` deja declarată), `nanoid` 3.3.16→3.3.18, `postcss` (instanța dev-only din `@tailwindcss/postcss`) 8.5.19→8.5.26. Rezolvă 9 din 14 vulnerabilități — toate cele 8 proprii ale `next` (DoS în Server Actions, 2× confuzie de cache, dezvăluire endpoint intern neautentificat, etc.) + a nanoid. NU rezolvă 5 rămase (postcss×4 + sharp×1) — verificat live, nu presupus: dry-run-ul inițial anunța rezolvare completă, dar rularea reală a arătat că `next` însuși fixează intern o versiune de postcss/sharp care nu are patch în linia 15.x — singura reparare posibilă e `next@16.3.0` (major, breaking), lăsat deliberat neatins fără aprobare explicită separată.
+
+Verificare: typecheck + build curate; smoke-test pe toate 6 rute cu sesiune reală pe Preview — toate încărcate corect, Server Actions verificate explicit (actualizare profil pe /whoami, upload avatar — cel mai direct atins de pachetele schimbate, invite pe /admin/users, creare client/contract) — toate funcționale identic ca înainte de bump. Zero pachete Supabase implicate; Playwright confirmat absent din package.json/lock (instalat/dezinstalat tranzitoriu, fără reziduu).
 
 ---
 
