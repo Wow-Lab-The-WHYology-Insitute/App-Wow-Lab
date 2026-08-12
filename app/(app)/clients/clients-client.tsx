@@ -23,6 +23,15 @@ const CLIENT_TYPE_LABELS: Record<string, string> = {
   special_project: "Special project",
 };
 
+// Matches the clients.status check constraint (202608100001) exactly —
+// keep in sync if that constraint ever changes.
+const CLIENT_STATUS_LABELS: Record<string, string> = {
+  prospect: "Prospect",
+  active: "Active",
+  paused: "Paused",
+  churned: "Churned",
+};
+
 // Nulls always sort last regardless of direction — a missing legal_name/
 // cui shouldn't dominate either end of the list, it should just fall out
 // of the way.
@@ -91,6 +100,9 @@ export function ClientsClient({
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   function onSort(key: SortKey) {
     if (key === sortKey) {
@@ -101,9 +113,23 @@ export function ClientsClient({
     }
   }
 
+  // Search + filters run over the same already-fetched, RLS-scoped array
+  // sorting already used (server fetches once in page.tsx; everything past
+  // that is client-side over the array in hand) — this can only ever
+  // narrow what RLS already returned, never reach past it.
+  const filteredClients = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return clients.filter((client) => {
+      if (q && !client.name.toLowerCase().includes(q)) return false;
+      if (typeFilter !== "all" && client.client_type !== typeFilter) return false;
+      if (statusFilter !== "all" && client.status !== statusFilter) return false;
+      return true;
+    });
+  }, [clients, searchQuery, typeFilter, statusFilter]);
+
   const sortedClients = useMemo(() => {
-    return [...clients].sort((a, b) => compareValues(a[sortKey], b[sortKey], sortDir));
-  }, [clients, sortKey, sortDir]);
+    return [...filteredClients].sort((a, b) => compareValues(a[sortKey], b[sortKey], sortDir));
+  }, [filteredClients, sortKey, sortDir]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -164,99 +190,141 @@ export function ClientsClient({
           </p>
         ) : (
           <>
-            {/* Desktop/tablet: table, shown at md and up — same
-                table->cards split as admin-users-client.tsx. */}
-            <table className="hidden w-full border-collapse text-sm md:table">
-              <thead>
-                <tr className="font-body text-muted border-b border-black/5 text-left text-xs font-bold tracking-wide uppercase">
-                  <SortHeader label="Name" sortKey="name" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <SortHeader label="Type" sortKey="client_type" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <SortHeader label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <SortHeader label="Business line" sortKey="business_line" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <SortHeader label="Legal name" sortKey="legal_name" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <SortHeader label="CUI" sortKey="cui" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <SortHeader label="Added" sortKey="created_at" activeKey={sortKey} dir={sortDir} onSort={onSort} className="py-2" />
-                </tr>
-              </thead>
-              <tbody>
-                {sortedClients.map((client) => (
-                  <tr
-                    key={client.id}
-                    className="font-body text-ink border-b border-black/5 last:border-0"
-                  >
-                    <td className="py-3 pr-4">
-                      <Link
-                        href={`/clients/${client.id}`}
-                        className="text-brand-pink font-semibold hover:underline"
-                      >
-                        {client.name}
-                      </Link>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <Badge>
-                        {CLIENT_TYPE_LABELS[client.client_type] ??
-                          client.client_type}
-                      </Badge>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <Badge tone={client.status === "active" ? "neutral" : "pink"}>
-                        {client.status}
-                      </Badge>
-                    </td>
-                    <td className="text-muted py-3 pr-4">
-                      {client.business_line || "—"}
-                    </td>
-                    <td className="text-muted py-3 pr-4">
-                      {client.legal_name || "—"}
-                    </td>
-                    <td className="text-muted py-3 pr-4 font-mono text-xs">
-                      {client.cui || "—"}
-                    </td>
-                    <td className="text-muted py-3 text-xs">
-                      {formatShortDate(client.created_at)}
-                    </td>
-                  </tr>
+            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name…"
+                className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 md:flex-1"
+              />
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+              >
+                <option value="all">All types</option>
+                {Object.entries(CLIENT_TYPE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
                 ))}
-              </tbody>
-            </table>
-
-            {/* Mobile: cards below md. */}
-            <div className="flex flex-col gap-3 md:hidden">
-              {sortedClients.map((client) => (
-                <Link
-                  key={client.id}
-                  href={`/clients/${client.id}`}
-                  className="block rounded-xl border border-black/5 p-4"
-                >
-                  <p className="font-body text-brand-pink font-semibold">
-                    {client.name}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    <Badge>
-                      {CLIENT_TYPE_LABELS[client.client_type] ??
-                        client.client_type}
-                    </Badge>
-                    <Badge tone={client.status === "active" ? "neutral" : "pink"}>
-                      {client.status}
-                    </Badge>
-                  </div>
-                  {client.business_line && (
-                    <p className="font-body text-muted mt-2 text-xs">
-                      {client.business_line}
-                    </p>
-                  )}
-                  {(client.legal_name || client.cui) && (
-                    <p className="font-body text-muted mt-1 text-xs">
-                      {client.legal_name || "—"}
-                      {client.cui ? ` · ${client.cui}` : ""}
-                    </p>
-                  )}
-                  <p className="font-body text-muted mt-1 text-xs">
-                    Added {formatShortDate(client.created_at)}
-                  </p>
-                </Link>
-              ))}
+              </select>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+              >
+                <option value="all">All statuses</option>
+                {Object.entries(CLIENT_STATUS_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
             </div>
+
+            {sortedClients.length === 0 ? (
+              <p className="font-body text-muted text-sm">
+                No clients match your search or filters.
+              </p>
+            ) : (
+              <>
+                {/* Desktop/tablet: table, shown at md and up — same
+                    table->cards split as admin-users-client.tsx. */}
+                <table className="hidden w-full border-collapse text-sm md:table">
+                  <thead>
+                    <tr className="font-body text-muted border-b border-black/5 text-left text-xs font-bold tracking-wide uppercase">
+                      <SortHeader label="Name" sortKey="name" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="Type" sortKey="client_type" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="Business line" sortKey="business_line" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="Legal name" sortKey="legal_name" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="CUI" sortKey="cui" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="Added" sortKey="created_at" activeKey={sortKey} dir={sortDir} onSort={onSort} className="py-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedClients.map((client) => (
+                      <tr
+                        key={client.id}
+                        className="font-body text-ink border-b border-black/5 last:border-0"
+                      >
+                        <td className="py-3 pr-4">
+                          <Link
+                            href={`/clients/${client.id}`}
+                            className="text-brand-pink font-semibold hover:underline"
+                          >
+                            {client.name}
+                          </Link>
+                        </td>
+                        <td className="py-3 pr-4">
+                          <Badge>
+                            {CLIENT_TYPE_LABELS[client.client_type] ??
+                              client.client_type}
+                          </Badge>
+                        </td>
+                        <td className="py-3 pr-4">
+                          <Badge tone={client.status === "active" ? "neutral" : "pink"}>
+                            {client.status}
+                          </Badge>
+                        </td>
+                        <td className="text-muted py-3 pr-4">
+                          {client.business_line || "—"}
+                        </td>
+                        <td className="text-muted py-3 pr-4">
+                          {client.legal_name || "—"}
+                        </td>
+                        <td className="text-muted py-3 pr-4 font-mono text-xs">
+                          {client.cui || "—"}
+                        </td>
+                        <td className="text-muted py-3 text-xs">
+                          {formatShortDate(client.created_at)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {/* Mobile: cards below md. */}
+                <div className="flex flex-col gap-3 md:hidden">
+                  {sortedClients.map((client) => (
+                    <Link
+                      key={client.id}
+                      href={`/clients/${client.id}`}
+                      className="block rounded-xl border border-black/5 p-4"
+                    >
+                      <p className="font-body text-brand-pink font-semibold">
+                        {client.name}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        <Badge>
+                          {CLIENT_TYPE_LABELS[client.client_type] ??
+                            client.client_type}
+                        </Badge>
+                        <Badge tone={client.status === "active" ? "neutral" : "pink"}>
+                          {client.status}
+                        </Badge>
+                      </div>
+                      {client.business_line && (
+                        <p className="font-body text-muted mt-2 text-xs">
+                          {client.business_line}
+                        </p>
+                      )}
+                      {(client.legal_name || client.cui) && (
+                        <p className="font-body text-muted mt-1 text-xs">
+                          {client.legal_name || "—"}
+                          {client.cui ? ` · ${client.cui}` : ""}
+                        </p>
+                      )}
+                      <p className="font-body text-muted mt-1 text-xs">
+                        Added {formatShortDate(client.created_at)}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              </>
+            )}
           </>
         )}
       </section>

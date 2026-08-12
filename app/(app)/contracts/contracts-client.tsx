@@ -23,6 +23,10 @@ type Option = { id: string; name: string };
 
 const CONTRACT_TYPES = ["recurring_annual", "one_off_event", "framework"];
 
+// Matches the contracts.status check constraint (202608100001) exactly —
+// keep in sync if that constraint ever changes.
+const CONTRACT_STATUSES = ["draft", "sent", "signed", "expired", "renewed"];
+
 // Nulls always sort last regardless of direction — an indefinite end date
 // or an as-yet-unset field shouldn't dominate either end of the list.
 function compareValues(
@@ -104,6 +108,10 @@ export function ContractsClient({
   const [sortKey, setSortKey] = useState<SortKey>("period_end");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [entityFilter, setEntityFilter] = useState("all");
 
   function onSort(key: SortKey) {
     if (key === sortKey) {
@@ -114,9 +122,39 @@ export function ContractsClient({
     }
   }
 
+  // Entity options come from the already-fetched, RLS-scoped contracts
+  // themselves (legalEntityName, resolved server-side) rather than the
+  // org-wide legalEntityOptions prop — that prop is only populated for
+  // viewers who can create contracts, so it isn't a reliable universe for
+  // every role. Deriving from `contracts` guarantees the filter can never
+  // offer (or match against) an entity RLS didn't already surface.
+  const entityOptions = useMemo(() => {
+    return [...new Set(contracts.map((c) => c.legalEntityName))].sort();
+  }, [contracts]);
+
+  // Search + filters run over the same already-fetched, RLS-scoped array
+  // sorting already used — client-side over the array in hand, never a
+  // re-query, so this can only narrow what RLS already returned.
+  const filteredContracts = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return contracts.filter((c) => {
+      if (
+        q &&
+        !c.clientName.toLowerCase().includes(q) &&
+        !c.contract_number.toLowerCase().includes(q)
+      ) {
+        return false;
+      }
+      if (typeFilter !== "all" && c.contract_type !== typeFilter) return false;
+      if (statusFilter !== "all" && c.status !== statusFilter) return false;
+      if (entityFilter !== "all" && c.legalEntityName !== entityFilter) return false;
+      return true;
+    });
+  }, [contracts, searchQuery, typeFilter, statusFilter, entityFilter]);
+
   const sortedContracts = useMemo(() => {
-    return [...contracts].sort((a, b) => compareValues(a[sortKey], b[sortKey], sortDir));
-  }, [contracts, sortKey, sortDir]);
+    return [...filteredContracts].sort((a, b) => compareValues(a[sortKey], b[sortKey], sortDir));
+  }, [filteredContracts, sortKey, sortDir]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -195,109 +233,163 @@ export function ContractsClient({
           </p>
         ) : (
           <>
-            <table className="hidden w-full border-collapse text-sm md:table">
-              <thead>
-                <tr className="font-body text-muted border-b border-black/5 text-left text-xs font-bold tracking-wide uppercase">
-                  <SortHeader label="Number" sortKey="contract_number" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <SortHeader label="Client" sortKey="clientName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <SortHeader label="Type" sortKey="contract_type" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <SortHeader label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <SortHeader label="Start Date" sortKey="period_start" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <SortHeader label="End Date" sortKey="period_end" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <SortHeader label="Entity" sortKey="legalEntityName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <SortHeader label="Client contract #" sortKey="client_contract_number" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <SortHeader label="Signed date" sortKey="signed_date" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <SortHeader label="Est. value" sortKey="estimated_value" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <SortHeader label="Prev. yr value" sortKey="previous_year_value" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                  <th className="py-2 font-bold">Billing rule</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedContracts.map((c) => (
-                  <tr
-                    key={c.id}
-                    className="font-body text-ink border-b border-black/5 last:border-0"
-                  >
-                    <td className="py-3 pr-4">
-                      <Link
-                        href={`/contracts/${c.id}`}
-                        className="text-brand-pink font-mono text-xs font-semibold hover:underline"
-                      >
-                        {c.contract_number}
-                      </Link>
-                    </td>
-                    <td className="py-3 pr-4">{c.clientName}</td>
-                    <td className="py-3 pr-4">
-                      <Badge>{c.contract_type}</Badge>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <Badge tone={c.status === "signed" ? "neutral" : "pink"}>
-                        {c.status}
-                      </Badge>
-                    </td>
-                    <td className="text-muted py-3 pr-4 text-xs">{c.period_start ?? "—"}</td>
-                    <td className="text-muted py-3 pr-4 text-xs">{c.period_end ?? "—"}</td>
-                    <td className="text-muted py-3 pr-4 text-xs">{c.legalEntityName}</td>
-                    <td className="text-muted py-3 pr-4 text-xs">{c.client_contract_number ?? "—"}</td>
-                    <td className="text-muted py-3 pr-4 text-xs">{c.signed_date ?? "—"}</td>
-                    <td className="py-3 pr-4 text-xs">
-                      <MaskedValue value={c.estimated_value} financeVisible={financeVisible} />
-                    </td>
-                    <td className="py-3 pr-4 text-xs">
-                      <MaskedValue value={c.previous_year_value} financeVisible={financeVisible} />
-                    </td>
-                    <td className="py-3">
-                      <MaskedValue value={c.billing_rule} financeVisible={financeVisible} />
-                    </td>
-                  </tr>
+            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by client or contract #…"
+                className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 md:flex-1"
+              />
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+              >
+                <option value="all">All types</option>
+                {CONTRACT_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
                 ))}
-              </tbody>
-            </table>
-
-            <div className="flex flex-col gap-3 md:hidden">
-              {sortedContracts.map((c) => (
-                <Link
-                  key={c.id}
-                  href={`/contracts/${c.id}`}
-                  className="block rounded-xl border border-black/5 p-4"
-                >
-                  <p className="font-body text-brand-pink font-mono text-xs font-semibold">
-                    {c.contract_number}
-                  </p>
-                  <p className="font-body text-ink mt-1 text-sm font-semibold">
-                    {c.clientName}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    <Badge>{c.contract_type}</Badge>
-                    <Badge tone={c.status === "signed" ? "neutral" : "pink"}>
-                      {c.status}
-                    </Badge>
-                  </div>
-                  <p className="font-body text-muted mt-2 text-xs">
-                    Start {c.period_start ?? "—"} → End {c.period_end ?? "—"} ·{" "}
-                    {c.legalEntityName}
-                  </p>
-                  {(c.client_contract_number || c.signed_date) && (
-                    <p className="font-body text-muted mt-1 text-xs">
-                      {c.client_contract_number ? `Ref ${c.client_contract_number}` : ""}
-                      {c.client_contract_number && c.signed_date ? " · " : ""}
-                      {c.signed_date ? `Signed ${c.signed_date}` : ""}
-                    </p>
-                  )}
-                  <p className="font-body text-ink mt-1 text-sm">
-                    <MaskedValue value={c.billing_rule} financeVisible={financeVisible} />
-                  </p>
-                  <p className="font-body text-muted mt-1 flex gap-2 text-xs">
-                    <span>
-                      Est: <MaskedValue value={c.estimated_value} financeVisible={financeVisible} />
-                    </span>
-                    <span>
-                      Prev yr: <MaskedValue value={c.previous_year_value} financeVisible={financeVisible} />
-                    </span>
-                  </p>
-                </Link>
-              ))}
+              </select>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+              >
+                <option value="all">All statuses</option>
+                {CONTRACT_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={entityFilter}
+                onChange={(e) => setEntityFilter(e.target.value)}
+                className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+              >
+                <option value="all">All entities</option>
+                {entityOptions.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
             </div>
+
+            {sortedContracts.length === 0 ? (
+              <p className="font-body text-muted text-sm">
+                No contracts match your search or filters.
+              </p>
+            ) : (
+              <>
+                <table className="hidden w-full border-collapse text-sm md:table">
+                  <thead>
+                    <tr className="font-body text-muted border-b border-black/5 text-left text-xs font-bold tracking-wide uppercase">
+                      <SortHeader label="Number" sortKey="contract_number" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="Client" sortKey="clientName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="Type" sortKey="contract_type" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="Start Date" sortKey="period_start" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="End Date" sortKey="period_end" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="Entity" sortKey="legalEntityName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="Client contract #" sortKey="client_contract_number" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="Signed date" sortKey="signed_date" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="Est. value" sortKey="estimated_value" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="Prev. yr value" sortKey="previous_year_value" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <th className="py-2 font-bold">Billing rule</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedContracts.map((c) => (
+                      <tr
+                        key={c.id}
+                        className="font-body text-ink border-b border-black/5 last:border-0"
+                      >
+                        <td className="py-3 pr-4">
+                          <Link
+                            href={`/contracts/${c.id}`}
+                            className="text-brand-pink font-mono text-xs font-semibold hover:underline"
+                          >
+                            {c.contract_number}
+                          </Link>
+                        </td>
+                        <td className="py-3 pr-4">{c.clientName}</td>
+                        <td className="py-3 pr-4">
+                          <Badge>{c.contract_type}</Badge>
+                        </td>
+                        <td className="py-3 pr-4">
+                          <Badge tone={c.status === "signed" ? "neutral" : "pink"}>
+                            {c.status}
+                          </Badge>
+                        </td>
+                        <td className="text-muted py-3 pr-4 text-xs">{c.period_start ?? "—"}</td>
+                        <td className="text-muted py-3 pr-4 text-xs">{c.period_end ?? "—"}</td>
+                        <td className="text-muted py-3 pr-4 text-xs">{c.legalEntityName}</td>
+                        <td className="text-muted py-3 pr-4 text-xs">{c.client_contract_number ?? "—"}</td>
+                        <td className="text-muted py-3 pr-4 text-xs">{c.signed_date ?? "—"}</td>
+                        <td className="py-3 pr-4 text-xs">
+                          <MaskedValue value={c.estimated_value} financeVisible={financeVisible} />
+                        </td>
+                        <td className="py-3 pr-4 text-xs">
+                          <MaskedValue value={c.previous_year_value} financeVisible={financeVisible} />
+                        </td>
+                        <td className="py-3">
+                          <MaskedValue value={c.billing_rule} financeVisible={financeVisible} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <div className="flex flex-col gap-3 md:hidden">
+                  {sortedContracts.map((c) => (
+                    <Link
+                      key={c.id}
+                      href={`/contracts/${c.id}`}
+                      className="block rounded-xl border border-black/5 p-4"
+                    >
+                      <p className="font-body text-brand-pink font-mono text-xs font-semibold">
+                        {c.contract_number}
+                      </p>
+                      <p className="font-body text-ink mt-1 text-sm font-semibold">
+                        {c.clientName}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        <Badge>{c.contract_type}</Badge>
+                        <Badge tone={c.status === "signed" ? "neutral" : "pink"}>
+                          {c.status}
+                        </Badge>
+                      </div>
+                      <p className="font-body text-muted mt-2 text-xs">
+                        Start {c.period_start ?? "—"} → End {c.period_end ?? "—"} ·{" "}
+                        {c.legalEntityName}
+                      </p>
+                      {(c.client_contract_number || c.signed_date) && (
+                        <p className="font-body text-muted mt-1 text-xs">
+                          {c.client_contract_number ? `Ref ${c.client_contract_number}` : ""}
+                          {c.client_contract_number && c.signed_date ? " · " : ""}
+                          {c.signed_date ? `Signed ${c.signed_date}` : ""}
+                        </p>
+                      )}
+                      <p className="font-body text-ink mt-1 text-sm">
+                        <MaskedValue value={c.billing_rule} financeVisible={financeVisible} />
+                      </p>
+                      <p className="font-body text-muted mt-1 flex gap-2 text-xs">
+                        <span>
+                          Est: <MaskedValue value={c.estimated_value} financeVisible={financeVisible} />
+                        </span>
+                        <span>
+                          Prev yr: <MaskedValue value={c.previous_year_value} financeVisible={financeVisible} />
+                        </span>
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              </>
+            )}
           </>
         )}
       </section>
