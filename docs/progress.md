@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-08-11 18:38 (ora București)
+**Ultima actualizare:** 2026-08-12 12:21 (ora București)
 
 **Unde suntem acum:** Phase 0 → **WS-B COMPLET** (B1–B5 aplicate, Checkpoint A/B/C/D toate verzi, tot pe GitHub). Urmează **WS-D** (RLS) — prima poartă cu review de developer.
 
@@ -296,6 +296,12 @@ Verificare live pe PRODUCȚIE reală (app.wowlab.ro) — sesiuni magic-link real
 Lățime: toate 4 paginile reale (/whoami, /admin/users, /clients, /contracts) folosesc acum același container full-width (976px la 1280px viewport) — coerență vizuală completă.
 
 Verificare live pe develop's Preview, sesiuni reale per rol corect (organization_owner pt /admin/users, contract_administrator pt formularul de contract) — toate confirmate. Scope strict: doar clients-client.tsx, contracts-client.tsx, admin/users/page.tsx, whoami/page.tsx — nicio logică de date/RLS/capabilități atinsă.
+
+51. 2026-08-12, 12:21 (ora București) — Search + filtre pe coloane pe /clients și /contracts, branch develop, commit 2e2a992. Construite pe același tipar client-side deja existent pt sortare (useMemo peste rândurile deja fetch-uite, deja scoped de RLS) — filtrare→sortare compun corect, nu doi paternuri concurente.
+
+/clients: căutare live pe name; dropdown-uri Type/Status cu valorile canonice exacte din constrângerile DB. /contracts: căutare live pe nume client SAU număr contract; dropdown-uri Type/Status/Entity — Entity construit din valorile deja prezente în rândurile fetch-uite (scoped RLS), NU din lista globală de entități destinată creatorilor de contract, ca să nu scurgă universul de entități către cineva care n-ar trebui să-l vadă.
+
+Verificare live pe Preview: compoziție triplă (filtru→sortare→căutare) confirmată layer cu layer; stare goală distinctă pt „zero rezultate din filtru" vs „zero vizibile per RLS"; ne-expansiune RLS confirmată prin contrast direct — finance_operations rămâne ≤4 rânduri pe orice combinație, organization_owner vede 5 + dropdown Entity mai larg. Scope strict: doar cele 2 fișiere client, nicio atingere pe page.tsx/RLS/view de mascare.
 
 ---
 
