@@ -143,6 +143,7 @@ from (
     ('operations_manager', 'groups.create'),
     ('operations_manager', 'sessions.read'),
     ('operations_manager', 'sessions.create'),
+    ('operations_manager', 'org.members.read'),
 
     ('curriculum_manager', 'curriculum.*'),
     ('curriculum_manager', 'curriculum.feedback.*'),
@@ -164,6 +165,7 @@ from (
     ('finance_admin_reporting', 'groups.read'),
     ('finance_admin_reporting', 'sessions.read'),
     ('finance_admin_reporting', 'clients.read'),
+    ('finance_admin_reporting', 'org.members.read'),
 
     ('inventory_custodian', 'inventory.*'),
 
