@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { ProfileSection } from "./profile-section";
+import { TechnicalDetails } from "./technical-details";
 
 // S2: a diagnostic page proving the auth -> RLS loop works for a real
 // logged-in session, not SQL Editor impersonation. Every query below runs
@@ -75,6 +76,63 @@ export default async function WhoAmIPage() {
     .eq("user_id", user.id)
     .returns<MembershipRow[]>();
 
+  // Tier 2 (S3 restructure): "You are X. You have access to: Y, Z." — the
+  // SAME capability keys and labels app/(app)/layout.tsx uses to gate
+  // navGroups, duplicated here rather than hardcoding a different/
+  // simplified rule (e.g. checking role names). Not extracted into a
+  // shared helper — layout.tsx's own checkCapability is a local, private
+  // function, and Part D's scope is explicitly read-only against where the
+  // nav array itself lives; this mirrors the same 4 checks instead, same
+  // as how financeVisible's capability-check pattern is independently
+  // duplicated (not shared) across clients/[id]/page.tsx and contracts/
+  // page.tsx already.
+  const roleLabel = [
+    ...new Set(
+      (memberships ?? []).map((m) => m.roles?.display_name).filter(Boolean),
+    ),
+  ].join(", ");
+
+  const visibleNavItems: string[] = [];
+  let canManageUsers = false;
+  let canReadClients = false;
+  let canReadContracts = false;
+  let canReadGroups = false;
+  for (const m of memberships ?? []) {
+    if (!canManageUsers) {
+      const { data } = await supabase.rpc("has_capability", {
+        cap: "org.members.manage",
+        org: m.organization_id,
+      });
+      if (data) canManageUsers = true;
+    }
+    if (!canReadClients) {
+      const { data } = await supabase.rpc("has_capability", {
+        cap: "clients.read",
+        org: m.organization_id,
+      });
+      if (data) canReadClients = true;
+    }
+    if (!canReadContracts) {
+      const { data } = await supabase.rpc("has_capability", {
+        cap: "contracts.read",
+        org: m.organization_id,
+      });
+      if (data) canReadContracts = true;
+    }
+    if (!canReadGroups) {
+      const [{ data: hasGroupsRead }, { data: hasMyWork }] = await Promise.all([
+        supabase.rpc("has_capability", { cap: "groups.read", org: m.organization_id }),
+        supabase.rpc("has_capability", { cap: "mywork.*", org: m.organization_id }),
+      ]);
+      if (hasGroupsRead || hasMyWork) canReadGroups = true;
+    }
+    if (canManageUsers && canReadClients && canReadContracts && canReadGroups) break;
+  }
+  if (canManageUsers) visibleNavItems.push("Users & Roles");
+  if (canReadClients) visibleNavItems.push("Clients");
+  if (canReadContracts) visibleNavItems.push("Contracts");
+  if (canReadGroups) visibleNavItems.push("Groups & Enrollment");
+
   const roleIds = [
     ...new Set(
       (memberships ?? [])
@@ -144,149 +202,31 @@ export default async function WhoAmIPage() {
         initialAvatarUrl={signedAvatarUrl}
       />
 
-      <Section title="Signed in as">
-        <Kv label="Email" value={ownProfile?.email ?? user.email ?? "?"} />
-        <Kv label="User ID" value={user.id} mono />
-        <Kv
-          label="Platform owner"
-          value={String(ownProfile?.is_platform_owner ?? false)}
-        />
-        <Kv label="Status" value={ownProfile?.status ?? "?"} />
-      </Section>
-
-      <Section title="Organizations visible via RLS">
-        {(visibleOrgs ?? []).length === 0 ? (
-          <Empty>None</Empty>
+      <p className="font-body text-ink text-sm">
+        You are <span className="font-semibold">{roleLabel || "an unassigned user"}</span>.{" "}
+        {visibleNavItems.length > 0 ? (
+          <>
+            You have access to:{" "}
+            <span className="font-semibold">{visibleNavItems.join(", ")}</span>.
+          </>
         ) : (
-          <ul className="flex flex-col gap-2">
-            {(visibleOrgs ?? []).map((o) => (
-              <li key={o.id} className="font-body text-ink text-sm">
-                <span className="font-semibold">{o.slug}</span> — {o.name}
-              </li>
-            ))}
-          </ul>
+          "You don't have access to any additional sections yet."
         )}
-      </Section>
+      </p>
 
-      <Section title="Your role(s) per organization">
-        {(memberships ?? []).length === 0 ? (
-          <Empty>No user_org_roles row for this user</Empty>
-        ) : (
-          <ul className="flex flex-wrap gap-2">
-            {(memberships ?? []).map((m, i) => (
-              <li key={i}>
-                <Badge>
-                  {m.organizations?.slug ?? m.organization_id}:{" "}
-                  {m.roles?.display_name ?? "?"}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
-
-      <Section title="Resolved capabilities per organization">
-        <div className="flex flex-col gap-4">
-          {(memberships ?? []).map((m, i) => (
-            <div key={i}>
-              <p className="font-body text-ink mb-2 text-sm font-semibold">
-                {m.organizations?.slug ?? m.organization_id}
-              </p>
-              {m.roles && (capsByRole.get(m.roles.id)?.length ?? 0) > 0 ? (
-                <ul className="flex flex-wrap gap-1.5">
-                  {capsByRole.get(m.roles.id)!.map((key) => (
-                    <li key={key}>
-                      <Badge mono>{key}</Badge>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <Empty>None</Empty>
-              )}
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      <Section title="Spot-check via app.has_capability() RPC">
-        <ul className="flex flex-col gap-1.5">
-          {spotCheckResults.map((r, i) => (
-            <li
-              key={i}
-              className="font-body text-ink flex items-center gap-2 text-sm"
-            >
-              <span className="font-mono text-xs">
-                has_capability(&apos;{r.cap}&apos;, {r.org})
-              </span>
-              <Badge tone={r.allowed ? "neutral" : "pink"}>
-                {String(r.allowed)}
-              </Badge>
-            </li>
-          ))}
-        </ul>
-      </Section>
+      <TechnicalDetails
+        email={ownProfile?.email ?? user.email ?? ""}
+        userId={user.id}
+        isPlatformOwner={ownProfile?.is_platform_owner ?? false}
+        status={ownProfile?.status ?? "?"}
+        visibleOrgs={visibleOrgs ?? []}
+        memberships={(memberships ?? []).map((m) => ({
+          orgLabel: m.organizations?.slug ?? m.organization_id,
+          roleLabel: m.roles?.display_name ?? "?",
+          capabilities: m.roles ? (capsByRole.get(m.roles.id) ?? []) : [],
+        }))}
+        spotCheckResults={spotCheckResults}
+      />
     </div>
   );
-}
-
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
-      <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
-
-function Kv({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div className="flex items-baseline justify-between border-b border-black/5 py-2 text-sm last:border-0">
-      <span className="font-body text-muted">{label}</span>
-      <span className={`text-ink ${mono ? "font-mono text-xs" : "font-body font-medium"}`}>
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function Badge({
-  children,
-  mono,
-  tone = "neutral",
-}: {
-  children: React.ReactNode;
-  mono?: boolean;
-  tone?: "neutral" | "pink";
-}) {
-  return (
-    <span
-      className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${mono ? "font-mono" : "font-body"} ${
-        tone === "pink"
-          ? "bg-brand-pink/10 text-brand-pink"
-          : "bg-ink/5 text-ink"
-      }`}
-    >
-      {children}
-    </span>
-  );
-}
-
-function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="font-body text-muted text-sm">{children}</p>;
 }

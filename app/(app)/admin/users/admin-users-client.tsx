@@ -1,12 +1,23 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import {
   inviteUser,
   editRoles,
   disableAccess,
   enableAccess,
 } from "./actions";
+
+// Real values this app ever writes to users.status (no DB CHECK constraint
+// — 'invited' is the trigger-set default on auth signup, 'active'/
+// 'disabled' come from enableAccess/disableAccess below). Confirmed live
+// (not assumed) against the current org's actual rows before building this
+// filter.
+const STATUS_LABELS: Record<string, string> = {
+  invited: "Invited",
+  active: "Active",
+  disabled: "Disabled",
+};
 
 type Role = { id: string; key: string; display_name: string };
 type Member = {
@@ -52,6 +63,10 @@ export function AdminUsersClient({
   const [selectedRolesByUser, setSelectedRolesByUser] = useState<
     Record<string, string[]>
   >({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [testAccountFilter, setTestAccountFilter] = useState<"all" | "real" | "test">("all");
 
   function startEditing(member: Member) {
     setSelectedRolesByUser((prev) => ({ ...prev, [member.userId]: member.roleIds }));
@@ -88,6 +103,27 @@ export function AdminUsersClient({
     });
   }
 
+  // Search + filters run over the same already-fetched, RLS-scoped array —
+  // same client-side convention as clients-client.tsx / contracts-client.tsx
+  // (useMemo over the array in hand, never a re-query). Role is multi-role-
+  // aware: a member filters in if the selected role is ANY ONE of the
+  // roles they hold, not an exact single-role match.
+  const filteredMembers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return members.filter((member) => {
+      if (q) {
+        const name = displayName(member).toLowerCase();
+        const email = member.email.toLowerCase();
+        if (!email.includes(q) && !name.includes(q)) return false;
+      }
+      if (roleFilter !== "all" && !member.roleIds.includes(roleFilter)) return false;
+      if (statusFilter !== "all" && member.status !== statusFilter) return false;
+      if (testAccountFilter === "real" && member.isTestAccount) return false;
+      if (testAccountFilter === "test" && !member.isTestAccount) return false;
+      return true;
+    });
+  }, [members, searchQuery, roleFilter, statusFilter, testAccountFilter]);
+
   return (
     <div className="flex flex-col gap-6">
       {error && (
@@ -111,64 +147,128 @@ export function AdminUsersClient({
 
       <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
         <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
-          Members ({members.length})
+          Members (
+          {filteredMembers.length !== members.length
+            ? `${filteredMembers.length} of ${members.length}`
+            : members.length}
+          )
         </h2>
 
-        {/* Desktop/tablet: unchanged table, shown at md and up. */}
-        <table className="hidden w-full border-collapse text-sm md:table">
-          <thead>
-            <tr className="font-body text-muted border-b border-black/5 text-left text-xs font-bold tracking-wide uppercase">
-              <th className="py-2 pr-2 font-bold">#</th>
-              <th className="py-2 pr-4 font-bold">Email</th>
-              <th className="py-2 pr-4 font-bold">Roles</th>
-              <th className="py-2 pr-4 font-bold">Status</th>
-              <th className="py-2 font-bold">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {members.map((member, index) => (
-              <MemberTableRow
-                key={member.userId}
-                member={member}
-                index={index}
-                roles={roles}
-                isPending={isPending}
-                editing={editingUserId === member.userId}
-                selectedRoles={selectedRolesFor(member)}
-                onChangeSelectedRoles={(roleIds) =>
-                  setSelectedRolesByUser((prev) => ({ ...prev, [member.userId]: roleIds }))
-                }
-                onStartEditing={() => startEditing(member)}
-                onCancelEditing={() => cancelEditing(member)}
-                onSave={() => saveEditing(member)}
-                onToggleAccess={() => toggleAccess(member)}
+        {members.length === 0 ? (
+          <p className="font-body text-muted text-sm">
+            No members in this organization.
+          </p>
+        ) : (
+          <>
+            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name or email…"
+                className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 md:flex-1"
               />
-            ))}
-          </tbody>
-        </table>
+              <select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+              >
+                <option value="all">All roles</option>
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.display_name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+              >
+                <option value="all">All statuses</option>
+                {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={testAccountFilter}
+                onChange={(e) => setTestAccountFilter(e.target.value as "all" | "real" | "test")}
+                className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+              >
+                <option value="all">All accounts</option>
+                <option value="real">Real only</option>
+                <option value="test">Test only</option>
+              </select>
+            </div>
 
-        {/* Mobile: table -> cards below md, standard responsive pattern —
-            a horizontal-scroll table isn't a real fix on a narrow screen. */}
-        <div className="flex flex-col gap-3 md:hidden">
-          {members.map((member, index) => (
-            <MemberCard
-              key={member.userId}
-              member={member}
-              index={index}
-              roles={roles}
-              isPending={isPending}
-              editing={editingUserId === member.userId}
-              selectedRoles={selectedRolesFor(member)}
-              onChangeSelectedRoles={(roleIds) =>
-                setSelectedRolesByUser((prev) => ({ ...prev, [member.userId]: roleIds }))
-              }
-              onStartEditing={() => startEditing(member)}
-              onCancelEditing={() => cancelEditing(member)}
-              onSave={() => saveEditing(member)}
-              onToggleAccess={() => toggleAccess(member)}
-            />
-          ))}
-        </div>
+            {filteredMembers.length === 0 ? (
+              <p className="font-body text-muted text-sm">
+                No members match your search or filters.
+              </p>
+            ) : (
+              <>
+                {/* Desktop/tablet: unchanged table, shown at md and up. */}
+                <table className="hidden w-full border-collapse text-sm md:table">
+                  <thead>
+                    <tr className="font-body text-muted border-b border-black/5 text-left text-xs font-bold tracking-wide uppercase">
+                      <th className="py-2 pr-2 font-bold">#</th>
+                      <th className="py-2 pr-4 font-bold">Email</th>
+                      <th className="py-2 pr-4 font-bold">Roles</th>
+                      <th className="py-2 pr-4 font-bold">Status</th>
+                      <th className="py-2 font-bold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMembers.map((member, index) => (
+                      <MemberTableRow
+                        key={member.userId}
+                        member={member}
+                        index={index}
+                        roles={roles}
+                        isPending={isPending}
+                        editing={editingUserId === member.userId}
+                        selectedRoles={selectedRolesFor(member)}
+                        onChangeSelectedRoles={(roleIds) =>
+                          setSelectedRolesByUser((prev) => ({ ...prev, [member.userId]: roleIds }))
+                        }
+                        onStartEditing={() => startEditing(member)}
+                        onCancelEditing={() => cancelEditing(member)}
+                        onSave={() => saveEditing(member)}
+                        onToggleAccess={() => toggleAccess(member)}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+
+                {/* Mobile: table -> cards below md, standard responsive
+                    pattern — a horizontal-scroll table isn't a real fix on
+                    a narrow screen. */}
+                <div className="flex flex-col gap-3 md:hidden">
+                  {filteredMembers.map((member, index) => (
+                    <MemberCard
+                      key={member.userId}
+                      member={member}
+                      index={index}
+                      roles={roles}
+                      isPending={isPending}
+                      editing={editingUserId === member.userId}
+                      selectedRoles={selectedRolesFor(member)}
+                      onChangeSelectedRoles={(roleIds) =>
+                        setSelectedRolesByUser((prev) => ({ ...prev, [member.userId]: roleIds }))
+                      }
+                      onStartEditing={() => startEditing(member)}
+                      onCancelEditing={() => cancelEditing(member)}
+                      onSave={() => saveEditing(member)}
+                      onToggleAccess={() => toggleAccess(member)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
       </section>
     </div>
   );
