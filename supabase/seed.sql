@@ -68,6 +68,11 @@ values
   ('contracts.*', 'contracts', 'contracts', '*', 'Full contract lifecycle management.'),
   ('contracts.read', 'contracts', 'contracts', 'read', 'Read contracts (private scope).'),
 
+  ('groups.read', 'groups', 'groups', 'read', 'Read group (enrollment container) records.'),
+  ('groups.create', 'groups', 'groups', 'create', 'Create/update group records.'),
+  ('sessions.read', 'sessions', 'sessions', 'read', 'Read session records (org-wide scope; Trainer/Senior Trainer use mywork.* + row-level allocation match instead of this key).'),
+  ('sessions.create', 'sessions', 'sessions', 'create', 'Create/update session records, including trainer_principal_id/trainer_secundar_id allocation.'),
+
   ('operations.*', 'operations', 'operations', '*', 'Full operations & team management.'),
   ('trainers.allocate', 'trainers', 'trainers', 'allocate', 'Allocate trainers to sessions.'),
   ('trainers.substitute', 'trainers', 'trainers', 'substitute', 'Substitute a trainer on a session.'),
@@ -134,6 +139,11 @@ from (
     ('operations_manager', 'calendars.*'),
     ('operations_manager', 'certifications.override'),
     ('operations_manager', 'alerts.operational.read'),
+    ('operations_manager', 'groups.read'),
+    ('operations_manager', 'groups.create'),
+    ('operations_manager', 'sessions.read'),
+    ('operations_manager', 'sessions.create'),
+    ('operations_manager', 'org.members.read'),
 
     ('curriculum_manager', 'curriculum.*'),
     ('curriculum_manager', 'curriculum.feedback.*'),
@@ -146,11 +156,16 @@ from (
     ('finance_operations', 'finance.operations.*'),
     ('finance_operations', 'contracts.read'),
     ('finance_operations', 'clients.read'),
+    ('finance_operations', 'groups.read'),
+    ('finance_operations', 'sessions.read'),
 
     ('finance_admin_reporting', 'finance.reporting.*'),
     ('finance_admin_reporting', 'contracts.*'),
     ('finance_admin_reporting', 'grants.*'),
+    ('finance_admin_reporting', 'groups.read'),
+    ('finance_admin_reporting', 'sessions.read'),
     ('finance_admin_reporting', 'clients.read'),
+    ('finance_admin_reporting', 'org.members.read'),
 
     ('inventory_custodian', 'inventory.*'),
 
@@ -257,6 +272,7 @@ values
   (gen_random_uuid(), 'test+owner-a@wowlab.dev', 'Test Org A Owner', 'active', false),
   (gen_random_uuid(), 'test+catalina@wowlab.dev', 'Test User Catalina (Ops + Curriculum + Evaluator)', 'active', false),
   (gen_random_uuid(), 'test+trainer-a@wowlab.dev', 'Test Trainer A', 'active', false),
+  (gen_random_uuid(), 'test+trainer-b@wowlab.dev', 'Test Trainer B', 'active', false),
   (gen_random_uuid(), 'test+user-b@wowlab.dev', 'Test Org B Owner', 'active', false),
   (gen_random_uuid(), 'test+finance-ops-a@wowlab.dev', 'Test Finance Operations A', 'active', false),
   (gen_random_uuid(), 'test+finance-admin-a@wowlab.dev', 'Test Finance Admin Reporting A', 'active', false),
@@ -280,6 +296,7 @@ from (
     ('test+catalina@wowlab.dev', 'wow-lab', 'curriculum_manager'),
     ('test+catalina@wowlab.dev', 'wow-lab', 'evaluator'),
     ('test+trainer-a@wowlab.dev', 'wow-lab', 'trainer'),
+    ('test+trainer-b@wowlab.dev', 'wow-lab', 'trainer'),
     ('test+user-b@wowlab.dev', 'wow-lab-test-b', 'organization_owner'),
     ('test+finance-ops-a@wowlab.dev', 'wow-lab', 'finance_operations'),
     ('test+finance-admin-a@wowlab.dev', 'wow-lab', 'finance_admin_reporting'),

@@ -111,6 +111,25 @@ export default async function AppLayout({
     if (canReadClients && canReadContracts) break;
   }
 
+  // Operational (G2): gated on groups.read OR mywork.* — not groups.read
+  // alone. Trainer/Senior Trainer deliberately hold mywork.* instead of
+  // groups.read (G1's RLS design keeps their capability footprint scoped
+  // to "my own work", not general org-roster read), so a groups.read-only
+  // gate would hide this nav item from the exact roles the SAD names as
+  // needing it ("Trainer/Senior Trainer (filtrat pe 'ale mele')") — this
+  // OR is what actually matches the SAD's menu-level spec, not a literal
+  // single-capability reading of it.
+  let canReadGroups = false;
+  for (const m of memberships ?? []) {
+    if (
+      (await checkCapability(supabase, "groups.read", m.organization_id)) ||
+      (await checkCapability(supabase, "mywork.*", m.organization_id))
+    ) {
+      canReadGroups = true;
+      break;
+    }
+  }
+
   const navGroups = [
     {
       items: [
@@ -132,6 +151,14 @@ export default async function AppLayout({
                 ? [{ href: "/contracts", label: "Contracts" }]
                 : []),
             ],
+          },
+        ]
+      : []),
+    ...(canReadGroups
+      ? [
+          {
+            label: "Operational",
+            items: [{ href: "/groups", label: "Groups & Enrollment" }],
           },
         ]
       : []),

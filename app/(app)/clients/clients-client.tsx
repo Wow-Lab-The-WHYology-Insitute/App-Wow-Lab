@@ -181,7 +181,11 @@ export function ClientsClient({
 
       <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
         <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
-          Clients ({clients.length})
+          Clients (
+          {sortedClients.length !== clients.length
+            ? `${sortedClients.length} of ${clients.length}`
+            : clients.length}
+          )
         </h2>
 
         {clients.length === 0 ? (
@@ -235,6 +239,7 @@ export function ClientsClient({
                 <table className="hidden w-full border-collapse text-sm md:table">
                   <thead>
                     <tr className="font-body text-muted border-b border-black/5 text-left text-xs font-bold tracking-wide uppercase">
+                      <th className="py-2 pr-2 font-bold">#</th>
                       <SortHeader label="Name" sortKey="name" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                       <SortHeader label="Type" sortKey="client_type" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                       <SortHeader label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onSort={onSort} />
@@ -245,11 +250,12 @@ export function ClientsClient({
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedClients.map((client) => (
+                    {sortedClients.map((client, index) => (
                       <tr
                         key={client.id}
                         className="font-body text-ink border-b border-black/5 last:border-0"
                       >
+                        <td className="text-muted py-3 pr-2">{index + 1}</td>
                         <td className="py-3 pr-4">
                           <Link
                             href={`/clients/${client.id}`}
@@ -288,14 +294,14 @@ export function ClientsClient({
 
                 {/* Mobile: cards below md. */}
                 <div className="flex flex-col gap-3 md:hidden">
-                  {sortedClients.map((client) => (
+                  {sortedClients.map((client, index) => (
                     <Link
                       key={client.id}
                       href={`/clients/${client.id}`}
                       className="block rounded-xl border border-black/5 p-4"
                     >
                       <p className="font-body text-brand-pink font-semibold">
-                        {client.name}
+                        <span className="text-muted font-normal">#{index + 1}</span> {client.name}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         <Badge>

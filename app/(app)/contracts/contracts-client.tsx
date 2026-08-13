@@ -224,7 +224,11 @@ export function ContractsClient({
 
       <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
         <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
-          Contracts ({contracts.length})
+          Contracts (
+          {sortedContracts.length !== contracts.length
+            ? `${sortedContracts.length} of ${contracts.length}`
+            : contracts.length}
+          )
         </h2>
 
         {contracts.length === 0 ? (
@@ -288,6 +292,7 @@ export function ContractsClient({
                 <table className="hidden w-full border-collapse text-sm md:table">
                   <thead>
                     <tr className="font-body text-muted border-b border-black/5 text-left text-xs font-bold tracking-wide uppercase">
+                      <th className="py-2 pr-2 font-bold">#</th>
                       <SortHeader label="Number" sortKey="contract_number" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                       <SortHeader label="Client" sortKey="clientName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                       <SortHeader label="Type" sortKey="contract_type" activeKey={sortKey} dir={sortDir} onSort={onSort} />
@@ -303,11 +308,12 @@ export function ContractsClient({
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedContracts.map((c) => (
+                    {sortedContracts.map((c, index) => (
                       <tr
                         key={c.id}
                         className="font-body text-ink border-b border-black/5 last:border-0"
                       >
+                        <td className="text-muted py-3 pr-2">{index + 1}</td>
                         <td className="py-3 pr-4">
                           <Link
                             href={`/contracts/${c.id}`}
@@ -345,14 +351,14 @@ export function ContractsClient({
                 </table>
 
                 <div className="flex flex-col gap-3 md:hidden">
-                  {sortedContracts.map((c) => (
+                  {sortedContracts.map((c, index) => (
                     <Link
                       key={c.id}
                       href={`/contracts/${c.id}`}
                       className="block rounded-xl border border-black/5 p-4"
                     >
                       <p className="font-body text-brand-pink font-mono text-xs font-semibold">
-                        {c.contract_number}
+                        <span className="text-muted font-normal">#{index + 1}</span> {c.contract_number}
                       </p>
                       <p className="font-body text-ink mt-1 text-sm font-semibold">
                         {c.clientName}
