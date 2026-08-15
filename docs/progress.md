@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-08-15 19:30 (ora București)
+**Ultima actualizare:** 2026-08-15 20:17 (ora București)
 
 **Unde suntem acum:** Phase 0 (WS-B) și WS-D (RLS) complete. **Phase 1** în curs: Clients & Contracts (C1 schemă/RLS + C2 UI) și Domeniul Operațional — Grupe & Sesiuni (G1 schemă/RLS + G2 UI) ambele construite, verificate live pe roluri reale, și în curs de merge pe `main` (intrarea #54 de mai jos). Detalii complete în intrările numerotate din secțiunea de jos a fișierului, nu în tabelul „Snapshot status" de mai jos (rămas ca istoric WS-B, nu mai e actualizat).
 
@@ -388,6 +388,20 @@ Verificare live, sesiuni reale magic-link, ambele părți: `/contracts` — colo
 **Incident colateral, în timpul verificării:** un `npm run build` rulat cât timp serverul de dezvoltare (`next dev`) era încă activ pe același folder `.next` a coruput cache-ul de module al serverului dev (`Cannot find module './543.js'`) — pagina de login redirecționa greșit, auth eșua cu 500. Nu bug de aplicație — reparat prin `rm -rf .next` + repornire curată a `next dev`. Lecție: nu rula `next build` și `next dev` concurent pe același folder de build în firele viitoare.
 
 Scope confirmat prin `git diff --stat`: 12 fișiere modificate + 5 noi (4 migrări + `client-contacts-client.tsx`) — `client_contract_number` și dropdown-ul de Tip contract confirmate NEATINSE (grep explicit pe diff), exact cum a cerut task-ul.
+
+---
+
+57. 2026-08-15, 20:17 (ora București) — Retragere `contracts.entry_number`/`exit_number`, adăugate prematur în intrarea #56, branch `develop`, migrare `202608170001`.
+
+**De ce:** cele două coloane au fost adăugate rulând o versiune mai veche a promptului de feedback de la Anca, ÎNAINTE ca Mihai să clarifice explicit că exact această decizie (dacă/cum se folosesc numerele de intrare/ieșire) e încă în discuție între Anca și Anka, nu confirmată — nu trebuiau adăugate încă. Prinsă și corectată în aceeași zi, imediat ce Mihai a semnalat diferența față de promptul actualizat, nu descoperită independent.
+
+**Impact: zero.** Verificat live înainte de a atinge orice: 0 din 6 contracte aveau vreuna din cele două coloane completată — niciun formular din UI nu a expus vreodată o cale de SCRIERE pt ele (erau doar rânduri Kv needitabile pe pagina de detaliu a contractului), deci nu exista nicio cale prin care să fi ajuns date reale acolo. Nicio pierdere de date posibilă.
+
+**Cum:** migrare nouă (nu editare retroactivă a `202608160002`/`202608160003`, deja aplicate — convenția stabilită în acest cod e să nu editezi niciodată o migrare deja aplicată, istoricul trebuie să rămână o înregistrare onestă a ce s-a întâmplat de fapt). Ordinea contează: view-ul `contracts_billing_masked` selecta cele 2 coloane, deci a trebuit reconstruit FĂRĂ ele înainte ca `ALTER TABLE ... DROP COLUMN` să poată rula — altfel eșuează (view-ul încă depinde de ele). Prima încercare a folosit `CREATE OR REPLACE VIEW`, care a eșuat cu `SQLSTATE 42P16` ("cannot drop columns from view") — Postgres nu permite eliminarea unei coloane dintr-un view existent prin OR REPLACE (doar adăugare la final, sau schimbarea expresiei unei coloane existente pe loc). Reparat cu `DROP VIEW` + `CREATE VIEW` simplu, ambele în interiorul aceleiași tranzacții de migrare, deci fără nicio fereastră reală în care view-ul lipsește pt vreo interogare concurentă.
+
+`offer_structure`/`ac_link`/`contact_purpose` din același val original (#56) NU fac parte din această retragere — acelea rămân scope confirmat, real.
+
+Verificare live: typecheck+build curate; `/contracts` (listă+detaliu) confirmate funcționale fără crash, „Entry number"/„Exit number" confirmate absente din UI, „Offer structure"/„AC link" confirmate încă prezente și neatinse. Scope confirmat prin `git diff --stat`: doar cele 2 fișiere care afișau/citeau câmpurile + migrarea nouă.
 
 ---
 
