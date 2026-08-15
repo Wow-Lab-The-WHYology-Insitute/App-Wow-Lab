@@ -48,8 +48,20 @@ export default async function GroupsPage() {
   // so the page can tell them apart for display purposes. RLS itself
   // doesn't need this flag — the query below is already correctly scoped
   // either way; this only decides the heading/empty-state copy.
+  //
+  // hasMasterAccess (org.settings.manage) is a THIRD, separate check, not
+  // just a third branch of the same OR — found live: organization_owner/
+  // platform_owner both hold mywork.* (a leftover from the one-time
+  // blanket capability grant every pre-G1 capability got, supabase/
+  // seed.sql parts 4/5) but not groups.read (a capability that didn't
+  // exist yet when that grant ran), so hasMyWorkOnly && !hasGroupsRead
+  // used to misread them as trainer-view. org.settings.manage is the same
+  // Master-bypass signal the groups RLS policy itself checks
+  // (202608130003) — a viewer who has it should never be trainer-view,
+  // regardless of which legacy capabilities they also happen to hold.
   let hasGroupsRead = false;
   let hasMyWorkOnly = false;
+  let hasMasterAccess = false;
   for (const m of memberships ?? []) {
     if (!createOrgId) {
       const { data: allowed } = await supabase.rpc("has_capability", {
@@ -72,9 +84,16 @@ export default async function GroupsPage() {
       });
       if (allowed) hasMyWorkOnly = true;
     }
-    if (createOrgId && hasGroupsRead && hasMyWorkOnly) break;
+    if (!hasMasterAccess) {
+      const { data: allowed } = await supabase.rpc("has_capability", {
+        cap: "org.settings.manage",
+        org: m.organization_id,
+      });
+      if (allowed) hasMasterAccess = true;
+    }
+    if (createOrgId && hasGroupsRead && hasMyWorkOnly && hasMasterAccess) break;
   }
-  const isTrainerView = hasMyWorkOnly && !hasGroupsRead;
+  const isTrainerView = hasMyWorkOnly && !hasGroupsRead && !hasMasterAccess;
 
   const { data: groups } = await supabase
     .from("groups")
