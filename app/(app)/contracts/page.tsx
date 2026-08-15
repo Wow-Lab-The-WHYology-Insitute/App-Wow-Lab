@@ -17,8 +17,12 @@ type ContractRow = {
   signed_date: string | null;
   estimated_value: number | null;
   previous_year_value: number | null;
+  entry_number: string | null;
+  exit_number: string | null;
+  offer_structure: string | null;
+  ac_link: string | null;
 };
-type ClientLookupRow = { id: string; name: string };
+type ClientLookupRow = { id: string; name: string; legal_name: string | null; cui: string | null };
 type LegalEntityLookupRow = { id: string; name: string };
 type ClientOptionRow = { id: string; name: string; organization_id: string };
 type LegalEntityOptionRow = { id: string; name: string; organization_id: string };
@@ -74,7 +78,7 @@ export default async function ContractsPage() {
   const { data: contracts } = await supabase
     .from("contracts_billing_masked")
     .select(
-      "id, organization_id, client_id, legal_entity_id, contract_number, contract_type, status, period_start, period_end, billing_rule, client_contract_number, signed_date, estimated_value, previous_year_value",
+      "id, organization_id, client_id, legal_entity_id, contract_number, contract_type, status, period_start, period_end, billing_rule, client_contract_number, signed_date, estimated_value, previous_year_value, entry_number, exit_number, offer_structure, ac_link",
     )
     .order("contract_number")
     .returns<ContractRow[]>();
@@ -90,7 +94,7 @@ export default async function ContractsPage() {
     clientIds.length > 0
       ? await supabase
           .from("clients")
-          .select("id, name")
+          .select("id, name, legal_name, cui")
           .in("id", clientIds)
           .returns<ClientLookupRow[]>()
       : { data: [] as ClientLookupRow[] };
@@ -104,6 +108,8 @@ export default async function ContractsPage() {
       : { data: [] as LegalEntityLookupRow[] };
 
   const clientNameById = new Map((clientRows ?? []).map((c) => [c.id, c.name]));
+  const clientLegalNameById = new Map((clientRows ?? []).map((c) => [c.id, c.legal_name]));
+  const clientCuiById = new Map((clientRows ?? []).map((c) => [c.id, c.cui]));
   const legalEntityNameById = new Map(
     (legalEntityRows ?? []).map((e) => [e.id, e.name]),
   );
@@ -152,6 +158,8 @@ export default async function ContractsPage() {
   const rows = (contracts ?? []).map((c) => ({
     ...c,
     clientName: clientNameById.get(c.client_id) ?? c.client_id,
+    clientLegalName: clientLegalNameById.get(c.client_id) ?? null,
+    clientCui: clientCuiById.get(c.client_id) ?? null,
     legalEntityName: legalEntityNameById.get(c.legal_entity_id) ?? c.legal_entity_id,
   }));
 

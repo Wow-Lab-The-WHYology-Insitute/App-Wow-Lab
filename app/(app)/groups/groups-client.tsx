@@ -7,12 +7,15 @@ import { addGroup } from "./actions";
 type Group = {
   id: string;
   clientName: string;
+  clientLegalName: string | null;
   module: string;
   delivery_format: string;
   schedule_pattern: string | null;
   children_confirmed: number | null;
   children_billed: number | null;
   status: string;
+  trainerPrincipalName: string | null;
+  trainerSecundarName: string | null;
 };
 type ClientOption = { id: string; name: string };
 
@@ -79,6 +82,7 @@ function compareValues(
 
 type SortKey =
   | "clientName"
+  | "clientLegalName"
   | "module"
   | "delivery_format"
   | "schedule_pattern"
@@ -137,6 +141,7 @@ export function GroupsClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [moduleFilter, setModuleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [formatFilter, setFormatFilter] = useState("all");
 
   function onSort(key: SortKey) {
     if (key === sortKey) {
@@ -147,26 +152,40 @@ export function GroupsClient({
     }
   }
 
-  // Module filter options come from the already-fetched, RLS-scoped groups
-  // themselves, not the full MODULE_LABELS catalog — same reasoning as
+  // Module/format filter options come from the already-fetched, RLS-scoped
+  // groups themselves, not the full label catalogs — same reasoning as
   // contracts-client.tsx's entityOptions: guarantees the filter can never
-  // offer a module RLS didn't already surface.
+  // offer a value RLS didn't already surface.
   const moduleOptions = useMemo(() => {
     return [...new Set(groups.map((g) => g.module))].sort();
+  }, [groups]);
+  const formatOptions = useMemo(() => {
+    return [...new Set(groups.map((g) => g.delivery_format))].sort();
   }, [groups]);
 
   // Search + filters run over the same already-fetched, RLS-scoped array
   // sorting already used — client-side over the array in hand, never a
-  // re-query, so this can only narrow what RLS already returned.
+  // re-query, so this can only narrow what RLS already returned. Search
+  // covers client name AND the current allocation's trainer names (the
+  // "current allocation" — most recent session — is all this list ever
+  // has to search against; see groups/page.tsx's own comment on that
+  // interpretation call).
   const filteredGroups = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return groups.filter((g) => {
-      if (q && !g.clientName.toLowerCase().includes(q)) return false;
+      if (q) {
+        const matchesClient = g.clientName.toLowerCase().includes(q);
+        const matchesTrainer =
+          (g.trainerPrincipalName?.toLowerCase().includes(q) ?? false) ||
+          (g.trainerSecundarName?.toLowerCase().includes(q) ?? false);
+        if (!matchesClient && !matchesTrainer) return false;
+      }
       if (moduleFilter !== "all" && g.module !== moduleFilter) return false;
+      if (formatFilter !== "all" && g.delivery_format !== formatFilter) return false;
       if (statusFilter !== "all" && g.status !== statusFilter) return false;
       return true;
     });
-  }, [groups, searchQuery, moduleFilter, statusFilter]);
+  }, [groups, searchQuery, moduleFilter, formatFilter, statusFilter]);
 
   const sortedGroups = useMemo(() => {
     return [...filteredGroups].sort((a, b) => compareValues(a[sortKey], b[sortKey], sortDir));
@@ -196,7 +215,7 @@ export function GroupsClient({
             <NewGroupForm
               clientOptions={clientOptions}
               isPending={isPending}
-              onSubmit={(clientId, module, deliveryFormat, schedulePattern, status) => {
+              onSubmit={(clientId, module, deliveryFormat, schedulePattern, status, ageRange, schoolYearCalendarLink) => {
                 setError(null);
                 startTransition(async () => {
                   const result = await addGroup(
@@ -206,6 +225,8 @@ export function GroupsClient({
                     deliveryFormat,
                     schedulePattern,
                     status,
+                    ageRange,
+                    schoolYearCalendarLink,
                   );
                   if (!result.ok) setError(result.error);
                   else setIsFormOpen(false);
@@ -234,7 +255,7 @@ export function GroupsClient({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by client…"
+                placeholder="Search by client or trainer…"
                 className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 md:flex-1"
               />
               <select
@@ -246,6 +267,18 @@ export function GroupsClient({
                 {moduleOptions.map((m) => (
                   <option key={m} value={m}>
                     {MODULE_LABELS[m] ?? m}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={formatFilter}
+                onChange={(e) => setFormatFilter(e.target.value)}
+                className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+              >
+                <option value="all">All formats</option>
+                {formatOptions.map((f) => (
+                  <option key={f} value={f}>
+                    {DELIVERY_FORMAT_LABELS[f] ?? f}
                   </option>
                 ))}
               </select>
@@ -272,10 +305,12 @@ export function GroupsClient({
                 <table className="hidden w-full border-collapse text-sm md:table">
                   <thead>
                     <tr className="font-body text-muted border-b border-black/5 text-left text-xs font-bold tracking-wide uppercase">
-                      <SortHeader label="Client" sortKey="clientName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="School/Parent" sortKey="clientName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="Company" sortKey="clientLegalName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                       <SortHeader label="Module" sortKey="module" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                       <SortHeader label="Format" sortKey="delivery_format" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                       <SortHeader label="Schedule" sortKey="schedule_pattern" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <th className="py-2 pr-4 font-bold">Trainers</th>
                       <SortHeader label="Confirmed" sortKey="children_confirmed" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                       <SortHeader label="Billed" sortKey="children_billed" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                       <SortHeader label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onSort={onSort} className="py-2" />
@@ -295,6 +330,7 @@ export function GroupsClient({
                             {g.clientName}
                           </Link>
                         </td>
+                        <td className="text-muted py-3 pr-4">{g.clientLegalName || "—"}</td>
                         <td className="py-3 pr-4">
                           <Badge>{MODULE_LABELS[g.module] ?? g.module}</Badge>
                         </td>
@@ -303,6 +339,16 @@ export function GroupsClient({
                         </td>
                         <td className="text-muted py-3 pr-4">
                           {g.schedule_pattern || "—"}
+                        </td>
+                        <td className="text-muted py-3 pr-4 text-xs">
+                          {g.trainerPrincipalName || g.trainerSecundarName ? (
+                            <>
+                              {g.trainerPrincipalName || "—"}
+                              {g.trainerSecundarName ? ` / ${g.trainerSecundarName}` : ""}
+                            </>
+                          ) : (
+                            "—"
+                          )}
                         </td>
                         <td className="text-muted py-3 pr-4">
                           {g.children_confirmed ?? "—"}
@@ -330,6 +376,9 @@ export function GroupsClient({
                       <p className="font-body text-brand-pink font-semibold">
                         {g.clientName}
                       </p>
+                      {g.clientLegalName && (
+                        <p className="font-body text-muted text-xs">{g.clientLegalName}</p>
+                      )}
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         <Badge>{MODULE_LABELS[g.module] ?? g.module}</Badge>
                         <Badge>{DELIVERY_FORMAT_LABELS[g.delivery_format] ?? g.delivery_format}</Badge>
@@ -340,6 +389,12 @@ export function GroupsClient({
                       {g.schedule_pattern && (
                         <p className="font-body text-muted mt-2 text-xs">
                           {g.schedule_pattern}
+                        </p>
+                      )}
+                      {(g.trainerPrincipalName || g.trainerSecundarName) && (
+                        <p className="font-body text-muted mt-1 text-xs">
+                          Trainers: {g.trainerPrincipalName || "—"}
+                          {g.trainerSecundarName ? ` / ${g.trainerSecundarName}` : ""}
                         </p>
                       )}
                       <p className="font-body text-muted mt-1 text-xs">
@@ -357,6 +412,16 @@ export function GroupsClient({
   );
 }
 
+const DAYS_OF_WEEK = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
 function NewGroupForm({
   clientOptions,
   isPending,
@@ -370,6 +435,8 @@ function NewGroupForm({
     deliveryFormat: string,
     schedulePattern: string,
     status: string,
+    ageRange: string,
+    schoolYearCalendarLink: string,
   ) => void;
 }) {
   const [clientId, setClientId] = useState(clientOptions[0]?.id ?? "");
@@ -377,8 +444,28 @@ function NewGroupForm({
   const [deliveryFormat, setDeliveryFormat] = useState(
     Object.keys(DELIVERY_FORMAT_LABELS)[0],
   );
-  const [schedulePattern, setSchedulePattern] = useState("");
   const [status, setStatus] = useState("active");
+  const [ageRange, setAgeRange] = useState("");
+  const [calendarLink, setCalendarLink] = useState("");
+
+  // Structured, format-aware schedule input — recurring groups get a
+  // day-of-week + time picker, one-off formats (party/corporate/scoala_
+  // altfel/etc.) get a calendar date + time picker — both still compose
+  // into schedule_pattern's existing free-text shape (matches the "Tuesday
+  // 14:00" style already used by real data) rather than a new structured
+  // column, per the task's explicit "still writing into the existing
+  // schedule_pattern text field" instruction.
+  const isRecurring = deliveryFormat === "recurring";
+  const [scheduleDay, setScheduleDay] = useState(DAYS_OF_WEEK[0]);
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
+  const schedulePattern = isRecurring
+    ? scheduleTime
+      ? `${scheduleDay} ${scheduleTime}`
+      : ""
+    : scheduleDate
+      ? `${scheduleDate}${scheduleTime ? ` ${scheduleTime}` : ""}`
+      : "";
 
   return (
     <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
@@ -431,18 +518,63 @@ function NewGroupForm({
             </option>
           ))}
         </select>
+        {isRecurring ? (
+          <>
+            <select
+              value={scheduleDay}
+              onChange={(e) => setScheduleDay(e.target.value)}
+              className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+            >
+              {DAYS_OF_WEEK.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+            <input
+              type="time"
+              value={scheduleTime}
+              onChange={(e) => setScheduleTime(e.target.value)}
+              className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+            />
+          </>
+        ) : (
+          <>
+            <input
+              type="date"
+              value={scheduleDate}
+              onChange={(e) => setScheduleDate(e.target.value)}
+              className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+            />
+            <input
+              type="time"
+              value={scheduleTime}
+              onChange={(e) => setScheduleTime(e.target.value)}
+              className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+            />
+          </>
+        )}
         <input
           type="text"
-          value={schedulePattern}
-          onChange={(e) => setSchedulePattern(e.target.value)}
-          placeholder="Schedule pattern (e.g. Tuesday 2pm — optional)"
+          value={ageRange}
+          onChange={(e) => setAgeRange(e.target.value)}
+          placeholder="Age range (e.g. 6-9 ani — optional)"
+          className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+        />
+        <input
+          type="text"
+          value={calendarLink}
+          onChange={(e) => setCalendarLink(e.target.value)}
+          placeholder="School-year calendar link (optional)"
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 md:col-span-2"
         />
       </div>
       <button
         type="button"
         disabled={isPending || !clientId || !module || !deliveryFormat}
-        onClick={() => onSubmit(clientId, module, deliveryFormat, schedulePattern, status)}
+        onClick={() =>
+          onSubmit(clientId, module, deliveryFormat, schedulePattern, status, ageRange, calendarLink)
+        }
         className="font-body mt-3 w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
       >
         Create group

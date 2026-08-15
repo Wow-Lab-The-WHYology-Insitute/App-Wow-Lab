@@ -220,11 +220,19 @@ export function ClientsClient({
                 className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
               >
                 <option value="all">All statuses</option>
-                {Object.entries(CLIENT_STATUS_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
+                {/* "Prospect" excluded from the filter's practical option
+                    list — AC owns the pre-collaboration funnel, this app
+                    isn't where that stage gets browsed. The schema value
+                    and CLIENT_STATUS_LABELS entry stay (an existing
+                    prospect-status row still renders its badge correctly),
+                    only this filter dropdown's offered options change. */}
+                {Object.entries(CLIENT_STATUS_LABELS)
+                  .filter(([value]) => value !== "prospect")
+                  .map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
               </select>
             </div>
 

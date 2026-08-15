@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { ClientContactsClient } from "./client-contacts-client";
 
 type ClientRow = {
   id: string;
+  organization_id: string;
   name: string;
   client_type: string;
   status: string;
@@ -18,6 +20,7 @@ type ContactRow = {
   phone: string | null;
   is_billing_contact: boolean;
   is_primary: boolean;
+  contact_purpose: string | null;
 };
 type ContractRow = {
   id: string;
@@ -27,7 +30,9 @@ type ContractRow = {
   period_start: string | null;
   period_end: string | null;
   billing_rule: string | null;
+  legal_entity_id: string;
 };
+type LegalEntityLookupRow = { id: string; name: string };
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
   private_school: "Private school",
@@ -36,6 +41,36 @@ const CLIENT_TYPE_LABELS: Record<string, string> = {
   parent_b2c: "Parent B2C",
   special_project: "Special project",
 };
+
+function looksLikeUrl(value: string) {
+  return value.startsWith("http://") || value.startsWith("https://");
+}
+
+// client_contacts INSERT/UPDATE policy (202608100003): org/platform owner,
+// clients.create (sales_manager), or contracts.* excluding either finance
+// role (contract_administrator) -- a THIRD alternative (clients.create)
+// beyond contracts/[id]/page.tsx's own narrower canManageContracts, so
+// this can't reuse that function; kept as its own local copy per this
+// codebase's established convention of duplicating the has_capability-loop
+// pattern per file rather than sharing it.
+async function canManageContacts(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  org: string,
+) {
+  const [{ data: isOwner }, { data: hasClientsCreate }, { data: hasContractsStar }, { data: isFinanceReporting }, { data: isFinanceOps }] =
+    await Promise.all([
+      supabase.rpc("has_capability", { cap: "org.settings.manage", org }),
+      supabase.rpc("has_capability", { cap: "clients.create", org }),
+      supabase.rpc("has_capability", { cap: "contracts.*", org }),
+      supabase.rpc("has_capability", { cap: "finance.reporting.*", org }),
+      supabase.rpc("has_capability", { cap: "finance.operations.*", org }),
+    ]);
+  return (
+    Boolean(isOwner) ||
+    Boolean(hasClientsCreate) ||
+    (Boolean(hasContractsStar) && !isFinanceReporting && !isFinanceOps)
+  );
+}
 
 export default async function ClientDetailPage({
   params,
@@ -55,7 +90,7 @@ export default async function ClientDetailPage({
   const { data: client } = await supabase
     .from("clients")
     .select(
-      "id, name, client_type, status, business_line, external_crm_ref, notes",
+      "id, organization_id, name, client_type, status, business_line, external_crm_ref, notes",
     )
     .eq("id", id)
     .maybeSingle<ClientRow>();
@@ -70,7 +105,7 @@ export default async function ClientDetailPage({
 
   const { data: contacts } = await supabase
     .from("client_contacts")
-    .select("id, full_name, role_at_client, email, phone, is_billing_contact, is_primary")
+    .select("id, full_name, role_at_client, email, phone, is_billing_contact, is_primary, contact_purpose")
     .eq("client_id", id)
     .order("is_primary", { ascending: false })
     .returns<ContactRow[]>();
@@ -82,31 +117,49 @@ export default async function ClientDetailPage({
   // one column).
   const { data: contracts } = await supabase
     .from("contracts_billing_masked")
-    .select("id, contract_number, contract_type, status, period_start, period_end, billing_rule")
+    .select("id, contract_number, contract_type, status, period_start, period_end, billing_rule, legal_entity_id")
     .eq("client_id", id)
     .returns<ContractRow[]>();
+
+  // "Billed via": distinct legal entities across this client's contracts —
+  // derived/computed, not a direct field on clients (a client can span
+  // entities across different contracts, e.g. a recurring-school contract
+  // via Experimente Wow and a one-off event via Brandine ADV for the same
+  // school). Same two-lookup convention as contracts/page.tsx.
+  const legalEntityIds = [...new Set((contracts ?? []).map((c) => c.legal_entity_id))];
+  const { data: legalEntityRows } =
+    legalEntityIds.length > 0
+      ? await supabase
+          .from("legal_entities")
+          .select("id, name")
+          .in("id", legalEntityIds)
+          .returns<LegalEntityLookupRow[]>()
+      : { data: [] as LegalEntityLookupRow[] };
+  const billedViaNames = [...new Set((legalEntityRows ?? []).map((e) => e.name))].sort();
 
   // Distinguishes "masked because you lack the capability" from
   // "genuinely never set" for a null billing_rule — same has_capability
   // set the view itself unmasks on (202608100006), so this can't drift
   // out of sync with what the view actually decided for this session.
   let financeVisible = false;
+  let canManage = false;
   const { data: memberships } = await supabase
     .from("user_org_roles")
     .select("organization_id")
     .eq("user_id", user.id);
   for (const m of memberships ?? []) {
-    for (const cap of ["finance.operations.*", "finance.reporting.*", "clients.create"]) {
-      const { data: allowed } = await supabase.rpc("has_capability", {
-        cap,
-        org: (m as { organization_id: string }).organization_id,
-      });
-      if (allowed) {
-        financeVisible = true;
-        break;
+    const org = (m as { organization_id: string }).organization_id;
+    if (!financeVisible) {
+      for (const cap of ["finance.operations.*", "finance.reporting.*", "clients.create"]) {
+        const { data: allowed } = await supabase.rpc("has_capability", { cap, org });
+        if (allowed) {
+          financeVisible = true;
+          break;
+        }
       }
     }
-    if (financeVisible) break;
+    if (!canManage && (await canManageContacts(supabase, org))) canManage = true;
+    if (financeVisible && canManage) break;
   }
 
   return (
@@ -126,37 +179,30 @@ export default async function ClientDetailPage({
 
       <Section title="Client info">
         <Kv label="Business line" value={client.business_line || "—"} />
-        <Kv label="External CRM ref" value={client.external_crm_ref || "—"} mono />
+        <Kv
+          label="External CRM ref"
+          value={client.external_crm_ref || "—"}
+          mono={!(client.external_crm_ref && looksLikeUrl(client.external_crm_ref))}
+          href={
+            client.external_crm_ref && looksLikeUrl(client.external_crm_ref)
+              ? client.external_crm_ref
+              : undefined
+          }
+          external
+        />
+        <Kv
+          label="Billed via"
+          value={billedViaNames.length > 0 ? billedViaNames.join(", ") : "—"}
+        />
         <Kv label="Notes" value={client.notes || "—"} />
       </Section>
 
-      <Section title={`Contacts (${contacts?.length ?? 0})`}>
-        {(contacts ?? []).length === 0 ? (
-          <Empty>No contacts on file.</Empty>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {(contacts ?? []).map((c) => (
-              <li key={c.id} className="border-b border-black/5 pb-3 last:border-0 last:pb-0">
-                <p className="font-body text-ink font-semibold">
-                  {c.full_name}
-                  {c.role_at_client && (
-                    <span className="text-muted ml-2 font-normal">
-                      {c.role_at_client}
-                    </span>
-                  )}
-                </p>
-                <p className="font-body text-muted mt-1 text-xs">
-                  {c.email || "—"} {c.phone ? `· ${c.phone}` : ""}
-                </p>
-                <div className="mt-1.5 flex gap-1.5">
-                  {c.is_primary && <Badge>Primary</Badge>}
-                  {c.is_billing_contact && <Badge>Billing contact</Badge>}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
+      <ClientContactsClient
+        clientId={client.id}
+        organizationId={client.organization_id}
+        contacts={contacts ?? []}
+        canManage={canManage}
+      />
 
       <Section title={`Contracts (${contracts?.length ?? 0})`}>
         {(contracts ?? []).length === 0 ? (
@@ -220,13 +266,36 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Kv({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function Kv({
+  label,
+  value,
+  mono,
+  href,
+  external,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  href?: string;
+  external?: boolean;
+}) {
   return (
     <div className="flex items-baseline justify-between border-b border-black/5 py-2 text-sm last:border-0">
       <span className="font-body text-muted">{label}</span>
-      <span className={`text-ink ${mono ? "font-mono text-xs" : "font-body font-medium"}`}>
-        {value}
-      </span>
+      {href ? (
+        <a
+          href={href}
+          target={external ? "_blank" : undefined}
+          rel={external ? "noreferrer" : undefined}
+          className="text-brand-pink font-body font-medium hover:underline"
+        >
+          {value}
+        </a>
+      ) : (
+        <span className={`text-ink ${mono ? "font-mono text-xs" : "font-body font-medium"}`}>
+          {value}
+        </span>
+      )}
     </div>
   );
 }

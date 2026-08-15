@@ -23,6 +23,8 @@ export async function addGroup(
   deliveryFormat: string,
   schedulePattern: string,
   status: string,
+  ageRange: string,
+  schoolYearCalendarLink: string,
 ): Promise<ActionResult> {
   if (!clientId || !module || !deliveryFormat) {
     return { ok: false, error: "Client, module, and delivery format are required." };
@@ -38,6 +40,8 @@ export async function addGroup(
       delivery_format: deliveryFormat,
       schedule_pattern: schedulePattern.trim() || null,
       status,
+      age_range: ageRange.trim() || null,
+      school_year_calendar_link: schoolYearCalendarLink.trim() || null,
     })
     .select("id")
     .single();
@@ -59,6 +63,8 @@ export async function addSession(
   status: string,
   attendanceCount: string,
   experimentDelivered: string,
+  durationMinutes: string,
+  experimentDriveLink: string,
 ): Promise<ActionResult> {
   if (!groupId || !sessionDate) {
     return { ok: false, error: "Session date is required." };
@@ -76,6 +82,8 @@ export async function addSession(
       status,
       attendance_count: attendanceCount.trim() ? Number(attendanceCount) : null,
       experiment_delivered: experimentDelivered.trim() || null,
+      duration_minutes: durationMinutes.trim() ? Number(durationMinutes) : null,
+      experiment_drive_link: experimentDriveLink.trim() || null,
     })
     .select("id")
     .single();
