@@ -13,14 +13,27 @@ type Session = {
   status: string;
   attendance_count: number | null;
   experiment_delivered: string | null;
+  duration_minutes: number | null;
+  experiment_drive_link: string | null;
 };
 type TrainerOption = { id: string; name: string };
 
-// Matches the sessions.status check constraint (202608130001) exactly.
+// Matches the sessions.status check constraint (202608160004) exactly —
+// 'confirmed' added between planned and delivered (trainer allocated,
+// date locked, but not yet run).
 const SESSION_STATUS_LABELS: Record<string, string> = {
   planned: "Planned",
+  confirmed: "Confirmed",
   delivered: "Delivered",
   cancelled: "Cancelled",
+};
+
+// Anca's color scheme for the 4-value status.
+const SESSION_STATUS_TONES: Record<string, string> = {
+  planned: "bg-orange-100 text-orange-700",
+  confirmed: "bg-green-50 text-green-700",
+  delivered: "bg-green-700 text-white",
+  cancelled: "bg-red-100 text-red-700",
 };
 
 function formatShortDate(iso: string) {
@@ -102,7 +115,7 @@ export function GroupDetailClient({
             <NewSessionForm
               trainerOptions={trainerOptions}
               isPending={isPending}
-              onSubmit={(date, principalId, secundarId, status, attendance, experiment) => {
+              onSubmit={(date, principalId, secundarId, status, attendance, experiment, duration, experimentDriveLink) => {
                 setError(null);
                 startTransition(async () => {
                   const result = await addSession(
@@ -114,6 +127,8 @@ export function GroupDetailClient({
                     status,
                     attendance,
                     experiment,
+                    duration,
+                    experimentDriveLink,
                   );
                   if (!result.ok) setError(result.error);
                   else setIsFormOpen(false);
@@ -144,7 +159,14 @@ export function GroupDetailClient({
                   <th className="py-2 pr-4 font-bold">Principal</th>
                   <th className="py-2 pr-4 font-bold">Secundar</th>
                   <th className="py-2 pr-4 font-bold">Status</th>
-                  <th className="py-2 pr-4 font-bold">Attendance</th>
+                  <th className="py-2 pr-4 font-bold">Duration</th>
+                  {/* "Present" (not "Attendance") — the post-workshop
+                      ACTUAL headcount for this occurrence, distinct from
+                      the group's own "Children confirmed" (contract-time
+                      headcount, shown on Group info above). Same field as
+                      before, relabeled for clarity per Anca's request —
+                      investigated, no new column needed. */}
+                  <th className="py-2 pr-4 font-bold">Present</th>
                   <th className="py-2 font-bold">Experiment delivered</th>
                 </tr>
               </thead>
@@ -256,12 +278,29 @@ function SessionTableRow({
         </>
       )}
       <td className="py-3 pr-4">
-        <Badge>{SESSION_STATUS_LABELS[session.status] ?? session.status}</Badge>
+        <Badge tone={SESSION_STATUS_TONES[session.status]}>
+          {SESSION_STATUS_LABELS[session.status] ?? session.status}
+        </Badge>
+      </td>
+      <td className="text-muted py-3 pr-4">
+        {session.duration_minutes ? `${session.duration_minutes} min` : "—"}
       </td>
       <td className="text-muted py-3 pr-4">{session.attendance_count ?? "—"}</td>
       <td className="text-muted py-3">
         <div className="flex items-center justify-between gap-3">
-          <span>{session.experiment_delivered || "—"}</span>
+          <span>
+            {session.experiment_delivered || "—"}
+            {session.experiment_drive_link && (
+              <a
+                href={session.experiment_drive_link}
+                target="_blank"
+                rel="noreferrer"
+                className="text-brand-pink ml-2 text-xs font-semibold hover:underline"
+              >
+                Open
+              </a>
+            )}
+          </span>
           {canManageSessions &&
             (editing ? (
               <span className="flex shrink-0 gap-2">
@@ -316,7 +355,9 @@ function SessionCard({
         <p className="font-body text-ink text-sm font-semibold">
           {formatShortDate(session.session_date)}
         </p>
-        <Badge>{SESSION_STATUS_LABELS[session.status] ?? session.status}</Badge>
+        <Badge tone={SESSION_STATUS_TONES[session.status]}>
+          {SESSION_STATUS_LABELS[session.status] ?? session.status}
+        </Badge>
       </div>
 
       {editing ? (
@@ -356,11 +397,24 @@ function SessionCard({
             Secundar: {session.trainerSecundarName ?? "—"}
           </p>
           <p className="font-body text-muted mt-1 text-xs">
-            Attendance: {session.attendance_count ?? "—"}
+            Duration: {session.duration_minutes ? `${session.duration_minutes} min` : "—"}
+          </p>
+          <p className="font-body text-muted mt-1 text-xs">
+            Present: {session.attendance_count ?? "—"}
           </p>
           {session.experiment_delivered && (
             <p className="font-body text-muted mt-1 text-xs">
               Experiment: {session.experiment_delivered}
+              {session.experiment_drive_link && (
+                <a
+                  href={session.experiment_drive_link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-brand-pink ml-2 font-semibold hover:underline"
+                >
+                  Open
+                </a>
+              )}
             </p>
           )}
           {canManageSessions && (
@@ -417,6 +471,8 @@ function NewSessionForm({
     status: string,
     attendance: string,
     experiment: string,
+    duration: string,
+    experimentDriveLink: string,
   ) => void;
 }) {
   const [date, setDate] = useState("");
@@ -425,6 +481,8 @@ function NewSessionForm({
   const [status, setStatus] = useState("planned");
   const [attendance, setAttendance] = useState("");
   const [experiment, setExperiment] = useState("");
+  const [duration, setDuration] = useState("");
+  const [experimentDriveLink, setExperimentDriveLink] = useState("");
 
   return (
     <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
@@ -497,11 +555,31 @@ function NewSessionForm({
           placeholder="Experiment delivered (optional)"
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         />
+        <select
+          value={duration}
+          onChange={(e) => setDuration(e.target.value)}
+          className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+        >
+          <option value="">Duration (optional)</option>
+          <option value="30">30 min</option>
+          <option value="60">60 min</option>
+          <option value="90">90 min</option>
+          <option value="120">120 min</option>
+        </select>
+        <input
+          type="text"
+          value={experimentDriveLink}
+          onChange={(e) => setExperimentDriveLink(e.target.value)}
+          placeholder="Experiment Drive link (optional)"
+          className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+        />
       </div>
       <button
         type="button"
         disabled={isPending || !date}
-        onClick={() => onSubmit(date, principalId, secundarId, status, attendance, experiment)}
+        onClick={() =>
+          onSubmit(date, principalId, secundarId, status, attendance, experiment, duration, experimentDriveLink)
+        }
         className="font-body mt-3 w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
       >
         Create session
@@ -510,9 +588,17 @@ function NewSessionForm({
   );
 }
 
-function Badge({ children }: { children: React.ReactNode }) {
+function Badge({
+  children,
+  tone,
+}: {
+  children: React.ReactNode;
+  tone?: string;
+}) {
   return (
-    <span className="font-body bg-ink/5 text-ink inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium">
+    <span
+      className={`font-body inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${tone ?? "bg-ink/5 text-ink"}`}
+    >
       {children}
     </span>
   );

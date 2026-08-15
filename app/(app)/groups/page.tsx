@@ -12,8 +12,25 @@ type GroupRow = {
   children_billed: number | null;
   status: string;
 };
-type ClientLookupRow = { id: string; name: string };
+type ClientLookupRow = { id: string; name: string; legal_name: string | null };
 type ClientOptionRow = { id: string; name: string; organization_id: string };
+type SessionLookupRow = {
+  group_id: string;
+  session_date: string;
+  trainer_principal_id: string | null;
+  trainer_secundar_id: string | null;
+};
+type UserLookupRow = {
+  id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+};
+
+function displayName(u: Pick<UserLookupRow, "email" | "first_name" | "last_name">) {
+  const full = [u.first_name, u.last_name].filter(Boolean).join(" ");
+  return full || u.email;
+}
 
 // G2: list page for the Operational domain (G1 schema/RLS). No manual
 // org-scoping on the fetch itself — groups' SELECT policy (202608130003)
@@ -111,16 +128,66 @@ export default async function GroupsPage() {
     clientIds.length > 0
       ? await supabase
           .from("clients")
-          .select("id, name")
+          .select("id, name, legal_name")
           .in("id", clientIds)
           .returns<ClientLookupRow[]>()
       : { data: [] as ClientLookupRow[] };
   const clientNameById = new Map((clientRows ?? []).map((c) => [c.id, c.name]));
+  const clientLegalNameById = new Map((clientRows ?? []).map((c) => [c.id, c.legal_name]));
 
-  const rows = (groups ?? []).map((g) => ({
-    ...g,
-    clientName: clientNameById.get(g.client_id) ?? g.client_id,
-  }));
+  // Trainer names on the list: the CURRENT allocation, i.e. the most
+  // recent session per group (by session_date desc) — not every trainer
+  // who's ever rotated through it (sessions can span many occurrences with
+  // rotating principal/secundar, per the G1 design; showing the full
+  // rotation history on a list row would be noisy, not useful for an
+  // at-a-glance scan). Flagged as an interpretation call in the report.
+  const groupIds = (groups ?? []).map((g) => g.id);
+  const { data: sessionRows } =
+    groupIds.length > 0
+      ? await supabase
+          .from("sessions")
+          .select("group_id, session_date, trainer_principal_id, trainer_secundar_id")
+          .in("group_id", groupIds)
+          .order("session_date", { ascending: false })
+          .returns<SessionLookupRow[]>()
+      : { data: [] as SessionLookupRow[] };
+
+  const latestSessionByGroup = new Map<string, SessionLookupRow>();
+  for (const s of sessionRows ?? []) {
+    if (!latestSessionByGroup.has(s.group_id)) latestSessionByGroup.set(s.group_id, s);
+  }
+
+  const trainerIds = [
+    ...new Set(
+      [...latestSessionByGroup.values()]
+        .flatMap((s) => [s.trainer_principal_id, s.trainer_secundar_id])
+        .filter((v): v is string => v !== null),
+    ),
+  ];
+  const { data: trainerUsers } =
+    trainerIds.length > 0
+      ? await supabase
+          .from("users")
+          .select("id, email, first_name, last_name")
+          .in("id", trainerIds)
+          .returns<UserLookupRow[]>()
+      : { data: [] as UserLookupRow[] };
+  const trainerNameById = new Map((trainerUsers ?? []).map((u) => [u.id, displayName(u)]));
+
+  const rows = (groups ?? []).map((g) => {
+    const latest = latestSessionByGroup.get(g.id);
+    return {
+      ...g,
+      clientName: clientNameById.get(g.client_id) ?? g.client_id,
+      clientLegalName: clientLegalNameById.get(g.client_id) ?? null,
+      trainerPrincipalName: latest?.trainer_principal_id
+        ? (trainerNameById.get(latest.trainer_principal_id) ?? "Unknown")
+        : null,
+      trainerSecundarName: latest?.trainer_secundar_id
+        ? (trainerNameById.get(latest.trainer_secundar_id) ?? "Unknown")
+        : null,
+    };
+  });
 
   // Form options for "+ New Group": clients in the org the caller can
   // create groups in (only fetched when that org is known, i.e. the

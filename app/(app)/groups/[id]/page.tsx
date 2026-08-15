@@ -13,6 +13,8 @@ type GroupRow = {
   children_billed: number | null;
   status: string;
   notes: string | null;
+  age_range: string | null;
+  school_year_calendar_link: string | null;
 };
 type ClientLookupRow = { id: string; name: string };
 type SessionRow = {
@@ -23,6 +25,8 @@ type SessionRow = {
   status: string;
   attendance_count: number | null;
   experiment_delivered: string | null;
+  duration_minutes: number | null;
+  experiment_drive_link: string | null;
 };
 type UserLookupRow = {
   id: string;
@@ -85,7 +89,7 @@ export default async function GroupDetailPage({
   const { data: group } = await supabase
     .from("groups")
     .select(
-      "id, organization_id, client_id, module, delivery_format, schedule_pattern, children_confirmed, children_billed, status, notes",
+      "id, organization_id, client_id, module, delivery_format, schedule_pattern, children_confirmed, children_billed, status, notes, age_range, school_year_calendar_link",
     )
     .eq("id", id)
     .maybeSingle<GroupRow>();
@@ -107,7 +111,7 @@ export default async function GroupDetailPage({
   const { data: sessions } = await supabase
     .from("sessions")
     .select(
-      "id, session_date, trainer_principal_id, trainer_secundar_id, status, attendance_count, experiment_delivered",
+      "id, session_date, trainer_principal_id, trainer_secundar_id, status, attendance_count, experiment_delivered, duration_minutes, experiment_drive_link",
     )
     .eq("group_id", id)
     .order("session_date", { ascending: false })
@@ -214,7 +218,22 @@ export default async function GroupDetailPage({
         <Kv label="Module" value={MODULE_LABELS[group.module] ?? group.module} />
         <Kv label="Delivery format" value={DELIVERY_FORMAT_LABELS[group.delivery_format] ?? group.delivery_format} />
         <Kv label="Schedule" value={group.schedule_pattern || "—"} />
-        <Kv label="Children confirmed" value={group.children_confirmed?.toString() ?? "—"} />
+        <Kv label="Age range" value={group.age_range || "—"} />
+        <Kv
+          label="School-year calendar"
+          value={group.school_year_calendar_link ? "Open link" : "—"}
+          href={group.school_year_calendar_link ?? undefined}
+          external
+        />
+        {/* "Confirmed" here is the CONTRACT-TIME headcount (per enrollment,
+            at signup) — distinct from each session's own "Present" count
+            below (who actually showed up to THAT occurrence). Two
+            different attendance concepts already existed as separate
+            fields (children_confirmed here, sessions.attendance_count per
+            session below) -- investigated per Anca's request, confirmed
+            this already covers "contract-time confirmed vs. post-workshop
+            actual-present", so only the labeling changed, no new column. */}
+        <Kv label="Children confirmed (per contract)" value={group.children_confirmed?.toString() ?? "—"} />
         <Kv label="Children billed" value={group.children_billed?.toString() ?? "—"} />
         <Kv label="Notes" value={group.notes || "—"} />
       </Section>
@@ -241,11 +260,32 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Kv({ label, value }: { label: string; value: string }) {
+function Kv({
+  label,
+  value,
+  href,
+  external,
+}: {
+  label: string;
+  value: string;
+  href?: string;
+  external?: boolean;
+}) {
   return (
     <div className="flex items-baseline justify-between border-b border-black/5 py-2 text-sm last:border-0">
       <span className="font-body text-muted">{label}</span>
-      <span className="font-body text-ink font-medium">{value}</span>
+      {href ? (
+        <a
+          href={href}
+          target={external ? "_blank" : undefined}
+          rel={external ? "noreferrer" : undefined}
+          className="text-brand-pink font-body font-medium hover:underline"
+        >
+          {value}
+        </a>
+      ) : (
+        <span className="font-body text-ink font-medium">{value}</span>
+      )}
     </div>
   );
 }

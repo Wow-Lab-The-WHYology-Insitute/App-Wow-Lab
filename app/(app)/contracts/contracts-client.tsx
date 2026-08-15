@@ -17,6 +17,8 @@ type Contract = {
   estimated_value: number | null;
   previous_year_value: number | null;
   clientName: string;
+  clientLegalName: string | null;
+  clientCui: string | null;
   legalEntityName: string;
 };
 type Option = { id: string; name: string };
@@ -47,6 +49,8 @@ function compareValues(
 type SortKey =
   | "contract_number"
   | "clientName"
+  | "clientLegalName"
+  | "clientCui"
   | "contract_type"
   | "status"
   | "period_start"
@@ -295,6 +299,8 @@ export function ContractsClient({
                       <th className="py-2 pr-2 font-bold">#</th>
                       <SortHeader label="Number" sortKey="contract_number" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                       <SortHeader label="Client" sortKey="clientName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="Legal name" sortKey="clientLegalName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
+                      <SortHeader label="CUI" sortKey="clientCui" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                       <SortHeader label="Type" sortKey="contract_type" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                       <SortHeader label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                       <SortHeader label="Start Date" sortKey="period_start" activeKey={sortKey} dir={sortDir} onSort={onSort} />
@@ -323,6 +329,8 @@ export function ContractsClient({
                           </Link>
                         </td>
                         <td className="py-3 pr-4">{c.clientName}</td>
+                        <td className="text-muted py-3 pr-4">{c.clientLegalName || "—"}</td>
+                        <td className="text-muted py-3 pr-4 font-mono text-xs">{c.clientCui || "—"}</td>
                         <td className="py-3 pr-4">
                           <Badge>{c.contract_type}</Badge>
                         </td>
@@ -363,6 +371,12 @@ export function ContractsClient({
                       <p className="font-body text-ink mt-1 text-sm font-semibold">
                         {c.clientName}
                       </p>
+                      {(c.clientLegalName || c.clientCui) && (
+                        <p className="font-body text-muted mt-0.5 text-xs">
+                          {c.clientLegalName || "—"}
+                          {c.clientCui ? ` · ${c.clientCui}` : ""}
+                        </p>
+                      )}
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         <Badge>{c.contract_type}</Badge>
                         <Badge tone={c.status === "signed" ? "neutral" : "pink"}>

@@ -246,7 +246,7 @@ from public.organizations o
 join (
   values
     ('Experimente Wow SRL', 'srl'),
-    ('Bradine ADV SRL', 'srl'),
+    ('Brandine Advertising SRL', 'srl'),
     ('Asociatia STEMplicity', 'asociatie')
 ) as v(name, entity_type) on true
 where o.slug = 'wow-lab'

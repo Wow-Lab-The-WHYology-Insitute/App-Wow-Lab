@@ -15,6 +15,19 @@ type ContractRow = {
   billing_rule: string | null;
   drive_ref: string | null;
   notes: string | null;
+  entry_number: string | null;
+  exit_number: string | null;
+  offer_structure: string | null;
+  ac_link: string | null;
+};
+
+// Matches the contracts.offer_structure check constraint (202608160002)
+// exactly.
+const OFFER_STRUCTURE_LABELS: Record<string, string> = {
+  fixed_price_group_workshop: "Fixed price per group workshop",
+  price_per_child_present: "Price per child present",
+  price_per_child_enrolled: "Price per child enrolled",
+  price_per_contract: "Price per contract",
 };
 
 // Same branching as contracts/page.tsx's canManageContracts() — kept as
@@ -54,7 +67,7 @@ export default async function ContractDetailPage({
   const { data: contract } = await supabase
     .from("contracts_billing_masked")
     .select(
-      "id, client_id, legal_entity_id, contract_number, contract_type, status, period_start, period_end, renewal_of, billing_rule, drive_ref, notes",
+      "id, client_id, legal_entity_id, contract_number, contract_type, status, period_start, period_end, renewal_of, billing_rule, drive_ref, notes, entry_number, exit_number, offer_structure, ac_link",
     )
     .eq("id", id)
     .maybeSingle<ContractRow>();
@@ -133,6 +146,22 @@ export default async function ContractDetailPage({
           label="Drive archive"
           value={contract.drive_ref ? "Open link" : "—"}
           href={contract.drive_ref ?? undefined}
+          external
+        />
+        <Kv label="Entry number" value={contract.entry_number || "—"} />
+        <Kv label="Exit number" value={contract.exit_number || "—"} />
+        <Kv
+          label="Offer structure"
+          value={
+            contract.offer_structure
+              ? (OFFER_STRUCTURE_LABELS[contract.offer_structure] ?? contract.offer_structure)
+              : "—"
+          }
+        />
+        <Kv
+          label="AC link"
+          value={contract.ac_link ? "Open link" : "—"}
+          href={contract.ac_link ?? undefined}
           external
         />
         <Kv label="Notes" value={contract.notes || "—"} />
