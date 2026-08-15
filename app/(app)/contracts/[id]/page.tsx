@@ -15,8 +15,6 @@ type ContractRow = {
   billing_rule: string | null;
   drive_ref: string | null;
   notes: string | null;
-  entry_number: string | null;
-  exit_number: string | null;
   offer_structure: string | null;
   ac_link: string | null;
 };
@@ -67,7 +65,7 @@ export default async function ContractDetailPage({
   const { data: contract } = await supabase
     .from("contracts_billing_masked")
     .select(
-      "id, client_id, legal_entity_id, contract_number, contract_type, status, period_start, period_end, renewal_of, billing_rule, drive_ref, notes, entry_number, exit_number, offer_structure, ac_link",
+      "id, client_id, legal_entity_id, contract_number, contract_type, status, period_start, period_end, renewal_of, billing_rule, drive_ref, notes, offer_structure, ac_link",
     )
     .eq("id", id)
     .maybeSingle<ContractRow>();
@@ -148,8 +146,6 @@ export default async function ContractDetailPage({
           href={contract.drive_ref ?? undefined}
           external
         />
-        <Kv label="Entry number" value={contract.entry_number || "—"} />
-        <Kv label="Exit number" value={contract.exit_number || "—"} />
         <Kv
           label="Offer structure"
           value={

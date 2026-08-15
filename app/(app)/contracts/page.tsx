@@ -17,8 +17,6 @@ type ContractRow = {
   signed_date: string | null;
   estimated_value: number | null;
   previous_year_value: number | null;
-  entry_number: string | null;
-  exit_number: string | null;
   offer_structure: string | null;
   ac_link: string | null;
 };
@@ -78,7 +76,7 @@ export default async function ContractsPage() {
   const { data: contracts } = await supabase
     .from("contracts_billing_masked")
     .select(
-      "id, organization_id, client_id, legal_entity_id, contract_number, contract_type, status, period_start, period_end, billing_rule, client_contract_number, signed_date, estimated_value, previous_year_value, entry_number, exit_number, offer_structure, ac_link",
+      "id, organization_id, client_id, legal_entity_id, contract_number, contract_type, status, period_start, period_end, billing_rule, client_contract_number, signed_date, estimated_value, previous_year_value, offer_structure, ac_link",
     )
     .order("contract_number")
     .returns<ContractRow[]>();
