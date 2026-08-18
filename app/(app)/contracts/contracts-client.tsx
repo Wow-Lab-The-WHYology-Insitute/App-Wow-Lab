@@ -8,7 +8,7 @@ import { LocaleSwitcher } from "@/components/ui/locale-switcher";
 import { contractsDict } from "./i18n";
 import { TermBar } from "./term-bar";
 import { ContractDetailPanel } from "./contract-detail-panel";
-import { formatMoney, formatDate, entityShortCode } from "./format";
+import { formatMoney, formatDate, entityShortCode, isDemoRecord } from "./format";
 import {
   DataTable,
   DataTableToolbar,
@@ -22,13 +22,13 @@ import {
 
 type Contract = {
   id: string;
-  contract_number: string;
+  entry_number: string | null;
+  exit_number: string | null;
   contract_type: string;
   status: string;
   period_start: string | null;
   period_end: string | null;
   billing_rule: string | null;
-  client_contract_number: string | null;
   signed_date: string | null;
   estimated_value: number | null;
   previous_year_value: number | null;
@@ -71,6 +71,22 @@ function StatusChip({ status, label }: { status: string; label: string }) {
   );
 }
 
+// Promoted from a sentence buried in the detail panel's notes field to a
+// visible badge (task requirement) — contract_number's own "DEMO-2026-"
+// prefix used to be the safety marker visible in every collapsed row;
+// now that contract_number is gone, this badge is the only thing left
+// doing that job, so it has to be visible without expanding the row.
+function DemoBadge({ label, title }: { label: string; title: string }) {
+  return (
+    <span
+      title={title}
+      className="font-body inline-flex w-fit items-center gap-1 rounded-full bg-brand-orange/15 px-2 py-0.5 text-[11px] font-medium text-brand-orange"
+    >
+      ⚠ {label}
+    </span>
+  );
+}
+
 // The 10 fields moved out of the default column set (task step 2) — each
 // available as an opt-in extra column via the Columns dropdown, so a
 // Finance user can pull e.g. billing_rule back into the table without it
@@ -98,10 +114,10 @@ function buildExtraColumns(
       render: (c) => <span className="font-mono text-xs">{c.clientCui || "—"}</span>,
     },
     {
-      key: "client_contract_number",
-      header: t("detail_client_contract_number"),
+      key: "entry_number",
+      header: t("detail_entry_number"),
       width: 140,
-      render: (c) => <TruncatedText value={c.client_contract_number || "—"} className="text-ink text-xs" />,
+      render: (c) => <TruncatedText value={c.entry_number || "—"} className="text-ink text-xs" />,
     },
     {
       key: "signed_date",
@@ -229,7 +245,8 @@ export function ContractsClient({
       if (
         q &&
         !c.clientName.toLowerCase().includes(q) &&
-        !c.contract_number.toLowerCase().includes(q)
+        !(c.exit_number ?? "").toLowerCase().includes(q) &&
+        !(c.entry_number ?? "").toLowerCase().includes(q)
       ) {
         return false;
       }
@@ -289,19 +306,26 @@ export function ContractsClient({
       header: t("col_contract"),
       width: 120,
       sticky: true,
-      render: (c) => (
-        <div className="flex flex-col justify-center gap-0.5">
-          <Link
-            href={`/contracts/${c.id}`}
-            onClick={(e) => e.stopPropagation()}
-            title={c.contract_number}
-            className="text-brand-pink focus-visible:ring-brand-pink block overflow-hidden text-sm font-medium text-ellipsis whitespace-nowrap hover:underline focus-visible:rounded focus-visible:ring-2 focus-visible:outline-none"
-          >
-            {c.contract_number}
-          </Link>
-          <TruncatedText value={c.client_contract_number || "—"} className="text-muted text-xs" />
-        </div>
-      ),
+      render: (c) => {
+        const label = c.exit_number || t("no_exit_number", { client: c.clientName });
+        return (
+          <div className="flex flex-col justify-center gap-0.5">
+            <Link
+              href={`/contracts/${c.id}`}
+              onClick={(e) => e.stopPropagation()}
+              title={label}
+              className={
+                c.exit_number
+                  ? "text-brand-pink focus-visible:ring-brand-pink block overflow-hidden text-sm font-medium text-ellipsis whitespace-nowrap hover:underline focus-visible:rounded focus-visible:ring-2 focus-visible:outline-none"
+                  : "text-muted focus-visible:ring-brand-pink block overflow-hidden text-sm font-medium text-ellipsis whitespace-nowrap italic hover:underline focus-visible:rounded focus-visible:ring-2 focus-visible:outline-none"
+              }
+            >
+              {label}
+            </Link>
+            <TruncatedText value={c.entry_number || "—"} className="text-muted text-xs" />
+          </div>
+        );
+      },
     },
     {
       key: "client",
@@ -324,7 +348,10 @@ export function ContractsClient({
       render: (c) => (
         <div className="flex flex-col justify-center gap-1">
           <span className="text-ink text-sm">{t(`contract_type_${c.contract_type}`)}</span>
-          <StatusChip status={c.status} label={t(`status_${c.status}`)} />
+          <div className="flex flex-wrap items-center gap-1">
+            <StatusChip status={c.status} label={t(`status_${c.status}`)} />
+            {isDemoRecord(c.notes) && <DemoBadge label={t("demo_badge_label")} title={t("demo_badge_title")} />}
+          </div>
         </div>
       ),
     },
@@ -413,12 +440,12 @@ export function ContractsClient({
               onSubmit={(
                 clientId,
                 legalEntityId,
-                number,
+                entryNumber,
+                exitNumber,
                 type,
                 start,
                 end,
                 rule,
-                clientContractNumber,
                 signedDate,
                 estimatedValue,
                 previousYearValue,
@@ -429,12 +456,12 @@ export function ContractsClient({
                     createOrgId,
                     clientId,
                     legalEntityId,
-                    number,
+                    entryNumber,
+                    exitNumber,
                     type,
                     start,
                     end,
                     rule,
-                    clientContractNumber,
                     signedDate,
                     estimatedValue,
                     previousYearValue,
@@ -537,7 +564,7 @@ export function ContractsClient({
                     expandedRowKey={expandedId}
                     onToggleRow={(key) => setExpandedId((cur) => (cur === key ? null : key))}
                     emptyMessage={t("empty_no_match")}
-                    rowAriaLabel={(c) => c.contract_number}
+                    rowAriaLabel={(c) => c.exit_number || c.clientName}
                     renderExpanded={(c) => (
                       <ContractDetailPanel
                         contract={c}
@@ -643,7 +670,11 @@ function ContractCard({
         className="focus-visible:ring-brand-pink flex w-full flex-col gap-2 p-4 text-left focus-visible:ring-2 focus-visible:outline-none"
       >
         <div className="flex items-start justify-between gap-2">
-          <p className="font-body text-brand-pink text-sm font-semibold">{contract.contract_number}</p>
+          <p
+            className={`font-body text-sm font-semibold ${contract.exit_number ? "text-brand-pink" : "text-muted italic"}`}
+          >
+            {contract.exit_number || t("no_exit_number", { client: contract.clientName })}
+          </p>
           <span
             aria-hidden="true"
             className={`text-muted motion-safe:transition-transform ${expanded ? "rotate-180" : ""}`}
@@ -655,6 +686,7 @@ function ContractCard({
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="font-body text-muted text-xs">{t(`contract_type_${contract.contract_type}`)}</span>
           <StatusChip status={contract.status} label={t(`status_${contract.status}`)} />
+          {isDemoRecord(contract.notes) && <DemoBadge label={t("demo_badge_label")} title={t("demo_badge_title")} />}
         </div>
         <TermCell contract={contract} now={now} locale={locale} t={t} />
       </button>
@@ -685,12 +717,12 @@ function NewContractForm({
   onSubmit: (
     clientId: string,
     legalEntityId: string,
-    number: string,
+    entryNumber: string,
+    exitNumber: string,
     type: string,
     start: string,
     end: string,
     rule: string,
-    clientContractNumber: string,
     signedDate: string,
     estimatedValue: string,
     previousYearValue: string,
@@ -698,12 +730,12 @@ function NewContractForm({
 }) {
   const [clientId, setClientId] = useState(clientOptions[0]?.id ?? "");
   const [legalEntityId, setLegalEntityId] = useState(legalEntityOptions[0]?.id ?? "");
-  const [number, setNumber] = useState("");
+  const [entryNumber, setEntryNumber] = useState("");
+  const [exitNumber, setExitNumber] = useState("");
   const [type, setType] = useState(CONTRACT_TYPES[0]);
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [rule, setRule] = useState("");
-  const [clientContractNumber, setClientContractNumber] = useState("");
   const [signedDate, setSignedDate] = useState("");
   const [estimatedValue, setEstimatedValue] = useState("");
   const [previousYearValue, setPreviousYearValue] = useState("");
@@ -740,9 +772,16 @@ function NewContractForm({
         </select>
         <input
           type="text"
-          value={number}
-          onChange={(e) => setNumber(e.target.value)}
-          placeholder={t("contract_number_placeholder")}
+          value={entryNumber}
+          onChange={(e) => setEntryNumber(e.target.value)}
+          placeholder={t("entry_number_placeholder")}
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
+        />
+        <input
+          type="text"
+          value={exitNumber}
+          onChange={(e) => setExitNumber(e.target.value)}
+          placeholder={t("exit_number_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <select
@@ -781,13 +820,6 @@ function NewContractForm({
           placeholder={t("billing_rule_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
         />
-        <input
-          type="text"
-          value={clientContractNumber}
-          onChange={(e) => setClientContractNumber(e.target.value)}
-          placeholder={t("client_contract_number_placeholder")}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
-        />
         <label className="font-body text-muted flex flex-col gap-1 text-xs">
           {t("signed_date_label")}
           <input
@@ -816,17 +848,17 @@ function NewContractForm({
       </div>
       <button
         type="button"
-        disabled={isPending || !clientId || !legalEntityId || !number.trim()}
+        disabled={isPending || !clientId || !legalEntityId}
         onClick={() =>
           onSubmit(
             clientId,
             legalEntityId,
-            number,
+            entryNumber,
+            exitNumber,
             type,
             start,
             end,
             rule,
-            clientContractNumber,
             signedDate,
             estimatedValue,
             previousYearValue,

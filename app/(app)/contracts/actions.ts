@@ -19,20 +19,20 @@ export async function addContract(
   orgId: string,
   clientId: string,
   legalEntityId: string,
-  contractNumber: string,
+  entryNumber: string,
+  exitNumber: string,
   contractType: string,
   periodStart: string,
   periodEnd: string,
   billingRule: string,
-  clientContractNumber: string,
   signedDate: string,
   estimatedValue: string,
   previousYearValue: string,
 ): Promise<ActionResult> {
-  if (!clientId || !legalEntityId || !contractNumber.trim() || !contractType) {
+  if (!clientId || !legalEntityId || !contractType) {
     return {
       ok: false,
-      error: "Client, legal entity, contract number, and type are required.",
+      error: "Client, legal entity, and type are required.",
     };
   }
 
@@ -43,12 +43,12 @@ export async function addContract(
       organization_id: orgId,
       client_id: clientId,
       legal_entity_id: legalEntityId,
-      contract_number: contractNumber.trim(),
+      entry_number: entryNumber.trim() || null,
+      exit_number: exitNumber.trim() || null,
       contract_type: contractType,
       period_start: periodStart || null,
       period_end: periodEnd || null,
       billing_rule: billingRule.trim() || null,
-      client_contract_number: clientContractNumber.trim() || null,
       signed_date: signedDate || null,
       estimated_value: estimatedValue.trim() ? Number(estimatedValue) : null,
       previous_year_value: previousYearValue.trim() ? Number(previousYearValue) : null,
@@ -58,6 +58,16 @@ export async function addContract(
     .single();
 
   if (error || !data) {
+    // 23505 = unique_violation. The only unique constraint this insert can
+    // hit is contracts_unique_organization_exit_number (202608180002) —
+    // Postgres's own message names the constraint but reads as raw SQL,
+    // not something to show a non-technical user.
+    if (error?.code === "23505") {
+      return {
+        ok: false,
+        error: "This exit number is already used by another contract in your organization.",
+      };
+    }
     return { ok: false, error: error?.message ?? "Could not create contract." };
   }
 

@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-08-18 16:51 (ora București)
+**Ultima actualizare:** 2026-08-18 19:05 (ora București)
 
 **Unde suntem acum:** Phase 0 (WS-B) și WS-D (RLS) complete. **Phase 1** în curs: Clients & Contracts (C1 schemă/RLS + C2 UI) și Domeniul Operațional — Grupe & Sesiuni (G1 schemă/RLS + G2 UI) ambele construite, verificate live pe roluri reale, și în curs de merge pe `main` (intrarea #54 de mai jos). Detalii complete în intrările numerotate din secțiunea de jos a fișierului, nu în tabelul „Snapshot status" de mai jos (rămas ca istoric WS-B, nu mai e actualizat).
 
@@ -424,6 +424,41 @@ De ce nu e o simplă `REVOKE`: toți utilizatorii aplicației sunt același rol 
 **Alte 6 tabele cu aceeași clasă de gap, semnalate, neatinse:** `client_contacts` (PII: email, phone, full_name), `users` (PII: email, phone), `row_history` (`old_values`/`new_values` — istoric NEmascat al oricărei schimbări pe orice tabel, inclusiv `billing_rule` istoric, deja verificat: valori în clar confirmate live pt un cont Owner), `audit_log` (`payload` — conține PII, ex. email-uri de invitație), `org_settings`, `file_refs`. `row_history`/`audit_log` au totuși un gate la nivel de rând mai strict decât `contracts` avea (`org.audit.read`/platform owner, nu orice membru autentificat) — verificat live, `operations_manager` primește `[]` gol la ambele. Nimic din acestea reparat.
 
 Verificare finală: PR #1 (`develop`→`main`) scos din draft și mergeat; deploy Vercel producție confirmat reușit pe commit-ul de merge `d12d7fb8`; `app.wowlab.ro/contracts` confirmat live (sesiune reală, nu presupus) servind noul layout — dropdown Columns, linia „Showing 6 of 6 contracts", cele 7 coloane compuse, etichetele „Finance only" toate prezente.
+
+---
+
+---
+
+59. 2026-08-18, 19:05 (ora București) — `entry_number`/`exit_number` ÎNLOCUIESC `contract_number`/`client_contract_number` (nu adăugare alături), `exit_number` devine identificatorul principal afișat, mergeat pe `main`, migrare `202608180002`.
+
+**Istoricul complet al acestei decizii, pe scurt, ca să nu se mai reia a treia oară:**
+1. `contract_number`/`client_contract_number` adăugate în C1, din datele reale de pe foaia Ancăi.
+2. `entry_number`/`exit_number` adăugate PREMATUR (intrarea #56), înainte ca Anca și Anka să fi confirmat efectiv cum se vor folosi — retrase în aceeași zi (intrarea #57, migrarea `202608170001`), fără nicio pierdere de date (nicio cale de UI nu scria vreodată în ele).
+3. **Această intrare:** Anca a confirmat cu Anka. `entry_number`/`exit_number` ÎNLOCUIESC `contract_number`/`client_contract_number` complet, nu coexistă cu ele. `exit_number` e identificatorul principal afișat (decizie explicită a lui Mihai), cu fallback definit pentru cazul (frecvent) în care încă nu e completat.
+
+**Ce s-a pierdut la DROP, verificat live înainte de a rula orice:** `client_contract_number` — `NULL` pe toate cele 6 rânduri existente, nimic pierdut. `contract_number` — „888" și „DEMO-2026-001"…„DEMO-2026-005"; toate cele 5 cu prefix DEMO poartă deja „Example seed record — see migration header, not a verified real contract." în `notes`. Niciun contract real, neconfirmat ca fiind de test, avea vreo valoare în `contract_number`.
+
+**Migrare (`202608180002`):** `contracts_billing_masked` selectează `contract_number`/`client_contract_number` direct, deci a trebuit `DROP VIEW` înainte de a putea da drop la coloanele de bază (`CREATE OR REPLACE` nu poate elimina coloane dintr-un view, aceeași limitare SQLSTATE 42P16 documentată deja la #57) — recreat cu `entry_number`/`exit_number` în loc, grant-ul pe `authenticated` reacordat explicit (se pierde la DROP). Ambele coloane noi `text`, nullable. `exit_number` cu `UNIQUE (organization_id, exit_number)` — scopat pe organizație, exact ca vechiul index pe `contract_number` (două organizații cu scheme de numerotare independente nu e o coliziune reală) — și nullable-safe fără nicio clauză specială: Postgres nu tratează niciodată `NULL = NULL` ca potrivire la o constrângere UNIQUE, deci oricâte contracte pot sta fără `exit_number` simultan.
+
+Aplicată live prin `supabase db push --linked` (nu `db query` ad-hoc — schema trece prin fișiere de migrație, exact recomandarea din `WOWLAB_SAD_Field_Masking.md` §6.4), verificată imediat: coloanele noi există, cele vechi au dispărut, constrângerea UNIQUE există.
+
+**UI — `exit_number` ca identificator principal, cu fallback explicit.** Coloana „Contract" din listă, cardul mobil, și titlul paginii de detaliu (`/contracts/[id]`) arată acum `exit_number` quando există (link roz, aldin) sau, quando lipsește, textul „No exit number yet — {client}" / „Fără număr de ieșire — {client}" (roz mut, cursiv — vizual distinct, nu doar text negru simplu) — niciodată spațiu gol, niciodată ceva înșelător. `entry_number` ia locul vechiului `client_contract_number` ca linie secundară + coloană opțională din dropdown-ul Columns. Căutarea din toolbar caută acum după client, `entry_number`, sau `exit_number`. Formularul „New contract" cere două câmpuri text opționale (intrare + ieșire) în loc de unul obligatoriu — butonul de creare nu mai cere un „număr" completat, doar client + entitate legală.
+
+**Marcajul de siguranță pentru datele demo, promovat la badge vizibil.** Prefixul „DEMO-2026-" al vechiului `contract_number` era vizibil în orice rând colapsat, fără să deschizi nimic — dispare odată cu coloana. Singurul semnal rămas e propoziția deja existentă din `notes` („Example seed record…"); ca să rămână la fel de vizibil, un badge nou (⚠ „Demo data" / „Date demo", portocaliu, cu `title` = propoziția completă) apare acum direct în rândul colapsat din listă, în cardul mobil, ȘI în panoul de detaliu expandat — nu doar ca o propoziție îngropată în câmpul Notes.
+
+**Eroare prietenoasă pe duplicat.** `addContract` prinde explicit codul Postgres `23505` (unique_violation) și întoarce „This exit number is already used by another contract in your organization." în loc de mesajul brut SQL.
+
+**Verificare live, sesiune reală `test+ui-owner` (organization_owner):**
+- Toate cele 6 contracte existente (fără `exit_number` completat încă, coloanele fiind noi) arată corect fallback-ul „No exit number yet — {client}", niciunul gol.
+- Contract nou creat CU `exit_number=EXIT-LIVE-001`: apare corect ca identificator (roz, aldin, click funcțional).
+- Contract nou creat FĂRĂ `exit_number` (draft): arată corect fallback-ul (mut, cursiv), `entry_number` corect ca linie secundară.
+- Duplicat `exit_number=EXIT-LIVE-001` pe un al treilea contract: respins, mesajul prietenos apare, verificat direct în DB — exact 1 rând cu acea valoare, nu 2.
+- Constrângerea UNIQUE testată în ambele direcții, de două ori — o dată direct în SQL (tranzacție cu rollback garantat, aceeași tehnică de la `WOWLAB_SAD_Field_Masking.md`) ȘI o dată prin aplicația reală: două rânduri cu `exit_number NULL` coexistă fără conflict, un duplicat non-null e respins.
+- Cele 2 contracte de test șterse după verificare (confirmat 0 rânduri rămase), nu lăsate ca reziduu.
+
+Scope respectat: doar tabelul `contracts` + UI-ul paginii Contracts (listă, detaliu, formular). `clients/[id]/page.tsx` a necesitat o corecție minimă, mecanică (interogarea sa selecta `contract_number`, care nu mai există) — schimbată să folosească `exit_number` cu același tratament de fallback, fără nicio redesenare dincolo de atât. Groups/Sessions, extensia de traineri/furnizori — neatinse.
+
+typecheck+build curate. Merge pe `main` prin PR, deploy Vercel producție confirmat.
 
 ---
 

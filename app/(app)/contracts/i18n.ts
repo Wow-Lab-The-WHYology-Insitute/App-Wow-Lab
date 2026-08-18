@@ -9,7 +9,7 @@ export const contractsDict: Dictionary = {
     en: "Contract lifecycle by legal entity. Fiscal invoicing stays in SmartBill/SAGA.",
     ro: "Ciclul de viață al contractelor, pe entitate juridică. Facturarea fiscală rămâne în SmartBill/SAGA.",
   },
-  search_placeholder: { en: "Search by client or contract #…", ro: "Caută după client sau nr. contract…" },
+  search_placeholder: { en: "Search by client, entry or exit number…", ro: "Caută după client, nr. intrare sau ieșire…" },
   filter_type_all: { en: "All types", ro: "Toate tipurile" },
   filter_status_all: { en: "All statuses", ro: "Toate statusurile" },
   filter_entity_all: { en: "All entities", ro: "Toate entitățile" },
@@ -34,6 +34,18 @@ export const contractsDict: Dictionary = {
   masked_label: { en: "Finance only", ro: "Doar Finance" },
   masked_title: { en: "Visible to Finance and the Owner", ro: "Vizibil pentru Finance și Owner" },
 
+  // exit_number is the primary identifier (202608180002); a contract not
+  // yet formally dispatched legitimately has none. {{client}} keeps the
+  // fallback self-explanatory even out of the row's own context (a card
+  // title, a detail page heading).
+  no_exit_number: { en: "No exit number yet — {{client}}", ro: "Fără număr de ieșire — {{client}}" },
+
+  demo_badge_label: { en: "Demo data", ro: "Date demo" },
+  demo_badge_title: {
+    en: "Example seed record — not a verified real contract.",
+    ro: "Înregistrare demonstrativă — nu este un contract real, verificat.",
+  },
+
   contract_type_recurring_annual: { en: "recurring annual", ro: "recurent anual" },
   contract_type_one_off_event: { en: "one-off event", ro: "eveniment unic" },
   contract_type_framework: { en: "framework", ro: "contract-cadru" },
@@ -46,7 +58,8 @@ export const contractsDict: Dictionary = {
 
   detail_legal_name: { en: "Legal name", ro: "Denumire legală" },
   detail_cui: { en: "CUI", ro: "CUI" },
-  detail_client_contract_number: { en: "Client contract #", ro: "Nr. contract client" },
+  detail_entry_number: { en: "Entry number", ro: "Număr intrare" },
+  detail_exit_number: { en: "Exit number", ro: "Număr ieșire" },
   detail_billing_rule: { en: "Billing rule", ro: "Regulă de facturare" },
   detail_signed_date: { en: "Signed date", ro: "Data semnării" },
   detail_estimated_value: { en: "Estimated value", ro: "Valoare estimată" },
@@ -61,16 +74,13 @@ export const contractsDict: Dictionary = {
   new_contract_form_title: { en: "New contract", ro: "Contract nou" },
   select_client: { en: "Select client…", ro: "Alege clientul…" },
   select_entity: { en: "Select legal entity…", ro: "Alege entitatea juridică…" },
-  contract_number_placeholder: { en: "Contract number", ro: "Număr contract" },
+  entry_number_placeholder: { en: "Entry number (optional)", ro: "Număr intrare (opțional)" },
+  exit_number_placeholder: { en: "Exit number (optional)", ro: "Număr ieșire (opțional)" },
   start_date: { en: "Start Date", ro: "Data început" },
   end_date: { en: "End Date", ro: "Data sfârșit" },
   billing_rule_placeholder: {
     en: "Billing rule (e.g. 95 lei/child/session)",
     ro: "Regulă de facturare (ex. 95 lei/copil/ședință)",
-  },
-  client_contract_number_placeholder: {
-    en: "Client's own contract # (optional)",
-    ro: "Nr. contract al clientului (opțional)",
   },
   signed_date_label: { en: "Signed Date", ro: "Data semnării" },
   estimated_value_placeholder: { en: "Estimated value (optional)", ro: "Valoare estimată (opțional)" },
