@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import { ProfileSection } from "./profile-section";
 import { TechnicalDetails } from "./technical-details";
+import { ProfileHeading } from "./profile-heading";
 
 // S2: a diagnostic page proving the auth -> RLS loop works for a real
 // logged-in session, not SQL Editor impersonation. Every query below runs
@@ -24,7 +25,7 @@ type RoleCapabilityRow = {
 
 const SPOT_CHECK_CAPABILITIES = ["org.members.manage", "org.audit.read"];
 
-export default async function WhoAmIPage() {
+export default async function ProfilePage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -185,7 +186,7 @@ export default async function WhoAmIPage() {
   return (
     <div className="flex w-full flex-col gap-6">
       <div>
-        <h1 className="font-display text-2xl text-brand-pink">Dashboard</h1>
+        <ProfileHeading />
         <p className="font-body text-muted mt-1 text-sm">
           Diagnostic view: every value below came through your own session
           (anon key + your JWT), never service_role — proof the auth → RLS

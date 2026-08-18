@@ -35,7 +35,7 @@ const OFFER_STRUCTURE_LABELS: Record<string, string> = {
 // its own local copy rather than a shared import, matching this
 // codebase's existing convention (the has_capability-loop pattern is
 // duplicated per-file throughout, e.g. layout.tsx / admin/users/page.tsx
-// / whoami/page.tsx all carry their own copy).
+// / profile/page.tsx (né whoami) all carry their own copy).
 async function canManageContracts(
   supabase: Awaited<ReturnType<typeof createClient>>,
   org: string,

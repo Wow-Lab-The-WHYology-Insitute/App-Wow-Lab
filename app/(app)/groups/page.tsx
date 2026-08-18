@@ -199,16 +199,6 @@ export default async function GroupsPage() {
 
   return (
     <div className="flex w-full flex-col gap-6">
-      <div>
-        <h1 className="font-display text-2xl text-brand-pink">
-          {isTrainerView ? "Your Groups" : "Groups & Enrollment"}
-        </h1>
-        <p className="font-body text-muted mt-1 text-sm">
-          {isTrainerView
-            ? "Groups containing at least one session allocated to you, as principal or secundar trainer."
-            : "Enrollment containers by client and module. Trainer allocation and delivery live on each group's sessions."}
-        </p>
-      </div>
       <GroupsClient
         groups={rows}
         createOrgId={createOrgId}
