@@ -21,7 +21,7 @@ type LegalEntityLookupRow = { id: string; name: string };
 // (202608100003) already resolves exactly which rows this session can
 // see (record-level segregation for finance_operations/finance_admin_
 // reporting included), so this is a plain select, same shape as
-// whoami/page.tsx's RLS-proof queries.
+// profile/page.tsx's (né whoami) RLS-proof queries.
 export default async function ClientsPage() {
   const supabase = await createClient();
   const {

@@ -33,7 +33,7 @@ export async function updateOwnProfile(
 
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/whoami");
+  revalidatePath("/profile");
   revalidatePath("/admin/users");
   return { ok: true };
 }
@@ -87,7 +87,7 @@ export async function uploadOwnAvatar(formData: FormData): Promise<ActionResult>
     return { ok: false, error: updateError.message };
   }
 
-  revalidatePath("/whoami");
+  revalidatePath("/profile");
   revalidatePath("/admin/users");
   return { ok: true };
 }

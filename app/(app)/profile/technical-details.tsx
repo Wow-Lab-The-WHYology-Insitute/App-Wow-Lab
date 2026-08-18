@@ -11,8 +11,8 @@ type MembershipView = {
 type SpotCheckResult = { cap: string; org: string; allowed: boolean };
 
 // Tier 3 (S3 restructure): everything that used to render unconditionally
-// on /whoami, now collapsed by default behind the same gradient-pill
-// disclosure mechanism already established for "+ New client"/"+ New
+// on /profile (né /whoami), now collapsed by default behind the same
+// gradient-pill disclosure mechanism already established for "+ New client"/"+ New
 // contract" (clients-client.tsx / contracts-client.tsx) — same boolean
 // state + same button styling, adapted label since this reveals rather
 // than creates. The underlying data-fetching in page.tsx is untouched;

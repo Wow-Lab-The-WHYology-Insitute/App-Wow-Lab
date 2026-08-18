@@ -37,7 +37,7 @@ export default async function AppLayout({
 
   // avatar_url is a Storage PATH in the private `avatars` bucket, never a
   // public URL — resolved to a short-lived signed URL here, through this
-  // same session client, same as /whoami and /admin/users.
+  // same session client, same as /profile and /admin/users.
   const { data: ownProfile } = await supabase
     .from("users")
     .select("avatar_url")
@@ -107,7 +107,7 @@ export default async function AppLayout({
   const navGroups = [
     {
       items: [
-        { href: "/whoami", label: "Dashboard" },
+        { href: "/profile", label: "Dashboard" },
         ...(canManageUsers
           ? [{ href: "/admin/users", label: "Users & Roles" }]
           : []),
