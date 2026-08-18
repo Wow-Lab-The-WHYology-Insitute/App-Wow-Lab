@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { checkCapability } from "@/lib/capabilities";
 import { GroupDetailClient } from "./group-detail-client";
 
 type GroupRow = {
@@ -157,10 +158,7 @@ export default async function GroupDetailPage({
   // sessions.create capability (matches the RLS INSERT/UPDATE policy on
   // sessions, 202608130003) — gates both "+ New Session" and the inline
   // trainer-reallocation edit, same relationship as createOrgId elsewhere.
-  const { data: canManageSessions } = await supabase.rpc("has_capability", {
-    cap: "sessions.create",
-    org: group.organization_id,
-  });
+  const canManageSessions = await checkCapability(supabase, "sessions.create", group.organization_id);
 
   // Trainer picker options, only fetched when the form/edit controls will
   // actually render — same "only fetch what the button needs" discipline

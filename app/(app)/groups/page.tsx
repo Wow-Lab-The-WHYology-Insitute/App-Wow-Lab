@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { checkCapability } from "@/lib/capabilities";
 import { GroupsClient } from "./groups-client";
 
 type MembershipRow = { organization_id: string };
@@ -81,32 +82,24 @@ export default async function GroupsPage() {
   let hasMasterAccess = false;
   for (const m of memberships ?? []) {
     if (!createOrgId) {
-      const { data: allowed } = await supabase.rpc("has_capability", {
-        cap: "groups.create",
-        org: m.organization_id,
-      });
-      if (allowed) createOrgId = m.organization_id;
+      if (await checkCapability(supabase, "groups.create", m.organization_id)) {
+        createOrgId = m.organization_id;
+      }
     }
     if (!hasGroupsRead) {
-      const { data: allowed } = await supabase.rpc("has_capability", {
-        cap: "groups.read",
-        org: m.organization_id,
-      });
-      if (allowed) hasGroupsRead = true;
+      if (await checkCapability(supabase, "groups.read", m.organization_id)) {
+        hasGroupsRead = true;
+      }
     }
     if (!hasMyWorkOnly) {
-      const { data: allowed } = await supabase.rpc("has_capability", {
-        cap: "mywork.*",
-        org: m.organization_id,
-      });
-      if (allowed) hasMyWorkOnly = true;
+      if (await checkCapability(supabase, "mywork.*", m.organization_id)) {
+        hasMyWorkOnly = true;
+      }
     }
     if (!hasMasterAccess) {
-      const { data: allowed } = await supabase.rpc("has_capability", {
-        cap: "org.settings.manage",
-        org: m.organization_id,
-      });
-      if (allowed) hasMasterAccess = true;
+      if (await checkCapability(supabase, "org.settings.manage", m.organization_id)) {
+        hasMasterAccess = true;
+      }
     }
     if (createOrgId && hasGroupsRead && hasMyWorkOnly && hasMasterAccess) break;
   }

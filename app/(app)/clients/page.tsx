@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { checkCapability } from "@/lib/capabilities";
 import { ClientsClient } from "./clients-client";
 
 type MembershipRow = { organization_id: string };
@@ -41,11 +42,7 @@ export default async function ClientsPage() {
   // succeeds, same relationship as admin/users' assertCanManageOrg.
   let createOrgId: string | null = null;
   for (const m of memberships ?? []) {
-    const { data: allowed } = await supabase.rpc("has_capability", {
-      cap: "clients.create",
-      org: m.organization_id,
-    });
-    if (allowed) {
+    if (await checkCapability(supabase, "clients.create", m.organization_id)) {
       createOrgId = m.organization_id;
       break;
     }

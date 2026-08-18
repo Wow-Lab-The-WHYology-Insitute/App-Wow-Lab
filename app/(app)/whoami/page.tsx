@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { checkCapability } from "@/lib/capabilities";
 import { ProfileSection } from "./profile-section";
 import { TechnicalDetails } from "./technical-details";
 
@@ -99,30 +100,24 @@ export default async function WhoAmIPage() {
   let canReadGroups = false;
   for (const m of memberships ?? []) {
     if (!canManageUsers) {
-      const { data } = await supabase.rpc("has_capability", {
-        cap: "org.members.manage",
-        org: m.organization_id,
-      });
-      if (data) canManageUsers = true;
+      if (await checkCapability(supabase, "org.members.manage", m.organization_id)) {
+        canManageUsers = true;
+      }
     }
     if (!canReadClients) {
-      const { data } = await supabase.rpc("has_capability", {
-        cap: "clients.read",
-        org: m.organization_id,
-      });
-      if (data) canReadClients = true;
+      if (await checkCapability(supabase, "clients.read", m.organization_id)) {
+        canReadClients = true;
+      }
     }
     if (!canReadContracts) {
-      const { data } = await supabase.rpc("has_capability", {
-        cap: "contracts.read",
-        org: m.organization_id,
-      });
-      if (data) canReadContracts = true;
+      if (await checkCapability(supabase, "contracts.read", m.organization_id)) {
+        canReadContracts = true;
+      }
     }
     if (!canReadGroups) {
-      const [{ data: hasGroupsRead }, { data: hasMyWork }] = await Promise.all([
-        supabase.rpc("has_capability", { cap: "groups.read", org: m.organization_id }),
-        supabase.rpc("has_capability", { cap: "mywork.*", org: m.organization_id }),
+      const [hasGroupsRead, hasMyWork] = await Promise.all([
+        checkCapability(supabase, "groups.read", m.organization_id),
+        checkCapability(supabase, "mywork.*", m.organization_id),
       ]);
       if (hasGroupsRead || hasMyWork) canReadGroups = true;
     }
@@ -166,7 +161,11 @@ export default async function WhoAmIPage() {
   // (public.has_capability -> app.has_capability, 202607130004), for a
   // couple of meaningful, well-known capabilities — this is the literal
   // "existing capability resolver" the S2 task names, exercised through a
-  // real session rather than SQL impersonation.
+  // real session rather than SQL impersonation. Deliberately NOT routed
+  // through checkCapability() like the nav-gating checks above: this block
+  // exists specifically to prove the raw RPC path works, and wrapping it
+  // in the retry/fail-closed helper would test the helper instead of the
+  // thing this diagnostic page says it's proving.
   const spotCheckResults: { cap: string; org: string; allowed: boolean }[] =
     [];
   for (const membership of memberships ?? []) {

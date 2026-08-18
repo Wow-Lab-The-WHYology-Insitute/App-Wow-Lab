@@ -129,11 +129,7 @@ export default async function ContractsPage() {
   let financeVisible = false;
   for (const m of memberships ?? []) {
     for (const cap of ["finance.operations.*", "finance.reporting.*", "clients.create"]) {
-      const { data: allowed } = await supabase.rpc("has_capability", {
-        cap,
-        org: m.organization_id,
-      });
-      if (allowed) {
+      if (await checkCapability(supabase, cap, m.organization_id)) {
         financeVisible = true;
         break;
       }
