@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { checkCapability } from "@/lib/capabilities";
 import { ContractsClient } from "./contracts-client";
 
 type MembershipRow = { organization_id: string };
@@ -19,6 +20,8 @@ type ContractRow = {
   previous_year_value: number | null;
   offer_structure: string | null;
   ac_link: string | null;
+  drive_ref: string | null;
+  notes: string | null;
 };
 type ClientLookupRow = { id: string; name: string; legal_name: string | null; cui: string | null };
 type LegalEntityLookupRow = { id: string; name: string };
@@ -33,18 +36,27 @@ type LegalEntityOptionRow = { id: string; name: string; organization_id: string 
 // contracts.* key but is deliberately excluded here, same as in the
 // policy — this is a UI convenience, not the real gate, so it has to
 // agree with the policy or the button lies about what will happen.
+//
+// Gates "+ New Contract" (createOrgId). Routed through the shared
+// checkCapability() helper (lib/capabilities.ts, retry-once + logged-on-
+// failure) rather than a bare supabase.rpc() call — a capability-gating
+// audit found this was the one direct-RPC call backing an actual write
+// affordance (the detail panel's former "Edit" button also used this
+// function's result before that button was removed); every OTHER direct-
+// RPC capability check elsewhere in the app (clients/page.tsx, groups/
+// page.tsx, etc.) still calls the RPC directly and was deliberately left
+// alone, per that audit's own scope.
 async function canManageContracts(
   supabase: Awaited<ReturnType<typeof createClient>>,
   org: string,
 ) {
-  const [{ data: isOwner }, { data: hasContractsStar }, { data: isFinanceReporting }, { data: isFinanceOps }] =
-    await Promise.all([
-      supabase.rpc("has_capability", { cap: "org.settings.manage", org }),
-      supabase.rpc("has_capability", { cap: "contracts.*", org }),
-      supabase.rpc("has_capability", { cap: "finance.reporting.*", org }),
-      supabase.rpc("has_capability", { cap: "finance.operations.*", org }),
-    ]);
-  return Boolean(isOwner) || (Boolean(hasContractsStar) && !isFinanceReporting && !isFinanceOps);
+  const [isOwner, hasContractsStar, isFinanceReporting, isFinanceOps] = await Promise.all([
+    checkCapability(supabase, "org.settings.manage", org),
+    checkCapability(supabase, "contracts.*", org),
+    checkCapability(supabase, "finance.reporting.*", org),
+    checkCapability(supabase, "finance.operations.*", org),
+  ]);
+  return isOwner || (hasContractsStar && !isFinanceReporting && !isFinanceOps);
 }
 
 export default async function ContractsPage() {
@@ -76,7 +88,7 @@ export default async function ContractsPage() {
   const { data: contracts } = await supabase
     .from("contracts_billing_masked")
     .select(
-      "id, organization_id, client_id, legal_entity_id, contract_number, contract_type, status, period_start, period_end, billing_rule, client_contract_number, signed_date, estimated_value, previous_year_value, offer_structure, ac_link",
+      "id, organization_id, client_id, legal_entity_id, contract_number, contract_type, status, period_start, period_end, billing_rule, client_contract_number, signed_date, estimated_value, previous_year_value, offer_structure, ac_link, drive_ref, notes",
     )
     .order("contract_number")
     .returns<ContractRow[]>();
@@ -117,11 +129,7 @@ export default async function ContractsPage() {
   let financeVisible = false;
   for (const m of memberships ?? []) {
     for (const cap of ["finance.operations.*", "finance.reporting.*", "clients.create"]) {
-      const { data: allowed } = await supabase.rpc("has_capability", {
-        cap,
-        org: m.organization_id,
-      });
-      if (allowed) {
+      if (await checkCapability(supabase, cap, m.organization_id)) {
         financeVisible = true;
         break;
       }
@@ -163,13 +171,6 @@ export default async function ContractsPage() {
 
   return (
     <div className="flex w-full flex-col gap-6">
-      <div>
-        <h1 className="font-display text-2xl text-brand-pink">Contracts</h1>
-        <p className="font-body text-muted mt-1 text-sm">
-          Contract lifecycle by legal entity. Fiscal invoicing stays in
-          SmartBill/SAGA.
-        </p>
-      </div>
       <ContractsClient
         contracts={rows}
         financeVisible={financeVisible}

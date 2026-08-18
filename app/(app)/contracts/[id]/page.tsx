@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { checkCapability } from "@/lib/capabilities";
 import { MarkSignedButton } from "./mark-signed-button";
 
 type ContractRow = {
@@ -37,14 +38,14 @@ async function canManageContracts(
   supabase: Awaited<ReturnType<typeof createClient>>,
   org: string,
 ) {
-  const [{ data: isOwner }, { data: hasContractsStar }, { data: isFinanceReporting }, { data: isFinanceOps }] =
+  const [isOwner, hasContractsStar, isFinanceReporting, isFinanceOps] =
     await Promise.all([
-      supabase.rpc("has_capability", { cap: "org.settings.manage", org }),
-      supabase.rpc("has_capability", { cap: "contracts.*", org }),
-      supabase.rpc("has_capability", { cap: "finance.reporting.*", org }),
-      supabase.rpc("has_capability", { cap: "finance.operations.*", org }),
+      checkCapability(supabase, "org.settings.manage", org),
+      checkCapability(supabase, "contracts.*", org),
+      checkCapability(supabase, "finance.reporting.*", org),
+      checkCapability(supabase, "finance.operations.*", org),
     ]);
-  return Boolean(isOwner) || (Boolean(hasContractsStar) && !isFinanceReporting && !isFinanceOps);
+  return isOwner || (hasContractsStar && !isFinanceReporting && !isFinanceOps);
 }
 
 export default async function ContractDetailPage({
@@ -95,8 +96,7 @@ export default async function ContractDetailPage({
     if (!canManage && (await canManageContracts(supabase, org))) canManage = true;
     if (!financeVisible) {
       for (const cap of ["finance.operations.*", "finance.reporting.*", "clients.create"]) {
-        const { data: allowed } = await supabase.rpc("has_capability", { cap, org });
-        if (allowed) {
+        if (await checkCapability(supabase, cap, org)) {
           financeVisible = true;
           break;
         }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { checkCapability } from "@/lib/capabilities";
 import { ClientContactsClient } from "./client-contacts-client";
 
 type ClientRow = {
@@ -57,18 +58,18 @@ async function canManageContacts(
   supabase: Awaited<ReturnType<typeof createClient>>,
   org: string,
 ) {
-  const [{ data: isOwner }, { data: hasClientsCreate }, { data: hasContractsStar }, { data: isFinanceReporting }, { data: isFinanceOps }] =
+  const [isOwner, hasClientsCreate, hasContractsStar, isFinanceReporting, isFinanceOps] =
     await Promise.all([
-      supabase.rpc("has_capability", { cap: "org.settings.manage", org }),
-      supabase.rpc("has_capability", { cap: "clients.create", org }),
-      supabase.rpc("has_capability", { cap: "contracts.*", org }),
-      supabase.rpc("has_capability", { cap: "finance.reporting.*", org }),
-      supabase.rpc("has_capability", { cap: "finance.operations.*", org }),
+      checkCapability(supabase, "org.settings.manage", org),
+      checkCapability(supabase, "clients.create", org),
+      checkCapability(supabase, "contracts.*", org),
+      checkCapability(supabase, "finance.reporting.*", org),
+      checkCapability(supabase, "finance.operations.*", org),
     ]);
   return (
-    Boolean(isOwner) ||
-    Boolean(hasClientsCreate) ||
-    (Boolean(hasContractsStar) && !isFinanceReporting && !isFinanceOps)
+    isOwner ||
+    hasClientsCreate ||
+    (hasContractsStar && !isFinanceReporting && !isFinanceOps)
   );
 }
 
@@ -151,8 +152,7 @@ export default async function ClientDetailPage({
     const org = (m as { organization_id: string }).organization_id;
     if (!financeVisible) {
       for (const cap of ["finance.operations.*", "finance.reporting.*", "clients.create"]) {
-        const { data: allowed } = await supabase.rpc("has_capability", { cap, org });
-        if (allowed) {
+        if (await checkCapability(supabase, cap, org)) {
           financeVisible = true;
           break;
         }

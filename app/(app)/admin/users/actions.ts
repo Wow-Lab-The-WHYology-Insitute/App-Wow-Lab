@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
+import { checkCapability } from "@/lib/capabilities";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -26,12 +27,9 @@ async function assertCanManageOrg(
     return { error: "Not signed in." };
   }
 
-  const { data: allowed, error } = await supabase.rpc("has_capability", {
-    cap: MEMBERS_MANAGE,
-    org: orgId,
-  });
+  const allowed = await checkCapability(supabase, MEMBERS_MANAGE, orgId);
 
-  if (error || !allowed) {
+  if (!allowed) {
     return { error: "You don't have permission to manage this organization." };
   }
 

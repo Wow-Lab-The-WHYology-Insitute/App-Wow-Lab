@@ -3,6 +3,22 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { addContract } from "./actions";
+import { useLocale, useTranslations, LOCALE_SWITCHER_ENABLED } from "@/lib/i18n";
+import { LocaleSwitcher } from "@/components/ui/locale-switcher";
+import { contractsDict } from "./i18n";
+import { TermBar } from "./term-bar";
+import { ContractDetailPanel } from "./contract-detail-panel";
+import { formatMoney, formatDate, entityShortCode } from "./format";
+import {
+  DataTable,
+  DataTableToolbar,
+  ColumnsDropdown,
+  ValueCell,
+  TruncatedText,
+  usePersistedColumns,
+  type DataTableColumn,
+  type FilterChip,
+} from "@/components/ui/data-table";
 
 type Contract = {
   id: string;
@@ -16,6 +32,10 @@ type Contract = {
   signed_date: string | null;
   estimated_value: number | null;
   previous_year_value: number | null;
+  offer_structure: string | null;
+  ac_link: string | null;
+  drive_ref: string | null;
+  notes: string | null;
   clientName: string;
   clientLegalName: string | null;
   clientCui: string | null;
@@ -29,68 +49,143 @@ const CONTRACT_TYPES = ["recurring_annual", "one_off_event", "framework"];
 // keep in sync if that constraint ever changes.
 const CONTRACT_STATUSES = ["draft", "sent", "signed", "expired", "renewed"];
 
-// Nulls always sort last regardless of direction — an indefinite end date
-// or an as-yet-unset field shouldn't dominate either end of the list.
-function compareValues(
-  a: string | number | null,
-  b: string | number | null,
-  dir: "asc" | "desc",
-) {
-  if (a == null && b == null) return 0;
-  if (a == null) return 1;
-  if (b == null) return -1;
-  const cmp =
-    typeof a === "number" && typeof b === "number"
-      ? a - b
-      : String(a).localeCompare(String(b));
-  return dir === "asc" ? cmp : -cmp;
+const STATUS_TONE: Record<string, string> = {
+  draft: "bg-ink/5 text-ink",
+  sent: "bg-brand-orange/15 text-brand-orange",
+  // Deliberate exception to "magenta is reserved" — signed status uses a
+  // semantic green, not the brand palette, per the task's own note.
+  signed: "bg-green-100 text-green-700",
+  expired: "border border-black/15 text-muted",
+  renewed: "bg-brand-pink/10 text-brand-pink",
+};
+
+function StatusChip({ status, label }: { status: string; label: string }) {
+  return (
+    <span
+      className={`font-body inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+        STATUS_TONE[status] ?? "bg-ink/5 text-ink"
+      }`}
+    >
+      {label}
+    </span>
+  );
 }
 
-type SortKey =
-  | "contract_number"
-  | "clientName"
-  | "clientLegalName"
-  | "clientCui"
-  | "contract_type"
-  | "status"
-  | "period_start"
-  | "period_end"
-  | "legalEntityName"
-  | "client_contract_number"
-  | "signed_date"
-  | "estimated_value"
-  | "previous_year_value";
-
-function SortHeader({
-  label,
-  sortKey,
-  activeKey,
-  dir,
-  onSort,
-  className,
-}: {
-  label: string;
-  sortKey: SortKey;
-  activeKey: SortKey;
-  dir: "asc" | "desc";
-  onSort: (key: SortKey) => void;
-  className?: string;
-}) {
-  const active = sortKey === activeKey;
-  return (
-    <th className={`py-2 font-bold ${className ?? "pr-4"}`}>
-      <button
-        type="button"
-        onClick={() => onSort(sortKey)}
-        className="font-body inline-flex items-center gap-1 text-left text-xs font-bold tracking-wide uppercase"
-      >
-        {label}
-        <span className="text-[10px]" aria-hidden="true">
-          {active ? (dir === "asc" ? "▲" : "▼") : ""}
-        </span>
-      </button>
-    </th>
-  );
+// The 10 fields moved out of the default column set (task step 2) — each
+// available as an opt-in extra column via the Columns dropdown, so a
+// Finance user can pull e.g. billing_rule back into the table without it
+// crowding every other role's view by default. offer_structure/ac_link
+// are NOT in the task's literal list (same gap as the detail panel — see
+// contract-detail-panel.tsx's own comment) but are included here too, for
+// the same reason: real, already-shipped fields shouldn't become
+// unreachable from the list surface entirely.
+function buildExtraColumns(
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  locale: "en" | "ro",
+  financeVisible: boolean,
+): DataTableColumn<Contract>[] {
+  return [
+    {
+      key: "legal_name",
+      header: t("detail_legal_name"),
+      width: 180,
+      render: (c) => <TruncatedText value={c.clientLegalName || "—"} className="text-ink text-sm" />,
+    },
+    {
+      key: "cui",
+      header: t("detail_cui"),
+      width: 100,
+      render: (c) => <span className="font-mono text-xs">{c.clientCui || "—"}</span>,
+    },
+    {
+      key: "client_contract_number",
+      header: t("detail_client_contract_number"),
+      width: 140,
+      render: (c) => <TruncatedText value={c.client_contract_number || "—"} className="text-ink text-xs" />,
+    },
+    {
+      key: "signed_date",
+      header: t("detail_signed_date"),
+      width: 100,
+      render: (c) => (
+        <span className="text-xs tabular-nums">{c.signed_date ? formatDate(c.signed_date, locale) : "—"}</span>
+      ),
+    },
+    {
+      key: "billing_rule",
+      header: t("detail_billing_rule"),
+      width: 200,
+      render: (c) => (
+        <ValueCell
+          value={c.billing_rule}
+          visible={financeVisible}
+          maskedLabel={t("masked_label")}
+          maskedTitle={t("masked_title")}
+        />
+      ),
+    },
+    {
+      key: "estimated_value",
+      header: t("detail_estimated_value"),
+      width: 110,
+      align: "right",
+      render: (c) => (
+        <ValueCell
+          value={c.estimated_value}
+          visible={financeVisible}
+          maskedLabel={t("masked_label")}
+          maskedTitle={t("masked_title")}
+          format={(v) => formatMoney(v, locale)}
+        />
+      ),
+    },
+    {
+      key: "previous_year_value",
+      header: t("detail_previous_year_value"),
+      width: 110,
+      align: "right",
+      render: (c) => (
+        <ValueCell
+          value={c.previous_year_value}
+          visible={financeVisible}
+          maskedLabel={t("masked_label")}
+          maskedTitle={t("masked_title")}
+          format={(v) => formatMoney(v, locale)}
+        />
+      ),
+    },
+    {
+      key: "legal_entity",
+      header: t("detail_legal_entity"),
+      width: 160,
+      render: (c) => <TruncatedText value={c.legalEntityName} className="text-ink text-xs" />,
+    },
+    {
+      key: "drive_ref",
+      header: t("detail_drive_link"),
+      width: 90,
+      render: (c) =>
+        c.drive_ref ? (
+          <a
+            href={c.drive_ref}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-brand-pink text-xs font-medium hover:underline"
+          >
+            {t("open_link")}
+          </a>
+        ) : (
+          <span className="text-muted text-xs">—</span>
+        ),
+    },
+    {
+      key: "notes",
+      header: t("detail_notes"),
+      width: 200,
+      render: (c) => <TruncatedText value={c.notes || "—"} className="text-ink text-xs" />,
+    },
+  ];
 }
 
 export function ContractsClient({
@@ -106,39 +201,28 @@ export function ContractsClient({
   clientOptions: Option[];
   legalEntityOptions: Option[];
 }) {
+  const t = useTranslations(contractsDict);
+  const { locale } = useLocale();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  // Default: End Date ascending (soonest-expiring first).
-  const [sortKey, setSortKey] = useState<SortKey>("period_end");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [entityFilter, setEntityFilter] = useState("all");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [extraColumns, setExtraColumns] = usePersistedColumns("contracts", []);
 
-  function onSort(key: SortKey) {
-    if (key === sortKey) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
-  }
+  // Stable "now" for the whole render pass — every row's term bar agrees
+  // with every other row's, and re-renders from filtering/sorting don't
+  // shift the reference point mid-session.
+  const [now] = useState(() => new Date());
 
-  // Entity options come from the already-fetched, RLS-scoped contracts
-  // themselves (legalEntityName, resolved server-side) rather than the
-  // org-wide legalEntityOptions prop — that prop is only populated for
-  // viewers who can create contracts, so it isn't a reliable universe for
-  // every role. Deriving from `contracts` guarantees the filter can never
-  // offer (or match against) an entity RLS didn't already surface.
-  const entityOptions = useMemo(() => {
-    return [...new Set(contracts.map((c) => c.legalEntityName))].sort();
-  }, [contracts]);
+  const entityOptions = useMemo(
+    () => [...new Set(contracts.map((c) => c.legalEntityName))].sort(),
+    [contracts],
+  );
 
-  // Search + filters run over the same already-fetched, RLS-scoped array
-  // sorting already used — client-side over the array in hand, never a
-  // re-query, so this can only narrow what RLS already returned.
   const filteredContracts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return contracts.filter((c) => {
@@ -156,38 +240,176 @@ export function ContractsClient({
     });
   }, [contracts, searchQuery, typeFilter, statusFilter, entityFilter]);
 
+  // Soonest-expiring first — same default the flat-column table used
+  // (period_end ascending, nulls last).
   const sortedContracts = useMemo(() => {
-    return [...filteredContracts].sort((a, b) => compareValues(a[sortKey], b[sortKey], sortDir));
-  }, [filteredContracts, sortKey, sortDir]);
+    return [...filteredContracts].sort((a, b) => {
+      if (a.period_end == null && b.period_end == null) return 0;
+      if (a.period_end == null) return 1;
+      if (b.period_end == null) return -1;
+      return a.period_end.localeCompare(b.period_end);
+    });
+  }, [filteredContracts]);
+
+  const chips: FilterChip[] = [];
+  if (typeFilter !== "all") {
+    chips.push({
+      key: "type",
+      label: t(`contract_type_${typeFilter}`),
+      onRemove: () => setTypeFilter("all"),
+    });
+  }
+  if (statusFilter !== "all") {
+    chips.push({
+      key: "status",
+      label: t(`status_${statusFilter}`),
+      onRemove: () => setStatusFilter("all"),
+    });
+  }
+  if (entityFilter !== "all") {
+    chips.push({
+      key: "entity",
+      label: entityShortCode(entityFilter),
+      onRemove: () => setEntityFilter("all"),
+    });
+  }
+
+  function clearAllFilters() {
+    setTypeFilter("all");
+    setStatusFilter("all");
+    setEntityFilter("all");
+  }
+
+  const extraColumnDefs = buildExtraColumns(t, locale, financeVisible);
+  const activeExtraColumns = extraColumnDefs.filter((c) => extraColumns.includes(c.key));
+
+  const baseColumns: DataTableColumn<Contract>[] = [
+    {
+      key: "contract",
+      header: t("col_contract"),
+      width: 120,
+      sticky: true,
+      render: (c) => (
+        <div className="flex flex-col justify-center gap-0.5">
+          <Link
+            href={`/contracts/${c.id}`}
+            onClick={(e) => e.stopPropagation()}
+            title={c.contract_number}
+            className="text-brand-pink focus-visible:ring-brand-pink block overflow-hidden text-sm font-medium text-ellipsis whitespace-nowrap hover:underline focus-visible:rounded focus-visible:ring-2 focus-visible:outline-none"
+          >
+            {c.contract_number}
+          </Link>
+          <TruncatedText value={c.client_contract_number || "—"} className="text-muted text-xs" />
+        </div>
+      ),
+    },
+    {
+      key: "client",
+      header: t("col_client"),
+      width: 200,
+      render: (c) => (
+        <div className="flex flex-col justify-center gap-0.5">
+          <TruncatedText value={c.clientName} className="text-ink text-sm font-medium" />
+          <TruncatedText
+            value={[c.clientLegalName, c.clientCui].filter(Boolean).join(" · ") || "—"}
+            className="text-muted text-xs"
+          />
+        </div>
+      ),
+    },
+    {
+      key: "type",
+      header: t("col_type"),
+      width: 120,
+      render: (c) => (
+        <div className="flex flex-col justify-center gap-1">
+          <span className="text-ink text-sm">{t(`contract_type_${c.contract_type}`)}</span>
+          <StatusChip status={c.status} label={t(`status_${c.status}`)} />
+        </div>
+      ),
+    },
+    {
+      key: "term",
+      header: t("col_term"),
+      width: 170,
+      render: (c) => <TermCell contract={c} now={now} locale={locale} t={t} />,
+    },
+    {
+      key: "entity",
+      header: t("col_entity"),
+      width: 64,
+      hideBelowPx: 1024,
+      render: (c) => (
+        <span
+          title={c.legalEntityName}
+          className="font-mono text-ink inline-flex w-fit items-center rounded bg-ink/5 px-1.5 py-0.5 text-[11px] font-medium"
+        >
+          {entityShortCode(c.legalEntityName)}
+        </span>
+      ),
+    },
+    {
+      key: "value",
+      header: t("col_value"),
+      width: 100,
+      align: "right",
+      hideBelowPx: 1024,
+      render: (c) => (
+        <div className="flex flex-col items-end gap-0.5">
+          <ValueCell
+            value={c.estimated_value}
+            visible={financeVisible}
+            maskedLabel={t("masked_label")}
+            maskedTitle={t("masked_title")}
+            format={(v) => formatMoney(v, locale)}
+          />
+          <span className="text-muted text-[11px]">
+            <ValueCell
+              value={c.previous_year_value}
+              visible={financeVisible}
+              maskedLabel={t("masked_label")}
+              maskedTitle={t("masked_title")}
+              format={(v) => formatMoney(v, locale)}
+            />
+          </span>
+        </div>
+      ),
+    },
+  ];
+
+  const columns = [...baseColumns, ...activeExtraColumns];
 
   return (
     <div className="flex flex-col gap-6">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl text-brand-pink">{t("page_title")}</h1>
+          <p className="font-body text-muted mt-1 text-sm">{t("page_subtitle")}</p>
+        </div>
+        {LOCALE_SWITCHER_ENABLED && <LocaleSwitcher />}
+      </div>
+
       {error && (
         <p className="font-body text-ink rounded-lg bg-brand-pink/10 px-4 py-3 text-sm">
           {error}
         </p>
       )}
 
-      {/* contract_administrator (+Master)-gated, same capability logic as
-          the RLS INSERT policy — see canManageContracts() in page.tsx.
-          Collapsed by default, same disclosure pattern as /clients (no
-          established pattern to match — /admin/users' InviteForm is
-          always-expanded) — inline, no modal, so the list below never
-          leaves view. */}
       {createOrgId && (
         <div className="flex flex-col gap-4">
           <button
             type="button"
             onClick={() => setIsFormOpen((open) => !open)}
-            className="font-body w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity hover:opacity-90"
+            className="font-body focus-visible:ring-brand-pink w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none"
           >
-            + New contract
+            {t("new_contract")}
           </button>
           {isFormOpen && (
             <NewContractForm
               clientOptions={clientOptions}
               legalEntityOptions={legalEntityOptions}
               isPending={isPending}
+              t={t}
               onSubmit={(
                 clientId,
                 legalEntityId,
@@ -227,192 +449,224 @@ export function ContractsClient({
       )}
 
       <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
-        <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
-          Contracts (
-          {sortedContracts.length !== contracts.length
-            ? `${sortedContracts.length} of ${contracts.length}`
-            : contracts.length}
-          )
-        </h2>
-
         {contracts.length === 0 ? (
-          <p className="font-body text-muted text-sm">
-            No contracts visible for your role.
-          </p>
+          <p className="font-body text-muted text-sm">{t("empty_no_contracts")}</p>
         ) : (
-          <>
-            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by client or contract #…"
-                className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 md:flex-1"
-              />
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
-              >
-                <option value="all">All types</option>
-                {CONTRACT_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
-              >
-                <option value="all">All statuses</option>
-                {CONTRACT_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={entityFilter}
-                onChange={(e) => setEntityFilter(e.target.value)}
-                className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
-              >
-                <option value="all">All entities</option>
-                {entityOptions.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="flex flex-col gap-4">
+            <DataTableToolbar
+              searchValue={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchPlaceholder={t("search_placeholder")}
+              filters={
+                <>
+                  <select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:ring-2"
+                  >
+                    <option value="all">{t("filter_type_all")}</option>
+                    {CONTRACT_TYPES.map((ty) => (
+                      <option key={ty} value={ty}>
+                        {t(`contract_type_${ty}`)}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:ring-2"
+                  >
+                    <option value="all">{t("filter_status_all")}</option>
+                    {CONTRACT_STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {t(`status_${s}`)}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={entityFilter}
+                    onChange={(e) => setEntityFilter(e.target.value)}
+                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:ring-2"
+                  >
+                    <option value="all">{t("filter_entity_all")}</option>
+                    {entityOptions.map((name) => (
+                      <option key={name} value={name}>
+                        {entityShortCode(name)}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              }
+              chips={chips}
+              onClearAll={chips.length > 0 ? clearAllFilters : undefined}
+              clearAllLabel={t("clear_all")}
+              columnsToggle={
+                <ColumnsDropdown
+                  label={t("columns")}
+                  options={extraColumnDefs.map((def) => ({
+                    key: def.key,
+                    label: def.header,
+                    checked: extraColumns.includes(def.key),
+                    onChange: (checked) =>
+                      setExtraColumns(
+                        checked
+                          ? [...extraColumns, def.key]
+                          : extraColumns.filter((k) => k !== def.key),
+                      ),
+                  }))}
+                />
+              }
+            />
+
+            <p className="font-body text-muted text-xs">
+              {t("showing_count", { shown: sortedContracts.length, total: contracts.length })}
+            </p>
 
             {sortedContracts.length === 0 ? (
-              <p className="font-body text-muted text-sm">
-                No contracts match your search or filters.
-              </p>
+              <p className="font-body text-muted text-sm">{t("empty_no_match")}</p>
             ) : (
               <>
-                <table className="hidden w-full border-collapse text-sm md:table">
-                  <thead>
-                    <tr className="font-body text-muted border-b border-black/5 text-left text-xs font-bold tracking-wide uppercase">
-                      <th className="py-2 pr-2 font-bold">#</th>
-                      <SortHeader label="Number" sortKey="contract_number" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                      <SortHeader label="Client" sortKey="clientName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                      <SortHeader label="Legal name" sortKey="clientLegalName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                      <SortHeader label="CUI" sortKey="clientCui" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                      <SortHeader label="Type" sortKey="contract_type" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                      <SortHeader label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                      <SortHeader label="Start Date" sortKey="period_start" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                      <SortHeader label="End Date" sortKey="period_end" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                      <SortHeader label="Entity" sortKey="legalEntityName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                      <SortHeader label="Client contract #" sortKey="client_contract_number" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                      <SortHeader label="Signed date" sortKey="signed_date" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                      <SortHeader label="Est. value" sortKey="estimated_value" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                      <SortHeader label="Prev. yr value" sortKey="previous_year_value" activeKey={sortKey} dir={sortDir} onSort={onSort} />
-                      <th className="py-2 font-bold">Billing rule</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedContracts.map((c, index) => (
-                      <tr
-                        key={c.id}
-                        className="font-body text-ink border-b border-black/5 last:border-0"
-                      >
-                        <td className="text-muted py-3 pr-2">{index + 1}</td>
-                        <td className="py-3 pr-4">
-                          <Link
-                            href={`/contracts/${c.id}`}
-                            className="text-brand-pink font-mono text-xs font-semibold hover:underline"
-                          >
-                            {c.contract_number}
-                          </Link>
-                        </td>
-                        <td className="py-3 pr-4">{c.clientName}</td>
-                        <td className="text-muted py-3 pr-4">{c.clientLegalName || "—"}</td>
-                        <td className="text-muted py-3 pr-4 font-mono text-xs">{c.clientCui || "—"}</td>
-                        <td className="py-3 pr-4">
-                          <Badge>{c.contract_type}</Badge>
-                        </td>
-                        <td className="py-3 pr-4">
-                          <Badge tone={c.status === "signed" ? "neutral" : "pink"}>
-                            {c.status}
-                          </Badge>
-                        </td>
-                        <td className="text-muted py-3 pr-4 text-xs">{c.period_start ?? "—"}</td>
-                        <td className="text-muted py-3 pr-4 text-xs">{c.period_end ?? "—"}</td>
-                        <td className="text-muted py-3 pr-4 text-xs">{c.legalEntityName}</td>
-                        <td className="text-muted py-3 pr-4 text-xs">{c.client_contract_number ?? "—"}</td>
-                        <td className="text-muted py-3 pr-4 text-xs">{c.signed_date ?? "—"}</td>
-                        <td className="py-3 pr-4 text-xs">
-                          <MaskedValue value={c.estimated_value} financeVisible={financeVisible} />
-                        </td>
-                        <td className="py-3 pr-4 text-xs">
-                          <MaskedValue value={c.previous_year_value} financeVisible={financeVisible} />
-                        </td>
-                        <td className="py-3">
-                          <MaskedValue value={c.billing_rule} financeVisible={financeVisible} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                {/* Table: md and up. Below that, step 7 abandons the table
+                    for a card list entirely rather than shrinking columns
+                    further. */}
+                <div className="hidden md:block">
+                  <DataTable
+                    columns={columns}
+                    rows={sortedContracts}
+                    rowKey={(c) => c.id}
+                    expandedRowKey={expandedId}
+                    onToggleRow={(key) => setExpandedId((cur) => (cur === key ? null : key))}
+                    emptyMessage={t("empty_no_match")}
+                    rowAriaLabel={(c) => c.contract_number}
+                    renderExpanded={(c) => (
+                      <ContractDetailPanel
+                        contract={c}
+                        financeVisible={financeVisible}
+                        locale={locale}
+                      />
+                    )}
+                  />
+                </div>
 
                 <div className="flex flex-col gap-3 md:hidden">
-                  {sortedContracts.map((c, index) => (
-                    <Link
+                  {sortedContracts.map((c) => (
+                    <ContractCard
                       key={c.id}
-                      href={`/contracts/${c.id}`}
-                      className="block rounded-xl border border-black/5 p-4"
-                    >
-                      <p className="font-body text-brand-pink font-mono text-xs font-semibold">
-                        <span className="text-muted font-normal">#{index + 1}</span> {c.contract_number}
-                      </p>
-                      <p className="font-body text-ink mt-1 text-sm font-semibold">
-                        {c.clientName}
-                      </p>
-                      {(c.clientLegalName || c.clientCui) && (
-                        <p className="font-body text-muted mt-0.5 text-xs">
-                          {c.clientLegalName || "—"}
-                          {c.clientCui ? ` · ${c.clientCui}` : ""}
-                        </p>
-                      )}
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        <Badge>{c.contract_type}</Badge>
-                        <Badge tone={c.status === "signed" ? "neutral" : "pink"}>
-                          {c.status}
-                        </Badge>
-                      </div>
-                      <p className="font-body text-muted mt-2 text-xs">
-                        Start {c.period_start ?? "—"} → End {c.period_end ?? "—"} ·{" "}
-                        {c.legalEntityName}
-                      </p>
-                      {(c.client_contract_number || c.signed_date) && (
-                        <p className="font-body text-muted mt-1 text-xs">
-                          {c.client_contract_number ? `Ref ${c.client_contract_number}` : ""}
-                          {c.client_contract_number && c.signed_date ? " · " : ""}
-                          {c.signed_date ? `Signed ${c.signed_date}` : ""}
-                        </p>
-                      )}
-                      <p className="font-body text-ink mt-1 text-sm">
-                        <MaskedValue value={c.billing_rule} financeVisible={financeVisible} />
-                      </p>
-                      <p className="font-body text-muted mt-1 flex gap-2 text-xs">
-                        <span>
-                          Est: <MaskedValue value={c.estimated_value} financeVisible={financeVisible} />
-                        </span>
-                        <span>
-                          Prev yr: <MaskedValue value={c.previous_year_value} financeVisible={financeVisible} />
-                        </span>
-                      </p>
-                    </Link>
+                      contract={c}
+                      now={now}
+                      locale={locale}
+                      t={t}
+                      expanded={expandedId === c.id}
+                      onToggle={() => setExpandedId((cur) => (cur === c.id ? null : c.id))}
+                      financeVisible={financeVisible}
+                    />
                   ))}
                 </div>
               </>
             )}
-          </>
+          </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function TermCell({
+  contract,
+  now,
+  locale,
+  t,
+}: {
+  contract: Contract;
+  now: Date;
+  locale: "en" | "ro";
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  const { period_start, period_end, status } = contract;
+
+  if (!period_start && !period_end) {
+    return <span className="text-muted text-xs">—</span>;
+  }
+  // one_off_event contracts (and any other row) where start === end, or
+  // where only one bound is known, render a single date — a "range" bar
+  // over a zero-width or half-known range would be meaningless.
+  if (!period_start || !period_end || period_start === period_end) {
+    const single = period_start ?? period_end!;
+    return <span className="text-ink text-xs tabular-nums">{formatDate(single, locale)}</span>;
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-ink text-xs tabular-nums whitespace-nowrap">
+        {formatDate(period_start, locale)} – {formatDate(period_end, locale)}
+      </span>
+      <TermBar
+        periodStart={period_start}
+        periodEnd={period_end}
+        status={status}
+        now={now}
+        labels={{
+          endsIn: (n) => t("term_ends_in", { n }),
+          endedAgo: (n) => t("term_ended_ago", { n }),
+          startsIn: (n) => t("term_starts_in", { n }),
+        }}
+      />
+    </div>
+  );
+}
+
+// Below 768px: cards, not a shrunk table (task step 7). Same expand
+// affordance and detail panel as the desktop table.
+function ContractCard({
+  contract,
+  now,
+  locale,
+  t,
+  expanded,
+  onToggle,
+  financeVisible,
+}: {
+  contract: Contract;
+  now: Date;
+  locale: "en" | "ro";
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  expanded: boolean;
+  onToggle: () => void;
+  financeVisible: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-black/5">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        className="focus-visible:ring-brand-pink flex w-full flex-col gap-2 p-4 text-left focus-visible:ring-2 focus-visible:outline-none"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <p className="font-body text-brand-pink text-sm font-semibold">{contract.contract_number}</p>
+          <span
+            aria-hidden="true"
+            className={`text-muted motion-safe:transition-transform ${expanded ? "rotate-180" : ""}`}
+          >
+            ▾
+          </span>
+        </div>
+        <p className="font-body text-ink text-sm font-medium">{contract.clientName}</p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="font-body text-muted text-xs">{t(`contract_type_${contract.contract_type}`)}</span>
+          <StatusChip status={contract.status} label={t(`status_${contract.status}`)} />
+        </div>
+        <TermCell contract={contract} now={now} locale={locale} t={t} />
+      </button>
+      {expanded && (
+        <div className="border-t border-black/5 px-4 py-4">
+          <ContractDetailPanel
+            contract={contract}
+            financeVisible={financeVisible}
+            locale={locale}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -422,10 +676,12 @@ function NewContractForm({
   legalEntityOptions,
   isPending,
   onSubmit,
+  t,
 }: {
   clientOptions: Option[];
   legalEntityOptions: Option[];
   isPending: boolean;
+  t: (key: string, vars?: Record<string, string | number>) => string;
   onSubmit: (
     clientId: string,
     legalEntityId: string,
@@ -455,15 +711,15 @@ function NewContractForm({
   return (
     <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
       <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
-        New contract
+        {t("new_contract_form_title")}
       </h2>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <select
           value={clientId}
           onChange={(e) => setClientId(e.target.value)}
-          className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         >
-          <option value="">Select client…</option>
+          <option value="">{t("select_client")}</option>
           {clientOptions.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -473,9 +729,9 @@ function NewContractForm({
         <select
           value={legalEntityId}
           onChange={(e) => setLegalEntityId(e.target.value)}
-          className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         >
-          <option value="">Select legal entity…</option>
+          <option value="">{t("select_entity")}</option>
           {legalEntityOptions.map((e) => (
             <option key={e.id} value={e.id}>
               {e.name}
@@ -486,59 +742,59 @@ function NewContractForm({
           type="text"
           value={number}
           onChange={(e) => setNumber(e.target.value)}
-          placeholder="Contract number"
-          className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+          placeholder={t("contract_number_placeholder")}
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <select
           value={type}
           onChange={(e) => setType(e.target.value)}
-          className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         >
-          {CONTRACT_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t}
+          {CONTRACT_TYPES.map((ty) => (
+            <option key={ty} value={ty}>
+              {t(`contract_type_${ty}`)}
             </option>
           ))}
         </select>
         <label className="font-body text-muted flex flex-col gap-1 text-xs">
-          Start Date
+          {t("start_date")}
           <input
             type="date"
             value={start}
             onChange={(e) => setStart(e.target.value)}
-            className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+            className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
           />
         </label>
         <label className="font-body text-muted flex flex-col gap-1 text-xs">
-          End Date
+          {t("end_date")}
           <input
             type="date"
             value={end}
             onChange={(e) => setEnd(e.target.value)}
-            className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+            className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
           />
         </label>
         <input
           type="text"
           value={rule}
           onChange={(e) => setRule(e.target.value)}
-          placeholder="Billing rule (e.g. 95 lei/child/session)"
-          className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 md:col-span-2"
+          placeholder={t("billing_rule_placeholder")}
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
         />
         <input
           type="text"
           value={clientContractNumber}
           onChange={(e) => setClientContractNumber(e.target.value)}
-          placeholder="Client's own contract # (optional)"
-          className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+          placeholder={t("client_contract_number_placeholder")}
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <label className="font-body text-muted flex flex-col gap-1 text-xs">
-          Signed Date
+          {t("signed_date_label")}
           <input
             type="date"
             value={signedDate}
             onChange={(e) => setSignedDate(e.target.value)}
-            className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+            className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
           />
         </label>
         <input
@@ -546,16 +802,16 @@ function NewContractForm({
           step="0.01"
           value={estimatedValue}
           onChange={(e) => setEstimatedValue(e.target.value)}
-          placeholder="Estimated value (optional)"
-          className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+          placeholder={t("estimated_value_placeholder")}
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <input
           type="number"
           step="0.01"
           value={previousYearValue}
           onChange={(e) => setPreviousYearValue(e.target.value)}
-          placeholder="Previous year value (optional)"
-          className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+          placeholder={t("previous_year_value_placeholder")}
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
       </div>
       <button
@@ -576,45 +832,10 @@ function NewContractForm({
             previousYearValue,
           )
         }
-        className="font-body mt-3 w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
+        className="font-body focus-visible:ring-brand-pink mt-3 w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
       >
-        Create contract
+        {t("create_contract")}
       </button>
     </section>
-  );
-}
-
-// Same treatment as clients/[id]/page.tsx's MaskedValue — duplicated
-// locally rather than shared, matching this codebase's existing
-// convention of not centralizing small per-screen presentational helpers
-// (see Badge/Section/Kv repeated across admin-users-client.tsx and
-// whoami/page.tsx already).
-function MaskedValue({
-  value,
-  financeVisible,
-}: {
-  value: string | number | null;
-  financeVisible: boolean;
-}) {
-  if (value !== null) return <span>{value}</span>;
-  if (financeVisible) return <span className="text-muted text-xs">Not set</span>;
-  return <span className="text-muted font-mono text-xs tracking-wide">••••• 🔒</span>;
-}
-
-function Badge({
-  children,
-  tone = "neutral",
-}: {
-  children: React.ReactNode;
-  tone?: "neutral" | "pink";
-}) {
-  return (
-    <span
-      className={`font-body inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-        tone === "pink" ? "bg-brand-pink/10 text-brand-pink" : "bg-ink/5 text-ink"
-      }`}
-    >
-      {children}
-    </span>
   );
 }

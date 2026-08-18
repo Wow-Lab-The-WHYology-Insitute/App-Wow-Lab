@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { checkCapability } from "@/lib/capabilities";
 import { AdminUsersClient } from "./admin-users-client";
 
 type OrgMembership = {
@@ -28,10 +29,7 @@ export default async function AdminUsersPage() {
   let managedOrg: { id: string; name: string; slug: string } | null = null;
 
   for (const m of memberships ?? []) {
-    const { data: allowed } = await supabase.rpc("has_capability", {
-      cap: "org.members.manage",
-      org: m.organization_id,
-    });
+    const allowed = await checkCapability(supabase, "org.members.manage", m.organization_id);
     if (allowed && m.organizations) {
       managedOrg = {
         id: m.organization_id,
