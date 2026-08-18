@@ -88,6 +88,76 @@ body{font-family:'Cabin',sans-serif;background:var(--bg-page);color:var(--text);
 .tbl-action:hover{border-color:var(--pink);color:var(--pink)}
 .masked{font-family:monospace;color:var(--text-muted);letter-spacing:1px}
 
+/* CONTRACTS — DataTable mirror (7 composite columns, term bar, 3-state value, expand row, cards) */
+.ctr-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.ctr-search{max-width:260px;flex:1 1 200px;font-family:inherit;font-size:12.5px;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm)}
+.ctr-search:focus{outline:none;border-color:var(--pink)}
+.ctr-filters{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;align-items:center}
+.ctr-filters select{font-family:inherit;font-size:12px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:#fff;color:var(--text-mid)}
+.ctr-chips{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.ctr-chips:empty{margin-bottom:0}
+.ctr-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;background:var(--pink-soft);color:#B0006A;padding:4px 6px 4px 10px;border-radius:20px}
+.ctr-chip button{border:none;background:none;color:inherit;cursor:pointer;font-size:12px;line-height:1;padding:2px}
+.ctr-clear{font-size:11px;color:var(--text-muted);background:none;border:none;cursor:pointer;text-decoration:underline;font-family:inherit}
+.ctr-count{font-size:11.5px;color:var(--text-muted);margin:0 0 10px}
+.ctr-cols-wrap{position:relative}
+.ctr-cols-menu{display:none;position:absolute;right:0;top:calc(100% + 4px);background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);box-shadow:var(--shadow-md);padding:8px;min-width:190px;z-index:30}
+.ctr-cols-menu.open{display:block}
+.ctr-cols-menu label{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text-mid);padding:5px 6px;border-radius:6px;cursor:pointer}
+.ctr-cols-menu label:hover{background:#FAF7F8}
+
+.ctr-table-wrap{overflow-x:auto}
+.ctr-table{table-layout:fixed;width:100%}
+.ctr-table th,.ctr-table td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctr-num-cell{color:var(--text-muted);font-variant-numeric:tabular-nums}
+.ctr-two-line{display:flex;flex-direction:column;gap:1px;line-height:1.35}
+.ctr-line1{font-size:12.5px;font-weight:600;color:var(--text)}
+.ctr-line2{font-size:11px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis}
+.ctr-link{color:var(--pink);font-weight:700;text-decoration:none}
+.ctr-link:hover{text-decoration:underline}
+.ctr-entity-chip{font-family:monospace;font-size:10.5px;font-weight:700;background:#F1EEF2;color:var(--text-mid);padding:3px 7px;border-radius:6px;letter-spacing:.03em}
+.ctr-value{display:flex;flex-direction:column;align-items:flex-end;font-variant-numeric:tabular-nums}
+.ctr-masked{display:inline-flex;align-items:center;gap:3px;color:var(--text-muted);font-size:11px}
+.ctr-zero{color:var(--text)}
+.ctr-dash{color:var(--text-muted)}
+
+.term-wrap{display:flex;flex-direction:column;gap:4px;padding:2px 0}
+.term-dates{font-size:11.5px;color:var(--text-mid);font-variant-numeric:tabular-nums;white-space:nowrap}
+.term-track{width:100%;height:3px;border-radius:2px;background:#EDE8EA;overflow:hidden}
+.term-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,#EC008C,#FAA21B)}
+.term-fill.past{background:#D5CFD3}
+.term-fill.future{width:0 !important}
+.term-label{font-size:10.5px;color:var(--text-muted)}
+.term-label.critical{color:#9A6208;font-weight:700}
+
+.ctr-chevron{transition:transform .15s;color:var(--text-muted);display:inline-block}
+.ctr-chevron.open{transform:rotate(90deg)}
+.ctr-row{cursor:pointer}
+.ctr-row:hover td{background:#FDFCFB}
+.ctr-detail-row td{padding:0;border-bottom:1px solid rgba(0,0,0,.04)}
+.ctr-detail{padding:16px 18px;background:#FBF9FA;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px 22px}
+.ctr-detail-field{display:flex;flex-direction:column;gap:3px;min-width:0}
+.ctr-detail-field label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)}
+.ctr-detail-field span{font-size:12.5px;color:var(--text);white-space:normal;overflow-wrap:break-word;word-break:break-word}
+.ctr-detail-actions{grid-column:1/-1;display:flex;gap:8px;padding-top:6px;border-top:1px solid var(--border);margin-top:2px}
+
+.ctr-cards{display:none}
+.ctr-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-sm);padding:13px 14px;margin-bottom:10px}
+.ctr-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.ctr-card-title{color:var(--pink);font-weight:700;font-size:13px}
+.ctr-card-client{font-size:12px;color:var(--text-mid);margin-top:2px}
+.ctr-card-badges{display:flex;gap:6px;margin:8px 0}
+.ctr-card-term{margin-top:6px}
+.ctr-card .ctr-detail{padding:14px 0 0;border-top:1px solid var(--border);margin-top:10px}
+
+@media (max-width:1024px){
+  .ctr-col-entity,.ctr-col-value{display:none}
+}
+@media (max-width:768px){
+  .ctr-table-wrap{display:none}
+  .ctr-cards{display:block}
+}
+
 .banner{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:var(--r-sm);font-size:12.5px;margin-bottom:14px;line-height:1.5}
 .banner-amber{background:var(--amber-soft);border:1px solid #F5D898;color:#7A5210}
 .banner-teal{background:var(--teal-soft);border:1px solid #9FE1CB;color:#0A5647}
@@ -463,26 +533,220 @@ S.clients=()=>{
   </div>`;
 };
 
-/* CONTRACTS */
-S.contracts=()=>{
+/* CONTRACTS — mirrors the shipped /contracts DataTable rework (app.wowlab.ro), not the
+   original flat-table spec. 7 composite columns, term bar, 3-state value rendering
+   (empty/masked/zero), expandable row detail, toolbar (search+filters+Columns+count),
+   card view below 768px. Fixed reference date so the term bar's math is reproducible
+   across sessions instead of drifting with the real clock. */
+const CTR_TODAY=new Date(2026,7,18); /* 2026-08-18 */
+const CTR_ENTITY_SHORT={'Experimente Wow SRL':'EWS','Brandine Advertising SRL':'BADV','Asociatia STEMplicity':'STEM'};
+const CONTRACTS=[
+ {num:'CTR-2026-014',clientRef:null,client:'Lycée Français',legal:'FUNDATIA LYCEE FRANCAIS ANNA DE NOAILLES',cui:'18153988',type:'recurring_annual',status:'signed',start:'2025-09-01',end:'2026-06-30',entity:'Experimente Wow SRL',est:45000,prev:42000,billing:'95 lei / child / session (VAT incl.)',billingRo:'95 lei / copil / ședință (TVA incl.)',signed:'2025-08-20',drive:'https://drive.google.com/drive/folders/lycee',notes:'',notesRo:''},
+ {num:'CTR-2026-021',clientRef:null,client:'IBSB',legal:'FUNDATIA INTERNATIONAL BRITISH SCHOOL OF BUCHAREST',cui:'RO13212072',type:'recurring_annual',status:'signed',start:'2025-09-01',end:'2026-06-30',entity:'Experimente Wow SRL',est:38000,prev:null,billing:'80 lei / child + VAT',billingRo:'80 lei / copil + TVA',signed:'2025-08-18',drive:'https://drive.google.com/drive/folders/ibsb',notes:'',notesRo:''},
+ {num:'CTR-2026-033',clientRef:'ING-EVT-04',client:'ING Bank',legal:'ING BANK N.V. AMSTERDAM — SUCURSALA BUCUREȘTI',cui:'RO7101779',type:'one_off_event',status:'sent',start:'2026-05-15',end:'2026-05-15',entity:'Brandine Advertising SRL',est:4500,prev:null,billing:'event contract',billingRo:'contract eveniment',signed:null,drive:'',notes:'Awaiting signature — sent 3 days ago.',notesRo:'Așteaptă semnătură — trimis acum 3 zile.'},
+ {num:'CTR-2026-040',clientRef:'PS3-2026-11',client:'Primăria S3',legal:'SECTOR 3 AL MUNICIPIULUI BUCUREȘTI',cui:'RO4420465',type:'framework',status:'signed',start:'2026-03-01',end:'2026-12-31',entity:'Asociatia STEMplicity',est:0,prev:null,billing:'grant framework contract',billingRo:'contract-cadru grant',signed:'2026-02-24',drive:'https://drive.google.com/drive/folders/s3',notes:'Admin fee waived under the grant terms — not a missing value.',notesRo:'Taxă administrativă exceptată prin grant — nu e valoare lipsă.'},
+ {num:'CTR-2025-118',clientRef:null,client:'Avenor College',legal:'AVENOR EDUCATIONAL SRL',cui:'RO33221144',type:'recurring_annual',status:'expired',start:'2024-09-01',end:'2025-06-30',entity:'Experimente Wow SRL',est:52000,prev:50000,billing:'950 lei / workshop + VAT · 7–12 children',billingRo:'950 lei / atelier + TVA · 7–12 copii',signed:'2024-08-15',drive:'https://drive.google.com/drive/folders/avenor',notes:'',notesRo:''},
+ {num:'CTR-2026-055',clientRef:null,client:'Cambridge School',legal:'FUNDATIA MATEAS',cui:'35807977',type:'recurring_annual',status:'signed',start:'2026-06-01',end:'2026-08-30',entity:'Experimente Wow SRL',est:61000,prev:58000,billing:'950 lei / workshop + VAT · min 8',billingRo:'950 lei / atelier + TVA · min 8',signed:'2026-05-10',drive:'https://drive.google.com/drive/folders/cambridge',notes:'Summer term — renewal conversation should start now, not in September.',notesRo:'Sesiune de vară — discuția de reînnoire trebuie începută acum, nu în septembrie.'},
+ {num:'CTR-2026-060',clientRef:null,client:'Mark Twain',legal:'SCOALA MARK TWAIN SRL',cui:'RO18009944',type:'recurring_annual',status:'signed',start:'2026-09-01',end:'2027-06-30',entity:'Experimente Wow SRL',est:null,prev:59000,billing:'750 lei / workshop (VAT incl.)',billingRo:'750 lei / atelier (VAT incl.)',signed:'2026-08-05',drive:'https://drive.google.com/drive/folders/marktwain',notes:'Next school year — estimated value not modeled yet.',notesRo:'Anul școlar următor — valoarea estimată nu e încă modelată.'},
+];
+const CTR_EXTRA_COLS=[
+ {k:'clientRef',l:'Client ref',lRo:'Ref. client'},
+ {k:'legal',l:'Legal name',lRo:'Nume legal'},
+ {k:'cui',l:'CUI',lRo:'CUI'},
+ {k:'billing',l:'Billing rule',lRo:'Regulă facturare'},
+ {k:'signed',l:'Signed date',lRo:'Data semnării'},
+ {k:'entityFull',l:'Legal entity (full)',lRo:'Entitate legală (completă)'},
+ {k:'drive',l:'Drive link',lRo:'Link Drive'},
+ {k:'notes',l:'Notes',lRo:'Note'},
+];
+let ctrFilter={q:'',type:'all',status:'all',entity:'all'};
+let ctrExpanded=null;
+let ctrColsOpen=false;
+let ctrCols=(function(){
+  const base={clientRef:false,legal:false,cui:false,billing:false,signed:false,entityFull:false,drive:false,notes:false};
+  try{ return Object.assign(base,JSON.parse(localStorage.getItem('wowlab.columns.contracts')||'{}')); }catch(e){ return base; }
+})();
+
+function ctrParseISO(s){ const p=s.split('-').map(Number); return new Date(p[0],p[1]-1,p[2]); }
+function ctrFmtDate(s){ const d=ctrParseISO(s); return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getFullYear()).slice(-2); }
+function ctrDaysBetween(a,b){ return Math.round((b-a)/86400000); }
+function ctrTermInfo(c){
+  if(c.start===c.end) return {single:true,label:ctrFmtDate(c.start)};
+  const start=ctrParseISO(c.start),end=ctrParseISO(c.end);
+  if(end<CTR_TODAY){
+    const months=Math.max(1,Math.round(ctrDaysBetween(end,CTR_TODAY)/30));
+    return {frac:1,state:'past',label:tt(`ended ${months} month${months===1?'':'s'} ago`,`s-a încheiat acum ${months} ${months===1?'lună':'luni'}`)};
+  }
+  if(start>CTR_TODAY){
+    const days=ctrDaysBetween(CTR_TODAY,start);
+    return {frac:0,state:'future',label:tt(`starts in ${days} day${days===1?'':'s'}`,`începe în ${days} ${days===1?'zi':'zile'}`)};
+  }
+  const total=ctrDaysBetween(start,end)||1;
+  const frac=Math.min(1,Math.max(0,ctrDaysBetween(start,CTR_TODAY)/total));
+  const daysLeft=ctrDaysBetween(CTR_TODAY,end);
+  const critical=frac>=0.85&&c.status==='signed';
+  return {frac,state:critical?'critical':'active',label:critical?tt(`ends in ${daysLeft} day${daysLeft===1?'':'s'}`,`se termină în ${daysLeft} ${daysLeft===1?'zi':'zile'}`):null};
+}
+function ctrValueCell(val,fin){
+  if(!fin) return `<span class="ctr-masked" title="${tt('Visible to Finance and the Owner','Vizibil pentru Finance și Owner')}">🔒 ${tt('Finance only','Doar Finance')}</span>`;
+  if(val===null||val===undefined) return `<span class="ctr-dash">—</span>`;
+  if(val===0) return `<span class="ctr-zero">0 lei</span>`;
+  return `<span>${val.toLocaleString('ro-RO')} lei</span>`;
+}
+function ctrSearch(v){ ctrFilter.q=v; renderContractsTable(); }
+function ctrSetType(v){ ctrFilter.type=v; renderContractsTable(); }
+function ctrSetStatus(v){ ctrFilter.status=v; renderContractsTable(); }
+function ctrSetEntity(v){ ctrFilter.entity=v; renderContractsTable(); }
+function ctrClearFilter(k){ ctrFilter[k]=k==='q'?'':'all'; renderContractsTable(); }
+function ctrClearAll(){ ctrFilter={q:'',type:'all',status:'all',entity:'all'}; renderContractsTable(); }
+function ctrToggleExpand(num){ ctrExpanded=(ctrExpanded===num?null:num); renderContractsTable(); }
+function ctrToggleColsMenu(){ ctrColsOpen=!ctrColsOpen; const m=document.getElementById('ctrColsMenu'); if(m)m.classList.toggle('open',ctrColsOpen); }
+function ctrToggleCol(k){ ctrCols[k]=!ctrCols[k]; try{localStorage.setItem('wowlab.columns.contracts',JSON.stringify(ctrCols));}catch(e){} renderContractsTable(); }
+
+function renderContractsTable(){
+  const tw=document.getElementById('ctrTableWrap'); if(!tw) return;
   const fin=isFinance()||role==='contracts_admin';
-  const data=[
-   ['CTR-2026-014','Lycée Français','recurring_annual','signed','01.09.25–30.06.26','Experimente Wow','95 lei/child/session','95 lei/copil/ședință'],
-   ['CTR-2026-021','IBSB','recurring_annual','signed','01.09.25–30.06.26','Experimente Wow','80 lei/child + VAT','80 lei/copil + TVA'],
-   ['CTR-2026-033','ING Bank','one_off_event','sent','15.05.26','Bradine ADV','offer / event','ofertă / eveniment'],
-   ['CTR-2026-040','Primăria S3','framework','signed','01.03.26–31.12.26','STEMplicity','grant framework contract','contract-cadru grant'],
-   ['CTR-2025-118','Avenor College','recurring_annual','expired','01.09.24–30.06.25','Experimente Wow','950 lei/workshop','950 lei/atelier'],
-  ];
-  const sb={signed:'b-teal',sent:'b-amber',draft:'b-slate',expired:'b-slate',renewed:'b-purple'};
   const typeLabel={recurring_annual:tt('recurring annual','recurent anual'),one_off_event:tt('one-off event','eveniment unic'),framework:tt('framework','contract-cadru')};
   const statusLabel={signed:tt('signed','semnat'),sent:tt('sent','trimis'),draft:tt('draft','ciornă'),expired:tt('expired','expirat'),renewed:tt('renewed','reînnoit')};
-  return hero('📄 '+tt('Contracts','Contracte'),tt('Contracts, by legal entity','Contractele, pe entitatea legală'),tt('Number, type, term, signed status, renewal chain (renewal_of) and archive link (Drive). Billing happens from the correct legal entity.','Număr, tip, perioadă, status semnat, lanț de reînnoiri (renewal_of) și link de arhivă (Drive). Facturarea se face de pe entitatea legală corectă.'),
+  const sb={signed:'b-teal',sent:'b-amber',draft:'b-slate',expired:'b-slate',renewed:'b-purple'};
+
+  let rows=CONTRACTS.slice();
+  if(ctrFilter.q){ const q=ctrFilter.q.toLowerCase(); rows=rows.filter(c=>c.num.toLowerCase().includes(q)||c.client.toLowerCase().includes(q)); }
+  if(ctrFilter.type!=='all') rows=rows.filter(c=>c.type===ctrFilter.type);
+  if(ctrFilter.status!=='all') rows=rows.filter(c=>c.status===ctrFilter.status);
+  if(ctrFilter.entity!=='all') rows=rows.filter(c=>c.entity===ctrFilter.entity);
+
+  const activeExtra=CTR_EXTRA_COLS.filter(x=>ctrCols[x.k]);
+  const baseColCount=8; /* #, Contract, Client, Type, Term, Entity, Value, chevron */
+
+  function detailField(label,value){ return `<div class="ctr-detail-field"><label>${label}</label><span>${value}</span></div>`; }
+  function billingValue(c){ return fin?tt(c.billing,c.billingRo):`<span class="ctr-masked" title="${tt('Visible to Finance and the Owner','Vizibil pentru Finance și Owner')}">🔒 ${tt('Finance only','Doar Finance')}</span>`; }
+  function detailPanelHtml(c){
+    return `<div class="ctr-detail">
+      ${detailField(tt('Legal name','Nume legal'),c.legal||'—')}
+      ${detailField('CUI',c.cui||'—')}
+      ${detailField(tt('Client contract #','Nr. contract client'),c.clientRef||'—')}
+      ${detailField(tt('Billing rule','Regulă facturare'),billingValue(c))}
+      ${detailField(tt('Signed date','Data semnării'),c.signed?ctrFmtDate(c.signed):'—')}
+      ${detailField(tt('Estimated value','Valoare estimată'),ctrValueCell(c.est,fin))}
+      ${detailField(tt('Previous year value','Valoare an anterior'),ctrValueCell(c.prev,fin))}
+      ${detailField(tt('Legal entity','Entitate legală'),c.entity)}
+      ${detailField('Drive',c.drive?`<a href="${c.drive}" target="_blank" style="color:var(--pink)">${tt('Open folder','Deschide folderul')} ↗</a>`:'—')}
+      ${detailField(tt('Notes','Note'),tt(c.notes,c.notesRo)||'—')}
+      <div class="ctr-detail-actions"><a class="btn btn-secondary btn-sm" href="#">${tt('Open contract','Deschide contractul')} ↗</a></div>
+    </div>`;
+  }
+  function extraValue(x,c){
+    if(x.k==='clientRef') return c.clientRef||'—';
+    if(x.k==='legal') return c.legal||'—';
+    if(x.k==='cui') return c.cui||'—';
+    if(x.k==='billing') return billingValue(c);
+    if(x.k==='signed') return c.signed?ctrFmtDate(c.signed):'—';
+    if(x.k==='entityFull') return c.entity;
+    if(x.k==='drive') return c.drive?`<a href="${c.drive}" target="_blank" style="color:var(--pink)">↗</a>`:'—';
+    if(x.k==='notes') return tt(c.notes,c.notesRo)||'—';
+    return '—';
+  }
+
+  function termBlock(c){
+    const term=ctrTermInfo(c);
+    if(term.single) return `<div class="term-wrap"><span class="term-dates">${term.label}</span></div>`;
+    const pct=Math.round(term.frac*100);
+    return `<div class="term-wrap">
+      <span class="term-dates">${ctrFmtDate(c.start)} – ${ctrFmtDate(c.end)}</span>
+      <div class="term-track"><div class="term-fill ${term.state}" style="width:${pct}%"></div></div>
+      ${term.label?`<span class="term-label ${term.state==='critical'?'critical':''}">${term.label}</span>`:''}
+    </div>`;
+  }
+
+  const extraTh=activeExtra.map(x=>`<th>${tt(x.l,x.lRo)}</th>`).join('');
+  const bodyRows=rows.map((c,i)=>{
+    const entityShort=CTR_ENTITY_SHORT[c.entity]||c.entity.slice(0,4).toUpperCase();
+    const expanded=ctrExpanded===c.num;
+    const extraTd=activeExtra.map(x=>{ const v=extraValue(x,c); return `<td style="font-size:11.5px;color:var(--text-mid)" title="${String(v).replace(/<[^>]*>/g,'').replace(/"/g,'&quot;')}">${v}</td>`; }).join('');
+    const mainRow=`<tr class="ctr-row" onclick="ctrToggleExpand('${c.num}')">
+      <td class="ctr-num-cell">${i+1}</td>
+      <td><div class="ctr-two-line"><a href="#" class="ctr-link" onclick="event.stopPropagation()" title="${c.num}">${c.num}</a><span class="ctr-line2">${c.clientRef||'—'}</span></div></td>
+      <td><div class="ctr-two-line"><span class="ctr-line1">${c.client}</span><span class="ctr-line2" title="${c.legal?c.legal+' · '+c.cui:''}">${c.legal?c.legal+' · '+c.cui:'—'}</span></div></td>
+      <td><div class="ctr-two-line"><span class="ctr-line1">${typeLabel[c.type]}</span><span><span class="badge ${sb[c.status]}">${statusLabel[c.status]}</span></span></div></td>
+      <td>${termBlock(c)}</td>
+      <td class="ctr-col-entity"><span class="ctr-entity-chip" title="${c.entity}">${entityShort}</span></td>
+      <td class="ctr-col-value"><div class="ctr-value">${ctrValueCell(c.est,fin)}${ctrValueCell(c.prev,fin)}</div></td>
+      ${extraTd}
+      <td><span class="ctr-chevron ${expanded?'open':''}">›</span></td>
+    </tr>`;
+    const detailRow=expanded?`<tr class="ctr-detail-row"><td colspan="${baseColCount+activeExtra.length}">${detailPanelHtml(c)}</td></tr>`:'';
+    return mainRow+detailRow;
+  }).join('');
+
+  tw.innerHTML=rows.length?`<table class="data-table ctr-table"><thead><tr>
+    <th style="width:32px">${tt('No.','Nr.')}</th>
+    <th style="width:120px">${tt('Contract','Contract')}</th>
+    <th style="width:200px">${tt('Client','Client')}</th>
+    <th style="width:120px">${tt('Type','Tip')}</th>
+    <th style="width:170px">${tt('Term','Perioadă')}</th>
+    <th class="ctr-col-entity" style="width:64px">${tt('Entity','Entitate')}</th>
+    <th class="ctr-col-value" style="width:100px">${tt('Value','Valoare')}</th>
+    ${extraTh}
+    <th style="width:32px"></th>
+  </tr></thead><tbody>${bodyRows}</tbody></table>`
+   :`<div style="text-align:center;color:var(--text-muted);padding:32px;font-size:13px">${tt('No contracts match this filter.','Niciun contract nu se potrivește cu acest filtru.')}</div>`;
+
+  const cardsEl=document.getElementById('ctrCards');
+  if(cardsEl){
+    cardsEl.innerHTML=rows.map(c=>{
+      const expanded=ctrExpanded===c.num;
+      return `<div class="ctr-card">
+        <div class="ctr-card-head" onclick="ctrToggleExpand('${c.num}')">
+          <div><div class="ctr-card-title">${c.num}</div><div class="ctr-card-client">${c.client}</div></div>
+          <span class="ctr-chevron ${expanded?'open':''}">›</span>
+        </div>
+        <div class="ctr-card-badges"><span class="badge b-slate">${typeLabel[c.type]}</span><span class="badge ${sb[c.status]}">${statusLabel[c.status]}</span></div>
+        <div class="ctr-card-term">${termBlock(c)}</div>
+        ${expanded?detailPanelHtml(c):''}
+      </div>`;
+    }).join('');
+  }
+
+  const cnt=document.getElementById('ctrCount');
+  if(cnt) cnt.textContent=tt(`Showing ${rows.length} of ${CONTRACTS.length} contracts`,`${rows.length} din ${CONTRACTS.length} contracte afișate`);
+
+  const chipsEl=document.getElementById('ctrChips');
+  if(chipsEl){
+    const chips=[];
+    if(ctrFilter.q) chips.push({k:'q',label:tt('Search: ','Căutare: ')+ctrFilter.q});
+    if(ctrFilter.type!=='all') chips.push({k:'type',label:typeLabel[ctrFilter.type]});
+    if(ctrFilter.status!=='all') chips.push({k:'status',label:statusLabel[ctrFilter.status]});
+    if(ctrFilter.entity!=='all') chips.push({k:'entity',label:CTR_ENTITY_SHORT[ctrFilter.entity]||ctrFilter.entity});
+    chipsEl.innerHTML=chips.length?chips.map(ch=>`<span class="ctr-chip">${ch.label}<button onclick="ctrClearFilter('${ch.k}')">✕</button></span>`).join('')+`<button class="ctr-clear" onclick="ctrClearAll()">${tt('Clear all','Șterge tot')}</button>`:'';
+  }
+}
+
+S.contracts=()=>{
+  ctrExpanded=null;
+  const entityOpts=[...new Set(CONTRACTS.map(c=>c.entity))];
+  const colsMenuHtml=CTR_EXTRA_COLS.map(x=>`<label><input type="checkbox" ${ctrCols[x.k]?'checked':''} onchange="ctrToggleCol('${x.k}')"> ${tt(x.l,x.lRo)}</label>`).join('');
+  return hero('📄 '+tt('Contracts','Contracte'),tt('Contracts, by legal entity','Contractele, pe entitatea legală'),tt('Contract lifecycle by legal entity. Fiscal invoicing stays in SmartBill/SAGA.','Ciclul de viață al contractului, pe entitate legală. Facturarea fiscală rămâne în SmartBill/SAGA.'),
     role==='contracts_admin'||role==='master'?'<button class="btn btn-primary btn-sm">+ '+tt('New contract','Contract nou')+'</button>':'')+
   `<div class="page-body">
-   ${role==='ops'?'<div class="banner banner-amber">🔒 '+tt('As Operations you see contracts exist for operational context, but <b>financial terms are masked</b>.','Ca Operations vezi existența contractelor pentru context operațional, dar <b>termenii financiari sunt mascați</b>.')+'</div>':''}
-   <div class="card" style="padding:0;overflow:hidden"><table class="data-table"><thead><tr><th>${tt('No.','Nr.')}</th><th>${tt('Client','Client')}</th><th>${tt('Type','Tip')}</th><th>${tt('Status','Status')}</th><th>${tt('Term','Perioadă')}</th><th>${tt('Entity','Entitate')}</th><th>${tt('Rule (billing_rule)','Regulă (billing_rule)')}</th></tr></thead><tbody>
-   ${data.map(d=>`<tr><td style="font-weight:600">${d[0]}</td><td>${d[1]}</td><td><span class="badge b-slate">${typeLabel[d[2]]}</span></td><td><span class="badge ${sb[d[3]]}">${statusLabel[d[3]]}</span></td><td style="font-size:12px">${d[4]}</td><td style="font-size:11px;color:var(--text-muted)">${d[5]}</td><td>${fin?tt(d[6],d[7]):'<span class="masked">••••• 🔒</span>'}</td></tr>`).join('')}
-   </tbody></table></div></div>`;
+   ${role==='ops'?'<div class="banner banner-amber">🔒 '+tt('As Operations you see contracts exist for operational context, but financial values are masked — shown as a lock, never as "Not set".','Ca Operations vezi existența contractelor pentru context operațional, dar valorile financiare sunt mascate — arătate ca lacăt, niciodată ca „Not set".')+'</div>':''}
+   <div class="ctr-toolbar">
+     <input class="ctr-search" type="text" placeholder="${tt('Search by client or contract #…','Caută după client sau nr. contract…')}" oninput="ctrSearch(this.value)">
+     <div class="ctr-filters">
+       <select onchange="ctrSetType(this.value)"><option value="all">${tt('All types','Toate tipurile')}</option><option value="recurring_annual">${tt('recurring annual','recurent anual')}</option><option value="one_off_event">${tt('one-off event','eveniment unic')}</option><option value="framework">${tt('framework','contract-cadru')}</option></select>
+       <select onchange="ctrSetStatus(this.value)"><option value="all">${tt('All statuses','Toate statusurile')}</option><option value="draft">${tt('draft','ciornă')}</option><option value="sent">${tt('sent','trimis')}</option><option value="signed">${tt('signed','semnat')}</option><option value="expired">${tt('expired','expirat')}</option><option value="renewed">${tt('renewed','reînnoit')}</option></select>
+       <select onchange="ctrSetEntity(this.value)"><option value="all">${tt('All entities','Toate entitățile')}</option>${entityOpts.map(e=>`<option value="${e}">${CTR_ENTITY_SHORT[e]||e}</option>`).join('')}</select>
+       <div class="ctr-cols-wrap">
+         <button class="btn btn-secondary btn-sm" onclick="ctrToggleColsMenu()">${tt('Columns','Coloane')} ▾</button>
+         <div class="ctr-cols-menu" id="ctrColsMenu">${colsMenuHtml}</div>
+       </div>
+     </div>
+   </div>
+   <div class="ctr-chips" id="ctrChips"></div>
+   <p class="ctr-count" id="ctrCount"></p>
+   <div class="card ctr-table-wrap" id="ctrTableWrap"></div>
+   <div class="ctr-cards" id="ctrCards"></div>
+  </div>`;
 };
 
 /* GROUPS */
@@ -890,6 +1154,7 @@ function renderScreen(){
   if(currentScreen==='academy') renderQuiz();
   if(currentScreen==='plans'){ plansFilter={q:'',module:'all'}; renderPlansTable(); }
   if(currentScreen==='presentations'){ presFilter='all'; renderPresentationsGrid(); }
+  if(currentScreen==='contracts'){ ctrFilter={q:'',type:'all',status:'all',entity:'all'}; ctrColsOpen=false; renderContractsTable(); }
 }
 
 /* BOOT */
