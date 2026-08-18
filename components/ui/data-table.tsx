@@ -18,7 +18,12 @@ import { useEffect, useState } from "react";
 
 export type DataTableColumn<T> = {
   key: string;
-  header: string; // pre-translated by the caller (this component has no i18n opinion)
+  // Pre-translated by the caller (this component has no i18n opinion).
+  // ReactNode, not just string, so a caller can pass a clickable sort
+  // button (see /clients, /groups) instead of a plain label — a bare
+  // string remains valid since string satisfies ReactNode, so /contracts'
+  // existing plain-label columns are unaffected by this widening.
+  header: React.ReactNode;
   width: number; // px — drives the <col>, matches table-layout:fixed
   align?: "left" | "right";
   /** Sticky-left. At most the row-number column (always sticky) plus one data column should set this — stacking more than that isn't visually meaningful. */
@@ -396,7 +401,7 @@ export function ColumnsDropdown({
   options,
 }: {
   label: string;
-  options: { key: string; label: string; checked: boolean; onChange: (checked: boolean) => void }[];
+  options: { key: string; label: React.ReactNode; checked: boolean; onChange: (checked: boolean) => void }[];
 }) {
   return (
     <details className="group relative">
