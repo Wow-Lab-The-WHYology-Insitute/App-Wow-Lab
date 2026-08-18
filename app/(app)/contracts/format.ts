@@ -30,3 +30,15 @@ const ENTITY_SHORT_CODES: Record<string, string> = {
 export function entityShortCode(fullName: string) {
   return ENTITY_SHORT_CODES[fullName] ?? fullName.replace(/[^A-Za-z]/g, "").slice(0, 4).toUpperCase();
 }
+
+// The exact marker text seed migrations write into a demo contract's
+// notes. Used to be reinforced visually by contract_number's own
+// "DEMO-2026-" prefix in every list row; now that contract_number is gone
+// (202608180002, replaced by entry_number/exit_number), this substring
+// check is the only signal left, so it drives a visible badge instead of
+// a sentence buried in the expanded detail panel.
+const DEMO_RECORD_MARKER = "Example seed record";
+
+export function isDemoRecord(notes: string | null) {
+  return notes != null && notes.includes(DEMO_RECORD_MARKER);
+}

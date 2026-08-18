@@ -25,7 +25,7 @@ type ContactRow = {
 };
 type ContractRow = {
   id: string;
-  contract_number: string;
+  exit_number: string | null;
   contract_type: string;
   status: string;
   period_start: string | null;
@@ -118,7 +118,7 @@ export default async function ClientDetailPage({
   // one column).
   const { data: contracts } = await supabase
     .from("contracts_billing_masked")
-    .select("id, contract_number, contract_type, status, period_start, period_end, billing_rule, legal_entity_id")
+    .select("id, exit_number, contract_type, status, period_start, period_end, billing_rule, legal_entity_id")
     .eq("client_id", id)
     .returns<ContractRow[]>();
 
@@ -213,9 +213,11 @@ export default async function ClientDetailPage({
               <li key={c.id} className="border-b border-black/5 pb-3 last:border-0 last:pb-0">
                 <Link
                   href={`/contracts/${c.id}`}
-                  className="font-body text-brand-pink font-mono text-sm font-semibold hover:underline"
+                  className={`font-body font-mono text-sm font-semibold hover:underline ${
+                    c.exit_number ? "text-brand-pink" : "text-muted italic"
+                  }`}
                 >
-                  {c.contract_number}
+                  {c.exit_number || `No exit number yet — ${client.name}`}
                 </Link>
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   <Badge>{c.contract_type}</Badge>

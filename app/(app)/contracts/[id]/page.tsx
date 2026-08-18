@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
+import { isDemoRecord } from "../format";
 import { MarkSignedButton } from "./mark-signed-button";
 
 type ContractRow = {
   id: string;
   client_id: string;
   legal_entity_id: string;
-  contract_number: string;
+  entry_number: string | null;
+  exit_number: string | null;
   contract_type: string;
   status: string;
   period_start: string | null;
@@ -66,7 +68,7 @@ export default async function ContractDetailPage({
   const { data: contract } = await supabase
     .from("contracts_billing_masked")
     .select(
-      "id, client_id, legal_entity_id, contract_number, contract_type, status, period_start, period_end, renewal_of, billing_rule, drive_ref, notes, offer_structure, ac_link",
+      "id, client_id, legal_entity_id, entry_number, exit_number, contract_type, status, period_start, period_end, renewal_of, billing_rule, drive_ref, notes, offer_structure, ac_link",
     )
     .eq("id", id)
     .maybeSingle<ContractRow>();
@@ -111,14 +113,24 @@ export default async function ContractDetailPage({
         <Link href="/contracts" className="font-body text-muted text-xs hover:underline">
           ← Contracts
         </Link>
-        <h1 className="font-display text-2xl text-brand-pink">
-          {contract.contract_number}
+        <h1
+          className={`font-display text-2xl ${contract.exit_number ? "text-brand-pink" : "text-muted italic"}`}
+        >
+          {contract.exit_number || `No exit number yet — ${client?.name ?? contract.client_id}`}
         </h1>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <Badge>{contract.contract_type}</Badge>
           <Badge tone={contract.status === "signed" ? "neutral" : "pink"}>
             {contract.status}
           </Badge>
+          {isDemoRecord(contract.notes) && (
+            <span
+              title="Example seed record — not a verified real contract."
+              className="font-body inline-flex w-fit items-center gap-1 rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700"
+            >
+              ⚠ Demo data
+            </span>
+          )}
           {canManage && contract.status !== "signed" && (
             <MarkSignedButton contractId={contract.id} />
           )}
@@ -132,6 +144,8 @@ export default async function ContractDetailPage({
           href={client ? `/clients/${client.id}` : undefined}
         />
         <Kv label="Legal entity" value={legalEntity?.name ?? contract.legal_entity_id} />
+        <Kv label="Entry number" value={contract.entry_number || "—"} />
+        <Kv label="Exit number" value={contract.exit_number || "—"} />
         <Kv label="Period" value={`${contract.period_start ?? "—"} → ${contract.period_end ?? "—"}`} />
         <Kv label="Renewal of" value={contract.renewal_of ?? "—"} mono={Boolean(contract.renewal_of)} />
         <div className="flex items-baseline justify-between border-b border-black/5 py-2 text-sm last:border-0">

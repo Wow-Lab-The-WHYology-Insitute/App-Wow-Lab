@@ -8,13 +8,13 @@ type ContractRow = {
   organization_id: string;
   client_id: string;
   legal_entity_id: string;
-  contract_number: string;
+  entry_number: string | null;
+  exit_number: string | null;
   contract_type: string;
   status: string;
   period_start: string | null;
   period_end: string | null;
   billing_rule: string | null;
-  client_contract_number: string | null;
   signed_date: string | null;
   estimated_value: number | null;
   previous_year_value: number | null;
@@ -88,9 +88,9 @@ export default async function ContractsPage() {
   const { data: contracts } = await supabase
     .from("contracts_billing_masked")
     .select(
-      "id, organization_id, client_id, legal_entity_id, contract_number, contract_type, status, period_start, period_end, billing_rule, client_contract_number, signed_date, estimated_value, previous_year_value, offer_structure, ac_link, drive_ref, notes",
+      "id, organization_id, client_id, legal_entity_id, entry_number, exit_number, contract_type, status, period_start, period_end, billing_rule, signed_date, estimated_value, previous_year_value, offer_structure, ac_link, drive_ref, notes",
     )
-    .order("contract_number")
+    .order("exit_number", { ascending: true, nullsFirst: false })
     .returns<ContractRow[]>();
 
   // Two follow-up lookups rather than a PostgREST embed through the view

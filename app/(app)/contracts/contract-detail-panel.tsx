@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useTranslations } from "@/lib/i18n";
 import { ValueCell } from "@/components/ui/data-table";
 import { contractsDict } from "./i18n";
-import { formatMoney } from "./format";
+import { formatMoney, isDemoRecord } from "./format";
 
 export type ContractDetail = {
   id: string;
   clientLegalName: string | null;
   clientCui: string | null;
-  client_contract_number: string | null;
+  entry_number: string | null;
+  exit_number: string | null;
   billing_rule: string | null;
   signed_date: string | null;
   estimated_value: number | null;
@@ -52,6 +53,14 @@ export function ContractDetailPanel({
 
   return (
     <div className="flex flex-col gap-4">
+      {isDemoRecord(contract.notes) && (
+        <div
+          title={t("demo_badge_title")}
+          className="font-body inline-flex w-fit items-center gap-1.5 rounded-full bg-brand-orange/15 px-3 py-1 text-xs font-medium text-brand-orange"
+        >
+          ⚠ {t("demo_badge_label")}
+        </div>
+      )}
       <dl
         className="grid gap-x-6 gap-y-3"
         style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}
@@ -60,9 +69,8 @@ export function ContractDetailPanel({
         <DetailField label={t("detail_cui")} mono>
           {contract.clientCui || "—"}
         </DetailField>
-        <DetailField label={t("detail_client_contract_number")}>
-          {contract.client_contract_number || "—"}
-        </DetailField>
+        <DetailField label={t("detail_entry_number")}>{contract.entry_number || "—"}</DetailField>
+        <DetailField label={t("detail_exit_number")}>{contract.exit_number || "—"}</DetailField>
         <DetailField label={t("detail_billing_rule")}>
           <ValueCell
             value={contract.billing_rule}
