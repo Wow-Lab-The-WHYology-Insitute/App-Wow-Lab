@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ShellChrome } from "./shell-chrome";
+import { LocaleProvider } from "@/lib/i18n";
 
 type MembershipRow = {
   organization_id: string;
@@ -165,13 +166,15 @@ export default async function AppLayout({
   ];
 
   return (
-    <ShellChrome
-      navGroups={navGroups}
-      userEmail={user.email ?? ""}
-      roleLabel={roleLabel}
-      avatarUrl={avatarUrl}
-    >
-      {children}
-    </ShellChrome>
+    <LocaleProvider>
+      <ShellChrome
+        navGroups={navGroups}
+        userEmail={user.email ?? ""}
+        roleLabel={roleLabel}
+        avatarUrl={avatarUrl}
+      >
+        {children}
+      </ShellChrome>
+    </LocaleProvider>
   );
 }
