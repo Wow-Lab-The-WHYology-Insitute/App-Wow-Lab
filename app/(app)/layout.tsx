@@ -2,39 +2,12 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ShellChrome } from "./shell-chrome";
 import { LocaleProvider } from "@/lib/i18n";
+import { checkCapability } from "@/lib/capabilities";
 
 type MembershipRow = {
   organization_id: string;
   roles: { display_name: string } | null;
 };
-
-// Wraps every has_capability RPC call used for nav-gating below. On error
-// (not "capability denied", an actual failed request) this still defaults
-// to false — hiding the nav item stays the correct fail-closed default,
-// since real access is enforced by RLS regardless of what the nav shows,
-// so failing open here would just be misleading, not safer. What this
-// adds: one immediate retry (no backoff needed, this is a single fast RPC
-// call) as cheap insurance against a one-off transient hiccup, and an
-// explicit console.error if it fails twice — so a repeat of this isn't
-// silent next time, it leaves a trace in Vercel's function logs keyed on
-// the exact capability/org that failed.
-async function checkCapability(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  cap: string,
-  org: string,
-): Promise<boolean> {
-  let lastError: unknown = null;
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    const { data, error } = await supabase.rpc("has_capability", { cap, org });
-    if (!error) return Boolean(data);
-    lastError = error;
-  }
-  console.error(
-    `has_capability RPC failed twice (cap=${cap}, org=${org}) — defaulting to false (nav item hidden; RLS remains the real access control regardless of this UI gate):`,
-    lastError,
-  );
-  return false;
-}
 
 // S3 brand shell for every authenticated page. Nav items are additive by
 // design: each entry below is just an href/label pair gated by whatever
