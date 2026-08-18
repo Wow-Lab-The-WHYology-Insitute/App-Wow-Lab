@@ -28,12 +28,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${cabin.variable} ${tiltNeon.variable} antialiased`}
-      >
-        {children}
-      </body>
+    // Font variable classes live on <html>, not <body>: Tailwind's @theme
+    // block declares --font-display/--font-body on :root (= <html>),
+    // referencing var(--font-tilt-neon)/var(--font-cabin) — a CSS custom
+    // property can only resolve a var() reference to another custom
+    // property defined on the SAME element or an ancestor, never a
+    // descendant. With the variable classes on <body> (a descendant of
+    // :root), --font-tilt-neon/--font-cabin didn't exist yet at the point
+    // :root's declarations were evaluated, so --font-display/--font-body
+    // silently resolved to invalid and every page fell back to the system
+    // font stack — confirmed live (computed font-family had no Cabin/Tilt
+    // Neon in it, document.fonts showed both as "unloaded") before this
+    // fix, standard next/font + Tailwind v4 @theme fix afterward.
+    <html lang="en" className={`${cabin.variable} ${tiltNeon.variable}`}>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }
