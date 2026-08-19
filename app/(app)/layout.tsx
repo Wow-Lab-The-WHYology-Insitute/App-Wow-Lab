@@ -104,25 +104,29 @@ export default async function AppLayout({
     }
   }
 
+  // labelKey, not label: these render inside ShellChrome, a client
+  // component that resolves them through useTranslations(chromeDict) — this
+  // server component has no locale (that's a client-only, localStorage-
+  // persisted preference), so it can only pass the key, never the string.
   const navGroups = [
     {
       items: [
-        { href: "/profile", label: "Dashboard" },
+        { href: "/profile", labelKey: "nav_profile" },
         ...(canManageUsers
-          ? [{ href: "/admin/users", label: "Users & Roles" }]
+          ? [{ href: "/admin/users", labelKey: "nav_users_roles" }]
           : []),
       ],
     },
     ...(canReadClients || canReadContracts
       ? [
           {
-            label: "Clients & Contracts",
+            labelKey: "nav_group_clients_contracts",
             items: [
               ...(canReadClients
-                ? [{ href: "/clients", label: "Clients" }]
+                ? [{ href: "/clients", labelKey: "nav_clients" }]
                 : []),
               ...(canReadContracts
-                ? [{ href: "/contracts", label: "Contracts" }]
+                ? [{ href: "/contracts", labelKey: "nav_contracts" }]
                 : []),
             ],
           },
@@ -131,8 +135,8 @@ export default async function AppLayout({
     ...(canReadGroups
       ? [
           {
-            label: "Operational",
-            items: [{ href: "/groups", label: "Groups & Enrollment" }],
+            labelKey: "nav_group_operational",
+            items: [{ href: "/groups", labelKey: "nav_groups_enrollment" }],
           },
         ]
       : []),

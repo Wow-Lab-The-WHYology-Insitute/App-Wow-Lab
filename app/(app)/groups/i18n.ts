@@ -3,7 +3,7 @@ import type { Dictionary } from "@/lib/i18n";
 // Shared between groups-client.tsx and group-detail-panel.tsx — same
 // one-dictionary-not-two reasoning as contracts/i18n.ts and clients/i18n.ts.
 export const groupsDict: Dictionary = {
-  page_title: { en: "Groups & Enrollment", ro: "Grupe & Înscrieri" },
+  page_title: { en: "Groups & Enrollment", ro: "Grupe și înscrieri" },
   page_title_trainer_view: { en: "Your Groups", ro: "Grupele tale" },
   page_subtitle: {
     en: "Enrollment containers by client and module. Trainer allocation and delivery live on each group's sessions.",
