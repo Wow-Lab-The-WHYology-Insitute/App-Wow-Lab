@@ -4,9 +4,11 @@ import { useState } from "react";
 import Image from "next/image";
 import { NavLink } from "./nav-link";
 import { SignOutButton } from "./sign-out-button";
+import { useTranslations } from "@/lib/i18n";
+import { chromeDict } from "./i18n";
 
-type NavItem = { href: string; label: string };
-type NavGroup = { label?: string; items: NavItem[] };
+type NavItem = { href: string; labelKey: string };
+type NavGroup = { labelKey?: string; items: NavItem[] };
 
 // Desktop (md: and up) is unchanged from S3: sidebar is a normal, always-
 // visible flex child (sticky, in-flow, w-60). Below md, the same <aside>
@@ -28,6 +30,7 @@ export function ShellChrome({
   children: React.ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const t = useTranslations(chromeDict);
 
   return (
     <div className="flex min-h-dvh">
@@ -50,17 +53,17 @@ export function ShellChrome({
         </div>
         <nav className="flex flex-col gap-4 px-3">
           {navGroups.map((group, i) => (
-            <div key={group.label ?? i} className="flex flex-col gap-1">
-              {group.label && (
+            <div key={group.labelKey ?? i} className="flex flex-col gap-1">
+              {group.labelKey && (
                 <span className="font-body px-3 text-[10px] font-bold tracking-wide text-white/30 uppercase">
-                  {group.label}
+                  {t(group.labelKey)}
                 </span>
               )}
               {group.items.map((item) => (
                 <NavLink
                   key={item.href}
                   href={item.href}
-                  label={item.label}
+                  label={t(item.labelKey)}
                   onNavigate={() => setIsOpen(false)}
                 />
               ))}
@@ -72,7 +75,7 @@ export function ShellChrome({
       {isOpen && (
         <button
           type="button"
-          aria-label="Close menu"
+          aria-label={t("aria_close_menu")}
           onClick={() => setIsOpen(false)}
           className="fixed inset-0 z-30 bg-black/40 md:hidden"
         />
@@ -83,7 +86,7 @@ export function ShellChrome({
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
-              aria-label="Open menu"
+              aria-label={t("aria_open_menu")}
               onClick={() => setIsOpen(true)}
               className="text-ink shrink-0 rounded-lg p-1.5 hover:bg-black/5 md:hidden"
             >
