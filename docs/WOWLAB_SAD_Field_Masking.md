@@ -69,12 +69,20 @@ Lista de capabilități replică exact logica din vederea existentă — nu se s
 comportamentul, se închide doar calea ocolitoare.
 
 Coloanele rămase (18) primesc `GRANT SELECT` explicit, enumerate pe nume:
-`id`, `organization_id`, `client_id`, `legal_entity_id`, `contract_number`, `contract_type`,
-`period_start`, `period_end`, `status`, `renewal_of`, `drive_ref`, `notes`, `created_at`,
-`updated_at`, `client_contract_number`, `signed_date`, `offer_structure`, `ac_link`.
+`id`, `organization_id`, `client_id`, `legal_entity_id`, `entry_number`, `exit_number`,
+`contract_type`, `period_start`, `period_end`, `status`, `renewal_of`, `drive_ref`, `notes`,
+`created_at`, `updated_at`, `signed_date`, `offer_structure`, `ac_link`.
 
 Fără wildcard. O coloană nouă adăugată în viitor nu primește automat drept de citire — asta
 e intenționat: adăugarea unei coloane trebuie să fie o decizie conștientă despre vizibilitate.
+
+**Lista de mai sus e text descriptiv, nu sursă de adevăr.** `contract_number` și
+`client_contract_number` au apărut inițial aici, apoi au fost înlocuite de `entry_number`/
+`exit_number` în 202608180002 — scrisă în aceeași zi cu acest document, dar după el. Găsit la
+implementare (202608190001), nu la scrierea acestui document. La momentul implementării,
+verifică lista reală de coloane din `information_schema.columns` pe proiectul live — nu copia
+de aici, care poate rămâne neactualizată față de o migrație ulterioară, exact cum s-a
+întâmplat la primul pas.
 
 ### 2.2 `client_contacts` — blocat pe decizie de business
 
@@ -272,14 +280,44 @@ Două apărări, ambele necesare: schema `app` neexpusă, și predicatul dublu d
 
 ### 5.4 Transferul de proprietate cere drepturi pe schemă
 
-`ALTER ... OWNER TO` eșuează cu „permission denied for schema public" până când noul rol
-primește `USAGE, CREATE` pe schemă. Nu e suficient un grant pe tabel.
+`ALTER ... OWNER TO` eșuează cu „permission denied for schema X" până când noul rol primește
+`USAGE, CREATE` pe schema X. Nu e suficient un grant pe tabel.
+
+**X depinde de unde trăiește obiectul, nu e mereu `public`.** Testul care a găsit inițial
+această capcană a fost făcut împotriva alternativei respinse din secțiunea 4 (reatribuirea
+proprietății VEDERII, care trăiește în `public`) — de-acolo vine „schema public" de mai sus.
+Implementarea aleasă (3.1) nu reatribuie vederea; reatribuie FUNCȚIA, care trăiește în schema
+`app`. Grant-ul aplicat efectiv în 202608190001 e `grant usage, create on schema app to
+app_masking_owner`, nu pe `public`. Regula generală — rolul nou are nevoie de `USAGE, CREATE`
+pe schema obiectului pe care urmează să-l dețină — rămâne corectă; doar schema concretă diferă
+după caz. De verificat la fiecare pas viitor din secțiunea 7, nu presupus din acest exemplu.
 
 ### 5.5 `postgres` are `BYPASSRLS` în acest proiect
 
 `rolbypassrls = true`, deși `rolsuper = false`. Orice obiect deținut de `postgres` care rulează
 cu drepturile proprietarului sare peste RLS. Motivul pentru care 3.1 cere un proprietar dedicat
 fără `BYPASSRLS`.
+
+### 5.6 `ALTER FUNCTION ... OWNER TO` cere apartenență temporară la rolul țintă
+
+Eșuează cu `42501: must be able to SET ROLE "app_masking_owner"` dacă rolul care execută
+`ALTER` (aici, `postgres`) nu e membru al rolului țintă. `CREATE ROLE` nu acordă automat
+apartenență inversă — proprietarul creator nu devine membru al rolului creat doar prin faptul
+că l-a creat.
+
+Găsit rulând efectiv migrația (`scripts/verify_contracts_field_masking.sql`), nu presupus
+dinainte. Corectat prin acordare temporară, imediat înaintea transferului, retrasă imediat
+după:
+
+```sql
+grant app_masking_owner to postgres;
+alter function app.masked_contract_financials(uuid) owner to app_masking_owner;
+revoke app_masking_owner from postgres;
+```
+
+Apartenența nu rămâne ca stare permanentă — `postgres` nu are nevoie de nimic în plus de la
+`app_masking_owner` odată ce transferul de proprietate s-a încheiat, iar lăsarea ei ar lărgi
+inutil suprafața fără niciun beneficiu (postgres oricum ocolește RLS peste tot, per 5.5).
 
 ---
 
@@ -307,6 +345,18 @@ Simularea de sesiune se face prin `set_config('request.jwt.claims', ...)` plus
 `SET LOCAL ROLE authenticated`, cu UUID-urile reale ale utilizatorilor fixture. Se rezolvă
 toate ID-urile cât timp scriptul e încă privilegiat, apoi se comută o singură dată — nu se
 încearcă întoarcerea la `postgres` (`RESET ROLE` revine la `cli_login_postgres`).
+
+**Rândurile-fixture trebuie să satisfacă și politicile row-level neînrudite cu masking-ul, nu
+doar să existe în organizația corectă.** Găsit rulând testul pentru `contracts`: politica de
+`SELECT` deja existentă (202608100003) mai desparte `finance_operations` de
+`finance_reporting` la nivel de RÂND, după `client_type` al clientului
+(`private_school`/`parent_b2c` vs restul) — complet independent de mascarea coloanelor pe
+care o testează acest document. Un rând-fixture cu un `client_type` ales arbitrar poate face
+utilizatorul Finance de test să nu vadă rândul deloc, ceea ce ar pica asserțiunea 1 dintr-un
+motiv care n-are nicio legătură cu masking-ul — o falsă alarmă care ar cere depanare pe
+mecanismul greșit. Rândurile-fixture trebuie alese sau seed-uite ca să satisfacă explicit și
+politica row-level relevantă a fiecărui utilizator de test testat, verificată separat de
+mecanismul propriu-zis pe care asserțiunea îl vizează.
 
 ### 6.2 Migrație de revenire, scrisă în același commit
 
