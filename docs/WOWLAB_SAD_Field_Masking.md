@@ -319,6 +319,50 @@ Apartenența nu rămâne ca stare permanentă — `postgres` nu are nevoie de ni
 `app_masking_owner` odată ce transferul de proprietate s-a încheiat, iar lăsarea ei ar lărgi
 inutil suprafața fără niciun beneficiu (postgres oricum ocolește RLS peste tot, per 5.5).
 
+**Corecție ulterioară (vezi 5.7): secvența de mai sus a retras apartenența prea devreme.**
+`revoke app_masking_owner from postgres` a rulat corect DUPĂ transferul de proprietate, dar
+ÎNAINTE de `revoke execute ... from public` / `grant execute ... to authenticated` de mai jos
+în migrație (secțiunea 3.1) — moment în care apartenența era deja necesară din nou, pentru un
+motiv diferit de cel documentat aici.
+
+### 5.7 `GRANT`/`REVOKE` pe o funcție cer apartenență activă la rolul proprietar, nu doar la momentul transferului
+
+Nu doar `ALTER ... OWNER TO` (5.6) cere ca rolul care execută comanda să fie membru al
+rolului țintă — orice `GRANT`/`REVOKE` ulterior pe acel obiect cere același lucru, evaluat
+din nou, la momentul în care rulează, nu moștenit din faptul că apartenența a existat cândva.
+
+**Nu eșuează cu o eroare.** Rulate după ce apartenența a fost retrasă, `revoke execute ...
+from public` și `grant execute ... to authenticated` s-au încheiat cu succes — dar cu
+avertismente `01006`/`01007` („no privileges could be revoked"/„no privileges were
+granted"), nu erori — și n-au schimbat nimic. ACL implicit al unei funcții noi (proprietarul
+are tot, `PUBLIC` are `EXECUTE`) rămâne `NULL` până la primul `GRANT`/`REVOKE` explicit care
+îl atinge; materializarea aceea, găsită rulând, nu reușește să elimine `PUBLIC` când rolul
+care încearcă nu mai are autoritate asupra obiectului — rezultatul e ACL-ul implicit
+„înghețat" ca stare explicită, cu `PUBLIC` încă prezent.
+
+Verificat direct: reprodus pe o funcție de unică folosință, în tranzacție cu rollback.
+Rulând perechea revoke/grant CÂT TIMP `postgres` era încă membru al rolului proprietar →
+ACL final corect, fără `PUBLIC`. Aceeași pereche, identică, rulată DUPĂ retragerea
+apartenenței → `PUBLIC` supraviețuiește, `authenticated` nu primește niciodată un grant
+explicit al lui — exact starea găsită live pe `app.masked_contract_financials` după
+202608190001.
+
+Ordinea corectă — apartenența cedată ultima, nu imediat după transferul de proprietate:
+
+```sql
+grant app_masking_owner to postgres;
+alter function app.masked_contract_financials(uuid) owner to app_masking_owner;
+revoke execute on function app.masked_contract_financials(uuid) from public;
+grant execute on function app.masked_contract_financials(uuid) to authenticated;
+revoke app_masking_owner from postgres;
+```
+
+**Recurentă la toate cele cinci tabele rămase** (secțiunea 7) — orice funcție `SECURITY
+DEFINER` deținută de un rol dedicat, urmată de orice grant/revoke pe acea funcție, trebuie să
+păstreze apartenența temporară până DUPĂ ultimul astfel de grant/revoke, nu doar până după
+`ALTER OWNER TO`. Motivul explicit pentru care există această secțiune de capcane: găsită
+rulând, nu anticipată la scrierea mecanismului pentru `contracts`.
+
 ---
 
 ## 6. Protocol de testare fără branching
