@@ -363,6 +363,22 @@ mecanismul propriu-zis pe care asserțiunea îl vizează.
 Fără branch, singura plasă e să poți da înapoi în treizeci de secunde. Nu „teoretic
 reversibil" — un fișier `.sql` care a fost rulat și el în tranzacție cu rollback.
 
+**Nu trăiește în `supabase/migrations/`.** `supabase db push` aplică, în ordine, tot ce
+găsește în acel director și nu apare încă în istoricul remote — inclusiv un fișier de
+revenire, imediat după cel pe care îl anulează, în aceeași rulare. Găsit la pasul `contracts`
+(202608190001/202608190002): `--dry-run` a arătat ambele fișiere ca fiind împinse împreună,
+ceea ce ar fi anulat mascarea chiar în momentul aplicării ei.
+
+Convenția: fișierele de revenire trăiesc în `supabase/rollbacks/`, nu în
+`supabase/migrations/`, exact ca să nu fie niciodată candidat pentru auto-aplicare. Scrise în
+același commit ca migrația pe care o anulează (numele păstrează timestamp-ul migrației
+directe, pentru trasabilitate — doar directorul diferă), verificate în aceeași tranzacție cu
+rollback din `scripts/verify_*.sql`, dar niciodată așezate acolo unde `db push` le-ar putea
+confunda cu o migrație în așteptare. Aplicarea unei reveniri reale rămâne un pas manual,
+deliberat: copiază fișierul înapoi în `supabase/migrations/` cu un timestamp nou (nu cel
+original — istoricul remote ține minte ce s-a aplicat deja), rulează `db push`, apoi mută-l
+înapoi în `supabase/rollbacks/`.
+
 ### 6.3 Una singură pe rundă, la oră fără trafic, verificată imediat în aplicație
 
 Nu șase tabele într-o migrație. `contracts` prima. După aplicare, se deschide efectiv pagina
