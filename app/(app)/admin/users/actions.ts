@@ -79,9 +79,19 @@ export async function inviteUser(
   // (information_schema.triggers) before relying on this, see
   // 202608120001's own header comment. That's what makes the follow-up
   // UPDATE below safe to run immediately, no deferral to first login.
+  //
+  // data.full_name, when supplied, is what the trigger reads
+  // (raw_user_meta_data ->> 'full_name', as of 202608200003) — this is the
+  // ONLY way full_name lands correctly on the first write; the first_name/
+  // last_name UPDATE below happens after the trigger has already run, so it
+  // can never retroactively fix full_name. Left out of the metadata
+  // entirely when neither name field is given, so the trigger's own column
+  // reference resolves to NULL, not a key with an empty-string value.
+  const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
   const admin = createServiceRoleClient();
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+    data: fullName ? { full_name: fullName } : undefined,
   });
 
   if (error || !data.user) {
