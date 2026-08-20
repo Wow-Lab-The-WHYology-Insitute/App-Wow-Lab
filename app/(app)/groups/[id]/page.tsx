@@ -31,7 +31,7 @@ type SessionRow = {
 };
 type UserLookupRow = {
   id: string;
-  email: string;
+  full_name: string;
   first_name: string | null;
   last_name: string | null;
 };
@@ -67,9 +67,19 @@ const GROUP_STATUS_LABELS: Record<string, string> = {
   ended: "Ended",
 };
 
-function displayName(u: Pick<UserLookupRow, "email" | "first_name" | "last_name">) {
+// Same rule as groups/page.tsx's copy: never falls back to email (not even
+// selected below anymore). full_name is NOT NULL but can itself be a raw
+// email (handle_new_auth_user default) -- skipped, not trusted just for
+// being non-null. "" (not null) signals "nothing safe to show" -- this
+// file has no i18n wiring today (MODULE_LABELS etc. above are plain
+// English constants), so callers here fall back to a plain "Unnamed"
+// literal rather than routing through useTranslations, unlike groups/
+// page.tsx's callers (groups-client.tsx, group-detail-panel.tsx), which do.
+function displayName(u: Pick<UserLookupRow, "full_name" | "first_name" | "last_name">) {
   const full = [u.first_name, u.last_name].filter(Boolean).join(" ");
-  return full || u.email;
+  if (full) return full;
+  if (u.full_name && !u.full_name.includes("@")) return u.full_name;
+  return "";
 }
 
 export default async function GroupDetailPage({
@@ -137,7 +147,7 @@ export default async function GroupDetailPage({
     trainerIdsInSessions.length > 0
       ? await supabase
           .from("users")
-          .select("id, email, first_name, last_name")
+          .select("id, full_name, first_name, last_name")
           .in("id", trainerIdsInSessions)
           .returns<UserLookupRow[]>()
       : { data: [] as UserLookupRow[] };
@@ -185,12 +195,12 @@ export default async function GroupDetailPage({
       trainerUserIds.length > 0
         ? await supabase
             .from("users")
-            .select("id, email, first_name, last_name")
+            .select("id, full_name, first_name, last_name")
             .in("id", trainerUserIds)
             .returns<UserLookupRow[]>()
         : { data: [] as UserLookupRow[] };
     trainerOptions = (trainerUsers ?? [])
-      .map((u) => ({ id: u.id, name: displayName(u) }))
+      .map((u) => ({ id: u.id, name: displayName(u) || "Unnamed" }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 

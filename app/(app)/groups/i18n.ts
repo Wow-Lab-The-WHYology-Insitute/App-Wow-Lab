@@ -63,6 +63,15 @@ export const groupsDict: Dictionary = {
   detail_confirmed: { en: "Confirmed", ro: "Confirmați" },
   detail_billed: { en: "Billed", ro: "Facturați" },
   no_trainer: { en: "Unassigned", ro: "Nealocat" },
+  // Distinct from no_trainer: a trainer IS assigned, but has neither a
+  // first/last name nor a usable full_name -- displayName() (page.tsx)
+  // returns "" for this case specifically so it can't be confused with
+  // "no trainer assigned at all" (null). Part of removing email as a
+  // display-name fallback (users field-masking prep) -- unreachable with
+  // today's real data (all 4 previously-unnamed trainer/senior_trainer
+  // accounts were backfilled in 202608200002), kept as a forward-looking
+  // non-PII placeholder for any future account invited without a name.
+  unnamed_trainer: { en: "Unnamed user", ro: "Utilizator fără nume" },
 
   open_group: { en: "View sessions", ro: "Vezi sesiunile" },
 
