@@ -59,7 +59,7 @@ export default async function AdminUsersPage() {
   const { data: memberRows } = await supabase
     .from("user_org_roles")
     .select(
-      "user_id, role_id, users!user_org_roles_user_id_fkey(email, status, first_name, last_name, avatar_url, is_test_account), roles(id, key, display_name)",
+      "user_id, role_id, users!user_org_roles_user_id_fkey(email, full_name, status, first_name, last_name, avatar_url, is_test_account), roles(id, key, display_name)",
     )
     .eq("organization_id", managedOrg.id);
 
@@ -68,6 +68,7 @@ export default async function AdminUsersPage() {
     {
       userId: string;
       email: string;
+      fullName: string | null;
       status: string;
       roleIds: string[];
       roleLabels: string[];
@@ -81,6 +82,7 @@ export default async function AdminUsersPage() {
   for (const row of memberRows ?? []) {
     const u = row.users as unknown as {
       email: string;
+      full_name: string | null;
       status: string;
       first_name: string | null;
       last_name: string | null;
@@ -102,6 +104,7 @@ export default async function AdminUsersPage() {
       membersByUser.set(row.user_id, {
         userId: row.user_id,
         email: u.email,
+        fullName: u.full_name,
         status: u.status,
         roleIds: [r.id],
         roleLabels: [r.display_name],

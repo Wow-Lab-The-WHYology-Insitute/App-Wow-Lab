@@ -71,7 +71,7 @@ export const groupsDict: Dictionary = {
   // today's real data (all 4 previously-unnamed trainer/senior_trainer
   // accounts were backfilled in 202608200002), kept as a forward-looking
   // non-PII placeholder for any future account invited without a name.
-  unnamed_trainer: { en: "Unnamed user", ro: "Utilizator fără nume" },
+  unnamed_user: { en: "Unnamed user", ro: "Utilizator fără nume" },
 
   open_group: { en: "View sessions", ro: "Vezi sesiunile" },
 

@@ -7,6 +7,8 @@ import {
   disableAccess,
   enableAccess,
 } from "./actions";
+import { useTranslations } from "@/lib/i18n";
+import { adminUsersDict } from "./i18n";
 
 // Real values this app ever writes to users.status (no DB CHECK constraint
 // — 'invited' is the trigger-set default on auth signup, 'active'/
@@ -23,6 +25,7 @@ type Role = { id: string; key: string; display_name: string };
 type Member = {
   userId: string;
   email: string;
+  fullName: string | null;
   status: string;
   roleIds: string[];
   roleLabels: string[];
@@ -38,9 +41,21 @@ type Member = {
   isTestAccount: boolean;
 };
 
-function displayName(member: Pick<Member, "firstName" | "lastName" | "email">) {
+// Never falls back to email — this is one of the two pages the users
+// field-masking work (docs/WOWLAB_SAD_Field_Masking.md §2.3) is being
+// built for; leaving a raw-email fallback here would leak it through the
+// UI regardless of what the column grants say. Same rule as groups/
+// page.tsx's displayName(): first+last, then full_name (skipped if it
+// looks like an email — handle_new_auth_user's old default, fixed at the
+// source in 202608200003, but pre-existing rows may still have it until
+// backfilled), then "" — resolved to adminUsersDict.unnamed_user
+// (shared with groups/i18n.ts) at the call site, not here (no locale
+// available in a plain helper function).
+function displayName(member: Pick<Member, "firstName" | "lastName" | "fullName">) {
   const full = [member.firstName, member.lastName].filter(Boolean).join(" ");
-  return full || member.email;
+  if (full) return full;
+  if (member.fullName && !member.fullName.includes("@")) return member.fullName;
+  return "";
 }
 
 export function AdminUsersClient({
@@ -377,8 +392,10 @@ function MemberTableRow({
   onSave,
   onToggleAccess,
 }: MemberRowProps) {
-  const name = displayName(member);
-  const hasName = name !== member.email;
+  const t = useTranslations(adminUsersDict);
+  const rawName = displayName(member);
+  const hasName = rawName !== "";
+  const name = rawName || t("unnamed_user");
 
   return (
     <tr className="font-body text-ink border-b border-black/5 align-top last:border-0">
@@ -475,8 +492,10 @@ function MemberCard({
   onSave,
   onToggleAccess,
 }: MemberRowProps) {
-  const name = displayName(member);
-  const hasName = name !== member.email;
+  const t = useTranslations(adminUsersDict);
+  const rawName = displayName(member);
+  const hasName = rawName !== "";
+  const name = rawName || t("unnamed_user");
 
   return (
     <div className="rounded-xl border border-black/5 p-4">

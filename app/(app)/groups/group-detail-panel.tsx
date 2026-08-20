@@ -36,12 +36,12 @@ export function GroupDetailPanel({ group }: { group: GroupDetail }) {
         <DetailField label={t("detail_legal_name")}>{group.clientLegalName || "—"}</DetailField>
         <DetailField label={t("detail_trainer_principal")}>
           {group.trainerPrincipalName === ""
-            ? t("unnamed_trainer")
+            ? t("unnamed_user")
             : group.trainerPrincipalName || t("no_trainer")}
         </DetailField>
         <DetailField label={t("detail_trainer_secundar")}>
           {group.trainerSecundarName === ""
-            ? t("unnamed_trainer")
+            ? t("unnamed_user")
             : group.trainerSecundarName || t("no_trainer")}
         </DetailField>
         <DetailField label={t("detail_confirmed")}>

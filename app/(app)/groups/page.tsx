@@ -35,7 +35,7 @@ type UserLookupRow = {
 // the invited email when no full_name is supplied) — checked for and
 // skipped, not treated as a safe value just because it's non-null. Returns
 // "" (not null) when nothing safe is available, a deliberate signal
-// distinct from "no trainer assigned" (see groupsDict.unnamed_trainer).
+// distinct from "no trainer assigned" (see groupsDict.unnamed_user).
 function displayName(u: Pick<UserLookupRow, "full_name" | "first_name" | "last_name">) {
   const full = [u.first_name, u.last_name].filter(Boolean).join(" ");
   if (full) return full;
