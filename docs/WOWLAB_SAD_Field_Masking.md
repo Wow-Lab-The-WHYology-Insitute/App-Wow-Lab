@@ -105,6 +105,30 @@ cu clientul (contract administrator, Finance, sales). Dar e o propunere, nu o de
 `email`, `phone` — PII. Recomand restricționare la deținătorii de `org.members.manage`, plus
 propriul rând al utilizatorului (fiecare își vede propriile date, deja acoperit de `/whoami`).
 
+**Platform owner nu primește un bypass aici, spre deosebire de `contracts`.** Verificat live
+înainte de implementare: fixture-ul real de platform owner (`test+platform@wowlab.dev`) are
+zero rânduri în `user_org_roles` (DATABASE_CONVENTIONS.md #3 — platform owner nu e niciodată
+forțat într-un rând `user_org_roles`). Predicatul din 3.1-echivalent pentru `users` verifică
+apartenența la organizația *comună* printr-un `EXISTS` pe `user_org_roles`; cu zero rânduri,
+acel `EXISTS` nu găsește nimic de verificat, iar bypass-ul propriu al `has_capability()` pentru
+`is_platform_owner()` nu apucă să se aplice. Rezultat: platform owner își vede propriul rând
+(prima ramură, necondiționată), dar NU vede automat email/telefon pentru alt utilizator, decât
+dacă are o apartenență reală la o organizație.
+
+Decizie explicită (Mihai, după ce a văzut comportamentul raportat): **corect așa, nu o gaură de
+acoperit.** Platform owner operează platforma, nu o organizație anume — citirea automată a
+email-ului și telefonului fiecărei persoane din fiecare organizație nu e un implicit de dorit
+sub GDPR. Dacă are nevoie de acces la membrii unei organizații anume, primește o apartenență
+reală acolo, ca oricine altcineva. Nu se adaugă o ramură `is_platform_owner()` în predicat.
+
+Diferă intenționat de `contracts`, unde `app.belongs_to_org()` include propriul bypass pentru
+`is_platform_owner()` (secțiunea 3.1) — acolo platform owner vede valorile financiare ale
+oricărui contract, indiferent de organizație. Nu e o inconsecvență de corectat: `contracts`
+mediază acces la date operaționale ale organizației pe care platform owner o supraveghează
+structural; `users.email`/`phone` sunt PII personal al fiecărui angajat/colaborator, o categorie
+diferită de date, cu o decizie diferită, luată explicit — nu implicit, prin copierea mecanismului
+de la `contracts`.
+
 ### 2.4 `org_settings`
 
 `settings` (jsonb opac) și flag-uri de politică precum `evaluations_confidential`. Recomand
