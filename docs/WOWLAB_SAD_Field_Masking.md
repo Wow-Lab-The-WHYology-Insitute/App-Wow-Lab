@@ -53,9 +53,11 @@ returnează `200` cu corp gol — RLS a filtrat rândul, valoarea a rămas neati
 
 ## 2. Domeniul de aplicare
 
-Șase tabele au `SELECT` acordat lui `authenticated` și conțin coloane pe care nu toți
+Cinci tabele au `SELECT` acordat lui `authenticated` și conțin coloane pe care nu toți
 utilizatorii ar trebui să le citească. Izolarea row-level e prezentă pe toate — problema e
 strict column-level, în interiorul unui rând pe care utilizatorul are dreptul să-l vadă.
+(`org_settings` a fost investigat — 2.4 — și a ieșit din această listă: nu conține expunerea
+pe care o descrie acest paragraf.)
 
 ### 2.1 `contracts` — gata de implementat
 
@@ -129,10 +131,28 @@ structural; `users.email`/`phone` sunt PII personal al fiecărui angajat/colabor
 diferită de date, cu o decizie diferită, luată explicit — nu implicit, prin copierea mecanismului
 de la `contracts`.
 
-### 2.4 `org_settings`
+### 2.4 `org_settings` — în afara domeniului de mascare
 
-`settings` (jsonb opac) și flag-uri de politică precum `evaluations_confidential`. Recomand
-restricționare la `org.settings.manage`. Risc scăzut, dar jsonb-ul opac poate acumula orice.
+Verificat live înainte de a scrie orice migrație (raport 2026-08-21): `settings` e gol pe
+ambele rânduri care există (`{}`, câte un rând per organizație — `wow-lab` și
+`wow-lab-test-b`, singurele două organizații existente) și n-a fost scris niciodată — nici
+`seed.sql` nu populează chei în el. `evaluations_confidential` e un flag boolean de politică,
+el însuși neconfidențial (valoare `true` pe ambele rânduri azi), nu o coloană cu conținut
+sensibil. Nicio cale din aplicație nu citește `org_settings` — grep pe tot repo-ul (`app/`,
+`lib/`, orice convenție de nume) nu găsește nicio referință; singurele apariții sunt în SQL
+(schema, politici RLS, trigger-ul de audit, `seed.sql`, suitele de test din `db/tests/`).
+**Nu există o expunere de închis.**
+
+`org_settings` iese din domeniul de mascare al acestui document.
+
+**Convenție, în locul mascării:** `settings` e pentru flag-uri de politică organizațională, atât.
+Nu are voie să conțină secrete, credențiale, tokenuri sau PII. Orice dată sensibilă primește
+propria coloană, cu propriul grant, decisă în momentul în care e introdusă — nu aruncată
+într-un blob opac și mascată ulterior, după fapt.
+
+`evaluations_confidential` e flag-ul de politică OD-7 și va fi citit de modulul de evaluări
+când acesta va exista. Nu e o gaură rămasă deschisă — e o coloană care își așteaptă
+consumatorul.
 
 ### 2.5 `file_refs`
 
@@ -468,10 +488,9 @@ migrație de seed marcată, iar `db query` doar pentru citire și pentru tranzac
 
 1. **`contracts`** — mecanismul e dovedit, decizia e luată, vederea există deja
 2. **`users`** — listă mică de capabilități, risc scăzut
-3. **`org_settings`** — idem
-4. **`client_contacts`** — după decizia Ancăi din 2.2
-5. **`file_refs`** — împreună cu politica de retenție
-6. **`row_history` / `audit_log`** — fir separat, mecanism diferit
+3. **`client_contacts`** — după decizia Ancăi din 2.2
+4. **`file_refs`** — împreună cu politica de retenție
+5. **`row_history` / `audit_log`** — fir separat, mecanism diferit
 
 Fiecare pas trece prin protocolul din secțiunea 6, integral.
 
