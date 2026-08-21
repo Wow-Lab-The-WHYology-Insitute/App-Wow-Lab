@@ -53,9 +53,11 @@ returnează `200` cu corp gol — RLS a filtrat rândul, valoarea a rămas neati
 
 ## 2. Domeniul de aplicare
 
-Șase tabele au `SELECT` acordat lui `authenticated` și conțin coloane pe care nu toți
+Cinci tabele au `SELECT` acordat lui `authenticated` și conțin coloane pe care nu toți
 utilizatorii ar trebui să le citească. Izolarea row-level e prezentă pe toate — problema e
 strict column-level, în interiorul unui rând pe care utilizatorul are dreptul să-l vadă.
+(`org_settings` a fost investigat — 2.4 — și a ieșit din această listă: nu conține expunerea
+pe care o descrie acest paragraf.)
 
 ### 2.1 `contracts` — gata de implementat
 
@@ -69,12 +71,20 @@ Lista de capabilități replică exact logica din vederea existentă — nu se s
 comportamentul, se închide doar calea ocolitoare.
 
 Coloanele rămase (18) primesc `GRANT SELECT` explicit, enumerate pe nume:
-`id`, `organization_id`, `client_id`, `legal_entity_id`, `contract_number`, `contract_type`,
-`period_start`, `period_end`, `status`, `renewal_of`, `drive_ref`, `notes`, `created_at`,
-`updated_at`, `client_contract_number`, `signed_date`, `offer_structure`, `ac_link`.
+`id`, `organization_id`, `client_id`, `legal_entity_id`, `entry_number`, `exit_number`,
+`contract_type`, `period_start`, `period_end`, `status`, `renewal_of`, `drive_ref`, `notes`,
+`created_at`, `updated_at`, `signed_date`, `offer_structure`, `ac_link`.
 
 Fără wildcard. O coloană nouă adăugată în viitor nu primește automat drept de citire — asta
 e intenționat: adăugarea unei coloane trebuie să fie o decizie conștientă despre vizibilitate.
+
+**Lista de mai sus e text descriptiv, nu sursă de adevăr.** `contract_number` și
+`client_contract_number` au apărut inițial aici, apoi au fost înlocuite de `entry_number`/
+`exit_number` în 202608180002 — scrisă în aceeași zi cu acest document, dar după el. Găsit la
+implementare (202608190001), nu la scrierea acestui document. La momentul implementării,
+verifică lista reală de coloane din `information_schema.columns` pe proiectul live — nu copia
+de aici, care poate rămâne neactualizată față de o migrație ulterioară, exact cum s-a
+întâmplat la primul pas.
 
 ### 2.2 `client_contacts` — blocat pe decizie de business
 
@@ -97,10 +107,52 @@ cu clientul (contract administrator, Finance, sales). Dar e o propunere, nu o de
 `email`, `phone` — PII. Recomand restricționare la deținătorii de `org.members.manage`, plus
 propriul rând al utilizatorului (fiecare își vede propriile date, deja acoperit de `/whoami`).
 
-### 2.4 `org_settings`
+**Platform owner nu primește un bypass aici, spre deosebire de `contracts`.** Verificat live
+înainte de implementare: fixture-ul real de platform owner (`test+platform@wowlab.dev`) are
+zero rânduri în `user_org_roles` (DATABASE_CONVENTIONS.md #3 — platform owner nu e niciodată
+forțat într-un rând `user_org_roles`). Predicatul din 3.1-echivalent pentru `users` verifică
+apartenența la organizația *comună* printr-un `EXISTS` pe `user_org_roles`; cu zero rânduri,
+acel `EXISTS` nu găsește nimic de verificat, iar bypass-ul propriu al `has_capability()` pentru
+`is_platform_owner()` nu apucă să se aplice. Rezultat: platform owner își vede propriul rând
+(prima ramură, necondiționată), dar NU vede automat email/telefon pentru alt utilizator, decât
+dacă are o apartenență reală la o organizație.
 
-`settings` (jsonb opac) și flag-uri de politică precum `evaluations_confidential`. Recomand
-restricționare la `org.settings.manage`. Risc scăzut, dar jsonb-ul opac poate acumula orice.
+Decizie explicită (Mihai, după ce a văzut comportamentul raportat): **corect așa, nu o gaură de
+acoperit.** Platform owner operează platforma, nu o organizație anume — citirea automată a
+email-ului și telefonului fiecărei persoane din fiecare organizație nu e un implicit de dorit
+sub GDPR. Dacă are nevoie de acces la membrii unei organizații anume, primește o apartenență
+reală acolo, ca oricine altcineva. Nu se adaugă o ramură `is_platform_owner()` în predicat.
+
+Diferă intenționat de `contracts`, unde `app.belongs_to_org()` include propriul bypass pentru
+`is_platform_owner()` (secțiunea 3.1) — acolo platform owner vede valorile financiare ale
+oricărui contract, indiferent de organizație. Nu e o inconsecvență de corectat: `contracts`
+mediază acces la date operaționale ale organizației pe care platform owner o supraveghează
+structural; `users.email`/`phone` sunt PII personal al fiecărui angajat/colaborator, o categorie
+diferită de date, cu o decizie diferită, luată explicit — nu implicit, prin copierea mecanismului
+de la `contracts`.
+
+### 2.4 `org_settings` — în afara domeniului de mascare
+
+Verificat live înainte de a scrie orice migrație (raport 2026-08-21): `settings` e gol pe
+ambele rânduri care există (`{}`, câte un rând per organizație — `wow-lab` și
+`wow-lab-test-b`, singurele două organizații existente) și n-a fost scris niciodată — nici
+`seed.sql` nu populează chei în el. `evaluations_confidential` e un flag boolean de politică,
+el însuși neconfidențial (valoare `true` pe ambele rânduri azi), nu o coloană cu conținut
+sensibil. Nicio cale din aplicație nu citește `org_settings` — grep pe tot repo-ul (`app/`,
+`lib/`, orice convenție de nume) nu găsește nicio referință; singurele apariții sunt în SQL
+(schema, politici RLS, trigger-ul de audit, `seed.sql`, suitele de test din `db/tests/`).
+**Nu există o expunere de închis.**
+
+`org_settings` iese din domeniul de mascare al acestui document.
+
+**Convenție, în locul mascării:** `settings` e pentru flag-uri de politică organizațională, atât.
+Nu are voie să conțină secrete, credențiale, tokenuri sau PII. Orice dată sensibilă primește
+propria coloană, cu propriul grant, decisă în momentul în care e introdusă — nu aruncată
+într-un blob opac și mascată ulterior, după fapt.
+
+`evaluations_confidential` e flag-ul de politică OD-7 și va fi citit de modulul de evaluări
+când acesta va exista. Nu e o gaură rămasă deschisă — e o coloană care își așteaptă
+consumatorul.
 
 ### 2.5 `file_refs`
 
@@ -272,14 +324,88 @@ Două apărări, ambele necesare: schema `app` neexpusă, și predicatul dublu d
 
 ### 5.4 Transferul de proprietate cere drepturi pe schemă
 
-`ALTER ... OWNER TO` eșuează cu „permission denied for schema public" până când noul rol
-primește `USAGE, CREATE` pe schemă. Nu e suficient un grant pe tabel.
+`ALTER ... OWNER TO` eșuează cu „permission denied for schema X" până când noul rol primește
+`USAGE, CREATE` pe schema X. Nu e suficient un grant pe tabel.
+
+**X depinde de unde trăiește obiectul, nu e mereu `public`.** Testul care a găsit inițial
+această capcană a fost făcut împotriva alternativei respinse din secțiunea 4 (reatribuirea
+proprietății VEDERII, care trăiește în `public`) — de-acolo vine „schema public" de mai sus.
+Implementarea aleasă (3.1) nu reatribuie vederea; reatribuie FUNCȚIA, care trăiește în schema
+`app`. Grant-ul aplicat efectiv în 202608190001 e `grant usage, create on schema app to
+app_masking_owner`, nu pe `public`. Regula generală — rolul nou are nevoie de `USAGE, CREATE`
+pe schema obiectului pe care urmează să-l dețină — rămâne corectă; doar schema concretă diferă
+după caz. De verificat la fiecare pas viitor din secțiunea 7, nu presupus din acest exemplu.
 
 ### 5.5 `postgres` are `BYPASSRLS` în acest proiect
 
 `rolbypassrls = true`, deși `rolsuper = false`. Orice obiect deținut de `postgres` care rulează
 cu drepturile proprietarului sare peste RLS. Motivul pentru care 3.1 cere un proprietar dedicat
 fără `BYPASSRLS`.
+
+### 5.6 `ALTER FUNCTION ... OWNER TO` cere apartenență temporară la rolul țintă
+
+Eșuează cu `42501: must be able to SET ROLE "app_masking_owner"` dacă rolul care execută
+`ALTER` (aici, `postgres`) nu e membru al rolului țintă. `CREATE ROLE` nu acordă automat
+apartenență inversă — proprietarul creator nu devine membru al rolului creat doar prin faptul
+că l-a creat.
+
+Găsit rulând efectiv migrația (`scripts/verify_contracts_field_masking.sql`), nu presupus
+dinainte. Corectat prin acordare temporară, imediat înaintea transferului, retrasă imediat
+după:
+
+```sql
+grant app_masking_owner to postgres;
+alter function app.masked_contract_financials(uuid) owner to app_masking_owner;
+revoke app_masking_owner from postgres;
+```
+
+Apartenența nu rămâne ca stare permanentă — `postgres` nu are nevoie de nimic în plus de la
+`app_masking_owner` odată ce transferul de proprietate s-a încheiat, iar lăsarea ei ar lărgi
+inutil suprafața fără niciun beneficiu (postgres oricum ocolește RLS peste tot, per 5.5).
+
+**Corecție ulterioară (vezi 5.7): secvența de mai sus a retras apartenența prea devreme.**
+`revoke app_masking_owner from postgres` a rulat corect DUPĂ transferul de proprietate, dar
+ÎNAINTE de `revoke execute ... from public` / `grant execute ... to authenticated` de mai jos
+în migrație (secțiunea 3.1) — moment în care apartenența era deja necesară din nou, pentru un
+motiv diferit de cel documentat aici.
+
+### 5.7 `GRANT`/`REVOKE` pe o funcție cer apartenență activă la rolul proprietar, nu doar la momentul transferului
+
+Nu doar `ALTER ... OWNER TO` (5.6) cere ca rolul care execută comanda să fie membru al
+rolului țintă — orice `GRANT`/`REVOKE` ulterior pe acel obiect cere același lucru, evaluat
+din nou, la momentul în care rulează, nu moștenit din faptul că apartenența a existat cândva.
+
+**Nu eșuează cu o eroare.** Rulate după ce apartenența a fost retrasă, `revoke execute ...
+from public` și `grant execute ... to authenticated` s-au încheiat cu succes — dar cu
+avertismente `01006`/`01007` („no privileges could be revoked"/„no privileges were
+granted"), nu erori — și n-au schimbat nimic. ACL implicit al unei funcții noi (proprietarul
+are tot, `PUBLIC` are `EXECUTE`) rămâne `NULL` până la primul `GRANT`/`REVOKE` explicit care
+îl atinge; materializarea aceea, găsită rulând, nu reușește să elimine `PUBLIC` când rolul
+care încearcă nu mai are autoritate asupra obiectului — rezultatul e ACL-ul implicit
+„înghețat" ca stare explicită, cu `PUBLIC` încă prezent.
+
+Verificat direct: reprodus pe o funcție de unică folosință, în tranzacție cu rollback.
+Rulând perechea revoke/grant CÂT TIMP `postgres` era încă membru al rolului proprietar →
+ACL final corect, fără `PUBLIC`. Aceeași pereche, identică, rulată DUPĂ retragerea
+apartenenței → `PUBLIC` supraviețuiește, `authenticated` nu primește niciodată un grant
+explicit al lui — exact starea găsită live pe `app.masked_contract_financials` după
+202608190001.
+
+Ordinea corectă — apartenența cedată ultima, nu imediat după transferul de proprietate:
+
+```sql
+grant app_masking_owner to postgres;
+alter function app.masked_contract_financials(uuid) owner to app_masking_owner;
+revoke execute on function app.masked_contract_financials(uuid) from public;
+grant execute on function app.masked_contract_financials(uuid) to authenticated;
+revoke app_masking_owner from postgres;
+```
+
+**Recurentă la toate cele cinci tabele rămase** (secțiunea 7) — orice funcție `SECURITY
+DEFINER` deținută de un rol dedicat, urmată de orice grant/revoke pe acea funcție, trebuie să
+păstreze apartenența temporară până DUPĂ ultimul astfel de grant/revoke, nu doar până după
+`ALTER OWNER TO`. Motivul explicit pentru care există această secțiune de capcane: găsită
+rulând, nu anticipată la scrierea mecanismului pentru `contracts`.
 
 ---
 
@@ -308,10 +434,38 @@ Simularea de sesiune se face prin `set_config('request.jwt.claims', ...)` plus
 toate ID-urile cât timp scriptul e încă privilegiat, apoi se comută o singură dată — nu se
 încearcă întoarcerea la `postgres` (`RESET ROLE` revine la `cli_login_postgres`).
 
+**Rândurile-fixture trebuie să satisfacă și politicile row-level neînrudite cu masking-ul, nu
+doar să existe în organizația corectă.** Găsit rulând testul pentru `contracts`: politica de
+`SELECT` deja existentă (202608100003) mai desparte `finance_operations` de
+`finance_reporting` la nivel de RÂND, după `client_type` al clientului
+(`private_school`/`parent_b2c` vs restul) — complet independent de mascarea coloanelor pe
+care o testează acest document. Un rând-fixture cu un `client_type` ales arbitrar poate face
+utilizatorul Finance de test să nu vadă rândul deloc, ceea ce ar pica asserțiunea 1 dintr-un
+motiv care n-are nicio legătură cu masking-ul — o falsă alarmă care ar cere depanare pe
+mecanismul greșit. Rândurile-fixture trebuie alese sau seed-uite ca să satisfacă explicit și
+politica row-level relevantă a fiecărui utilizator de test testat, verificată separat de
+mecanismul propriu-zis pe care asserțiunea îl vizează.
+
 ### 6.2 Migrație de revenire, scrisă în același commit
 
 Fără branch, singura plasă e să poți da înapoi în treizeci de secunde. Nu „teoretic
 reversibil" — un fișier `.sql` care a fost rulat și el în tranzacție cu rollback.
+
+**Nu trăiește în `supabase/migrations/`.** `supabase db push` aplică, în ordine, tot ce
+găsește în acel director și nu apare încă în istoricul remote — inclusiv un fișier de
+revenire, imediat după cel pe care îl anulează, în aceeași rulare. Găsit la pasul `contracts`
+(202608190001/202608190002): `--dry-run` a arătat ambele fișiere ca fiind împinse împreună,
+ceea ce ar fi anulat mascarea chiar în momentul aplicării ei.
+
+Convenția: fișierele de revenire trăiesc în `supabase/rollbacks/`, nu în
+`supabase/migrations/`, exact ca să nu fie niciodată candidat pentru auto-aplicare. Scrise în
+același commit ca migrația pe care o anulează (numele păstrează timestamp-ul migrației
+directe, pentru trasabilitate — doar directorul diferă), verificate în aceeași tranzacție cu
+rollback din `scripts/verify_*.sql`, dar niciodată așezate acolo unde `db push` le-ar putea
+confunda cu o migrație în așteptare. Aplicarea unei reveniri reale rămâne un pas manual,
+deliberat: copiază fișierul înapoi în `supabase/migrations/` cu un timestamp nou (nu cel
+original — istoricul remote ține minte ce s-a aplicat deja), rulează `db push`, apoi mută-l
+înapoi în `supabase/rollbacks/`.
 
 ### 6.3 Una singură pe rundă, la oră fără trafic, verificată imediat în aplicație
 
@@ -334,10 +488,9 @@ migrație de seed marcată, iar `db query` doar pentru citire și pentru tranzac
 
 1. **`contracts`** — mecanismul e dovedit, decizia e luată, vederea există deja
 2. **`users`** — listă mică de capabilități, risc scăzut
-3. **`org_settings`** — idem
-4. **`client_contacts`** — după decizia Ancăi din 2.2
-5. **`file_refs`** — împreună cu politica de retenție
-6. **`row_history` / `audit_log`** — fir separat, mecanism diferit
+3. **`client_contacts`** — după decizia Ancăi din 2.2
+4. **`file_refs`** — împreună cu politica de retenție
+5. **`row_history` / `audit_log`** — fir separat, mecanism diferit
 
 Fiecare pas trece prin protocolul din secțiunea 6, integral.
 

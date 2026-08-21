@@ -89,7 +89,15 @@ async function main() {
   console.log(`Role '${role.key}' = ${role.id}`);
   console.log(`Inviting ${email} ...`);
 
-  // Same call app/admin/users/actions.ts's inviteUser() makes.
+  // Same call app/admin/users/actions.ts's inviteUser() makes. That call
+  // site passes `data: { full_name }` when the admin form supplies a name
+  // (202608200003's invite-path fix) — this script has no name argument at
+  // all (see the usage string above: email only), so there is nothing to
+  // put there. No behavior change needed here: since the trigger
+  // (handle_new_auth_user, 202608200003) no longer defaults full_name to
+  // the invited email, omitting `data` entirely now correctly resolves to
+  // full_name IS NULL for whoever this bootstraps, same as any other
+  // no-name invite.
   const { data: inviteData, error: inviteError } =
     await admin.auth.admin.inviteUserByEmail(email, {
       redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,

@@ -273,8 +273,8 @@ function SessionTableRow({
         </>
       ) : (
         <>
-          <td className="py-3 pr-4">{session.trainerPrincipalName ?? "—"}</td>
-          <td className="py-3 pr-4">{session.trainerSecundarName ?? "—"}</td>
+          <td className="py-3 pr-4">{session.trainerPrincipalName || "—"}</td>
+          <td className="py-3 pr-4">{session.trainerSecundarName || "—"}</td>
         </>
       )}
       <td className="py-3 pr-4">
@@ -391,10 +391,10 @@ function SessionCard({
       ) : (
         <>
           <p className="font-body text-muted mt-2 text-xs">
-            Principal: {session.trainerPrincipalName ?? "—"}
+            Principal: {session.trainerPrincipalName || "—"}
           </p>
           <p className="font-body text-muted mt-1 text-xs">
-            Secundar: {session.trainerSecundarName ?? "—"}
+            Secundar: {session.trainerSecundarName || "—"}
           </p>
           <p className="font-body text-muted mt-1 text-xs">
             Duration: {session.duration_minutes ? `${session.duration_minutes} min` : "—"}

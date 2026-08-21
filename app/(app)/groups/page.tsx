@@ -23,14 +23,24 @@ type SessionLookupRow = {
 };
 type UserLookupRow = {
   id: string;
-  email: string;
+  full_name: string;
   first_name: string | null;
   last_name: string | null;
 };
 
-function displayName(u: Pick<UserLookupRow, "email" | "first_name" | "last_name">) {
+// Never falls back to email — email isn't even in the query below anymore
+// (users field-masking prep: if it isn't displayed, it shouldn't be
+// selected). full_name is NOT NULL at the schema level, but can itself be
+// a raw email address (handle_new_auth_user, 202607130004, defaults it to
+// the invited email when no full_name is supplied) — checked for and
+// skipped, not treated as a safe value just because it's non-null. Returns
+// "" (not null) when nothing safe is available, a deliberate signal
+// distinct from "no trainer assigned" (see groupsDict.unnamed_user).
+function displayName(u: Pick<UserLookupRow, "full_name" | "first_name" | "last_name">) {
   const full = [u.first_name, u.last_name].filter(Boolean).join(" ");
-  return full || u.email;
+  if (full) return full;
+  if (u.full_name && !u.full_name.includes("@")) return u.full_name;
+  return "";
 }
 
 // G2: list page for the Operational domain (G1 schema/RLS). No manual
@@ -161,7 +171,7 @@ export default async function GroupsPage() {
     trainerIds.length > 0
       ? await supabase
           .from("users")
-          .select("id, email, first_name, last_name")
+          .select("id, full_name, first_name, last_name")
           .in("id", trainerIds)
           .returns<UserLookupRow[]>()
       : { data: [] as UserLookupRow[] };

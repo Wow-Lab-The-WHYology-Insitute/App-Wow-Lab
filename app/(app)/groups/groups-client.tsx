@@ -111,12 +111,28 @@ function StatusChip({ status, label }: { status: string; label: string }) {
   );
 }
 
-function TrainersLine({ principal, secundar, none }: { principal: string | null; secundar: string | null; none: string }) {
-  if (!principal && !secundar) return <span className="text-muted text-xs">{none}</span>;
+// principal/secundar: null = no trainer assigned, "" = assigned but
+// nothing safe to display as a name (see groupsDict.unnamed_user) — the
+// two resolve to different text and must not collapse into one via a bare
+// `||`, which can't tell "" apart from null.
+function TrainersLine({
+  principal,
+  secundar,
+  none,
+  unnamed,
+}: {
+  principal: string | null;
+  secundar: string | null;
+  none: string;
+  unnamed: string;
+}) {
+  const p = principal === "" ? unnamed : principal;
+  const s = secundar === "" ? unnamed : secundar;
+  if (!p && !s) return <span className="text-muted text-xs">{none}</span>;
   return (
     <span className="text-ink text-xs">
-      {principal || none}
-      {secundar ? ` / ${secundar}` : ""}
+      {p || none}
+      {s ? ` / ${s}` : ""}
     </span>
   );
 }
@@ -165,13 +181,23 @@ function buildExtraColumns(
       key: "trainer_principal",
       header: t("detail_trainer_principal"),
       width: 150,
-      render: (g) => <TruncatedText value={g.trainerPrincipalName || t("no_trainer")} className="text-ink text-sm" />,
+      render: (g) => (
+        <TruncatedText
+          value={g.trainerPrincipalName === "" ? t("unnamed_user") : g.trainerPrincipalName || t("no_trainer")}
+          className="text-ink text-sm"
+        />
+      ),
     },
     {
       key: "trainer_secundar",
       header: t("detail_trainer_secundar"),
       width: 150,
-      render: (g) => <TruncatedText value={g.trainerSecundarName || t("no_trainer")} className="text-ink text-sm" />,
+      render: (g) => (
+        <TruncatedText
+          value={g.trainerSecundarName === "" ? t("unnamed_user") : g.trainerSecundarName || t("no_trainer")}
+          className="text-ink text-sm"
+        />
+      ),
     },
     {
       key: "confirmed_full",
@@ -349,7 +375,7 @@ export function GroupsClient({
       header: t("col_trainers"),
       width: 170,
       render: (g) => (
-        <TrainersLine principal={g.trainerPrincipalName} secundar={g.trainerSecundarName} none={t("no_trainer")} />
+        <TrainersLine principal={g.trainerPrincipalName} secundar={g.trainerSecundarName} none={t("no_trainer")} unnamed={t("unnamed_user")} />
       ),
     },
     {
@@ -597,7 +623,7 @@ function GroupCard({
           <StatusChip status={group.status} label={t(`status_${group.status}`)} />
         </div>
         {group.schedule_pattern && <p className="font-body text-muted mt-1 text-xs">{group.schedule_pattern}</p>}
-        <TrainersLine principal={group.trainerPrincipalName} secundar={group.trainerSecundarName} none={t("no_trainer")} />
+        <TrainersLine principal={group.trainerPrincipalName} secundar={group.trainerSecundarName} none={t("no_trainer")} unnamed={t("unnamed_user")} />
       </button>
       {expanded && (
         <div className="border-t border-black/5 px-4 py-4">
