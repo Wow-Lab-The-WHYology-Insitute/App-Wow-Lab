@@ -37,8 +37,12 @@ export default async function ProfilePage() {
     return <main className="p-8">Not signed in.</main>;
   }
 
+  // users_masked (202608200005): own-row branch always resolves to the
+  // real email/phone here, same as the base table — this just routes the
+  // read through the masked view now that it exists, per
+  // docs/WOWLAB_SAD_Field_Masking.md §2.3 step 2.
   const { data: ownProfile } = await supabase
-    .from("users")
+    .from("users_masked")
     .select("email, is_platform_owner, status, first_name, last_name, phone, avatar_url")
     .eq("id", user.id)
     .maybeSingle();

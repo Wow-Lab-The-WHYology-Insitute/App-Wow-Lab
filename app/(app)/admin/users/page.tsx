@@ -52,14 +52,27 @@ export default async function AdminUsersPage() {
     .order("display_name");
 
   // Disambiguated embed: user_org_roles has two FKs to users (user_id and
-  // assigned_by), so a bare `users(...)` embed is ambiguous and PostgREST
-  // rejects it (PGRST201). user_id (not assigned_by) is the correct
-  // target: this maps by row.user_id below, and email/status must
+  // assigned_by), so a bare `users_masked(...)` embed is ambiguous and
+  // PostgREST rejects it (PGRST201). user_id (not assigned_by) is the
+  // correct target: this maps by row.user_id below, and email/status must
   // describe that same member, not whoever assigned them the role.
+  //
+  // Embeds through users_masked (202608200005): confirmed live, not
+  // assumed, that PostgREST resolves this FK-based embed through the view
+  // exactly as it does through the base table — the join column (id) is a
+  // direct, untransformed passthrough of users.id, so PostgREST's view
+  // lineage tracing still finds the user_org_roles_user_id_fkey
+  // relationship even though email/phone themselves are function-derived.
+  // Every row here is already scoped to managedOrg, the same org the
+  // caller holds org.members.manage in, so the view's predicate resolves
+  // true for every member and email/phone come through unmasked — same
+  // effective result as reading the base table, verified by direct REST
+  // calls against both before this change was made. Grants stay unchanged
+  // this step (SAD §2.3 step 3 flips them later).
   const { data: memberRows } = await supabase
     .from("user_org_roles")
     .select(
-      "user_id, role_id, users!user_org_roles_user_id_fkey(email, full_name, status, first_name, last_name, avatar_url, is_test_account), roles(id, key, display_name)",
+      "user_id, role_id, users_masked!user_org_roles_user_id_fkey(email, full_name, status, first_name, last_name, avatar_url, is_test_account), roles(id, key, display_name)",
     )
     .eq("organization_id", managedOrg.id);
 
@@ -80,7 +93,7 @@ export default async function AdminUsersPage() {
   >();
 
   for (const row of memberRows ?? []) {
-    const u = row.users as unknown as {
+    const u = row.users_masked as unknown as {
       email: string;
       full_name: string | null;
       status: string;
