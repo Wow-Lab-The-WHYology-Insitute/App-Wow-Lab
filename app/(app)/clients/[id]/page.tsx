@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import { ClientContactsClient } from "./client-contacts-client";
+import { ClientStatusControl } from "./client-status-control";
 
 type ClientRow = {
   id: string;
@@ -144,6 +145,7 @@ export default async function ClientDetailPage({
   // out of sync with what the view actually decided for this session.
   let financeVisible = false;
   let canManage = false;
+  let canConvert = false;
   const { data: memberships } = await supabase
     .from("user_org_roles")
     .select("organization_id")
@@ -159,7 +161,10 @@ export default async function ClientDetailPage({
       }
     }
     if (!canManage && (await canManageContacts(supabase, org))) canManage = true;
-    if (financeVisible && canManage) break;
+    if (!canConvert && (await checkCapability(supabase, "clients.convert", org))) {
+      canConvert = true;
+    }
+    if (financeVisible && canManage && canConvert) break;
   }
 
   return (
@@ -169,11 +174,16 @@ export default async function ClientDetailPage({
           ← Clients
         </Link>
         <h1 className="font-display text-2xl text-brand-pink">{client.name}</h1>
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <Badge>{CLIENT_TYPE_LABELS[client.client_type] ?? client.client_type}</Badge>
           <Badge tone={client.status === "active" ? "neutral" : "pink"}>
             {client.status}
           </Badge>
+          <ClientStatusControl
+            clientId={client.id}
+            status={client.status}
+            canConvert={canConvert}
+          />
         </div>
       </div>
 

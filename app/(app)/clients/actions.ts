@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { checkCapability } from "@/lib/capabilities";
+import { CLIENT_STATUS_TRANSITIONS } from "./status";
 
 export type ActionResult =
   | { ok: true; id: string }
@@ -141,5 +143,83 @@ export async function updateClientContact(
   }
 
   revalidatePath(`/clients/${clientId}`);
+  return { ok: true };
+}
+
+// Owns clients.status entirely -- the edit form (updateClient, below)
+// never touches this column. Same reasoning as markContractSigned: this
+// is the only write path to the column today, so the guard lives here,
+// not in a DB constraint or trigger; a second write path appearing is the
+// point to reconsider that.
+//
+// Gated on clients.convert specifically, checked explicitly here rather
+// than left to the table's own UPDATE policy (org.settings.manage OR
+// clients.create) -- that policy is coarser than this action needs. Today
+// clients.convert and clients.create are held by the identical three
+// roles (organization_owner, platform_owner, sales_manager), so this
+// changes nothing about who can act -- but it means a future role split
+// (someone gets clients.create without clients.convert) is enforced
+// correctly the day it happens, not silently allowed because the action
+// only ever checked the coarser capability. The .eq("status", ...) on the
+// write itself is still there too, as the same defense-in-depth the RLS
+// policy already provides against a stale read.
+export async function changeClientStatus(
+  clientId: string,
+  newStatus: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await createClient();
+
+  const { data: current } = await supabase
+    .from("clients")
+    .select("organization_id, status")
+    .eq("id", clientId)
+    .maybeSingle();
+
+  if (!current) {
+    return {
+      ok: false,
+      error: "Client not found, or not visible to your role.",
+    };
+  }
+
+  const allowedNext = CLIENT_STATUS_TRANSITIONS[current.status] ?? [];
+  if (!allowedNext.includes(newStatus)) {
+    return {
+      ok: false,
+      error: `Cannot move from "${current.status}" to "${newStatus}".`,
+    };
+  }
+
+  const canConvert = await checkCapability(
+    supabase,
+    "clients.convert",
+    current.organization_id,
+  );
+  if (!canConvert) {
+    return {
+      ok: false,
+      error: "Not permitted (requires sales_manager or Master).",
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("clients")
+    .update({ status: newStatus })
+    .eq("id", clientId)
+    .eq("status", current.status)
+    .select("id");
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return {
+      ok: false,
+      error: "Not permitted, or the status already changed.",
+    };
+  }
+
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/clients");
   return { ok: true };
 }
