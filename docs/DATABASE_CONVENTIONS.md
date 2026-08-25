@@ -74,3 +74,24 @@ months — never hard-deleted.
 Schema changes live in ordered migration files under `supabase/migrations/`. Seed data lives
 separately (`supabase/seed.sql`) and must be idempotent — re-running it must not create duplicates
 or otherwise change the outcome of a prior run.
+
+## 11. Seed fixtures cannot authenticate
+
+Every `test+*@wowlab.dev` (and `maxdigitalro+*@gmail.com`) row inserted directly by
+`supabase/seed.sql` exists in `public.users` but has no matching `auth.users` row. They were
+built for SQL-level RLS impersonation (`SET ROLE authenticated` plus a spoofed
+`request.jwt.claims`, as in `db/tests/*.sql`), not for signing in — none of them can
+authenticate through the real app.
+
+Mechanism: `handle_new_auth_user()` guards its insert with `on conflict (id) do nothing` — it
+only protects against an `id` collision. A real Auth signup (invite, magic link) for one of
+these emails generates a brand-new `auth.users.id`, different from the `id` `seed.sql` already
+put in `public.users`. The guard never fires, and the insert then hits the `users_email_key`
+unique constraint on `public.users.email` instead, failing with `23505`.
+
+This is not a bug — these accounts serve RLS tests, not people. A real person needing browser
+access gets a real invite, which creates its own matching `auth.users` row from scratch. If a
+seed fixture ever genuinely needs to log in, the fix is `admin.auth.admin.createUser({ id:
+<existing public.users.id>, email, email_confirm: true })` — passing the existing id turns the
+trigger's own `on conflict (id) do nothing` into a no-op instead of a collision, leaving the
+fixture's existing `user_org_roles` grants intact. Not something to run by default.
