@@ -86,21 +86,59 @@ verifică lista reală de coloane din `information_schema.columns` pe proiectul 
 de aici, care poate rămâne neactualizată față de o migrație ulterioară, exact cum s-a
 întâmplat la primul pas.
 
-### 2.2 `client_contacts` — blocat pe decizie de business
+### 2.2 `client_contacts` — livrat, formă diferită de propunerea inițială
 
-Conține `full_name`, `email`, `phone` — PII sub GDPR, stocat în UE/Frankfurt.
+Conține `full_name`, `email`, `phone` — PII sub GDPR, stocat în UE/Frankfurt. Decizia Ancăi a
+deblocat secțiunea, dar a schimbat complet forma ei față de propunerea inițială de mai jos.
 
-**Nu propun o listă de capabilități aici.** E o decizie de business și de conformitate, nu una
-tehnică. Întrebările pentru Anca:
+**Propunerea inițială (istorică, ne-implementată):** mascare de coloană pe `email`/`phone`,
+restricționată la rolurile care comunică efectiv cu clientul (contract administrator, Finance,
+sales) — al treilea view + funcție `SECURITY DEFINER`, după modelul de la 2.1/2.3.
 
-- Un trainer alocat pe o grupă are nevoie de numele persoanei de contact de la școală? De
-  telefon? (Probabil da la nume, probabil nu la telefon.)
-- Operations vede contactele fără termenii financiari — dar vede și emailurile?
-- Există contacte marcate `is_billing_contact` care ar trebui vizibile doar pentru Finance?
+**Ce s-a construit de fapt (202608250001), și de ce e diferit:** înainte de a scrie orice SQL,
+verificat live că `contact_purpose` desemnează deja PENTRU CINE e un contact
+(`signing_authority`, `trainer_facing`, `finance_facing`, `general`), nu doar o etichetă
+descriptivă — confirmat și că nimic din aplicație nu-l citea într-un `WHERE` până acum, doar
+într-un badge de afișare. Asta schimbă regula pentru trainer din "vede rândul, dar cu email-ul
+ascuns" în "vede doar rândurile marcate `trainer_facing`" — un filtru de RÂND, nu o mascare de
+COLOANĂ. Rezultat: **niciun view, nicio funcție `SECURITY DEFINER`, niciun grant flip pe
+`email`/`phone`** — doar o modificare a politicii RLS existente de `SELECT`, plus închiderea
+coloanei `notes`. `email` și `phone` rămân needitate de nicio mascare: orice rând vizibil arată
+valorile reale ale ambelor, pentru oricine ajunge la el — separarea reală pe care Anca o voia
+se face la nivel de rând, nu de coloană.
 
-Recomandarea mea, ca punct de plecare: `full_name` și `role_at_client` vizibile pentru
-oricine vede clientul; `email` și `phone` restricționate la rolurile care comunică efectiv
-cu clientul (contract administrator, Finance, sales). Dar e o propunere, nu o decizie.
+Trei piese, toate în aceeași migrare:
+
+1. **Rândurile de facturare sunt ascunse, cu o excepție.** `is_billing_contact = true` devine
+   invizibil oricui nu ține o capabilitate de finance și nu e owner/platform owner — CU
+   EXCEPȚIA cazului `is_primary = true`, care nu e niciodată ascuns, indiferent de flag-ul de
+   facturare. Motivul Ancăi: intenția era contacte dedicate de contabilitate, nu (de exemplu)
+   un director de școală care se ocupă și de facturi. Verificat live înainte de migrare:
+   singurul rând real din producție (Vlad Rasnoveanu / Lycée Français) e ȘI
+   `is_billing_contact`, ȘI `is_primary` — o regulă naivă "ascunde tot ce e facturare de la
+   non-finance" ar fi lăsat acel client cu zero contacte vizibile pentru Operations. Excepția
+   există din cauza acestui rând real, nu ca ipoteză.
+
+2. **O ramură nouă pentru trainer**, pe `app.has_capability('mywork.*', organization_id)`: vede
+   doar rândurile cu `contact_purpose = 'trainer_facing'`. Verificat live: `mywork.*` e ținut
+   exact de `trainer`, `senior_trainer`, `organization_owner`, `platform_owner` — ultimii doi
+   văd deja tot prin propriile ramuri, deci ramura nouă schimbă comportamentul doar pentru
+   trainer/senior_trainer. **Nici trainer, nici senior_trainer nu au azi nicio altă cale către
+   acest tabel** (fără `clients.read`, fără capabilități de finance, fără
+   `org.settings.manage`) — ramura e singura lor cale de intrare, și e neexercitată azi în
+   producție: niciun rând real nu are `contact_purpose = 'trainer_facing'` (singurul rând real
+   precede coloana cu șase zile). **Asertarea acestei ramuri (assertion 7,
+   scripts/verify_client_contacts_row_filters.sql) dovedește doar că ramura e cablată corect,
+   nu că protejează ceva viu azi — re-verificare obligatorie în ziua în care o capabilitate
+   reală de citire pentru trainer ajunge la acest tabel** (un viitor Trainer Dashboard). Nu e
+   o gaură lăsată deschisă acum — e o coloană care își așteaptă consumatorul, ca și
+   `evaluations_confidential` din 2.4.
+
+3. **`notes` e închisă complet** pentru `authenticated` (capcana 5.2 — `REVOKE` pe tabel
+   întâi, apoi `GRANT` explicit pe coloane, altfel revoke-ul pe o singură coloană rămâne
+   inert peste grant-ul de tabel existent). Verificat live: nimic din aplicație nu o citește
+   sau o scrie — comentariu liber despre o persoană, cel mai ieftin moment de închis fiind
+   acum, înainte să depindă ceva de ea.
 
 ### 2.3 `users`
 
@@ -488,7 +526,8 @@ migrație de seed marcată, iar `db query` doar pentru citire și pentru tranzac
 
 1. **`contracts`** — mecanismul e dovedit, decizia e luată, vederea există deja
 2. **`users`** — listă mică de capabilități, risc scăzut
-3. **`client_contacts`** — după decizia Ancăi din 2.2
+3. **`client_contacts`** — **livrat** (202608250001, filtru de rând, nu mascare de coloană —
+   forma finală diferă de propunerea inițială, vezi 2.2)
 4. **`file_refs`** — împreună cu politica de retenție
 5. **`row_history` / `audit_log`** — fir separat, mecanism diferit
 
