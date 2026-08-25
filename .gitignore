@@ -21,6 +21,9 @@ supabase/.temp/
 .DS_Store
 .vscode/
 
+# Dev server logs (e.g. wowlab-dev.log from nohup npm run dev)
+*.log
+
 # Next.js
 .next/
 out/
