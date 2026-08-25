@@ -139,6 +139,15 @@ Toate aplicate la nivel de bază de date (RLS pe `organization_id` + reguli pe r
 - factura fiscală propriu-zisă → **rămâne în SmartBill/SAGA**;
 - sincronizare bidirecțională cu ActiveCampaign;
 - scoring de lead-uri, marketing automation, formulare de captare → ActiveCampaign.
+- **ștergere (hard delete) pe `clients` → închis, nu amânat.** `status = 'churned'` e deja
+  răspunsul proiectat pentru „acest client nu mai e activ, dar istoricul rămâne" (§4, §9) — o
+  funcție de delete ar fi un al doilea răspuns, contradictoriu, la o întrebare deja tranșată de
+  aceeași secțiune. Verificat live înainte de a scrie asta (2026-08-25): toți cei 6 clienți reali
+  au cel puțin un contract dependent (`contracts.client_id`, `client_contacts.client_id`,
+  `groups.client_id` — niciuna dintre cele trei FK-uri nu are `ON DELETE`, deci implicit
+  `RESTRICT`); nu există azi niciun rând care s-ar putea șterge fără să lovească restricția
+  oricum. Dacă apare vreodată un motiv real să se reconsidere, pornește de la nota asta, nu de
+  la zero — vezi și `docs/DATABASE_CONVENTIONS.md` §12 pentru versiunea scurtă, generică.
 
 ---
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { addClientContact, updateClientContact } from "../actions";
+import { addClientContact, updateClientContact, deleteClientContact } from "../actions";
 
 type Contact = {
   id: string;
@@ -42,6 +42,16 @@ export function ClientContactsClient({
   const [isPending, startTransition] = useTransition();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+
+  function handleDelete(contactId: string) {
+    setError(null);
+    startTransition(async () => {
+      const result = await deleteClientContact(contactId);
+      if (!result.ok) setError(result.error);
+      setConfirmingDeleteId(null);
+    });
+  }
 
   return (
     <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
@@ -149,15 +159,48 @@ export function ClientContactsClient({
                     </div>
                   </div>
                   {canManage && (
-                    <button
-                      type="button"
-                      onClick={() => setEditingId(c.id)}
-                      className="text-brand-pink shrink-0 text-xs font-semibold underline"
-                    >
-                      edit
-                    </button>
+                    <span className="flex shrink-0 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(c.id)}
+                        className="text-brand-pink text-xs font-semibold underline"
+                      >
+                        edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingDeleteId(c.id)}
+                        className="text-brand-pink text-xs font-semibold underline"
+                      >
+                        delete
+                      </button>
+                    </span>
                   )}
                 </div>
+                {confirmingDeleteId === c.id && (
+                  <div className="font-body text-ink mt-2 rounded-lg bg-brand-pink/10 px-4 py-3 text-sm">
+                    <p>
+                      Delete <strong>{c.full_name}</strong>? This cannot be undone.
+                    </p>
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        disabled={isPending}
+                        onClick={() => handleDelete(c.id)}
+                        className="font-body rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-3 py-1 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
+                      >
+                        Confirm delete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingDeleteId(null)}
+                        className="text-muted rounded-full border border-black/10 px-3 py-1 text-xs font-semibold uppercase"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </li>
             ),
           )}
