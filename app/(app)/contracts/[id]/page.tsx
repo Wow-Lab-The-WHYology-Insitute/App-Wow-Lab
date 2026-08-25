@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import { isDemoRecord } from "../format";
 import { MarkSignedButton } from "./mark-signed-button";
+import { ContractDetailClient } from "./contract-detail-client";
 
 type ContractRow = {
   id: string;
@@ -16,20 +17,15 @@ type ContractRow = {
   period_end: string | null;
   renewal_of: string | null;
   billing_rule: string | null;
+  estimated_value: number | null;
+  previous_year_value: number | null;
   drive_ref: string | null;
   notes: string | null;
   offer_structure: string | null;
   ac_link: string | null;
 };
-
-// Matches the contracts.offer_structure check constraint (202608160002)
-// exactly.
-const OFFER_STRUCTURE_LABELS: Record<string, string> = {
-  fixed_price_group_workshop: "Fixed price per group workshop",
-  price_per_child_present: "Price per child present",
-  price_per_child_enrolled: "Price per child enrolled",
-  price_per_contract: "Price per contract",
-};
+type ClientOptionRow = { id: string; name: string };
+type LegalEntityOptionRow = { id: string; name: string };
 
 // Same branching as contracts/page.tsx's canManageContracts() — kept as
 // its own local copy rather than a shared import, matching this
@@ -68,7 +64,7 @@ export default async function ContractDetailPage({
   const { data: contract } = await supabase
     .from("contracts_billing_masked")
     .select(
-      "id, client_id, legal_entity_id, entry_number, exit_number, contract_type, status, period_start, period_end, renewal_of, billing_rule, drive_ref, notes, offer_structure, ac_link",
+      "id, client_id, legal_entity_id, entry_number, exit_number, contract_type, status, period_start, period_end, renewal_of, billing_rule, estimated_value, previous_year_value, drive_ref, notes, offer_structure, ac_link",
     )
     .eq("id", id)
     .maybeSingle<ContractRow>();
@@ -92,10 +88,14 @@ export default async function ContractDetailPage({
     .eq("user_id", user.id);
 
   let canManage = false;
+  let manageOrgId: string | null = null;
   let financeVisible = false;
   for (const m of memberships ?? []) {
     const org = (m as { organization_id: string }).organization_id;
-    if (!canManage && (await canManageContracts(supabase, org))) canManage = true;
+    if (!canManage && (await canManageContracts(supabase, org))) {
+      canManage = true;
+      manageOrgId = org;
+    }
     if (!financeVisible) {
       for (const cap of ["finance.operations.*", "finance.reporting.*", "clients.create"]) {
         if (await checkCapability(supabase, cap, org)) {
@@ -105,6 +105,31 @@ export default async function ContractDetailPage({
       }
     }
     if (canManage && financeVisible) break;
+  }
+
+  // Edit-form dropdown options: clients + legal entities in the org this
+  // caller can manage contracts in — only fetched when the Edit button
+  // will actually render, same convention as contracts/page.tsx's "+ New
+  // Contract" form options.
+  let clientOptions: ClientOptionRow[] = [];
+  let legalEntityOptions: LegalEntityOptionRow[] = [];
+  if (manageOrgId) {
+    const [{ data: co }, { data: leo }] = await Promise.all([
+      supabase
+        .from("clients")
+        .select("id, name")
+        .eq("organization_id", manageOrgId)
+        .order("name")
+        .returns<ClientOptionRow[]>(),
+      supabase
+        .from("legal_entities")
+        .select("id, name")
+        .eq("organization_id", manageOrgId)
+        .order("name")
+        .returns<LegalEntityOptionRow[]>(),
+    ]);
+    clientOptions = co ?? [];
+    legalEntityOptions = leo ?? [];
   }
 
   return (
@@ -131,108 +156,21 @@ export default async function ContractDetailPage({
               ⚠ Demo data
             </span>
           )}
-          {canManage && contract.status !== "signed" && (
+          {canManage && (contract.status === "draft" || contract.status === "sent") && (
             <MarkSignedButton contractId={contract.id} />
           )}
         </div>
       </div>
 
-      <Section title="Details">
-        <Kv
-          label="Client"
-          value={client?.name ?? contract.client_id}
-          href={client ? `/clients/${client.id}` : undefined}
-        />
-        <Kv label="Legal entity" value={legalEntity?.name ?? contract.legal_entity_id} />
-        <Kv label="Entry number" value={contract.entry_number || "—"} />
-        <Kv label="Exit number" value={contract.exit_number || "—"} />
-        <Kv label="Period" value={`${contract.period_start ?? "—"} → ${contract.period_end ?? "—"}`} />
-        <Kv label="Renewal of" value={contract.renewal_of ?? "—"} mono={Boolean(contract.renewal_of)} />
-        <div className="flex items-baseline justify-between border-b border-black/5 py-2 text-sm last:border-0">
-          <span className="font-body text-muted">Billing rule</span>
-          <span className="text-ink font-body font-medium">
-            <MaskedValue value={contract.billing_rule} financeVisible={financeVisible} />
-          </span>
-        </div>
-        <Kv
-          label="Drive archive"
-          value={contract.drive_ref ? "Open link" : "—"}
-          href={contract.drive_ref ?? undefined}
-          external
-        />
-        <Kv
-          label="Offer structure"
-          value={
-            contract.offer_structure
-              ? (OFFER_STRUCTURE_LABELS[contract.offer_structure] ?? contract.offer_structure)
-              : "—"
-          }
-        />
-        <Kv
-          label="AC link"
-          value={contract.ac_link ? "Open link" : "—"}
-          href={contract.ac_link ?? undefined}
-          external
-        />
-        <Kv label="Notes" value={contract.notes || "—"} />
-      </Section>
-    </div>
-  );
-}
-
-function MaskedValue({
-  value,
-  financeVisible,
-}: {
-  value: string | null;
-  financeVisible: boolean;
-}) {
-  if (value !== null) return <span>{value}</span>;
-  if (financeVisible) return <span className="text-muted">Not set</span>;
-  return <span className="text-muted font-mono tracking-wide">••••• 🔒</span>;
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
-      <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
-
-function Kv({
-  label,
-  value,
-  mono,
-  href,
-  external,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-  href?: string;
-  external?: boolean;
-}) {
-  return (
-    <div className="flex items-baseline justify-between border-b border-black/5 py-2 text-sm last:border-0">
-      <span className="font-body text-muted">{label}</span>
-      {href ? (
-        <a
-          href={href}
-          target={external ? "_blank" : undefined}
-          rel={external ? "noreferrer" : undefined}
-          className="text-brand-pink font-body font-medium hover:underline"
-        >
-          {value}
-        </a>
-      ) : (
-        <span className={`text-ink ${mono ? "font-mono text-xs" : "font-body font-medium"}`}>
-          {value}
-        </span>
-      )}
+      <ContractDetailClient
+        contract={contract}
+        clientName={client?.name ?? contract.client_id}
+        legalEntityName={legalEntity?.name ?? contract.legal_entity_id}
+        financeVisible={financeVisible}
+        canManage={canManage}
+        clientOptions={clientOptions}
+        legalEntityOptions={legalEntityOptions}
+      />
     </div>
   );
 }
