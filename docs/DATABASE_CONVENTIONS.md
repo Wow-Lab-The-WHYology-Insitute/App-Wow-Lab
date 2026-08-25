@@ -97,3 +97,18 @@ seed fixture ever genuinely needs to log in, the fix is `admin.auth.admin.create
 <existing public.users.id>, email, email_confirm: true })` — passing the existing id turns the
 trigger's own `on conflict (id) do nothing` into a no-op instead of a collision, leaving the
 fixture's existing `user_org_roles` grants intact. Not something to run by default.
+
+## 12. A status value that means "gone" replaces hard delete, not the other way round
+
+If a table already has a status (or equivalent) value whose purpose is "this record is no
+longer active, but keep it and its history" — `clients.status = 'churned'` is the concrete
+case (see `docs/WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md` §4, §8) — a hard-delete feature
+for that table is not a smaller, more convenient version of the same idea. It is a second,
+contradictory answer to a question the schema already settled: the status value exists
+specifically so the row survives, and a delete path would let someone route around that on a
+whim. Don't build one. This isn't a judgment call to revisit per-table without the underlying
+question changing — it's closed until the actual product decision it rests on changes, not
+until someone finds deleting more convenient.
+
+This is a general principle, not just about clients — check whether a table already has a
+"soft-gone" status before ever proposing hard delete for it.

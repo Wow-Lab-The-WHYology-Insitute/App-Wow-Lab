@@ -146,6 +146,73 @@ export async function updateClientContact(
   return { ok: true };
 }
 
+// DELETE policy on client_contacts (202608270001) is deliberately IDENTICAL
+// to the existing INSERT/UPDATE predicate (202608100003) -- org/platform
+// owner, clients.create, or contracts.* excluding either finance role. No
+// status condition: a contact is a person's details, not a transaction
+// record, so a wrong one vanishes outright regardless of primary/billing
+// flags. This also serves GDPR erasure -- the 36-month retention
+// anonymization job never covered a person asking to be removed now; this
+// is that path (see the migration's own comment, and DATABASE_CONVENTIONS
+// Sec9/Sec12).
+//
+// Unlike updateClientContact above, this explicitly re-checks the
+// predicate via checkCapability before attempting the write, rather than
+// leaning on RLS's silent "0 rows affected" alone -- same reasoning as
+// changeClientStatus/updateClient's explicit checks: a delete deserves a
+// real "not permitted" message, not a delete that silently no-ops. The RLS
+// policy remains the actual enforcement; this is defense-in-depth plus a
+// better error.
+export async function deleteClientContact(
+  contactId: string,
+): Promise<VoidActionResult> {
+  const supabase = await createClient();
+
+  const { data: contact } = await supabase
+    .from("client_contacts")
+    .select("id, client_id, organization_id, full_name")
+    .eq("id", contactId)
+    .maybeSingle();
+
+  if (!contact) {
+    return {
+      ok: false,
+      error: "Contact not found, or not visible to your role.",
+    };
+  }
+
+  const [isOwner, hasClientsCreate, hasContractsStar, isFinanceReporting, isFinanceOps] =
+    await Promise.all([
+      checkCapability(supabase, "org.settings.manage", contact.organization_id),
+      checkCapability(supabase, "clients.create", contact.organization_id),
+      checkCapability(supabase, "contracts.*", contact.organization_id),
+      checkCapability(supabase, "finance.reporting.*", contact.organization_id),
+      checkCapability(supabase, "finance.operations.*", contact.organization_id),
+    ]);
+  const canDelete =
+    isOwner || hasClientsCreate || (hasContractsStar && !isFinanceReporting && !isFinanceOps);
+
+  if (!canDelete) {
+    return { ok: false, error: "Not permitted." };
+  }
+
+  const { data, error } = await supabase
+    .from("client_contacts")
+    .delete()
+    .eq("id", contactId)
+    .select("id");
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "Not permitted." };
+  }
+
+  revalidatePath(`/clients/${contact.client_id}`);
+  return { ok: true };
+}
+
 // Owns clients.status entirely -- the edit form (updateClient, below)
 // never touches this column. Same reasoning as markContractSigned: this
 // is the only write path to the column today, so the guard lives here,
