@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import { ClientContactsClient } from "./client-contacts-client";
 import { ClientStatusControl } from "./client-status-control";
+import { ClientInfoClient } from "./client-info-client";
 
 type ClientRow = {
   id: string;
@@ -13,6 +14,8 @@ type ClientRow = {
   business_line: string | null;
   external_crm_ref: string | null;
   notes: string | null;
+  legal_name: string | null;
+  cui: string | null;
 };
 type ContactRow = {
   id: string;
@@ -43,10 +46,6 @@ const CLIENT_TYPE_LABELS: Record<string, string> = {
   parent_b2c: "Parent B2C",
   special_project: "Special project",
 };
-
-function looksLikeUrl(value: string) {
-  return value.startsWith("http://") || value.startsWith("https://");
-}
 
 // client_contacts INSERT/UPDATE policy (202608100003): org/platform owner,
 // clients.create (sales_manager), or contracts.* excluding either finance
@@ -92,7 +91,7 @@ export default async function ClientDetailPage({
   const { data: client } = await supabase
     .from("clients")
     .select(
-      "id, organization_id, name, client_type, status, business_line, external_crm_ref, notes",
+      "id, organization_id, name, client_type, status, business_line, external_crm_ref, notes, legal_name, cui",
     )
     .eq("id", id)
     .maybeSingle<ClientRow>();
@@ -146,6 +145,16 @@ export default async function ClientDetailPage({
   let financeVisible = false;
   let canManage = false;
   let canConvert = false;
+  // Distinct from canManage (client_contacts' own, broader gate) --
+  // mirrors the actual clients UPDATE policy exactly (org.settings.manage
+  // OR clients.create), confirmed live: contract_administrator satisfies
+  // canManage via contracts.* but does not hold clients.create, so it
+  // must not see this gate open even though it can manage contacts.
+  let canEditClient = false;
+  // Same non-discriminating-today caveat as the action itself: crm_link.*
+  // is held by the identical three roles as clients.create right now, so
+  // this never actually diverges from canEditClient in production yet.
+  let canEditCrmLink = false;
   const { data: memberships } = await supabase
     .from("user_org_roles")
     .select("organization_id")
@@ -164,7 +173,18 @@ export default async function ClientDetailPage({
     if (!canConvert && (await checkCapability(supabase, "clients.convert", org))) {
       canConvert = true;
     }
-    if (financeVisible && canManage && canConvert) break;
+    if (!canEditClient) {
+      for (const cap of ["org.settings.manage", "clients.create"]) {
+        if (await checkCapability(supabase, cap, org)) {
+          canEditClient = true;
+          break;
+        }
+      }
+    }
+    if (!canEditCrmLink && (await checkCapability(supabase, "crm_link.*", org))) {
+      canEditCrmLink = true;
+    }
+    if (financeVisible && canManage && canConvert && canEditClient && canEditCrmLink) break;
   }
 
   return (
@@ -187,25 +207,12 @@ export default async function ClientDetailPage({
         </div>
       </div>
 
-      <Section title="Client info">
-        <Kv label="Business line" value={client.business_line || "—"} />
-        <Kv
-          label="External CRM ref"
-          value={client.external_crm_ref || "—"}
-          mono={!(client.external_crm_ref && looksLikeUrl(client.external_crm_ref))}
-          href={
-            client.external_crm_ref && looksLikeUrl(client.external_crm_ref)
-              ? client.external_crm_ref
-              : undefined
-          }
-          external
-        />
-        <Kv
-          label="Billed via"
-          value={billedViaNames.length > 0 ? billedViaNames.join(", ") : "—"}
-        />
-        <Kv label="Notes" value={client.notes || "—"} />
-      </Section>
+      <ClientInfoClient
+        client={client}
+        billedViaValue={billedViaNames.length > 0 ? billedViaNames.join(", ") : "—"}
+        canEditClient={canEditClient}
+        canEditCrmLink={canEditCrmLink}
+      />
 
       <ClientContactsClient
         clientId={client.id}

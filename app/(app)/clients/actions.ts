@@ -223,3 +223,97 @@ export async function changeClientStatus(
   revalidatePath("/clients");
   return { ok: true };
 }
+
+// Fields editable in V1, any status: name, client_type, business_line,
+// legal_name, cui, notes -- gated by the table's own UPDATE policy
+// (org.settings.manage OR clients.create), which is already exactly the
+// right granularity for these, same relationship addClient already has to
+// the INSERT policy. status is deliberately excluded -- changeClientStatus
+// above owns that column entirely.
+//
+// external_crm_ref is different: checked here explicitly against
+// crm_link.*, a capability seeded specifically for this field (seed.sql:
+// "ActiveCampaign CRM reference/link") and never referenced anywhere in
+// app code until now. Confirmed live before writing this: crm_link.* is
+// held today by the identical three roles as clients.create
+// (organization_owner, platform_owner, sales_manager) -- so this gate is
+// NON-DISCRIMINATING in production right now. Every caller who can reach
+// this action at all already holds crm_link.* too. It is wired correctly
+// and protects nothing yet -- same honesty as the trainer branch on
+// client_contacts (202608250001's contact_purpose = 'trainer_facing'
+// branch). RE-VERIFY THE DAY a role holds clients.create without
+// crm_link.* -- that's the day this line actually starts doing something.
+//
+// When the check fails, external_crm_ref is left OUT of the payload
+// entirely -- not set to null, not overwritten with whatever the form
+// happened to prefill. Same rule as contracts' financial fields: a field
+// this session cannot edit is a field this action must not touch, even if
+// the caller somehow submitted a value for it.
+export async function updateClient(
+  clientId: string,
+  name: string,
+  clientType: string,
+  businessLine: string,
+  legalName: string,
+  cui: string,
+  notes: string,
+  externalCrmRef: string,
+): Promise<ActionResult> {
+  if (!name.trim() || !clientType) {
+    return { ok: false, error: "Name and client type are required." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: current } = await supabase
+    .from("clients")
+    .select("organization_id")
+    .eq("id", clientId)
+    .maybeSingle();
+
+  if (!current) {
+    return {
+      ok: false,
+      error: "Client not found, or not visible to your role.",
+    };
+  }
+
+  const canEditCrmLink = await checkCapability(
+    supabase,
+    "crm_link.*",
+    current.organization_id,
+  );
+
+  const payload: Record<string, unknown> = {
+    name: name.trim(),
+    client_type: clientType,
+    business_line: businessLine.trim() || null,
+    legal_name: legalName.trim() || null,
+    cui: cui.trim() || null,
+    notes: notes.trim() || null,
+  };
+
+  if (canEditCrmLink) {
+    payload.external_crm_ref = externalCrmRef.trim() || null;
+  }
+
+  const { data, error } = await supabase
+    .from("clients")
+    .update(payload)
+    .eq("id", clientId)
+    .select("id");
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return {
+      ok: false,
+      error: "Not permitted (requires sales_manager or Master).",
+    };
+  }
+
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/clients");
+  return { ok: true, id: clientId };
+}
