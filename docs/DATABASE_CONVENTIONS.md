@@ -58,8 +58,10 @@ policies.
 ## 8. Audit
 
 Sensitive tables get the `row_history` trigger (`row_history_capture()`, `BEFORE UPDATE OR DELETE`).
-Currently attached to: `user_org_roles`, `org_settings`, `legal_entities`, `file_refs`. Attach it to
-any new table marked audited.
+Currently attached to: `client_contacts`, `clients`, `contracts`, `file_refs`, `groups`,
+`legal_entities`, `org_settings`, `sessions`, `user_org_roles` (confirmed live via `pg_trigger`,
+2026-08-26 — nine tables, not the four previously listed here; five were added and this line was
+never updated). Attach it to any new table marked audited, and update this list when you do.
 
 `audit_log` is append-only: UPDATE and DELETE are denied for everyone, including Platform Owner,
 enforced by a dedicated trigger rather than by policy alone.
