@@ -131,7 +131,7 @@ export default async function ContractDetailPage({
               ⚠ Demo data
             </span>
           )}
-          {canManage && contract.status !== "signed" && (
+          {canManage && (contract.status === "draft" || contract.status === "sent") && (
             <MarkSignedButton contractId={contract.id} />
           )}
         </div>

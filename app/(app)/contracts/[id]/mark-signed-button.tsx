@@ -3,10 +3,11 @@
 import { useState, useTransition } from "react";
 import { markContractSigned } from "../actions";
 
-// UI gate is only "canManage && status !== 'signed'" (see page.tsx) —
-// the actual enforcement is the contracts UPDATE RLS policy
-// (202608100003). markContractSigned() surfaces RLS's "0 rows affected"
-// as a real error here rather than silently no-op'ing.
+// UI gate is "canManage && status is draft or sent" (see page.tsx) — a
+// convenience, not the enforcement. markContractSigned() itself re-checks
+// status server-side (won't move an already-signed/expired/renewed
+// contract) and surfaces RLS's "0 rows affected" as a real error here
+// rather than silently no-op'ing.
 export function MarkSignedButton({ contractId }: { contractId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();

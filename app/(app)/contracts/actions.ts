@@ -79,10 +79,44 @@ export async function markContractSigned(
   contractId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = await createClient();
+
+  // Read current status/signed_date first, under the caller's own session
+  // (RLS still applies) — this is what lets us tell "not visible to you /
+  // doesn't exist" apart from "visible, but the wrong status" below,
+  // rather than collapsing both into one ambiguous 0-rows-affected error.
+  const { data: current } = await supabase
+    .from("contracts")
+    .select("status, signed_date")
+    .eq("id", contractId)
+    .maybeSingle();
+
+  if (!current) {
+    return {
+      ok: false,
+      error: "Contract not found, or not visible to your role.",
+    };
+  }
+
+  if (current.status !== "draft" && current.status !== "sent") {
+    return {
+      ok: false,
+      error: `Cannot mark as signed from status "${current.status}".`,
+    };
+  }
+
+  // signed_date: only set if it isn't already there — addContract lets a
+  // date be backdated at creation time, and that value must win over
+  // "today" if it's already set.
+  const signedDate = current.signed_date ?? new Date().toISOString().slice(0, 10);
+
+  // .in("status", [...]) here is defense against a race: the read above
+  // and this write aren't atomic, so if the status changed between them
+  // (e.g. two tabs), this still won't move anything but a draft/sent row.
   const { data, error } = await supabase
     .from("contracts")
-    .update({ status: "signed" })
+    .update({ status: "signed", signed_date: signedDate })
     .eq("id", contractId)
+    .in("status", ["draft", "sent"])
     .select("id");
 
   if (error) {
@@ -90,7 +124,9 @@ export async function markContractSigned(
   }
   // RLS blocks (rather than errors) an unauthorized UPDATE — it succeeds
   // with 0 rows affected, not a thrown error. Same shape the sabotage/
-  // negative tests in db/tests/rls_clients_contracts.sql rely on.
+  // negative tests in db/tests/rls_clients_contracts.sql rely on. At this
+  // point the status check above has already passed, so 0 rows here means
+  // capability, not status.
   if (!data || data.length === 0) {
     return {
       ok: false,
