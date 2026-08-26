@@ -104,6 +104,18 @@ export default async function AppLayout({
     }
   }
 
+  // Suppliers: single capability, no OR-branch needed -- confirmed live
+  // (docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md Sec7.2) finance.reporting.*
+  // is held by exactly the three roles the SAD wants here, platform_owner
+  // included (it holds finance.reporting.* directly too).
+  let canReadSuppliers = false;
+  for (const m of memberships ?? []) {
+    if (await checkCapability(supabase, "finance.reporting.*", m.organization_id)) {
+      canReadSuppliers = true;
+      break;
+    }
+  }
+
   // labelKey, not label: these render inside ShellChrome, a client
   // component that resolves them through useTranslations(chromeDict) — this
   // server component has no locale (that's a client-only, localStorage-
@@ -137,6 +149,14 @@ export default async function AppLayout({
           {
             labelKey: "nav_group_operational",
             items: [{ href: "/groups", labelKey: "nav_groups_enrollment" }],
+          },
+        ]
+      : []),
+    ...(canReadSuppliers
+      ? [
+          {
+            labelKey: "nav_group_finance",
+            items: [{ href: "/suppliers", labelKey: "nav_suppliers" }],
           },
         ]
       : []),

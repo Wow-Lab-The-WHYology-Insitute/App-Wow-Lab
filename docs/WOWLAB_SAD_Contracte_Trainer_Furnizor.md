@@ -297,6 +297,35 @@ iar rezolverul face potrivire pe prefix cu limită de punct.
 
 Accesul Cătălinei nu cere capabilitate nouă: `trainers.allocate`, pe care îl are deja.
 
+**Actualizare — la implementarea `suppliers` (§3.1): wildcard-ul de fallback nu a fost necesar.**
+Verificat live, nu presupus: `finance.reporting.*` este ținut azi de exact cele trei roluri care
+trebuie să vadă/scrie `suppliers` — `finance_admin_reporting` (Anka), `organization_owner` (Anca)
+și `platform_owner` — și de niciun altul. Nici `contracts.*` (îl ține și
+`contract_administrator`, exclus explicit de matrice) nici `org.settings.manage` (o capabilitate
+de administrare a organizației, nu o cheie de date de business — n-are ce căuta pe un tabel nou)
+nu se potrivesc; `finance.reporting.*` da.
+
+Un al doilea candidat exista, respins deliberat: `grants.*` e ținut azi de exact aceiași trei
+oameni, dar e o coincidență de rol, nu o potrivire de domeniu — `grants.*` înseamnă finanțare
+de tip grant primită de organizație (bani care intră), nu plăți către furnizori (bani care ies).
+Reutilizarea lui ar lega accesul la `suppliers` de o cheie dintr-un domeniu fără legătură, doar
+pentru că azi se întâmplă să fie ținută de aceiași oameni — s-ar rupe tăcut în ziua în care
+cineva capătă `grants.*` fără `finance.reporting.*` sau invers. `finance.reporting.*` e alegerea
+corectă și pentru că e deja cheia de demascare pt `trainer_contracts.rate`/`supplier_contracts.
+contract_value` (§5) — reutilizarea ei pt CRUD pe `suppliers` ține accesul și mascarea pe aceeași
+cheie, nu pe două chei diferite care ar putea diverge.
+
+Predicatul RLS pe `suppliers`, identic pe SELECT/INSERT/UPDATE:
+
+```
+app.is_platform_owner() OR app.has_capability('finance.reporting.*', organization_id)
+```
+
+Confirmat live înainte de a scrie asta: `organization_owner` ține `finance.reporting.*` direct
+(nu doar prin bypass-ul `is_platform_owner()`) — Anca e acoperită de propria ei capabilitate,
+nu de excepția de platform owner. Predicatul de două ramuri e complet, fără o a treia ramură
+pentru `org.settings.manage`.
+
 ---
 
 ## 8. Ce nu se construiește în V1
