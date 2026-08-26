@@ -8,6 +8,8 @@ export type ActionResult =
   | { ok: true; id: string }
   | { ok: false; error: string };
 
+export type VoidActionResult = { ok: true } | { ok: false; error: string };
+
 // Same relationship as app/(app)/clients/actions.ts: runs through the
 // caller's own session client, so the C1 RLS INSERT/UPDATE policies on
 // contracts (202608100003 — contract_administrator + Master only,
@@ -255,4 +257,96 @@ export async function updateContract(
   revalidatePath(`/contracts/${contractId}`);
   revalidatePath("/contracts");
   return { ok: true, id: contractId };
+}
+
+// DELETE policy on contracts (202608280001) is deliberately IDENTICAL to
+// the existing INSERT/UPDATE predicate (202608100003 -- org.settings.manage
+// OR contracts.* excluding either finance role), AND-ed with
+// status = 'draft'. Draft only, unlike client_contacts' unconditional
+// delete: a contract past draft is a record of a transaction someone
+// acted on, not just a detail to correct.
+//
+// Explicitly re-checks both halves of the predicate here (capability via
+// checkCapability, status via the read below) rather than leaning on
+// RLS's silent "0 rows affected" alone -- same reasoning as
+// deleteClientContact -- so the caller gets a real reason, not a mystery
+// no-op.
+//
+// contracts_renewal_of_fkey (self-referencing, implicit RESTRICT) is the
+// one thing besides RLS that can block this: deleting a draft that
+// another contract's renewal_of points at raises 23503
+// (foreign_key_violation). Confirmed live before writing this: zero
+// contracts have renewal_of set anywhere in production today, so this
+// catch block is UNTESTABLE with real data and non-discriminating in
+// practice right now -- it exists for the day a renewal flow gives
+// renewal_of a real write path. Caught specifically and turned into a
+// message a person can act on, not Postgres's raw constraint text.
+export async function deleteContract(
+  contractId: string,
+): Promise<VoidActionResult> {
+  const supabase = await createClient();
+
+  const { data: contract } = await supabase
+    .from("contracts")
+    .select("id, organization_id, status")
+    .eq("id", contractId)
+    .maybeSingle();
+
+  if (!contract) {
+    return {
+      ok: false,
+      error: "Contract not found, or not visible to your role.",
+    };
+  }
+
+  if (contract.status !== "draft") {
+    return {
+      ok: false,
+      error: `Cannot delete a contract with status "${contract.status}" -- only draft contracts can be deleted.`,
+    };
+  }
+
+  const [isOwner, hasContractsStar, isFinanceReporting, isFinanceOps] =
+    await Promise.all([
+      checkCapability(supabase, "org.settings.manage", contract.organization_id),
+      checkCapability(supabase, "contracts.*", contract.organization_id),
+      checkCapability(supabase, "finance.reporting.*", contract.organization_id),
+      checkCapability(supabase, "finance.operations.*", contract.organization_id),
+    ]);
+  const canDelete = isOwner || (hasContractsStar && !isFinanceReporting && !isFinanceOps);
+
+  if (!canDelete) {
+    return {
+      ok: false,
+      error: "Not permitted (requires contract_administrator or Master).",
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("contracts")
+    .delete()
+    .eq("id", contractId)
+    .eq("status", "draft")
+    .select("id");
+
+  if (error) {
+    if (error.code === "23503") {
+      return {
+        ok: false,
+        error:
+          "Another contract is a renewal of this one, so it can't be deleted. Remove or repoint that renewal first.",
+      };
+    }
+    return { ok: false, error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return {
+      ok: false,
+      error: "Not permitted, or the contract is no longer a draft.",
+    };
+  }
+
+  revalidatePath(`/contracts/${contractId}`);
+  revalidatePath("/contracts");
+  return { ok: true };
 }
