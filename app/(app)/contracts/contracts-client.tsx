@@ -250,12 +250,22 @@ export function ContractsClient({
   // would silently be a partial number, not the org-wide one the banner
   // claims. isPast/critical requires a real period_start/period_end pair
   // (a one_off_event contract with no range has neither).
+  //
+  // isDemoRecord(c.notes) excluded on purpose, same helper the "Demo data"
+  // badge on each row already uses: confirmed live that every one of
+  // today's overdue-looking signed contracts is a seed record from a
+  // single 2026-08-10 batch, each notes field literally saying "not a
+  // verified real contract." A banner that counts seed rows as something
+  // to act on is the same dishonesty this feature exists to avoid --
+  // excluding them means the count is genuinely zero right now, not a
+  // number that happens to look real.
   const { overdueCount, criticalCount } = useMemo(() => {
     if (!bannerEligible) return { overdueCount: 0, criticalCount: 0 };
     let overdue = 0;
     let critical = 0;
     for (const c of contracts) {
       if (c.status !== "signed" || !c.period_start || !c.period_end) continue;
+      if (isDemoRecord(c.notes)) continue;
       const { isPast, isRenewalCritical } = getTermStatus(
         c.period_start,
         c.period_end,
@@ -284,6 +294,7 @@ export function ContractsClient({
       if (entityFilter !== "all" && c.legalEntityName !== entityFilter) return false;
       if (overdueOnly) {
         if (c.status !== "signed" || !c.period_start || !c.period_end) return false;
+        if (isDemoRecord(c.notes)) return false;
         if (!getTermStatus(c.period_start, c.period_end, c.status, now).isPast) return false;
       }
       return true;
