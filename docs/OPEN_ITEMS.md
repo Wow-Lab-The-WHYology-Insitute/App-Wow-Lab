@@ -18,6 +18,68 @@ is the entire reason this file exists instead of being a wishlist.
 
 ---
 
+## Retention and anonymization — platform-wide gap, not a `file_refs` sub-item
+
+**What it is:** no retention or anonymization mechanism exists anywhere in this system. Confirmed
+live: no `pg_proc` function named `%retention%`/`%anonymiz%`/`%gdpr%`/`%purge%`/`%scrub%`, the
+`pg_cron` extension is not installed, `vercel.json` has no crons, and there is no Supabase Edge
+Function doing this either.
+
+**Why this belongs near the top, not under `file_refs`:** it's a real, unenforced gap across every
+category of personal data this platform is supposed to age out automatically —
+- `client_contacts` — PII (email, phone, full_name) for a real person, confirmed live (Vlad
+  Rasnoveanu, Lycée Français).
+- `row_history`/`audit_log` snapshots — jsonb blobs containing PII and historical financial values,
+  confirmed live to never expire (see item 4 below).
+- `file_refs.gdpr_class` — the originally-scoped item, still real, see its own entry below for what's
+  specific to it.
+- Children's names and rejected candidates — see the correction below: neither actually has stored
+  data today, but both are described elsewhere as already-retained-and-anonymized.
+
+**Documents and the mockup both describe this as active when it does not exist.**
+`docs/DATABASE_CONVENTIONS.md` §9 stated "Personal data is anonymized in place at 36 months — never
+hard-deleted" as fact (corrected in this pass — see below). The mockup goes further and shows it as
+a live, toggled-on setting: `docs/mockup/wow_lab_os_mockup.html` line 1109, the Organization
+Settings page's "Active policies" panel, has three rows all badged "on" (`b-teal`, the same class
+used for genuinely active policies): "Anonymize children 36 months after group ends,"
+"Rejected-candidate retention — 36 months," and "Confidential evaluations (OD-7)." Checked the
+actual backing data: both real organizations' `org_settings.settings` jsonb is `{}` — empty, no
+retention configuration stored anywhere, not even inert. The mockup's toggles have no
+implementation behind them at all.
+
+**Correction to two of the three categories the mockup implies are being retained:** confirmed
+live, neither has any data to retain in the first place —
+- Children's names are never stored. `docs/WOWLAB_SAD_Domeniul_Operational_Groups_Sessions.md`
+  states the attendance model is deliberately "numeric-first" (`attendance_count`, an integer)
+  specifically so no per-child record has to exist; a per-child table
+  (`session_child_attendance`) is explicitly named as something not built, "fiindcă nu există
+  cerere reală pt el" (no real demand for it).
+- Rejected candidates: no `candidates` table exists anywhere in `information_schema.tables`. The
+  recruitment flow (`docs/phase1-development-plan.md` §3) is mockup/plan-stage only, never built as
+  real schema.
+
+So the gap is live and real for `client_contacts`, `users` PII, and `row_history`/`audit_log` —
+and moot for children's names and candidates until those features are built with actual data.
+
+**This session's own earlier claim was wrong too, for the record:** the `client_contacts` DELETE
+migration comment (`supabase/migrations/202608270001_client_contacts_delete.sql`) states the
+36-month anonymization job "runs automatically and is scheduled" — asserted without having been
+verified, now confirmed false. That migration is already applied and is not being edited to fix
+this (correcting applied migration history isn't the right move); `docs/DATABASE_CONVENTIONS.md`
+§9 carries the correction instead. Practically: **`client_contacts` DELETE (202608270001) is
+currently the only implemented erasure route for personal data in this system** — not one option
+among several, the only one, for anyone who asks to be removed now.
+
+**Blocked on:** deciding and building an actual retention/anonymization mechanism — none exists
+today in any form.
+**Lives in:** `docs/DATABASE_CONVENTIONS.md` §9 (corrected this pass); `docs/mockup/
+wow_lab_os_mockup.html` line 1109 (the false "on" badges); `docs/
+WOWLAB_SAD_Domeniul_Operational_Groups_Sessions.md` (numeric-first principle, no per-child data);
+`supabase/migrations/202608270001_client_contacts_delete.sql` (the uncorrected, applied migration
+comment).
+
+---
+
 ## Threads not started
 
 ### 1. CEO dashboard
@@ -124,27 +186,23 @@ These three are already tracked in `docs/WOWLAB_SAD_Field_Masking.md` §2.5,
 
 ### 3. `file_refs.gdpr_class`
 
-Confirmed live: `gdpr_class` is a plain nullable `text` column with no CHECK
-constraint, referenced by zero triggers and zero RLS policies on `file_refs`
-(`authenticated select/insert/update file_refs` all key off
-`organization_id` only). The classification is stored and never read.
+**Promoted:** the retention/anonymization gap this item was originally scoped
+to isn't `file_refs`-specific — it's platform-wide. See the new "Retention
+and anonymization" entry near the top of this file for the full scope
+(`client_contacts`, `row_history`/`audit_log`, and what the mockup falsely
+implies about children's names and rejected candidates).
 
-**Stronger finding than the SAD's own framing:** a full search for any
-retention/anonymization mechanism — `pg_proc` functions named
-`%retention%`/`%anonymiz%`/`%gdpr%`/`%purge%`/`%scrub%`, the `pg_cron`
-extension, `vercel.json` crons, a Supabase Edge Function — found **nothing,
-for any table, anywhere**. `DATABASE_CONVENTIONS.md` §9 states "Personal data
-is anonymized in place at 36 months — never hard-deleted" as if it were an
-implemented mechanism; it is a policy decision with no automated
-implementation behind it today. This claim was itself relied on, unverified,
-earlier in this session (the `client_contacts` DELETE migration's own comment
-says the 36-month anonymization "is automatic and scheduled") — that
-sentence should be read as intent, not confirmed fact, until this is built.
+What's still specific to `file_refs`, confirmed live: `gdpr_class` is a plain
+nullable `text` column with no CHECK constraint, referenced by zero triggers
+and zero RLS policies on `file_refs` (`authenticated select/insert/update
+file_refs` all key off `organization_id` only). The classification is stored
+and never read — true independent of whether a retention mechanism exists to
+enforce it against.
 
-**Blocked on:** no retention/anonymization policy exists to enforce
-`gdpr_class` against, for `file_refs` or any other table.
-**Lives in:** `docs/WOWLAB_SAD_Field_Masking.md` §2.5; `docs/
-DATABASE_CONVENTIONS.md` §9 (states the policy, not the implementation).
+**Blocked on:** the platform-wide retention mechanism (see above) plus
+someone deciding what `gdpr_class`'s values should actually trigger once it
+exists.
+**Lives in:** `docs/WOWLAB_SAD_Field_Masking.md` §2.5.
 
 ### 4. `row_history` / `audit_log` — masking a jsonb snapshot
 
@@ -397,11 +455,16 @@ than left as originally stated:
 - **Item 12** — narrower than actual: verified it reproduces on `contracts`
   too, not only the table where it was first noticed.
 - **Item 14** — undercounted: 19 files, not ~15.
-- **Item 3** — understated: no retention/anonymization mechanism exists for
-  *any* table (confirmed via `pg_proc`, `pg_cron`, `vercel.json`), not only
-  for `file_refs`. This also means a claim made earlier this session (that
+- **Item 3** — promoted, not just corrected: the retention/anonymization gap
+  isn't a `file_refs` sub-item, it's platform-wide (confirmed via `pg_proc`,
+  `pg_cron`, `vercel.json` — nothing exists for any table). Given its own
+  top-level entry; item 3 now covers only what's still specific to
+  `file_refs.gdpr_class`. Also surfaced: the mockup shows children's-names
+  and rejected-candidate retention as active toggles, but neither category
+  has any stored data today, and a claim made earlier this session (that
   36-month anonymization "is automatic and scheduled") was itself never
-  verified and turns out to be a stated policy, not an implemented one.
+  verified and turns out to be false — corrected in `DATABASE_CONVENTIONS.md`
+  §9, not in the already-applied migration that stated it.
 - **A separate "analysis doc" for the CEO dashboard** — searched for, doesn't
   exist as its own file. The relevant content lives inside
   `WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md` §5/§7; folded item 1 into

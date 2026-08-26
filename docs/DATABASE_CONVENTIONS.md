@@ -68,8 +68,20 @@ enforced by a dedicated trigger rather than by policy alone.
 
 ## 9. GDPR
 
-Data resides in the EU (Frankfurt), including backups. Personal data is anonymized in place at 36
-months — never hard-deleted.
+Data resides in the EU (Frankfurt), including backups. The design intent is that personal data is
+anonymized in place at 36 months — never hard-deleted. **This is a policy decision, not an
+implemented mechanism.** Verified 2026-08-26: no retention/anonymization job exists anywhere in
+this system — no DB function, no `pg_cron` (extension not installed), no Vercel cron, no Edge
+Function. `docs/OPEN_ITEMS.md` has the full scope of what this leaves unenforced (`client_contacts`
+PII, `row_history`/`audit_log` snapshots, and what the mockup implies for children's names and
+rejected candidates, neither of which actually has stored data yet).
+
+Until the automatic mechanism is built, `client_contacts` DELETE
+(`supabase/migrations/202608270001_client_contacts_delete.sql`) is the only implemented erasure
+route for personal data in this system — an on-demand path someone has to invoke, not a substitute
+for the automatic one. That migration's own comment says the 36-month job "runs automatically";
+it does not, and was never verified before that comment was written. The migration is already
+applied and is not being edited to fix this — this section is the correction.
 
 ## 10. Migrations vs. seed
 
