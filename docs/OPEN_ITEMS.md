@@ -18,15 +18,33 @@ is the entire reason this file exists instead of being a wishlist.
 
 ---
 
-## Retention and anonymization — platform-wide gap, not a `file_refs` sub-item
+## No scheduled execution mechanism exists
 
-**What it is:** no retention or anonymization mechanism exists anywhere in this system. Confirmed
-live: no `pg_proc` function named `%retention%`/`%anonymiz%`/`%gdpr%`/`%purge%`/`%scrub%`, the
-`pg_cron` extension is not installed, `vercel.json` has no crons, and there is no Supabase Edge
-Function doing this either.
+**What it is:** nothing in this system runs on a timer. Confirmed live, comprehensively: `pg_cron`
+is not in `pg_extension` (full list checked: `pg_stat_statements`, `pgcrypto`, `plpgsql`,
+`supabase_vault`, `uuid-ossp` — nothing scheduling-related); `vercel.json` declares no `crons`;
+`package.json` has no cron/scheduler dependency; no `pg_proc` function named
+`%retention%`/`%anonymiz%`/`%gdpr%`/`%purge%`/`%scrub%` exists; there is no Supabase Edge Function
+doing this either. This is one gap with several symptoms, not several separate gaps — anything
+that should happen "automatically, on a schedule, without a person clicking a button" currently
+doesn't happen at all, for any reason, anywhere in this codebase.
 
-**Why this belongs near the top, not under `file_refs`:** it's a real, unenforced gap across every
-category of personal data this platform is supposed to age out automatically —
+**Known symptoms today:**
+1. **Retention/anonymization** (36-month rule) — documented in `docs/DATABASE_CONVENTIONS.md` §9
+   and shown as an active, toggled-on setting in the mockup, when no mechanism exists to run it.
+   Full detail below, in this same entry.
+2. **Contract expiry transitions** — signed contracts past their term don't move to `expired`
+   automatically, because nothing runs to move them. See its own entry, "Contracts past
+   `period_end` stay `signed`," further down — that entry is the second half of this same root
+   cause, recorded separately because it also raises a design question (stored status vs. derived
+   on read) that's independent of the scheduling gap itself.
+3. **Anything else time-driven that gets designed later** inherits this same blocker by
+   default — worth checking against this entry before assuming a "runs nightly" or "expires after
+   N days" feature can just be written as a function and left to fire itself.
+
+**Why the retention symptom belongs at the platform level, not under `file_refs`:** it's a real,
+unenforced gap across every category of personal data this platform is supposed to age out
+automatically —
 - `client_contacts` — PII (email, phone, full_name) for a real person, confirmed live (Vlad
   Rasnoveanu, Lycée Français).
 - `row_history`/`audit_log` snapshots — jsonb blobs containing PII and historical financial values,
@@ -70,13 +88,53 @@ this (correcting applied migration history isn't the right move); `docs/DATABASE
 currently the only implemented erasure route for personal data in this system** — not one option
 among several, the only one, for anyone who asks to be removed now.
 
-**Blocked on:** deciding and building an actual retention/anonymization mechanism — none exists
-today in any form.
+**Blocked on:** choosing a scheduling mechanism for this platform (Supabase `pg_cron`, a Vercel
+cron hitting an API route, or an external scheduler) — none exists today in any form, so every
+symptom above is blocked on the same missing piece of infrastructure, not on separate designs.
 **Lives in:** `docs/DATABASE_CONVENTIONS.md` §9 (corrected this pass); `docs/mockup/
 wow_lab_os_mockup.html` line 1109 (the false "on" badges); `docs/
 WOWLAB_SAD_Domeniul_Operational_Groups_Sessions.md` (numeric-first principle, no per-child data);
 `supabase/migrations/202608270001_client_contacts_delete.sql` (the uncorrected, applied migration
-comment).
+comment); `package.json`, `vercel.json`, `pg_extension` (checked, nothing scheduling-related in
+any of them).
+
+---
+
+## Contracts past `period_end` stay `signed`
+
+**What it is:** confirmed live, 4 of the 5 signed contracts in production today are already past
+their `period_end` — all four `2025-09-01 → 2026-06-30` school-year contracts, each 57 days
+overdue as of this check. None has moved to `expired` or `renewed`. Re-checked fresh rather than
+reused from the dashboard-inventory pass earlier this session, per this file's own rule.
+
+**Both halves of why, recorded separately on purpose:**
+1. **The missing mechanism.** No scheduled job exists to notice a contract's term ended and act on
+   it — this is a direct symptom of "No scheduled execution mechanism exists" above, not an
+   independent gap. Nothing in this codebase currently runs "for every signed contract where
+   `period_end < today`, do X."
+2. **The open design question, independent of the mechanism.** Even once something can run on a
+   schedule, it still has to be decided whether `expired` should be a **stored status** (something
+   writes `status = 'expired'` at some point, so `contracts.status` stays the single source of
+   truth `markContractSigned`/`deleteContract` already treat it as) or a **derived-on-read** state
+   (every reader computes `is_expired = status = 'signed' AND period_end < today` at query time,
+   the same way `TermBar` already computes `isPast` client-side, and `status` itself never changes
+   until a human acts). These have different implications: a stored status needs the scheduled
+   write mechanism above and a decision about whether it's still safe to `markContractSigned`-style
+   edit an expired contract; a derived state needs no write path at all but means `contracts.status
+   = 'signed'` alone is no longer sufficient to answer "is this contract still current" anywhere it's
+   checked (RLS policies, the dashboard, `contracts-client.tsx`'s own status badge).
+
+**Confirmed not caught by the existing render logic:** `TermBar`'s `isRenewalCritical` requires
+`!isPast` — an already-ended contract renders in muted gray ("ended N months ago"), not flagged.
+The dashboard inventory (this session) found 0 contracts in `TermBar`'s own "critical" 85% window
+and 4 past end entirely — the existing UI's one piece of renewal-pressure signal doesn't surface
+the more urgent bucket at all today.
+
+**Blocked on:** the scheduling mechanism (see above) plus the stored-vs-derived decision, which
+doesn't depend on the mechanism and could be settled first.
+**Lives in:** `app/(app)/contracts/term-bar.tsx` (`isRenewalCritical`, `isPast`);
+`app/(app)/contracts/actions.ts` (`markContractSigned` — the only place `status` is written after
+creation, per item 8 below).
 
 ---
 
@@ -130,6 +188,59 @@ lives in SmartBill/SAGA, outside this platform's data.
 **Lives in:** `docs/WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md` §5, §7, §8;
 `app/(app)/contracts/[id]/page.tsx` for the existing masked-read pattern to
 reuse; `app/auth/callback/route.ts` for the current landing-page default.
+
+**Decision (this session): investigated, not built.** A follow-up block
+proposal identified two candidate blocks that would show a genuinely new,
+non-redundant, honest-for-every-viewer number: contract health (overdue +
+renewal-pressure counts) and pending invites. Both were checked against a
+capability-shape inventory of all 14 roles and a redundancy check against
+existing pages. The conclusion: a dashboard page carrying one real block and
+five empty states (for the roles whose domains — curriculum, evaluations,
+inventory, community, candidates — this page has nothing for) is worse than
+no page. **No `/dashboard` route was built.** Instead:
+- **Contract health shipped as a banner on `/contracts`** — `feat: surface
+  overdue contracts on the contracts list`. It's where someone can act on
+  the number, needs no new route, no empty states, and no role matrix. See
+  `app/(app)/contracts/contracts-client.tsx` and the `getTermStatus` export
+  now shared with `TermBar` in `app/(app)/contracts/term-bar.tsx`.
+- **Pending invites was cut**, not shipped — see its own note directly
+  below.
+
+**Do not treat the absence of a nav entry as the reason this doesn't
+exist.** There never was one — `app/(app)/layout.tsx`'s nav groups have no
+"Dashboard" entry today, before or after this decision, so a future reader
+finding no nav link should not read that as evidence of a removed feature.
+The absence is this recorded decision, not a silent deprecation.
+
+**Re-verify when:** attendance data, `groups.children_billed`/
+`children_confirmed`, or a second finance-visible aggregate exist for real —
+any of those would give a redundancy-checked block something non-redundant
+to show, which is the reason nothing beyond the banner shipped this round.
+
+### 18. Pending invites — cut deliberately
+
+Investigated as a dashboard-candidate block (org.members.manage-gated,
+single true number, no segmentation issue — see item 1's block proposal).
+Not shipped. **The count is test residue, not signal.** Checked live who
+the 10 non-test, `status = 'invited'` real users actually are:
+`anca.tanasescu@gmail.com` (the real product stakeholder herself, not a new
+hire being onboarded), eight `maxdigitalro+<role>@gmail.com` addresses
+(`community`, `finadmin`, `finops`, `inventory`, `master`, `ops`, `trainer`,
+plus the bare `maxdigitalro@gmail.com`) — the agency's own
+role-verification accounts, not real team members despite
+`is_test_account = false` — and `test+cascade-check@wowlab.dev`, a fixture
+by name. `is_test_account = false` turns out not to mean "this is a real
+person joining the team"; it only means "not inserted by `seed.sql`." None
+of these 10 represent a real pending onboarding today.
+
+**Blocked on:** nothing technical — the query and the gate are both sound.
+Blocked on the underlying data not existing yet: a real invited team member.
+**Re-verify when:** the real team starts getting real invites through this
+system — at that point the count (and this cut decision) should be
+revisited.
+**Lives in:** `public.users` (`status`, `is_test_account` — confirmed live
+this round the two don't mean what they'd need to mean together for this
+metric).
 
 ### 2. Trainer and supplier contracts
 
@@ -317,6 +428,31 @@ request has ever exercised it.
 **Re-verify when:** a renewal flow gives `renewal_of` a real write path.
 **Lives in:** `app/(app)/contracts/actions.ts` lines 275-282;
 `scripts/verify_contracts_delete.sql` assertion 4.
+
+### 17. Trainer and Senior Trainer hold byte-identical capability sets
+
+Confirmed live via `role_capabilities`: both roles hold exactly
+`community.read, curriculum.read, finance.own.read, materials.custody,
+mywork.*, presentations.own` — the same six capabilities, nothing more or
+less on either side. No `has_capability()` check anywhere in this codebase
+can distinguish a Trainer from a Senior Trainer; every gate either grants
+both or neither.
+
+Found while doing the dashboard capability-shape inventory this session (a
+CEO-style dashboard collapses these two roles into one shape, which is what
+surfaced this). Not necessarily a bug — the two roles may be intended to
+differ only in something outside the capability system (seniority, pay,
+who's allowed to be `trainer_principal_id` vs. `trainer_secundar_id` on a
+session, an org-chart fact) rather than in platform access. But if the
+distinction is ever meant to gate something in this app — a Senior Trainer
+seeing something a Trainer doesn't, or vice versa — nothing today would
+carry that weight; it would need its own capability, not inferred from the
+role name.
+
+**Re-verify when:** any feature is proposed that's meant to differ between
+these two roles specifically.
+**Lives in:** `role_capabilities` (live data, not code — no migration
+currently seeds these two roles differently).
 
 ---
 

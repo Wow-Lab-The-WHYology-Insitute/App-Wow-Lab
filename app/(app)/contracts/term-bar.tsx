@@ -17,6 +17,30 @@ function monthsBetween(from: Date, to: Date) {
   );
 }
 
+// Exported so anything else that needs to know "is this contract overdue /
+// in the renewal-critical window" (the /contracts overdue banner) uses the
+// exact same math TermBar renders, rather than a second copy that could
+// silently drift from what the bar on screen actually shows.
+export function getTermStatus(
+  periodStart: string,
+  periodEnd: string,
+  status: string,
+  now: Date,
+) {
+  const start = new Date(periodStart);
+  const end = new Date(periodEnd);
+
+  const totalMs = end.getTime() - start.getTime();
+  const elapsedMs = now.getTime() - start.getTime();
+  const fraction = totalMs > 0 ? Math.min(1, Math.max(0, elapsedMs / totalMs)) : 1;
+
+  const isPast = end.getTime() < now.getTime();
+  const isFuture = start.getTime() > now.getTime();
+  const isRenewalCritical = !isPast && !isFuture && fraction >= 0.85 && status === "signed";
+
+  return { isPast, isFuture, fraction, isRenewalCritical };
+}
+
 export function TermBar({
   periodStart,
   periodEnd,
@@ -37,14 +61,12 @@ export function TermBar({
 }) {
   const start = new Date(periodStart);
   const end = new Date(periodEnd);
-
-  const totalMs = end.getTime() - start.getTime();
-  const elapsedMs = now.getTime() - start.getTime();
-  const fraction = totalMs > 0 ? Math.min(1, Math.max(0, elapsedMs / totalMs)) : 1;
-
-  const isPast = end.getTime() < now.getTime();
-  const isFuture = start.getTime() > now.getTime();
-  const isRenewalCritical = !isPast && !isFuture && fraction >= 0.85 && status === "signed";
+  const { isPast, isFuture, fraction, isRenewalCritical } = getTermStatus(
+    periodStart,
+    periodEnd,
+    status,
+    now,
+  );
 
   let label: string;
   if (isPast) {

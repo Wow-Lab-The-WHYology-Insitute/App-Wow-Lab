@@ -31,6 +31,17 @@ export const contractsDict: Dictionary = {
   term_ended_ago: { en: "ended {{n}} months ago", ro: "s-a terminat acum {{n}} luni" },
   term_starts_in: { en: "starts in {{n}} days", ro: "începe în {{n}} zile" },
 
+  overdue_banner_line: {
+    en: "{{n}} signed contracts have passed their end date",
+    ro: "{{n}} contracte semnate și-au depășit data de sfârșit",
+  },
+  overdue_banner_show: { en: "Show these", ro: "Arată-le" },
+  overdue_banner_critical_line: {
+    en: "{{n}} more are nearing their end date (85%+ of term elapsed)",
+    ro: "Încă {{n}} se apropie de sfârșitul perioadei (85%+ din durată scursă)",
+  },
+  overdue_filter_chip: { en: "Overdue", ro: "Depășite" },
+
   masked_label: { en: "Finance only", ro: "Doar Finance" },
   masked_title: { en: "Visible to Finance and the Owner", ro: "Vizibil pentru Finance și Owner" },
 
