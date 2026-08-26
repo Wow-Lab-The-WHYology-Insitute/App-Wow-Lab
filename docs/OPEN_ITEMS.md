@@ -100,6 +100,54 @@ any of them).
 
 ---
 
+## Seed data cannot be reliably distinguished from real data
+
+There is no reliable way to tell a seed row from a real one anywhere in this database.
+
+`isDemoRecord()` (`app/(app)/contracts/format.ts`) is the only thing that exists for this, and it
+covers `contracts` only, by substring-matching one hardcoded marker (`"Example seed record"`)
+against the `notes` column. It was built to drive a single visible badge on one table, tracing back
+to one seed migration (`202608100007`) — it became a general seed-vs-real detector by accumulation,
+because it was the only signal anyone had, not because it was designed to be one.
+
+`clients`, `groups`, `sessions`, and `client_contacts` carry no marker of any kind — confirmed live,
+zero rows in any of those four tables contain the marker text, even though at least some of their
+rows originated from the same seeding work as the marked contracts. The seed clients (Cambridge
+School, IBSB, King's Oak, Lycée Français, Zitec) were deliberately given real, project-established
+names rather than being marked fake — the client identity is treated as real; only the demo
+contracts attached to them are placeholders.
+
+`is_test_account` (on `users`/`users_masked`) is not a structural fix for this, for two reasons.
+It exists only on `users` — nowhere near `contracts`, `clients`, `groups`, or `sessions` — so it
+can't be reused for those tables even in principle. And it already fails its own job on the one
+table it's on: the `maxdigitalro+<role>@gmail.com` agency verification accounts (item 18 above) all
+have `is_test_account = false`, despite being exactly the kind of row that flag exists to catch.
+
+The one marker that does exist is editable through a real, shipped form. `updateContract`
+(`app/(app)/contracts/actions.ts`) accepts `notes` as a normal, uncapability-gated field in its
+UPDATE payload — a Contract Administrator correcting or clearing a contract's notes through the
+real edit form would silently erase the only signal that row was ever seed data, with nothing to
+notice or prevent it.
+
+**This has already caused two real mistakes in this session, not a hypothetical risk:**
+1. The `/contracts` overdue banner (this session) reported "4 signed contracts have passed their
+   end date" as a real, actionable finding. All four were seed rows. The banner had to be corrected
+   after being verified against production, not before.
+2. The `groups.contract_id` backfill rule (item 19 above) — "client has exactly one contract,
+   populate automatically" — is a correct rule that would have linked real, non-seed groups to a
+   seed contract, passed every assertion, and reported success while being wrong. It was caught
+   only because the investigation happened to check the contract's own `notes` field before
+   proposing the backfill, not because anything in the schema would have caught it.
+
+**This needs to be settled before real school data enters production.** Once real rows and seed
+rows are mixed in the same tables with no marker distinguishing them, the distinction cannot be
+reconstructed after the fact — there will be no way to ask the database "which of these clients,
+groups, or contracts were ever real" once real ones start arriving alongside unmarked seed ones.
+
+No solution proposed here — this entry is the gap and its consequences, not a fix.
+
+---
+
 ## Contracts past `period_end` stay `signed`
 
 **What it is:** confirmed live, 4 of the 5 signed contracts in production today are already past
