@@ -305,6 +305,40 @@ avoid repeating); `docs/progress.md` entries 56 and the line-459 entry (prior
 state); this conversation (source of the answers, until written up
 elsewhere).
 
+### 19. `groups.contract_id` — a known-null column, deliberately
+
+The full architecture for item 2 above is now written up:
+`docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md`, with `groups.contract_id`
+named as the one prerequisite step that depends on nothing else in it
+(§10). That column exists as a migration now
+(`supabase/migrations/202608290001_groups_contract_id.sql`,
+`nullable uuid references contracts(id)`, dry-run verified — 5/5
+assertions passed on the first run) — **not yet applied to production**,
+same "dry run before applying" pause as every prior round.
+
+**No backfill was written, and none should be assumed once this is
+applied.** Confirmed live: every group in production today (4 total)
+belongs to Cambridge School, and Cambridge School's only contract is the
+2026-08-10 seed batch record — `notes` literally says "not a verified real
+contract." The SAD's own backfill rule ("client has exactly one contract →
+populate automatically") is correct as a rule; run against today's data it
+would link real verification-round groups (created 2026-08-13/15, not
+seed data themselves) to a fake contract, pass every assertion, and report
+success while being wrong. So: **all 4 existing groups will have
+`contract_id = NULL` after this migration applies, on purpose, indefinitely
+— not a pending backfill, a decision.**
+
+**Re-verify/revisit when:** real client/contract data exists for a client
+that actually has groups — at that point the backfill rule from the SAD
+can run for real, or these 4 specific groups get `contract_id` set by hand
+once someone confirms what they actually are. It's also possible they turn
+out to be verification residue themselves, same category as the pending-
+invites accounts in item 18 — that determination hasn't been made, and
+this column staying null is not evidence either way.
+**Lives in:** `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §6.2, §10;
+`supabase/migrations/202608290001_groups_contract_id.sql`;
+`scripts/verify_groups_contract_id.sql`.
+
 ---
 
 ## Masking rollout, remaining

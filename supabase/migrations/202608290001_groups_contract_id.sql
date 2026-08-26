@@ -1,0 +1,35 @@
+-- 202608290001_groups_contract_id.sql
+-- groups.contract_id -- prerequisite named explicitly in
+-- docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md Sec6.2 (Catalina's
+-- allocation check needs group -> contract -> legal_entity ->
+-- trainer_contracts, and the first link doesn't exist today) and listed
+-- as step 1 of Sec10's implementation order, independent of everything
+-- else in that SAD.
+--
+-- Column only. NO BACKFILL in this migration, on purpose -- see the
+-- investigation this migration is based on and docs/OPEN_ITEMS.md: every
+-- group in production today belongs to Cambridge School, whose only
+-- contract is itself a seed record ("Example seed record -- not a
+-- verified real contract", 202608100001-era batch). The backfill rule
+-- from SAD Sec6.2 ("where the client has exactly one contract, populate
+-- automatically") is correct as a rule -- but run against today's data it
+-- would link real verification-round groups to a fake contract, pass
+-- every assertion, and report success while being wrong. That's a
+-- decision for whoever populates real client/contract data, not something
+-- to automate now. Backfill is deliberately a separate, later, manual
+-- step.
+--
+-- Nullable: existing groups don't have a contract yet, and per SAD
+-- Sec6.2, a group can legitimately exist before its contract is signed
+-- -- nullability here isn't a migration convenience, it's the modeled
+-- reality.
+--
+-- No ON DELETE: nothing in this schema hard-deletes contracts today (the
+-- contracts DELETE policy, 202608280001, only permits deleting a draft --
+-- a contract a group references is never a draft by definition, since the
+-- group is evidence someone started delivering against it). Implicit
+-- RESTRICT is the correct default, not an oversight -- same reasoning the
+-- SAD itself gives for trainer_contracts.user_id (Sec3.2).
+
+alter table public.groups
+  add column contract_id uuid null references public.contracts(id);
