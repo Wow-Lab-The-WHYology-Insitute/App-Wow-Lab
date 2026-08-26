@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import { isDemoRecord } from "../format";
 import { MarkSignedButton } from "./mark-signed-button";
+import { DeleteContractButton } from "./delete-contract-button";
 import { ContractDetailClient } from "./contract-detail-client";
 
 type ContractRow = {
@@ -160,6 +161,14 @@ export default async function ContractDetailPage({
             <MarkSignedButton contractId={contract.id} />
           )}
         </div>
+        {canManage && contract.status === "draft" && (
+          <div className="mt-2">
+            <DeleteContractButton
+              contractId={contract.id}
+              label={contract.exit_number || contract.entry_number || "this draft"}
+            />
+          </div>
+        )}
       </div>
 
       <ContractDetailClient
