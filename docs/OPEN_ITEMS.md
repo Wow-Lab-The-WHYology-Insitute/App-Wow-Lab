@@ -107,6 +107,19 @@ their `period_end` — all four `2025-09-01 → 2026-06-30` school-year contract
 overdue as of this check. None has moved to `expired` or `renewed`. Re-checked fresh rather than
 reused from the dashboard-inventory pass earlier this session, per this file's own rule.
 
+**Correction, checked when asked to confirm these were real before shipping a banner on them:**
+all four are seed data, not real contracts. `notes` on all four literally reads "Example seed
+record — see migration header, not a verified real contract," all four created in the same batch
+(`created_at = 2026-08-10 15:00:25`, identical to the second). **There are zero real overdue
+contracts in production today.** The architectural finding below (no mechanism exists to catch
+this when it does happen for real) stands regardless — that's a fact about the code, not about
+today's data — but the count itself was never a real business problem to act on, and the banner
+built from it (`feat: surface overdue contracts on the contracts list`) was corrected in the same
+round to exclude demo-flagged rows (`isDemoRecord()`, the same helper already used for the "Demo
+data" badge on this page) before it reached a real viewer's attention as a false actionable
+finding. Only `Maxdigital` (created `2026-08-13`, this session's own real verification work) is a
+real signed contract today, and it isn't overdue or critical.
+
 **Both halves of why, recorded separately on purpose:**
 1. **The missing mechanism.** No scheduled job exists to notice a contract's term ended and act on
    it — this is a direct symptom of "No scheduled execution mechanism exists" above, not an
@@ -200,7 +213,11 @@ inventory, community, candidates — this page has nothing for) is worse than
 no page. **No `/dashboard` route was built.** Instead:
 - **Contract health shipped as a banner on `/contracts`** — `feat: surface
   overdue contracts on the contracts list`. It's where someone can act on
-  the number, needs no new route, no empty states, and no role matrix. See
+  the number, needs no new route, no empty states, and no role matrix.
+  Corrected in the same round, before this reached a real viewer: the count
+  must exclude `isDemoRecord()` rows — checked when asked to confirm the
+  banner's own numbers were real, and they weren't (see "Contracts past
+  `period_end` stay `signed`" above). See
   `app/(app)/contracts/contracts-client.tsx` and the `getTermStatus` export
   now shared with `TermBar` in `app/(app)/contracts/term-bar.tsx`.
 - **Pending invites was cut**, not shipped — see its own note directly
