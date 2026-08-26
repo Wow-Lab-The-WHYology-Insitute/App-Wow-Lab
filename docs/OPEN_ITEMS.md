@@ -189,6 +189,59 @@ lives in SmartBill/SAGA, outside this platform's data.
 `app/(app)/contracts/[id]/page.tsx` for the existing masked-read pattern to
 reuse; `app/auth/callback/route.ts` for the current landing-page default.
 
+**Decision (this session): investigated, not built.** A follow-up block
+proposal identified two candidate blocks that would show a genuinely new,
+non-redundant, honest-for-every-viewer number: contract health (overdue +
+renewal-pressure counts) and pending invites. Both were checked against a
+capability-shape inventory of all 14 roles and a redundancy check against
+existing pages. The conclusion: a dashboard page carrying one real block and
+five empty states (for the roles whose domains — curriculum, evaluations,
+inventory, community, candidates — this page has nothing for) is worse than
+no page. **No `/dashboard` route was built.** Instead:
+- **Contract health shipped as a banner on `/contracts`** — `feat: surface
+  overdue contracts on the contracts list`. It's where someone can act on
+  the number, needs no new route, no empty states, and no role matrix. See
+  `app/(app)/contracts/contracts-client.tsx` and the `getTermStatus` export
+  now shared with `TermBar` in `app/(app)/contracts/term-bar.tsx`.
+- **Pending invites was cut**, not shipped — see its own note directly
+  below.
+
+**Do not treat the absence of a nav entry as the reason this doesn't
+exist.** There never was one — `app/(app)/layout.tsx`'s nav groups have no
+"Dashboard" entry today, before or after this decision, so a future reader
+finding no nav link should not read that as evidence of a removed feature.
+The absence is this recorded decision, not a silent deprecation.
+
+**Re-verify when:** attendance data, `groups.children_billed`/
+`children_confirmed`, or a second finance-visible aggregate exist for real —
+any of those would give a redundancy-checked block something non-redundant
+to show, which is the reason nothing beyond the banner shipped this round.
+
+### 18. Pending invites — cut deliberately
+
+Investigated as a dashboard-candidate block (org.members.manage-gated,
+single true number, no segmentation issue — see item 1's block proposal).
+Not shipped. **The count is test residue, not signal.** Checked live who
+the 10 non-test, `status = 'invited'` real users actually are:
+`anca.tanasescu@gmail.com` (the real product stakeholder herself, not a new
+hire being onboarded), eight `maxdigitalro+<role>@gmail.com` addresses
+(`community`, `finadmin`, `finops`, `inventory`, `master`, `ops`, `trainer`,
+plus the bare `maxdigitalro@gmail.com`) — the agency's own
+role-verification accounts, not real team members despite
+`is_test_account = false` — and `test+cascade-check@wowlab.dev`, a fixture
+by name. `is_test_account = false` turns out not to mean "this is a real
+person joining the team"; it only means "not inserted by `seed.sql`." None
+of these 10 represent a real pending onboarding today.
+
+**Blocked on:** nothing technical — the query and the gate are both sound.
+Blocked on the underlying data not existing yet: a real invited team member.
+**Re-verify when:** the real team starts getting real invites through this
+system — at that point the count (and this cut decision) should be
+revisited.
+**Lives in:** `public.users` (`status`, `is_test_account` — confirmed live
+this round the two don't mean what they'd need to mean together for this
+metric).
+
 ### 2. Trainer and supplier contracts
 
 Confirmed live: no `trainer_contracts`/`supplier_contracts` table exists, and

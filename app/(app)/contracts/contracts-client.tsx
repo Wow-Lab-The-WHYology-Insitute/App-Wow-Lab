@@ -6,7 +6,7 @@ import { addContract } from "./actions";
 import { useLocale, useTranslations, LOCALE_SWITCHER_ENABLED } from "@/lib/i18n";
 import { LocaleSwitcher } from "@/components/ui/locale-switcher";
 import { contractsDict } from "./i18n";
-import { TermBar } from "./term-bar";
+import { TermBar, getTermStatus } from "./term-bar";
 import { ContractDetailPanel } from "./contract-detail-panel";
 import { formatMoney, formatDate, entityShortCode, isDemoRecord } from "./format";
 import {
@@ -207,12 +207,14 @@ function buildExtraColumns(
 export function ContractsClient({
   contracts,
   financeVisible,
+  bannerEligible,
   createOrgId,
   clientOptions,
   legalEntityOptions,
 }: {
   contracts: Contract[];
   financeVisible: boolean;
+  bannerEligible: boolean;
   createOrgId: string | null;
   clientOptions: Option[];
   legalEntityOptions: Option[];
@@ -226,6 +228,7 @@ export function ContractsClient({
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [entityFilter, setEntityFilter] = useState("all");
+  const [overdueOnly, setOverdueOnly] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [extraColumns, setExtraColumns] = usePersistedColumns("contracts", []);
 
@@ -238,6 +241,32 @@ export function ContractsClient({
     () => [...new Set(contracts.map((c) => c.legalEntityName))].sort(),
     [contracts],
   );
+
+  // Same math TermBar renders per row (app/(app)/contracts/term-bar.tsx),
+  // reused rather than re-derived, so the banner's counts can never drift
+  // from what the bars on screen actually show. Only meaningful when
+  // bannerEligible -- for a finance session, `contracts` here is already
+  // the client-type-segmented subset RLS returned, so counting over it
+  // would silently be a partial number, not the org-wide one the banner
+  // claims. isPast/critical requires a real period_start/period_end pair
+  // (a one_off_event contract with no range has neither).
+  const { overdueCount, criticalCount } = useMemo(() => {
+    if (!bannerEligible) return { overdueCount: 0, criticalCount: 0 };
+    let overdue = 0;
+    let critical = 0;
+    for (const c of contracts) {
+      if (c.status !== "signed" || !c.period_start || !c.period_end) continue;
+      const { isPast, isRenewalCritical } = getTermStatus(
+        c.period_start,
+        c.period_end,
+        c.status,
+        now,
+      );
+      if (isPast) overdue += 1;
+      else if (isRenewalCritical) critical += 1;
+    }
+    return { overdueCount: overdue, criticalCount: critical };
+  }, [contracts, bannerEligible, now]);
 
   const filteredContracts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -253,9 +282,13 @@ export function ContractsClient({
       if (typeFilter !== "all" && c.contract_type !== typeFilter) return false;
       if (statusFilter !== "all" && c.status !== statusFilter) return false;
       if (entityFilter !== "all" && c.legalEntityName !== entityFilter) return false;
+      if (overdueOnly) {
+        if (c.status !== "signed" || !c.period_start || !c.period_end) return false;
+        if (!getTermStatus(c.period_start, c.period_end, c.status, now).isPast) return false;
+      }
       return true;
     });
-  }, [contracts, searchQuery, typeFilter, statusFilter, entityFilter]);
+  }, [contracts, searchQuery, typeFilter, statusFilter, entityFilter, overdueOnly, now]);
 
   // Soonest-expiring first — same default the flat-column table used
   // (period_end ascending, nulls last).
@@ -290,11 +323,19 @@ export function ContractsClient({
       onRemove: () => setEntityFilter("all"),
     });
   }
+  if (overdueOnly) {
+    chips.push({
+      key: "overdue",
+      label: t("overdue_filter_chip"),
+      onRemove: () => setOverdueOnly(false),
+    });
+  }
 
   function clearAllFilters() {
     setTypeFilter("all");
     setStatusFilter("all");
     setEntityFilter("all");
+    setOverdueOnly(false);
   }
 
   const extraColumnDefs = buildExtraColumns(t, locale, financeVisible);
@@ -420,6 +461,30 @@ export function ContractsClient({
         <p className="font-body text-ink rounded-lg bg-brand-pink/10 px-4 py-3 text-sm">
           {error}
         </p>
+      )}
+
+      {bannerEligible && (overdueCount > 0 || criticalCount > 0) && (
+        <div className="flex flex-col gap-1 rounded-2xl border border-orange-200 bg-orange-50 px-5 py-4">
+          {overdueCount > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-body text-sm font-medium text-orange-800">
+                {t("overdue_banner_line", { n: overdueCount })}
+              </span>
+              <button
+                type="button"
+                onClick={() => setOverdueOnly(true)}
+                className="font-body text-xs font-bold tracking-wide text-orange-800 uppercase underline"
+              >
+                {t("overdue_banner_show")}
+              </button>
+            </div>
+          )}
+          {criticalCount > 0 && (
+            <span className="font-body text-xs text-orange-700">
+              {t("overdue_banner_critical_line", { n: criticalCount })}
+            </span>
+          )}
+        </div>
       )}
 
       {createOrgId && (

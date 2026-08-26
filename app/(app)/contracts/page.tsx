@@ -59,6 +59,35 @@ async function canManageContracts(
   return isOwner || (hasContractsStar && !isFinanceReporting && !isFinanceOps);
 }
 
+// Mirrors the exact non-finance branch of the contracts SELECT policy
+// (202608100003) that returns the FULL, unsegmented set -- broader than
+// canManageContracts above (which is about edit rights and requires
+// contracts.*), this also admits contracts.read-only holders (Sales
+// Manager, Operations Manager), since they see the same unsegmented set
+// through the identical policy branch. finance.operations.*/
+// finance.reporting.* holders are excluded on purpose: they satisfy a
+// DIFFERENT, client-type-segmented branch of the same policy (confirmed
+// live, see docs/OPEN_ITEMS.md), so the same COUNT query would silently
+// return a partial number for their session. This gates the overdue/
+// renewal-pressure banner -- a role that would get a wrong number doesn't
+// get the banner at all.
+async function seesUnsegmentedContracts(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  org: string,
+) {
+  const [isOwner, hasContractsStar, hasContractsRead, isFinanceReporting, isFinanceOps] =
+    await Promise.all([
+      checkCapability(supabase, "org.settings.manage", org),
+      checkCapability(supabase, "contracts.*", org),
+      checkCapability(supabase, "contracts.read", org),
+      checkCapability(supabase, "finance.reporting.*", org),
+      checkCapability(supabase, "finance.operations.*", org),
+    ]);
+  return (
+    isOwner || ((hasContractsStar || hasContractsRead) && !isFinanceReporting && !isFinanceOps)
+  );
+}
+
 export default async function ContractsPage() {
   const supabase = await createClient();
   const {
@@ -127,6 +156,7 @@ export default async function ContractsPage() {
   // Financial-visibility flag for the masked-vs-not-set distinction, same
   // approach as clients/[id]/page.tsx.
   let financeVisible = false;
+  let bannerEligible = false;
   for (const m of memberships ?? []) {
     for (const cap of ["finance.operations.*", "finance.reporting.*", "clients.create"]) {
       if (await checkCapability(supabase, cap, m.organization_id)) {
@@ -134,7 +164,10 @@ export default async function ContractsPage() {
         break;
       }
     }
-    if (financeVisible) break;
+    if (!bannerEligible && (await seesUnsegmentedContracts(supabase, m.organization_id))) {
+      bannerEligible = true;
+    }
+    if (financeVisible && bannerEligible) break;
   }
 
   // Form options for "+ New Contract": clients + legal entities in the
@@ -174,6 +207,7 @@ export default async function ContractsPage() {
       <ContractsClient
         contracts={rows}
         financeVisible={financeVisible}
+        bannerEligible={bannerEligible}
         createOrgId={createOrgId}
         clientOptions={clientOptions}
         legalEntityOptions={legalEntityOptions}
