@@ -82,6 +82,13 @@ export const contractsDict: Dictionary = {
   open_contract: { en: "Open contract", ro: "Deschide contractul" },
   edit: { en: "Edit", ro: "Editează" },
 
+  mark_as_signed: { en: "Mark as signed", ro: "Marchează ca semnat" },
+  delete_draft: { en: "Delete draft", ro: "Șterge ciorna" },
+  delete_confirm_prefix: { en: "Delete ", ro: "Șterge " },
+  delete_confirm_suffix: { en: "? This cannot be undone.", ro: "? Nu poate fi anulat." },
+  confirm_delete: { en: "Confirm delete", ro: "Confirmă ștergerea" },
+  cancel: { en: "Cancel", ro: "Anulează" },
+
   new_contract_form_title: { en: "New contract", ro: "Contract nou" },
   select_client: { en: "Select client…", ro: "Alege clientul…" },
   select_entity: { en: "Select legal entity…", ro: "Alege entitatea juridică…" },

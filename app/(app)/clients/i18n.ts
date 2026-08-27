@@ -34,6 +34,14 @@ export const clientsDict: Dictionary = {
   status_paused: { en: "Paused", ro: "Suspendat" },
   status_churned: { en: "Churned", ro: "Pierdut" },
 
+  // Verb-form action labels on ClientStatusControl's transition buttons --
+  // distinct from the status_* noun labels above (e.g. "Mark active" is the
+  // button that moves a client TO active, not a display of its current
+  // status).
+  status_action_active: { en: "Mark active", ro: "Marchează activ" },
+  status_action_paused: { en: "Pause", ro: "Suspendă" },
+  status_action_churned: { en: "Mark churned", ro: "Marchează pierdut" },
+
   detail_business_line: { en: "Business line", ro: "Linie de business" },
   detail_legal_name: { en: "Legal name", ro: "Denumire legală" },
   detail_cui: { en: "CUI", ro: "CUI" },

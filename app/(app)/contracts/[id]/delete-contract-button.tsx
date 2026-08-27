@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "@/lib/i18n";
+import { contractsDict } from "../i18n";
 import { deleteContract } from "../actions";
 
 // UI gate is "canManage && status === 'draft'" (see page.tsx) -- absent
@@ -18,6 +20,7 @@ export function DeleteContractButton({
   label: string;
 }) {
   const router = useRouter();
+  const t = useTranslations(contractsDict);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -30,7 +33,7 @@ export function DeleteContractButton({
           onClick={() => setConfirming(true)}
           className="font-body text-brand-pink text-xs font-semibold underline"
         >
-          Delete draft
+          {t("delete_draft")}
         </button>
         {error && <span className="text-brand-pink text-xs">{error}</span>}
       </span>
@@ -39,7 +42,9 @@ export function DeleteContractButton({
 
   return (
     <span className="font-body text-ink inline-flex flex-wrap items-center gap-2 rounded-lg bg-brand-pink/10 px-3 py-1.5 text-xs">
-      Delete <strong>{label}</strong>? This cannot be undone.
+      {t("delete_confirm_prefix")}
+      <strong>{label}</strong>
+      {t("delete_confirm_suffix")}
       <button
         type="button"
         disabled={isPending}
@@ -56,14 +61,14 @@ export function DeleteContractButton({
         }}
         className="font-body rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-3 py-1 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
       >
-        Confirm delete
+        {t("confirm_delete")}
       </button>
       <button
         type="button"
         onClick={() => setConfirming(false)}
         className="text-muted rounded-full border border-black/10 px-3 py-1 text-xs font-semibold uppercase"
       >
-        Cancel
+        {t("cancel")}
       </button>
       {error && <span className="text-brand-pink w-full text-xs font-semibold">{error}</span>}
     </span>
