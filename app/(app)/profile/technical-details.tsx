@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "@/lib/i18n";
+import { profileDict } from "./i18n";
 
 type OrgRow = { id: string; name: string; slug: string };
 type MembershipView = {
@@ -34,6 +36,7 @@ export function TechnicalDetails({
   memberships: MembershipView[];
   spotCheckResults: SpotCheckResult[];
 }) {
+  const t = useTranslations(profileDict);
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -43,21 +46,21 @@ export function TechnicalDetails({
         onClick={() => setIsOpen((open) => !open)}
         className="font-body w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity hover:opacity-90"
       >
-        {isOpen ? "Hide technical details" : "Show technical details"}
+        {isOpen ? t("hide_technical_details") : t("show_technical_details")}
       </button>
 
       {isOpen && (
         <div className="flex flex-col gap-6">
-          <Section title="Signed in as">
-            <Kv label="Email" value={email} />
-            <Kv label="User ID" value={userId} mono />
-            <Kv label="Platform owner" value={String(isPlatformOwner)} />
-            <Kv label="Status" value={status} />
+          <Section title={t("section_signed_in_as")}>
+            <Kv label={t("label_email")} value={email} />
+            <Kv label={t("label_user_id")} value={userId} mono />
+            <Kv label={t("label_platform_owner")} value={String(isPlatformOwner)} />
+            <Kv label={t("label_status")} value={status} />
           </Section>
 
-          <Section title="Organizations visible via RLS">
+          <Section title={t("section_orgs_visible")}>
             {visibleOrgs.length === 0 ? (
-              <Empty>None</Empty>
+              <Empty>{t("empty_none")}</Empty>
             ) : (
               <ul className="flex flex-col gap-2">
                 {visibleOrgs.map((o) => (
@@ -69,9 +72,9 @@ export function TechnicalDetails({
             )}
           </Section>
 
-          <Section title="Your role(s) per organization">
+          <Section title={t("section_roles_per_org")}>
             {memberships.length === 0 ? (
-              <Empty>No user_org_roles row for this user</Empty>
+              <Empty>{t("empty_no_membership")}</Empty>
             ) : (
               <ul className="flex flex-wrap gap-2">
                 {memberships.map((m, i) => (
@@ -85,7 +88,7 @@ export function TechnicalDetails({
             )}
           </Section>
 
-          <Section title="Resolved capabilities per organization">
+          <Section title={t("section_capabilities_per_org")}>
             <div className="flex flex-col gap-4">
               {memberships.map((m, i) => (
                 <div key={i}>
@@ -101,14 +104,14 @@ export function TechnicalDetails({
                       ))}
                     </ul>
                   ) : (
-                    <Empty>None</Empty>
+                    <Empty>{t("empty_none")}</Empty>
                   )}
                 </div>
               ))}
             </div>
           </Section>
 
-          <Section title="Spot-check via app.has_capability() RPC">
+          <Section title={t("section_spot_check")}>
             <ul className="flex flex-col gap-1.5">
               {spotCheckResults.map((r, i) => (
                 <li

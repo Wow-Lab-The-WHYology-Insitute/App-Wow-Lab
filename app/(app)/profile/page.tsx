@@ -3,6 +3,9 @@ import { checkCapability } from "@/lib/capabilities";
 import { ProfileSection } from "./profile-section";
 import { TechnicalDetails } from "./technical-details";
 import { ProfileHeading } from "./profile-heading";
+import { DiagnosticIntro } from "./diagnostic-intro";
+import { AccessSummary } from "./access-summary";
+import { AccessDenied } from "@/components/ui/access-denied";
 
 // S2: a diagnostic page proving the auth -> RLS loop works for a real
 // logged-in session, not SQL Editor impersonation. Every query below runs
@@ -34,7 +37,7 @@ export default async function ProfilePage() {
   if (!user) {
     // Shouldn't be reachable — middleware redirects unauthenticated
     // requests before this ever renders.
-    return <main className="p-8">Not signed in.</main>;
+    return <AccessDenied reasonKey="access_denied_not_signed_in" />;
   }
 
   // users_masked (202608200005): own-row branch always resolves to the
@@ -98,7 +101,12 @@ export default async function ProfilePage() {
     ),
   ].join(", ");
 
-  const visibleNavItems: string[] = [];
+  // chromeDict keys, not display strings — AccessSummary (a client
+  // component) resolves each to the same nav label chromeDict already
+  // owns, rather than this file carrying a third hardcoded copy of
+  // "Clients"/"Contracts"/etc. alongside chromeDict's and each domain's own
+  // page_title.
+  const visibleNavKeys: string[] = [];
   let canManageUsers = false;
   let canReadClients = false;
   let canReadContracts = false;
@@ -128,10 +136,10 @@ export default async function ProfilePage() {
     }
     if (canManageUsers && canReadClients && canReadContracts && canReadGroups) break;
   }
-  if (canManageUsers) visibleNavItems.push("Users & Roles");
-  if (canReadClients) visibleNavItems.push("Clients");
-  if (canReadContracts) visibleNavItems.push("Contracts");
-  if (canReadGroups) visibleNavItems.push("Groups & Enrollment");
+  if (canManageUsers) visibleNavKeys.push("nav_users_roles");
+  if (canReadClients) visibleNavKeys.push("nav_clients");
+  if (canReadContracts) visibleNavKeys.push("nav_contracts");
+  if (canReadGroups) visibleNavKeys.push("nav_groups_enrollment");
 
   const roleIds = [
     ...new Set(
@@ -191,11 +199,7 @@ export default async function ProfilePage() {
     <div className="flex w-full flex-col gap-6">
       <div>
         <ProfileHeading />
-        <p className="font-body text-muted mt-1 text-sm">
-          Diagnostic view: every value below came through your own session
-          (anon key + your JWT), never service_role — proof the auth → RLS
-          loop works, not yet a real Phase 1 dashboard.
-        </p>
+        <DiagnosticIntro />
       </div>
 
       <ProfileSection
@@ -206,17 +210,7 @@ export default async function ProfilePage() {
         initialAvatarUrl={signedAvatarUrl}
       />
 
-      <p className="font-body text-ink text-sm">
-        You are <span className="font-semibold">{roleLabel || "an unassigned user"}</span>.{" "}
-        {visibleNavItems.length > 0 ? (
-          <>
-            You have access to:{" "}
-            <span className="font-semibold">{visibleNavItems.join(", ")}</span>.
-          </>
-        ) : (
-          "You don't have access to any additional sections yet."
-        )}
-      </p>
+      <AccessSummary roleLabel={roleLabel} navKeys={visibleNavKeys} />
 
       <TechnicalDetails
         email={ownProfile?.email ?? user.email ?? ""}

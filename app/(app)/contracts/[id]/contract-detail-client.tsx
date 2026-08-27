@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "@/lib/i18n";
+import { contractsDict } from "../i18n";
 import { updateContract } from "../actions";
 
 // Matches the contracts.offer_structure check constraint (202608160002)
 // exactly — same list as page.tsx's own display-only copy.
-const OFFER_STRUCTURE_LABELS: Record<string, string> = {
-  fixed_price_group_workshop: "Fixed price per group workshop",
-  price_per_child_present: "Price per child present",
-  price_per_child_enrolled: "Price per child enrolled",
-  price_per_contract: "Price per contract",
+const OFFER_STRUCTURE_KEYS: Record<string, string> = {
+  fixed_price_group_workshop: "offer_structure_fixed_price_group_workshop",
+  price_per_child_present: "offer_structure_price_per_child_present",
+  price_per_child_enrolled: "offer_structure_price_per_child_enrolled",
+  price_per_contract: "offer_structure_price_per_contract",
 };
 
 const CONTRACT_TYPES = ["recurring_annual", "one_off_event", "framework"];
@@ -62,6 +64,7 @@ export function ContractDetailClient({
   clientOptions: Option[];
   legalEntityOptions: Option[];
 }) {
+  const t = useTranslations(contractsDict);
   const [isEditing, setIsEditing] = useState(false);
 
   if (isEditing) {
@@ -79,7 +82,7 @@ export function ContractDetailClient({
 
   return (
     <Section
-      title="Details"
+      title={t("section_details_title")}
       action={
         canManage && (
           <button
@@ -87,55 +90,57 @@ export function ContractDetailClient({
             onClick={() => setIsEditing(true)}
             className="font-body text-brand-pink text-xs font-semibold underline"
           >
-            Edit
+            {t("edit")}
           </button>
         )
       }
     >
       <Kv
-        label="Client"
+        label={t("detail_client")}
         value={clientName}
         href={`/clients/${contract.client_id}`}
       />
-      <Kv label="Legal entity" value={legalEntityName} />
-      <Kv label="Entry number" value={contract.entry_number || "—"} />
-      <Kv label="Exit number" value={contract.exit_number || "—"} />
+      <Kv label={t("detail_legal_entity")} value={legalEntityName} />
+      <Kv label={t("detail_entry_number")} value={contract.entry_number || "—"} />
+      <Kv label={t("detail_exit_number")} value={contract.exit_number || "—"} />
       <Kv
-        label="Period"
+        label={t("detail_period")}
         value={`${contract.period_start ?? "—"} → ${contract.period_end ?? "—"}`}
       />
       <Kv
-        label="Renewal of"
+        label={t("detail_renewal_of")}
         value={contract.renewal_of ?? "—"}
         mono={Boolean(contract.renewal_of)}
       />
       <div className="flex items-baseline justify-between border-b border-black/5 py-2 text-sm last:border-0">
-        <span className="font-body text-muted">Billing rule</span>
+        <span className="font-body text-muted">{t("detail_billing_rule")}</span>
         <span className="text-ink font-body font-medium">
           <MaskedValue value={contract.billing_rule} financeVisible={financeVisible} />
         </span>
       </div>
       <Kv
-        label="Drive archive"
-        value={contract.drive_ref ? "Open link" : "—"}
+        label={t("detail_drive_link")}
+        value={contract.drive_ref ? t("open_link") : "—"}
         href={contract.drive_ref ?? undefined}
         external
       />
       <Kv
-        label="Offer structure"
+        label={t("detail_offer_structure")}
         value={
           contract.offer_structure
-            ? (OFFER_STRUCTURE_LABELS[contract.offer_structure] ?? contract.offer_structure)
+            ? OFFER_STRUCTURE_KEYS[contract.offer_structure]
+              ? t(OFFER_STRUCTURE_KEYS[contract.offer_structure])
+              : contract.offer_structure
             : "—"
         }
       />
       <Kv
-        label="AC link"
-        value={contract.ac_link ? "Open link" : "—"}
+        label={t("detail_ac_link")}
+        value={contract.ac_link ? t("open_link") : "—"}
         href={contract.ac_link ?? undefined}
         external
       />
-      <Kv label="Notes" value={contract.notes || "—"} />
+      <Kv label={t("detail_notes")} value={contract.notes || "—"} />
     </Section>
   );
 }
@@ -155,6 +160,7 @@ function ContractEditForm({
   onCancel: () => void;
   onSaved: () => void;
 }) {
+  const t = useTranslations(contractsDict);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [needsConfirm, setNeedsConfirm] = useState(false);
@@ -217,7 +223,7 @@ function ContractEditForm({
   }
 
   return (
-    <Section title="Edit contract">
+    <Section title={t("edit_contract_title")}>
       {error && (
         <p className="font-body text-ink mb-3 rounded-lg bg-brand-pink/10 px-4 py-3 text-sm">
           {error}
@@ -262,15 +268,15 @@ function ContractEditForm({
           onChange={(e) => setOfferStructure(e.target.value)}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         >
-          <option value="">Offer structure (optional)</option>
-          {Object.entries(OFFER_STRUCTURE_LABELS).map(([value, label]) => (
+          <option value="">{t("offer_structure_placeholder")}</option>
+          {Object.entries(OFFER_STRUCTURE_KEYS).map(([value, key]) => (
             <option key={value} value={value}>
-              {label}
+              {t(key)}
             </option>
           ))}
         </select>
         <label className="font-body text-muted flex flex-col gap-1 text-xs">
-          Period start
+          {t("period_start_label")}
           <input
             type="date"
             value={periodStart}
@@ -279,7 +285,7 @@ function ContractEditForm({
           />
         </label>
         <label className="font-body text-muted flex flex-col gap-1 text-xs">
-          Period end
+          {t("period_end_label")}
           <input
             type="date"
             value={periodEnd}
@@ -291,34 +297,34 @@ function ContractEditForm({
           type="text"
           value={entryNumber}
           onChange={(e) => setEntryNumber(e.target.value)}
-          placeholder="Entry number (optional)"
+          placeholder={t("entry_number_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <input
           type="text"
           value={exitNumber}
           onChange={(e) => setExitNumber(e.target.value)}
-          placeholder="Exit number (optional)"
+          placeholder={t("exit_number_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <input
           type="url"
           value={driveRef}
           onChange={(e) => setDriveRef(e.target.value)}
-          placeholder="Drive archive link (optional)"
+          placeholder={t("drive_ref_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <input
           type="url"
           value={acLink}
           onChange={(e) => setAcLink(e.target.value)}
-          placeholder="AC link (optional)"
+          placeholder={t("ac_link_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Notes (optional)"
+          placeholder={t("notes_placeholder")}
           rows={2}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
         />
@@ -329,7 +335,7 @@ function ContractEditForm({
               type="text"
               value={billingRule}
               onChange={(e) => setBillingRule(e.target.value)}
-              placeholder="Billing rule"
+              placeholder={t("billing_rule_edit_placeholder")}
               className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
             />
             <input
@@ -337,7 +343,7 @@ function ContractEditForm({
               step="0.01"
               value={estimatedValue}
               onChange={(e) => setEstimatedValue(e.target.value)}
-              placeholder="Estimated value"
+              placeholder={t("detail_estimated_value")}
               className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
             />
             <input
@@ -345,23 +351,23 @@ function ContractEditForm({
               step="0.01"
               value={previousYearValue}
               onChange={(e) => setPreviousYearValue(e.target.value)}
-              placeholder="Previous year value"
+              placeholder={t("detail_previous_year_value")}
               className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
             />
           </>
         ) : (
           <div className="font-body text-muted flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-2.5 text-sm md:col-span-2">
             <span className="font-mono tracking-wide">••••• 🔒</span>
-            Finance only — billing rule and values aren&apos;t shown to your role, so this form
-            can&apos;t edit them either.
+            {t("finance_masked_edit_notice")}
           </div>
         )}
       </div>
 
       {needsConfirm && (
         <p className="font-body text-ink mt-3 rounded-lg bg-brand-pink/10 px-4 py-3 text-sm">
-          This contract is <strong>{contract.status}</strong>. Saving will be recorded in the
-          audit log. Continue?
+          {t("frozen_confirm_prefix")}
+          <strong>{contract.status}</strong>
+          {t("frozen_confirm_suffix")}
         </p>
       )}
 
@@ -372,14 +378,14 @@ function ContractEditForm({
           onClick={handleSaveClick}
           className="font-body rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-4 py-1.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
         >
-          {needsConfirm ? "Confirm & save" : "Save"}
+          {needsConfirm ? t("confirm_and_save") : t("save")}
         </button>
         <button
           type="button"
           onClick={onCancel}
           className="text-muted rounded-full border border-black/10 px-4 py-1.5 text-xs font-semibold uppercase"
         >
-          Cancel
+          {t("cancel")}
         </button>
       </div>
     </Section>
@@ -393,8 +399,9 @@ function MaskedValue({
   value: string | null;
   financeVisible: boolean;
 }) {
+  const t = useTranslations(contractsDict);
   if (value !== null) return <span>{value}</span>;
-  if (financeVisible) return <span className="text-muted">Not set</span>;
+  if (financeVisible) return <span className="text-muted">{t("masked_not_set")}</span>;
   return <span className="text-muted font-mono tracking-wide">••••• 🔒</span>;
 }
 

@@ -29,6 +29,16 @@ export const suppliersDict: Dictionary = {
   detail_notes: { en: "Notes", ro: "Note" },
   edit: { en: "Edit", ro: "Editează" },
 
+  // supplier-info-client.tsx's own section titles, distinct from
+  // page_title ("Suppliers") and new_supplier_form_title ("New supplier").
+  supplier_info_title: { en: "Supplier info", ro: "Informații furnizor" },
+  edit_supplier_title: { en: "Edit supplier", ro: "Editează furnizorul" },
+  // Pre-existing inconsistency, not unified here: the edit form's own
+  // placeholder text ("Service type (optional)") already differed from the
+  // create form's ("Service type (e.g. SEO, accounting, IT)") before this
+  // pass -- translating both as they actually read, not merging them.
+  service_type_edit_placeholder: { en: "Service type (optional)", ro: "Tip serviciu (opțional)" },
+
   name_placeholder: { en: "Name", ro: "Nume" },
   legal_name_placeholder: { en: "Legal name (optional)", ro: "Denumire legală (opțional)" },
   cui_placeholder: { en: "CUI (optional)", ro: "CUI (opțional)" },

@@ -84,4 +84,52 @@ export const groupsDict: Dictionary = {
     ro: "Link calendar an școlar (opțional)",
   },
   create_group: { en: "Create group", ro: "Creează grupa" },
+
+  // group-detail-client.tsx (the sessions sub-section). Matches the
+  // sessions.status check constraint (202608160004) exactly.
+  session_status_planned: { en: "Planned", ro: "Planificată" },
+  session_status_confirmed: { en: "Confirmed", ro: "Confirmată" },
+  session_status_delivered: { en: "Delivered", ro: "Livrată" },
+  session_status_cancelled: { en: "Cancelled", ro: "Anulată" },
+
+  new_session_button: { en: "+ New session", ro: "+ Sesiune nouă" },
+  sessions_heading: { en: "Sessions ({{count}})", ro: "Sesiuni ({{count}})" },
+  empty_no_sessions: { en: "No sessions yet.", ro: "Nicio sesiune încă." },
+  empty_no_sessions_trainer: {
+    en: "No sessions allocated to you in this group.",
+    ro: "Nicio sesiune alocată ție în această grupă.",
+  },
+
+  col_date: { en: "Date", ro: "Data" },
+  col_principal: { en: "Principal", ro: "Principal" },
+  col_secundar: { en: "Secundar", ro: "Secundar" },
+  col_duration: { en: "Duration", ro: "Durată" },
+  col_present: { en: "Present", ro: "Prezenți" },
+  col_experiment_delivered: { en: "Experiment delivered", ro: "Experiment livrat" },
+  open_action: { en: "Open", ro: "Deschide" },
+
+  save: { en: "Save", ro: "Salvează" },
+  cancel: { en: "Cancel", ro: "Anulează" },
+  // Lowercase inline row action, distinct from reallocate_button's
+  // capitalized full-width mobile button.
+  reallocate_action: { en: "reallocate", ro: "realocă" },
+  reallocate_button: { en: "Reallocate", ro: "Realocă" },
+
+  mobile_principal_prefix: { en: "Principal: ", ro: "Principal: " },
+  mobile_secundar_prefix: { en: "Secundar: ", ro: "Secundar: " },
+  mobile_duration_prefix: { en: "Duration: ", ro: "Durată: " },
+  mobile_present_prefix: { en: "Present: ", ro: "Prezenți: " },
+  mobile_experiment_prefix: { en: "Experiment: ", ro: "Experiment: " },
+
+  new_session_title: { en: "New session", ro: "Sesiune nouă" },
+  trainer_principal_label: { en: "Trainer principal", ro: "Trainer principal" },
+  trainer_secundar_label: { en: "Trainer secundar", ro: "Trainer secundar" },
+  attendance_placeholder: { en: "Attendance count (optional)", ro: "Număr prezenți (opțional)" },
+  experiment_placeholder: { en: "Experiment delivered (optional)", ro: "Experiment livrat (opțional)" },
+  duration_placeholder: { en: "Duration (optional)", ro: "Durată (opțional)" },
+  experiment_drive_link_placeholder: {
+    en: "Experiment Drive link (optional)",
+    ro: "Link Drive experiment (opțional)",
+  },
+  create_session_button: { en: "Create session", ro: "Creează sesiunea" },
 };

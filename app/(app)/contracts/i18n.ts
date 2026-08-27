@@ -104,4 +104,54 @@ export const contractsDict: Dictionary = {
   estimated_value_placeholder: { en: "Estimated value (optional)", ro: "Valoare estimată (opțional)" },
   previous_year_value_placeholder: { en: "Previous year value (optional)", ro: "Valoare an anterior (opțional)" },
   create_contract: { en: "Create contract", ro: "Creează contractul" },
+
+  // contract-detail-client.tsx
+  section_details_title: { en: "Details", ro: "Detalii" },
+  detail_client: { en: "Client", ro: "Client" },
+  detail_period: { en: "Period", ro: "Perioadă" },
+  detail_renewal_of: { en: "Renewal of", ro: "Reînnoire pentru" },
+  detail_offer_structure: { en: "Offer structure", ro: "Structură ofertă" },
+  detail_ac_link: { en: "AC link", ro: "Link AC" },
+
+  // Matches the contracts.offer_structure check constraint (202608160002)
+  // exactly.
+  offer_structure_fixed_price_group_workshop: {
+    en: "Fixed price per group workshop",
+    ro: "Preț fix per atelier de grup",
+  },
+  offer_structure_price_per_child_present: {
+    en: "Price per child present",
+    ro: "Preț per copil prezent",
+  },
+  offer_structure_price_per_child_enrolled: {
+    en: "Price per child enrolled",
+    ro: "Preț per copil înscris",
+  },
+  offer_structure_price_per_contract: { en: "Price per contract", ro: "Preț per contract" },
+  offer_structure_placeholder: { en: "Offer structure (optional)", ro: "Structură ofertă (opțional)" },
+
+  masked_not_set: { en: "Not set", ro: "Nesetat" },
+
+  edit_contract_title: { en: "Edit contract", ro: "Editează contractul" },
+  save: { en: "Save", ro: "Salvează" },
+  period_start_label: { en: "Period start", ro: "Început perioadă" },
+  period_end_label: { en: "Period end", ro: "Sfârșit perioadă" },
+  drive_ref_placeholder: { en: "Drive archive link (optional)", ro: "Link arhivă Drive (opțional)" },
+  ac_link_placeholder: { en: "AC link (optional)", ro: "Link AC (opțional)" },
+  notes_placeholder: { en: "Notes (optional)", ro: "Note (opțional)" },
+  // Pre-existing inconsistency, not unified here: this edit form's own
+  // billing-rule placeholder ("Billing rule") already differed from the
+  // create form's ("Billing rule (e.g. 95 lei/child/session)") before this
+  // pass.
+  billing_rule_edit_placeholder: { en: "Billing rule", ro: "Regulă de facturare" },
+  finance_masked_edit_notice: {
+    en: "Finance only — billing rule and values aren't shown to your role, so this form can't edit them either.",
+    ro: "Doar Finance — regula de facturare și valorile nu sunt afișate pentru rolul tău, așa că nici acest formular nu le poate edita.",
+  },
+  frozen_confirm_prefix: { en: "This contract is ", ro: "Acest contract este " },
+  frozen_confirm_suffix: {
+    en: ". Saving will be recorded in the audit log. Continue?",
+    ro: ". Salvarea va fi înregistrată în jurnalul de audit. Continui?",
+  },
+  confirm_and_save: { en: "Confirm & save", ro: "Confirmă și salvează" },
 };

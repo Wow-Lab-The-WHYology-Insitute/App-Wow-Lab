@@ -1,9 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "@/lib/i18n";
+import { suppliersDict } from "../i18n";
 import { updateSupplier } from "../actions";
 
-const STATUSES = ["active", "inactive"];
+const STATUS_KEYS: Record<string, string> = {
+  active: "status_active",
+  inactive: "status_inactive",
+};
+const STATUSES = Object.keys(STATUS_KEYS);
 
 type Supplier = {
   id: string;
@@ -22,6 +28,7 @@ export function SupplierInfoClient({
   supplier: Supplier;
   canEdit: boolean;
 }) {
+  const t = useTranslations(suppliersDict);
   const [isEditing, setIsEditing] = useState(false);
 
   if (isEditing) {
@@ -36,7 +43,7 @@ export function SupplierInfoClient({
 
   return (
     <Section
-      title="Supplier info"
+      title={t("supplier_info_title")}
       action={
         canEdit && (
           <button
@@ -44,15 +51,15 @@ export function SupplierInfoClient({
             onClick={() => setIsEditing(true)}
             className="font-body text-brand-pink text-xs font-semibold underline"
           >
-            Edit
+            {t("edit")}
           </button>
         )
       }
     >
-      <Kv label="Legal name" value={supplier.legal_name || "—"} />
-      <Kv label="CUI" value={supplier.cui || "—"} />
-      <Kv label="Service type" value={supplier.service_type || "—"} />
-      <Kv label="Notes" value={supplier.notes || "—"} />
+      <Kv label={t("detail_legal_name")} value={supplier.legal_name || "—"} />
+      <Kv label={t("detail_cui")} value={supplier.cui || "—"} />
+      <Kv label={t("detail_service_type")} value={supplier.service_type || "—"} />
+      <Kv label={t("detail_notes")} value={supplier.notes || "—"} />
     </Section>
   );
 }
@@ -66,6 +73,7 @@ function SupplierEditForm({
   onCancel: () => void;
   onSaved: () => void;
 }) {
+  const t = useTranslations(suppliersDict);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -86,7 +94,7 @@ function SupplierEditForm({
   }
 
   return (
-    <Section title="Edit supplier">
+    <Section title={t("edit_supplier_title")}>
       {error && (
         <p className="font-body text-ink mb-3 rounded-lg bg-brand-pink/10 px-4 py-3 text-sm">
           {error}
@@ -97,7 +105,7 @@ function SupplierEditForm({
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Name"
+          placeholder={t("name_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <select
@@ -107,7 +115,7 @@ function SupplierEditForm({
         >
           {STATUSES.map((s) => (
             <option key={s} value={s}>
-              {s}
+              {t(STATUS_KEYS[s])}
             </option>
           ))}
         </select>
@@ -115,27 +123,27 @@ function SupplierEditForm({
           type="text"
           value={legalName}
           onChange={(e) => setLegalName(e.target.value)}
-          placeholder="Legal name (optional)"
+          placeholder={t("legal_name_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <input
           type="text"
           value={cui}
           onChange={(e) => setCui(e.target.value)}
-          placeholder="CUI (optional)"
+          placeholder={t("cui_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <input
           type="text"
           value={serviceType}
           onChange={(e) => setServiceType(e.target.value)}
-          placeholder="Service type (optional)"
+          placeholder={t("service_type_edit_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Notes (optional)"
+          placeholder={t("notes_placeholder")}
           rows={2}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
         />
@@ -148,14 +156,14 @@ function SupplierEditForm({
           onClick={doSave}
           className="font-body rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-4 py-1.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
         >
-          Save
+          {t("save")}
         </button>
         <button
           type="button"
           onClick={onCancel}
           className="text-muted rounded-full border border-black/10 px-4 py-1.5 text-xs font-semibold uppercase"
         >
-          Cancel
+          {t("cancel")}
         </button>
       </div>
     </Section>

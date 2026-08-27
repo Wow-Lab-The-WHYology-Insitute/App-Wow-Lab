@@ -1,16 +1,18 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "@/lib/i18n";
+import { clientsDict } from "../i18n";
 import { updateClient } from "../actions";
 
-const CLIENT_TYPE_LABELS: Record<string, string> = {
-  private_school: "Private school",
-  state_school: "State school",
-  corporate: "Corporate",
-  parent_b2c: "Parent B2C",
-  special_project: "Special project",
+const CLIENT_TYPE_KEYS: Record<string, string> = {
+  private_school: "client_type_private_school",
+  state_school: "client_type_state_school",
+  corporate: "client_type_corporate",
+  parent_b2c: "client_type_parent_b2c",
+  special_project: "client_type_special_project",
 };
-const CLIENT_TYPES = Object.keys(CLIENT_TYPE_LABELS);
+const CLIENT_TYPES = Object.keys(CLIENT_TYPE_KEYS);
 
 function looksLikeUrl(value: string) {
   return value.startsWith("http://") || value.startsWith("https://");
@@ -38,6 +40,7 @@ export function ClientInfoClient({
   canEditClient: boolean;
   canEditCrmLink: boolean;
 }) {
+  const t = useTranslations(clientsDict);
   const [isEditing, setIsEditing] = useState(false);
 
   if (isEditing) {
@@ -53,7 +56,7 @@ export function ClientInfoClient({
 
   return (
     <Section
-      title="Client info"
+      title={t("client_info_title")}
       action={
         canEditClient && (
           <button
@@ -61,14 +64,14 @@ export function ClientInfoClient({
             onClick={() => setIsEditing(true)}
             className="font-body text-brand-pink text-xs font-semibold underline"
           >
-            Edit
+            {t("edit")}
           </button>
         )
       }
     >
-      <Kv label="Business line" value={client.business_line || "—"} />
+      <Kv label={t("detail_business_line")} value={client.business_line || "—"} />
       <Kv
-        label="External CRM ref"
+        label={t("detail_external_crm_ref")}
         value={client.external_crm_ref || "—"}
         mono={!(client.external_crm_ref && looksLikeUrl(client.external_crm_ref))}
         href={
@@ -78,10 +81,10 @@ export function ClientInfoClient({
         }
         external
       />
-      <Kv label="Billed via" value={billedViaValue} />
-      <Kv label="Legal name" value={client.legal_name || "—"} />
-      <Kv label="CUI" value={client.cui || "—"} />
-      <Kv label="Notes" value={client.notes || "—"} />
+      <Kv label={t("detail_billed_via")} value={billedViaValue} />
+      <Kv label={t("detail_legal_name")} value={client.legal_name || "—"} />
+      <Kv label={t("detail_cui")} value={client.cui || "—"} />
+      <Kv label={t("detail_notes")} value={client.notes || "—"} />
     </Section>
   );
 }
@@ -97,6 +100,7 @@ function ClientEditForm({
   onCancel: () => void;
   onSaved: () => void;
 }) {
+  const t = useTranslations(clientsDict);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -127,7 +131,7 @@ function ClientEditForm({
   }
 
   return (
-    <Section title="Edit client">
+    <Section title={t("edit_client_title")}>
       {error && (
         <p className="font-body text-ink mb-3 rounded-lg bg-brand-pink/10 px-4 py-3 text-sm">
           {error}
@@ -138,7 +142,7 @@ function ClientEditForm({
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Name"
+          placeholder={t("edit_name_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <select
@@ -148,7 +152,7 @@ function ClientEditForm({
         >
           {CLIENT_TYPES.map((ty) => (
             <option key={ty} value={ty}>
-              {CLIENT_TYPE_LABELS[ty]}
+              {t(CLIENT_TYPE_KEYS[ty])}
             </option>
           ))}
         </select>
@@ -156,27 +160,27 @@ function ClientEditForm({
           type="text"
           value={businessLine}
           onChange={(e) => setBusinessLine(e.target.value)}
-          placeholder="Business line (optional)"
+          placeholder={t("business_line_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <input
           type="text"
           value={legalName}
           onChange={(e) => setLegalName(e.target.value)}
-          placeholder="Legal name (optional)"
+          placeholder={t("legal_name_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <input
           type="text"
           value={cui}
           onChange={(e) => setCui(e.target.value)}
-          placeholder="CUI (optional)"
+          placeholder={t("cui_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Notes (optional)"
+          placeholder={t("notes_placeholder")}
           rows={2}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
         />
@@ -186,13 +190,14 @@ function ClientEditForm({
             type="text"
             value={externalCrmRef}
             onChange={(e) => setExternalCrmRef(e.target.value)}
-            placeholder="External CRM ref (ActiveCampaign)"
+            placeholder={t("external_crm_ref_placeholder")}
             className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
           />
         ) : (
           <div className="font-body text-muted rounded-lg border border-dashed border-gray-300 px-3 py-2.5 text-sm md:col-span-2">
-            External CRM ref: <span className="text-ink">{client.external_crm_ref || "—"}</span>
-            {" — "}your role can&apos;t edit the CRM link, so this form leaves it untouched.
+            {t("crm_ref_locked_prefix")}
+            <span className="text-ink">{client.external_crm_ref || "—"}</span>
+            {t("crm_ref_locked_suffix")}
           </div>
         )}
       </div>
@@ -204,14 +209,14 @@ function ClientEditForm({
           onClick={doSave}
           className="font-body rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-4 py-1.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
         >
-          Save
+          {t("save")}
         </button>
         <button
           type="button"
           onClick={onCancel}
           className="text-muted rounded-full border border-black/10 px-4 py-1.5 text-xs font-semibold uppercase"
         >
-          Cancel
+          {t("cancel")}
         </button>
       </div>
     </Section>
