@@ -282,6 +282,16 @@ The absence is this recorded decision, not a silent deprecation.
 any of those would give a redundancy-checked block something non-redundant
 to show, which is the reason nothing beyond the banner shipped this round.
 
+**Related, separately fixed:** `app/page.tsx` (the root `/` route) used to
+render a stale S0/S1 placeholder — factually wrong (it claimed the real app
+shell "lands in S3"; S3 shipped) and carried the one ungated `Link` in the
+whole app (to `/admin/users`, no capability check). Replaced with a plain
+redirect to `/profile`, the actual landing surface. **That redirect target
+is correct only as long as `/profile` remains the landing surface** — if a
+dashboard is ever built per this item, `/` should redirect there instead,
+not to `/profile`. This note and this item are the same decision from two
+directions; check both if either changes.
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
