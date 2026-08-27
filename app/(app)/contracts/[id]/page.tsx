@@ -5,6 +5,7 @@ import { isDemoRecord } from "../format";
 import { MarkSignedButton } from "./mark-signed-button";
 import { DeleteContractButton } from "./delete-contract-button";
 import { ContractDetailClient } from "./contract-detail-client";
+import { AccessDenied } from "../access-denied";
 
 type ContractRow = {
   id: string;
@@ -59,7 +60,7 @@ export default async function ContractDetailPage({
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return <AccessDenied reason="Not signed in." />;
+    return <AccessDenied reasonKey="access_denied_not_signed_in" />;
   }
 
   const { data: contract } = await supabase
@@ -71,7 +72,7 @@ export default async function ContractDetailPage({
     .maybeSingle<ContractRow>();
 
   if (!contract) {
-    return <AccessDenied reason="Contract not found, or not visible to your role." />;
+    return <AccessDenied reasonKey="access_denied_not_found" />;
   }
 
   const [{ data: client }, { data: legalEntity }] = await Promise.all([
@@ -199,14 +200,5 @@ function Badge({
     >
       {children}
     </span>
-  );
-}
-
-function AccessDenied({ reason }: { reason: string }) {
-  return (
-    <div className="mx-auto max-w-md rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
-      <h1 className="font-display text-xl text-brand-pink">Access denied</h1>
-      <p className="font-body text-muted mt-1 text-sm">{reason}</p>
-    </div>
   );
 }

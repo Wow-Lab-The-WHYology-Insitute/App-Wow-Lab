@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import { AdminUsersClient } from "./admin-users-client";
+import { AccessDenied } from "./access-denied";
 
 type OrgMembership = {
   organization_id: string;
@@ -14,7 +15,7 @@ export default async function AdminUsersPage() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return <AccessDenied reason="Not signed in." />;
+    return <AccessDenied reasonKey="access_denied_not_signed_in" />;
   }
 
   // Find an org this user belongs to where they hold org.members.manage.
@@ -41,9 +42,7 @@ export default async function AdminUsersPage() {
   }
 
   if (!managedOrg) {
-    return (
-      <AccessDenied reason="You don't have org.members.manage in any organization." />
-    );
+    return <AccessDenied reasonKey="access_denied_no_capability" />;
   }
 
   const { data: roles } = await supabase
@@ -173,11 +172,3 @@ export default async function AdminUsersPage() {
   );
 }
 
-function AccessDenied({ reason }: { reason: string }) {
-  return (
-    <div className="mx-auto max-w-md rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
-      <h1 className="font-display text-xl text-brand-pink">Access denied</h1>
-      <p className="font-body text-muted mt-1 text-sm">{reason}</p>
-    </div>
-  );
-}

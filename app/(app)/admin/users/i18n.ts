@@ -13,4 +13,10 @@ import { groupsDict } from "../../groups/i18n";
 // app/(app)/i18n.ts borrowing page names from clients/contracts/groups.
 export const adminUsersDict: Dictionary = {
   unnamed_user: groupsDict.unnamed_user,
+  access_denied_heading: { en: "Access denied", ro: "Acces interzis" },
+  access_denied_not_signed_in: { en: "Not signed in.", ro: "Nu ești autentificat." },
+  access_denied_no_capability: {
+    en: "You don't have org.members.manage in any organization.",
+    ro: "Nu deții org.members.manage în nicio organizație.",
+  },
 };

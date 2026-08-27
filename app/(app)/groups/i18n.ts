@@ -5,6 +5,12 @@ import type { Dictionary } from "@/lib/i18n";
 export const groupsDict: Dictionary = {
   page_title: { en: "Groups & Enrollment", ro: "Grupe și înscrieri" },
   page_title_trainer_view: { en: "Your Groups", ro: "Grupele tale" },
+  access_denied_heading: { en: "Access denied", ro: "Acces interzis" },
+  access_denied_not_signed_in: { en: "Not signed in.", ro: "Nu ești autentificat." },
+  access_denied_not_found: {
+    en: "Group not found, or not visible to your role.",
+    ro: "Grupa nu a fost găsită sau nu este vizibilă pentru rolul tău.",
+  },
   page_subtitle: {
     en: "Enrollment containers by client and module. Trainer allocation and delivery live on each group's sessions.",
     ro: "Containere de înscriere pe client și modul. Alocarea trainerilor și livrarea se află pe sesiunile fiecărei grupe.",
