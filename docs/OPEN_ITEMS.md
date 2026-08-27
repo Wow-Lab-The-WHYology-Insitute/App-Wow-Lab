@@ -649,6 +649,27 @@ would remove the constraint by making the locale resolvable server-side.
 Not a rewrite to schedule now — noted so the next page that hits this
 doesn't have to rediscover it.
 
+**Remaining gap found while closing out bucket C, outside all three
+buckets' stated scope:** `clients/[id]/page.tsx` and `groups/[id]/page.tsx`
+still render real hardcoded English directly (not via any `*-client.tsx`
+child) — `CLIENT_TYPE_LABELS`/`MODULE_LABELS`/`DELIVERY_FORMAT_LABELS`/
+`GROUP_STATUS_LABELS` maps, the `Section`/`Kv` titles and field labels for
+their own top info block ("Group info", "Client", "Module", "Schedule",
+"Children billed", etc.), and each page's own back-link ("← Clients" /
+"← Groups"). `contracts/[id]/page.tsx` has a smaller version of the same
+thing (the demo-badge tooltip text, the "No exit number yet — {client}"
+heading fallback, the "this draft" delete-label fallback). `suppliers/
+[id]/page.tsx` is clean — its only page-level content is the back-link and
+the raw status badge, both already either non-prose or covered.
+Bucket A only translated these files' `AccessDenied` fallback; buckets B
+and C only touched their `*-client.tsx` siblings. This block hits the same
+Server-Component constraint documented above and would need the same
+fix shape as `profile/page.tsx` got in bucket C (extract into small
+`"use client"` leaf components, e.g. a shared `group-info.tsx` /
+`client-info-header.tsx`) — not attempted here since it wasn't named in
+the three buckets and is a real scoping decision, not a mechanical
+follow-on.
+
 ---
 
 ## Infrastructure
