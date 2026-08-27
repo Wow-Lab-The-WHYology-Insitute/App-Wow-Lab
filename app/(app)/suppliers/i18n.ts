@@ -4,12 +4,6 @@ import type { Dictionary } from "@/lib/i18n";
 // one dictionary, not two, same convention as clientsDict/contractsDict.
 export const suppliersDict: Dictionary = {
   page_title: { en: "Suppliers", ro: "Furnizori" },
-  access_denied_heading: { en: "Access denied", ro: "Acces interzis" },
-  access_denied_not_signed_in: { en: "Not signed in.", ro: "Nu ești autentificat." },
-  access_denied_not_found: {
-    en: "Supplier not found, or not visible to your role.",
-    ro: "Furnizorul nu a fost găsit sau nu este vizibil pentru rolul tău.",
-  },
   page_subtitle: {
     en: "External vendors under contract — accounting, IT, marketing, and similar services.",
     ro: "Furnizori externi sub contract — contabilitate, IT, marketing și servicii similare.",

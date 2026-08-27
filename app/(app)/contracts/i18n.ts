@@ -5,12 +5,6 @@ import type { Dictionary } from "@/lib/i18n";
 // list row and the expanded detail that shows the same field.
 export const contractsDict: Dictionary = {
   page_title: { en: "Contracts", ro: "Contracte" },
-  access_denied_heading: { en: "Access denied", ro: "Acces interzis" },
-  access_denied_not_signed_in: { en: "Not signed in.", ro: "Nu ești autentificat." },
-  access_denied_not_found: {
-    en: "Contract not found, or not visible to your role.",
-    ro: "Contractul nu a fost găsit sau nu este vizibil pentru rolul tău.",
-  },
   page_subtitle: {
     en: "Contract lifecycle by legal entity. Fiscal invoicing stays in SmartBill/SAGA.",
     ro: "Ciclul de viață al contractelor, pe entitate juridică. Facturarea fiscală rămâne în SmartBill/SAGA.",

@@ -4,7 +4,7 @@ import { checkCapability } from "@/lib/capabilities";
 import { ClientContactsClient } from "./client-contacts-client";
 import { ClientStatusControl } from "./client-status-control";
 import { ClientInfoClient } from "./client-info-client";
-import { AccessDenied } from "../access-denied";
+import { AccessDenied } from "@/components/ui/access-denied";
 
 type ClientRow = {
   id: string;
@@ -102,7 +102,7 @@ export default async function ClientDetailPage({
     // level segregation) — a single-row RLS query can't distinguish the
     // two, and shouldn't: telling a finance_operations user "this
     // corporate client doesn't exist" is the correct behavior, not a bug.
-    return <AccessDenied reasonKey="access_denied_not_found" />;
+    return <AccessDenied reasonKey="access_denied_not_found_client" />;
   }
 
   const { data: contacts } = await supabase

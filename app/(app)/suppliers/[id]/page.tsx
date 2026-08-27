@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import { SupplierInfoClient } from "./supplier-info-client";
-import { AccessDenied } from "../access-denied";
+import { AccessDenied } from "@/components/ui/access-denied";
 
 type SupplierRow = {
   id: string;
@@ -39,7 +39,7 @@ export default async function SupplierDetailPage({
     // Either genuinely missing, or RLS-filtered for this viewer -- a
     // single-row RLS query can't distinguish the two, and shouldn't, same
     // reasoning as clients/[id]/page.tsx.
-    return <AccessDenied reasonKey="access_denied_not_found" />;
+    return <AccessDenied reasonKey="access_denied_not_found_supplier" />;
   }
 
   // Single capability, both the edit gate here and the table's own

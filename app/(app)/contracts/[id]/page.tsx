@@ -5,7 +5,7 @@ import { isDemoRecord } from "../format";
 import { MarkSignedButton } from "./mark-signed-button";
 import { DeleteContractButton } from "./delete-contract-button";
 import { ContractDetailClient } from "./contract-detail-client";
-import { AccessDenied } from "../access-denied";
+import { AccessDenied } from "@/components/ui/access-denied";
 
 type ContractRow = {
   id: string;
@@ -72,7 +72,7 @@ export default async function ContractDetailPage({
     .maybeSingle<ContractRow>();
 
   if (!contract) {
-    return <AccessDenied reasonKey="access_denied_not_found" />;
+    return <AccessDenied reasonKey="access_denied_not_found_contract" />;
   }
 
   const [{ data: client }, { data: legalEntity }] = await Promise.all([

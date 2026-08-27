@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import { GroupDetailClient } from "./group-detail-client";
-import { AccessDenied } from "../access-denied";
+import { AccessDenied } from "@/components/ui/access-denied";
 
 type GroupRow = {
   id: string;
@@ -111,7 +111,7 @@ export default async function GroupDetailPage({
     // with no allocated session in this group) — a single-row RLS query
     // can't distinguish the two, and shouldn't, same reasoning as
     // clients/[id]/page.tsx.
-    return <AccessDenied reasonKey="access_denied_not_found" />;
+    return <AccessDenied reasonKey="access_denied_not_found_group" />;
   }
 
   const { data: clientRow } = await supabase

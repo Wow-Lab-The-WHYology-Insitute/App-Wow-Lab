@@ -4,12 +4,6 @@ import type { Dictionary } from "@/lib/i18n";
 // one-dictionary-not-two reasoning as contracts/i18n.ts.
 export const clientsDict: Dictionary = {
   page_title: { en: "Clients", ro: "Clienți" },
-  access_denied_heading: { en: "Access denied", ro: "Acces interzis" },
-  access_denied_not_signed_in: { en: "Not signed in.", ro: "Nu ești autentificat." },
-  access_denied_not_found: {
-    en: "Client not found, or not visible to your role.",
-    ro: "Clientul nu a fost găsit sau nu este vizibil pentru rolul tău.",
-  },
   page_subtitle: {
     en: "Operational client accounts. Sales pipeline stays in ActiveCampaign — this is the handoff point from “Won” onward.",
     ro: "Conturi operaționale de client. Pipeline-ul de vânzări rămâne în ActiveCampaign — acesta e punctul de preluare de la stadiul „Câștigat” înainte.",

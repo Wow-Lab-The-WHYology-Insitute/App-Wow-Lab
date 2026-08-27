@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import { AdminUsersClient } from "./admin-users-client";
-import { AccessDenied } from "./access-denied";
+import { AccessDenied } from "@/components/ui/access-denied";
 
 type OrgMembership = {
   organization_id: string;

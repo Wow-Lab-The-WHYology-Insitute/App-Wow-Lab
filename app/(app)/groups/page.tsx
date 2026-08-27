@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import { GroupsClient } from "./groups-client";
-import { AccessDenied } from "./access-denied";
+import { AccessDenied } from "@/components/ui/access-denied";
 
 type MembershipRow = { organization_id: string };
 type GroupRow = {
