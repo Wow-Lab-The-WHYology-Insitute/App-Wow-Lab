@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "@/lib/i18n";
+import { clientsDict } from "../i18n";
 import { addClientContact, updateClientContact, deleteClientContact } from "../actions";
 
 type Contact = {
@@ -16,11 +18,11 @@ type Contact = {
 
 // Matches the client_contacts.contact_purpose check constraint
 // (202608160002) exactly.
-const CONTACT_PURPOSE_LABELS: Record<string, string> = {
-  signing_authority: "Signing authority",
-  trainer_facing: "Trainer-facing",
-  finance_facing: "Finance-facing",
-  general: "General",
+const CONTACT_PURPOSE_KEYS: Record<string, string> = {
+  signing_authority: "contact_purpose_signing_authority",
+  trainer_facing: "contact_purpose_trainer_facing",
+  finance_facing: "contact_purpose_finance_facing",
+  general: "contact_purpose_general",
 };
 
 // Anca's finding: a school's operational (trainer-facing) contact,
@@ -38,6 +40,7 @@ export function ClientContactsClient({
   contacts: Contact[];
   canManage: boolean;
 }) {
+  const t = useTranslations(clientsDict);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -57,7 +60,7 @@ export function ClientContactsClient({
     <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="font-body text-muted text-xs font-bold tracking-wide uppercase">
-          Contacts ({contacts.length})
+          {t("contacts_heading", { count: contacts.length })}
         </h2>
         {canManage && (
           <button
@@ -65,7 +68,7 @@ export function ClientContactsClient({
             onClick={() => setIsFormOpen((open) => !open)}
             className="font-body w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-4 py-1.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity hover:opacity-90"
           >
-            + New contact
+            {t("new_contact_button")}
           </button>
         )}
       </div>
@@ -80,7 +83,7 @@ export function ClientContactsClient({
         <div className="mb-4">
           <ContactForm
             isPending={isPending}
-            submitLabel="Create contact"
+            submitLabel={t("create_contact")}
             onSubmit={(fullName, role, email, phone, purpose, isPrimary, isBilling) => {
               setError(null);
               startTransition(async () => {
@@ -104,7 +107,7 @@ export function ClientContactsClient({
       )}
 
       {contacts.length === 0 ? (
-        <p className="font-body text-muted text-sm">No contacts on file.</p>
+        <p className="font-body text-muted text-sm">{t("empty_no_contacts")}</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {contacts.map((c) =>
@@ -112,7 +115,7 @@ export function ClientContactsClient({
               <li key={c.id} className="border-b border-black/5 pb-3 last:border-0 last:pb-0">
                 <ContactForm
                   isPending={isPending}
-                  submitLabel="Save"
+                  submitLabel={t("save")}
                   initial={c}
                   onCancel={() => setEditingId(null)}
                   onSubmit={(fullName, role, email, phone, purpose, isPrimary, isBilling) => {
@@ -151,11 +154,13 @@ export function ClientContactsClient({
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {c.contact_purpose && (
                         <Badge tone={c.contact_purpose === "trainer_facing" ? "pink" : "neutral"}>
-                          {CONTACT_PURPOSE_LABELS[c.contact_purpose] ?? c.contact_purpose}
+                          {CONTACT_PURPOSE_KEYS[c.contact_purpose]
+                            ? t(CONTACT_PURPOSE_KEYS[c.contact_purpose])
+                            : c.contact_purpose}
                         </Badge>
                       )}
-                      {c.is_primary && <Badge>Primary</Badge>}
-                      {c.is_billing_contact && <Badge>Billing contact</Badge>}
+                      {c.is_primary && <Badge>{t("badge_primary")}</Badge>}
+                      {c.is_billing_contact && <Badge>{t("badge_billing_contact")}</Badge>}
                     </div>
                   </div>
                   {canManage && (
@@ -165,14 +170,14 @@ export function ClientContactsClient({
                         onClick={() => setEditingId(c.id)}
                         className="text-brand-pink text-xs font-semibold underline"
                       >
-                        edit
+                        {t("contact_edit_action")}
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirmingDeleteId(c.id)}
                         className="text-brand-pink text-xs font-semibold underline"
                       >
-                        delete
+                        {t("contact_delete_action")}
                       </button>
                     </span>
                   )}
@@ -180,7 +185,9 @@ export function ClientContactsClient({
                 {confirmingDeleteId === c.id && (
                   <div className="font-body text-ink mt-2 rounded-lg bg-brand-pink/10 px-4 py-3 text-sm">
                     <p>
-                      Delete <strong>{c.full_name}</strong>? This cannot be undone.
+                      {t("delete_confirm_prefix")}
+                      <strong>{c.full_name}</strong>
+                      {t("delete_confirm_suffix")}
                     </p>
                     <div className="mt-2 flex gap-2">
                       <button
@@ -189,14 +196,14 @@ export function ClientContactsClient({
                         onClick={() => handleDelete(c.id)}
                         className="font-body rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-3 py-1 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
                       >
-                        Confirm delete
+                        {t("confirm_delete")}
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirmingDeleteId(null)}
                         className="text-muted rounded-full border border-black/10 px-3 py-1 text-xs font-semibold uppercase"
                       >
-                        Cancel
+                        {t("cancel")}
                       </button>
                     </div>
                   </div>
@@ -231,6 +238,7 @@ function ContactForm({
   ) => void;
   onCancel?: () => void;
 }) {
+  const t = useTranslations(clientsDict);
   const [fullName, setFullName] = useState(initial?.full_name ?? "");
   const [role, setRole] = useState(initial?.role_at_client ?? "");
   const [email, setEmail] = useState(initial?.email ?? "");
@@ -246,28 +254,28 @@ function ContactForm({
           type="text"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
-          placeholder="Full name"
+          placeholder={t("full_name_placeholder")}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         />
         <input
           type="text"
           value={role}
           onChange={(e) => setRole(e.target.value)}
-          placeholder="Role at client (optional)"
+          placeholder={t("role_at_client_placeholder")}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         />
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email (optional)"
+          placeholder={t("email_placeholder")}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         />
         <input
           type="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          placeholder="Phone (optional)"
+          placeholder={t("phone_placeholder")}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         />
         <select
@@ -275,9 +283,9 @@ function ContactForm({
           onChange={(e) => setPurpose(e.target.value)}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         >
-          {Object.entries(CONTACT_PURPOSE_LABELS).map(([value, label]) => (
+          {Object.entries(CONTACT_PURPOSE_KEYS).map(([value, key]) => (
             <option key={value} value={value}>
-              {label}
+              {t(key)}
             </option>
           ))}
         </select>
@@ -289,7 +297,7 @@ function ContactForm({
               onChange={(e) => setIsPrimary(e.target.checked)}
               className="accent-[#EC008C]"
             />
-            Primary
+            {t("badge_primary")}
           </label>
           <label className="font-body text-ink flex items-center gap-1.5 text-xs">
             <input
@@ -298,7 +306,7 @@ function ContactForm({
               onChange={(e) => setIsBilling(e.target.checked)}
               className="accent-[#EC008C]"
             />
-            Billing contact
+            {t("badge_billing_contact")}
           </label>
         </div>
       </div>
@@ -317,7 +325,7 @@ function ContactForm({
             onClick={onCancel}
             className="text-muted rounded-full border border-black/10 px-4 py-1.5 text-xs font-semibold uppercase"
           >
-            Cancel
+            {t("cancel")}
           </button>
         )}
       </div>

@@ -282,6 +282,16 @@ The absence is this recorded decision, not a silent deprecation.
 any of those would give a redundancy-checked block something non-redundant
 to show, which is the reason nothing beyond the banner shipped this round.
 
+**Related, separately fixed:** `app/page.tsx` (the root `/` route) used to
+render a stale S0/S1 placeholder — factually wrong (it claimed the real app
+shell "lands in S3"; S3 shipped) and carried the one ungated `Link` in the
+whole app (to `/admin/users`, no capability check). Replaced with a plain
+redirect to `/profile`, the actual landing surface. **That redirect target
+is correct only as long as `/profile` remains the landing surface** — if a
+dashboard is ever built per this item, `/` should redirect there instead,
+not to `/profile`. This note and this item are the same decision from two
+directions; check both if either changes.
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
@@ -622,6 +632,43 @@ existing page is hardcoded English — the flag and the reasoning both check
 out; only the count needed updating.
 
 **Lives in:** `lib/i18n.tsx` line 30.
+
+**Structural constraint found while translating the `AccessDenied`
+fallbacks (bucket A):** the i18n layer cannot serve Server Components at
+all. Locale lives only in client-side state — `localStorage` plus a React
+Context (`LocaleProvider`/`useLocale()`, `lib/i18n.tsx`) — with no
+server-side equivalent (no cookie, no header, nothing `page.tsx` can read).
+Any `page.tsx` that needs translated copy must delegate to a `"use client"`
+leaf component, even for a two-line fallback; there is no smaller fix
+available within the current design. This is a consequence of the layer
+being built ad hoc during the `/contracts` i18n rework (see its own
+top-of-file comment: "no next-intl/react-i18next dependency... matching
+this codebase's existing plain, hand-rolled over a new dependency style"),
+not a deliberate scoping decision. `next-intl` or a URL/cookie-based locale
+would remove the constraint by making the locale resolvable server-side.
+Not a rewrite to schedule now — noted so the next page that hits this
+doesn't have to rediscover it.
+
+**Remaining gap found while closing out bucket C, outside all three
+buckets' stated scope:** `clients/[id]/page.tsx` and `groups/[id]/page.tsx`
+still render real hardcoded English directly (not via any `*-client.tsx`
+child) — `CLIENT_TYPE_LABELS`/`MODULE_LABELS`/`DELIVERY_FORMAT_LABELS`/
+`GROUP_STATUS_LABELS` maps, the `Section`/`Kv` titles and field labels for
+their own top info block ("Group info", "Client", "Module", "Schedule",
+"Children billed", etc.), and each page's own back-link ("← Clients" /
+"← Groups"). `contracts/[id]/page.tsx` has a smaller version of the same
+thing (the demo-badge tooltip text, the "No exit number yet — {client}"
+heading fallback, the "this draft" delete-label fallback). `suppliers/
+[id]/page.tsx` is clean — its only page-level content is the back-link and
+the raw status badge, both already either non-prose or covered.
+Bucket A only translated these files' `AccessDenied` fallback; buckets B
+and C only touched their `*-client.tsx` siblings. This block hits the same
+Server-Component constraint documented above and would need the same
+fix shape as `profile/page.tsx` got in bucket C (extract into small
+`"use client"` leaf components, e.g. a shared `group-info.tsx` /
+`client-info-header.tsx`) — not attempted here since it wasn't named in
+the three buckets and is a real scoping decision, not a mechanical
+follow-on.
 
 ---
 

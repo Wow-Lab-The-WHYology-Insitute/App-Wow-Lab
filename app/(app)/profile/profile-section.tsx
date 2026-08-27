@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useTranslations } from "@/lib/i18n";
+import { profileDict } from "./i18n";
 import { updateOwnProfile, uploadOwnAvatar } from "./actions";
 
 function initialsFrom(label: string) {
@@ -27,6 +29,7 @@ export function ProfileSection({
   initialPhone: string | null;
   initialAvatarUrl: string | null;
 }) {
+  const t = useTranslations(profileDict);
   const [firstName, setFirstName] = useState(initialFirstName ?? "");
   const [lastName, setLastName] = useState(initialLastName ?? "");
   const [phone, setPhone] = useState(initialPhone ?? "");
@@ -63,12 +66,12 @@ export function ProfileSection({
 
     const allowed = ["image/jpeg", "image/png", "image/webp"];
     if (!allowed.includes(file.type)) {
-      setAvatarError("Only JPEG, PNG, or WebP images are allowed.");
+      setAvatarError(t("avatar_type_error"));
       e.target.value = "";
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
-      setAvatarError("Image must be 2MB or smaller.");
+      setAvatarError(t("avatar_size_error"));
       e.target.value = "";
       return;
     }
@@ -90,7 +93,7 @@ export function ProfileSection({
   return (
     <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
       <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
-        Your profile
+        {t("your_profile_heading")}
       </h2>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -109,7 +112,7 @@ export function ProfileSection({
               </span>
             )}
             <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100">
-              {isUploading ? "…" : "Change"}
+              {isUploading ? "…" : t("change_overlay")}
             </span>
           </button>
           <input
@@ -125,7 +128,7 @@ export function ProfileSection({
             disabled={isUploading}
             className="text-brand-pink font-body text-xs font-semibold underline disabled:opacity-50"
           >
-            {isUploading ? "Uploading…" : "Change photo"}
+            {isUploading ? t("uploading_ellipsis") : t("change_photo")}
           </button>
           {avatarError && (
             <p className="font-body text-brand-pink max-w-[10rem] text-center text-xs">
@@ -143,7 +146,7 @@ export function ProfileSection({
                 setFirstName(e.target.value);
                 setSaved(false);
               }}
-              placeholder="First name"
+              placeholder={t("first_name_placeholder")}
               className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 sm:flex-1"
             />
             <input
@@ -153,7 +156,7 @@ export function ProfileSection({
                 setLastName(e.target.value);
                 setSaved(false);
               }}
-              placeholder="Last name"
+              placeholder={t("last_name_placeholder")}
               className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 sm:flex-1"
             />
           </div>
@@ -164,7 +167,7 @@ export function ProfileSection({
               setPhone(e.target.value);
               setSaved(false);
             }}
-            placeholder="Phone"
+            placeholder={t("phone_placeholder")}
             className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
           />
           {error && (
@@ -179,10 +182,10 @@ export function ProfileSection({
               onClick={handleSave}
               className="font-body w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
             >
-              Save
+              {t("save")}
             </button>
             {saved && !isPending && (
-              <span className="font-body text-muted text-xs">Saved.</span>
+              <span className="font-body text-muted text-xs">{t("saved")}</span>
             )}
           </div>
         </div>

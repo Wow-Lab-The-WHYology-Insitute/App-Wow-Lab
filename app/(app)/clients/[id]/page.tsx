@@ -4,6 +4,7 @@ import { checkCapability } from "@/lib/capabilities";
 import { ClientContactsClient } from "./client-contacts-client";
 import { ClientStatusControl } from "./client-status-control";
 import { ClientInfoClient } from "./client-info-client";
+import { AccessDenied } from "@/components/ui/access-denied";
 
 type ClientRow = {
   id: string;
@@ -85,7 +86,7 @@ export default async function ClientDetailPage({
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return <AccessDenied reason="Not signed in." />;
+    return <AccessDenied reasonKey="access_denied_not_signed_in" />;
   }
 
   const { data: client } = await supabase
@@ -101,7 +102,7 @@ export default async function ClientDetailPage({
     // level segregation) — a single-row RLS query can't distinguish the
     // two, and shouldn't: telling a finance_operations user "this
     // corporate client doesn't exist" is the correct behavior, not a bug.
-    return <AccessDenied reason="Client not found, or not visible to your role." />;
+    return <AccessDenied reasonKey="access_denied_not_found_client" />;
   }
 
   const { data: contacts } = await supabase
@@ -339,13 +340,4 @@ function Badge({
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <p className="font-body text-muted text-sm">{children}</p>;
-}
-
-function AccessDenied({ reason }: { reason: string }) {
-  return (
-    <div className="mx-auto max-w-md rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
-      <h1 className="font-display text-xl text-brand-pink">Access denied</h1>
-      <p className="font-body text-muted mt-1 text-sm">{reason}</p>
-    </div>
-  );
 }

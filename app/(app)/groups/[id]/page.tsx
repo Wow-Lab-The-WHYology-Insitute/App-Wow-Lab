@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import { GroupDetailClient } from "./group-detail-client";
+import { AccessDenied } from "@/components/ui/access-denied";
 
 type GroupRow = {
   id: string;
@@ -94,7 +95,7 @@ export default async function GroupDetailPage({
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return <AccessDenied reason="Not signed in." />;
+    return <AccessDenied reasonKey="access_denied_not_signed_in" />;
   }
 
   const { data: group } = await supabase
@@ -110,7 +111,7 @@ export default async function GroupDetailPage({
     // with no allocated session in this group) — a single-row RLS query
     // can't distinguish the two, and shouldn't, same reasoning as
     // clients/[id]/page.tsx.
-    return <AccessDenied reason="Group not found, or not visible to your role." />;
+    return <AccessDenied reasonKey="access_denied_not_found_group" />;
   }
 
   const { data: clientRow } = await supabase
@@ -313,14 +314,5 @@ function Badge({
     >
       {children}
     </span>
-  );
-}
-
-function AccessDenied({ reason }: { reason: string }) {
-  return (
-    <div className="mx-auto max-w-md rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
-      <h1 className="font-display text-xl text-brand-pink">Access denied</h1>
-      <p className="font-body text-muted mt-1 text-sm">{reason}</p>
-    </div>
   );
 }

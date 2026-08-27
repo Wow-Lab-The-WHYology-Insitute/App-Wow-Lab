@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "@/lib/i18n";
+import { groupsDict } from "../i18n";
 import { addSession, updateSessionAllocation } from "../actions";
 
 type Session = {
@@ -21,11 +23,11 @@ type TrainerOption = { id: string; name: string };
 // Matches the sessions.status check constraint (202608160004) exactly —
 // 'confirmed' added between planned and delivered (trainer allocated,
 // date locked, but not yet run).
-const SESSION_STATUS_LABELS: Record<string, string> = {
-  planned: "Planned",
-  confirmed: "Confirmed",
-  delivered: "Delivered",
-  cancelled: "Cancelled",
+const SESSION_STATUS_KEYS: Record<string, string> = {
+  planned: "session_status_planned",
+  confirmed: "session_status_confirmed",
+  delivered: "session_status_delivered",
+  cancelled: "session_status_cancelled",
 };
 
 // Anca's color scheme for the 4-value status.
@@ -62,6 +64,7 @@ export function GroupDetailClient({
   canManageSessions: boolean;
   trainerOptions: TrainerOption[];
 }) {
+  const t = useTranslations(groupsDict);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -109,7 +112,7 @@ export function GroupDetailClient({
             onClick={() => setIsFormOpen((open) => !open)}
             className="font-body w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity hover:opacity-90"
           >
-            + New session
+            {t("new_session_button")}
           </button>
           {isFormOpen && (
             <NewSessionForm
@@ -141,33 +144,33 @@ export function GroupDetailClient({
 
       <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
         <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
-          Sessions ({sessions.length})
+          {t("sessions_heading", { count: sessions.length })}
         </h2>
 
         {sessions.length === 0 ? (
           <p className="font-body text-muted text-sm">
             {canManageSessions
-              ? "No sessions yet."
-              : "No sessions allocated to you in this group."}
+              ? t("empty_no_sessions")
+              : t("empty_no_sessions_trainer")}
           </p>
         ) : (
           <>
             <table className="hidden w-full border-collapse text-sm md:table">
               <thead>
                 <tr className="font-body text-muted border-b border-black/5 text-left text-xs font-bold tracking-wide uppercase">
-                  <th className="py-2 pr-4 font-bold">Date</th>
-                  <th className="py-2 pr-4 font-bold">Principal</th>
-                  <th className="py-2 pr-4 font-bold">Secundar</th>
-                  <th className="py-2 pr-4 font-bold">Status</th>
-                  <th className="py-2 pr-4 font-bold">Duration</th>
+                  <th className="py-2 pr-4 font-bold">{t("col_date")}</th>
+                  <th className="py-2 pr-4 font-bold">{t("col_principal")}</th>
+                  <th className="py-2 pr-4 font-bold">{t("col_secundar")}</th>
+                  <th className="py-2 pr-4 font-bold">{t("col_status")}</th>
+                  <th className="py-2 pr-4 font-bold">{t("col_duration")}</th>
                   {/* "Present" (not "Attendance") — the post-workshop
                       ACTUAL headcount for this occurrence, distinct from
                       the group's own "Children confirmed" (contract-time
                       headcount, shown on Group info above). Same field as
                       before, relabeled for clarity per Anca's request —
                       investigated, no new column needed. */}
-                  <th className="py-2 pr-4 font-bold">Present</th>
-                  <th className="py-2 font-bold">Experiment delivered</th>
+                  <th className="py-2 pr-4 font-bold">{t("col_present")}</th>
+                  <th className="py-2 font-bold">{t("col_experiment_delivered")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -251,6 +254,7 @@ function SessionTableRow({
   onCancelEditing,
   onSave,
 }: SessionRowProps) {
+  const t = useTranslations(groupsDict);
   return (
     <tr className="font-body text-ink border-b border-black/5 align-top last:border-0">
       <td className="py-3 pr-4 text-xs whitespace-nowrap">{formatShortDate(session.session_date)}</td>
@@ -279,7 +283,7 @@ function SessionTableRow({
       )}
       <td className="py-3 pr-4">
         <Badge tone={SESSION_STATUS_TONES[session.status]}>
-          {SESSION_STATUS_LABELS[session.status] ?? session.status}
+          {SESSION_STATUS_KEYS[session.status] ? t(SESSION_STATUS_KEYS[session.status]) : session.status}
         </Badge>
       </td>
       <td className="text-muted py-3 pr-4">
@@ -297,7 +301,7 @@ function SessionTableRow({
                 rel="noreferrer"
                 className="text-brand-pink ml-2 text-xs font-semibold hover:underline"
               >
-                Open
+                {t("open_action")}
               </a>
             )}
           </span>
@@ -310,14 +314,14 @@ function SessionTableRow({
                   onClick={onSave}
                   className="rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-3 py-1 text-xs font-bold text-white uppercase"
                 >
-                  Save
+                  {t("save")}
                 </button>
                 <button
                   type="button"
                   onClick={onCancelEditing}
                   className="text-muted rounded-full border border-black/10 px-3 py-1 text-xs font-semibold uppercase"
                 >
-                  Cancel
+                  {t("cancel")}
                 </button>
               </span>
             ) : (
@@ -326,7 +330,7 @@ function SessionTableRow({
                 onClick={onStartEditing}
                 className="text-brand-pink shrink-0 text-xs font-semibold underline"
               >
-                reallocate
+                {t("reallocate_action")}
               </button>
             ))}
         </div>
@@ -349,6 +353,7 @@ function SessionCard({
   onCancelEditing,
   onSave,
 }: SessionRowProps) {
+  const t = useTranslations(groupsDict);
   return (
     <div className="rounded-xl border border-black/5 p-4">
       <div className="flex items-center justify-between">
@@ -356,18 +361,18 @@ function SessionCard({
           {formatShortDate(session.session_date)}
         </p>
         <Badge tone={SESSION_STATUS_TONES[session.status]}>
-          {SESSION_STATUS_LABELS[session.status] ?? session.status}
+          {SESSION_STATUS_KEYS[session.status] ? t(SESSION_STATUS_KEYS[session.status]) : session.status}
         </Badge>
       </div>
 
       {editing ? (
         <div className="mt-3 flex flex-col gap-2">
           <label className="font-body text-muted flex flex-col gap-1 text-xs">
-            Principal
+            {t("col_principal")}
             <TrainerSelect value={principalValue} options={trainerOptions} onChange={onChangePrincipal} />
           </label>
           <label className="font-body text-muted flex flex-col gap-1 text-xs">
-            Secundar
+            {t("col_secundar")}
             <TrainerSelect value={secundarValue} options={trainerOptions} onChange={onChangeSecundar} />
           </label>
           <div className="mt-1 flex gap-2">
@@ -377,34 +382,34 @@ function SessionCard({
               onClick={onSave}
               className="flex-1 rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-3 py-2 text-xs font-bold text-white uppercase disabled:opacity-50"
             >
-              Save
+              {t("save")}
             </button>
             <button
               type="button"
               onClick={onCancelEditing}
               className="text-muted flex-1 rounded-full border border-black/10 px-3 py-2 text-xs font-semibold uppercase"
             >
-              Cancel
+              {t("cancel")}
             </button>
           </div>
         </div>
       ) : (
         <>
           <p className="font-body text-muted mt-2 text-xs">
-            Principal: {session.trainerPrincipalName || "—"}
+            {t("mobile_principal_prefix")}{session.trainerPrincipalName || "—"}
           </p>
           <p className="font-body text-muted mt-1 text-xs">
-            Secundar: {session.trainerSecundarName || "—"}
+            {t("mobile_secundar_prefix")}{session.trainerSecundarName || "—"}
           </p>
           <p className="font-body text-muted mt-1 text-xs">
-            Duration: {session.duration_minutes ? `${session.duration_minutes} min` : "—"}
+            {t("mobile_duration_prefix")}{session.duration_minutes ? `${session.duration_minutes} min` : "—"}
           </p>
           <p className="font-body text-muted mt-1 text-xs">
-            Present: {session.attendance_count ?? "—"}
+            {t("mobile_present_prefix")}{session.attendance_count ?? "—"}
           </p>
           {session.experiment_delivered && (
             <p className="font-body text-muted mt-1 text-xs">
-              Experiment: {session.experiment_delivered}
+              {t("mobile_experiment_prefix")}{session.experiment_delivered}
               {session.experiment_drive_link && (
                 <a
                   href={session.experiment_drive_link}
@@ -412,7 +417,7 @@ function SessionCard({
                   rel="noreferrer"
                   className="text-brand-pink ml-2 font-semibold hover:underline"
                 >
-                  Open
+                  {t("open_action")}
                 </a>
               )}
             </p>
@@ -423,7 +428,7 @@ function SessionCard({
               onClick={onStartEditing}
               className="text-brand-pink mt-3 w-full rounded-full border border-black/10 px-3 py-2 text-xs font-semibold uppercase"
             >
-              Reallocate
+              {t("reallocate_button")}
             </button>
           )}
         </>
@@ -441,16 +446,17 @@ function TrainerSelect({
   options: TrainerOption[];
   onChange: (v: string) => void;
 }) {
+  const t = useTranslations(groupsDict);
   return (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className="font-body text-ink w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
     >
-      <option value="">Unassigned</option>
-      {options.map((t) => (
-        <option key={t.id} value={t.id}>
-          {t.name}
+      <option value="">{t("no_trainer")}</option>
+      {options.map((opt) => (
+        <option key={opt.id} value={opt.id}>
+          {opt.name}
         </option>
       ))}
     </select>
@@ -475,6 +481,7 @@ function NewSessionForm({
     experimentDriveLink: string,
   ) => void;
 }) {
+  const t = useTranslations(groupsDict);
   const [date, setDate] = useState("");
   const [principalId, setPrincipalId] = useState("");
   const [secundarId, setSecundarId] = useState("");
@@ -487,11 +494,11 @@ function NewSessionForm({
   return (
     <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
       <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
-        New session
+        {t("new_session_title")}
       </h2>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <label className="font-body text-muted flex flex-col gap-1 text-xs">
-          Date
+          {t("col_date")}
           <input
             type="date"
             value={date}
@@ -504,38 +511,38 @@ function NewSessionForm({
           onChange={(e) => setStatus(e.target.value)}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         >
-          {Object.entries(SESSION_STATUS_LABELS).map(([value, label]) => (
+          {Object.entries(SESSION_STATUS_KEYS).map(([value, key]) => (
             <option key={value} value={value}>
-              {label}
+              {t(key)}
             </option>
           ))}
         </select>
         <label className="font-body text-muted flex flex-col gap-1 text-xs">
-          Trainer principal
+          {t("trainer_principal_label")}
           <select
             value={principalId}
             onChange={(e) => setPrincipalId(e.target.value)}
             className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
           >
-            <option value="">Unassigned</option>
-            {trainerOptions.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
+            <option value="">{t("no_trainer")}</option>
+            {trainerOptions.map((opt) => (
+              <option key={opt.id} value={opt.id}>
+                {opt.name}
               </option>
             ))}
           </select>
         </label>
         <label className="font-body text-muted flex flex-col gap-1 text-xs">
-          Trainer secundar
+          {t("trainer_secundar_label")}
           <select
             value={secundarId}
             onChange={(e) => setSecundarId(e.target.value)}
             className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
           >
-            <option value="">Unassigned</option>
-            {trainerOptions.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
+            <option value="">{t("no_trainer")}</option>
+            {trainerOptions.map((opt) => (
+              <option key={opt.id} value={opt.id}>
+                {opt.name}
               </option>
             ))}
           </select>
@@ -545,14 +552,14 @@ function NewSessionForm({
           min="0"
           value={attendance}
           onChange={(e) => setAttendance(e.target.value)}
-          placeholder="Attendance count (optional)"
+          placeholder={t("attendance_placeholder")}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         />
         <input
           type="text"
           value={experiment}
           onChange={(e) => setExperiment(e.target.value)}
-          placeholder="Experiment delivered (optional)"
+          placeholder={t("experiment_placeholder")}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         />
         <select
@@ -560,7 +567,7 @@ function NewSessionForm({
           onChange={(e) => setDuration(e.target.value)}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         >
-          <option value="">Duration (optional)</option>
+          <option value="">{t("duration_placeholder")}</option>
           <option value="30">30 min</option>
           <option value="60">60 min</option>
           <option value="90">90 min</option>
@@ -570,7 +577,7 @@ function NewSessionForm({
           type="text"
           value={experimentDriveLink}
           onChange={(e) => setExperimentDriveLink(e.target.value)}
-          placeholder="Experiment Drive link (optional)"
+          placeholder={t("experiment_drive_link_placeholder")}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         />
       </div>
@@ -582,7 +589,7 @@ function NewSessionForm({
         }
         className="font-body mt-3 w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
       >
-        Create session
+        {t("create_session_button")}
       </button>
     </section>
   );

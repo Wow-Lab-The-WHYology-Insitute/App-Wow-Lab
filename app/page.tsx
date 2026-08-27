@@ -1,25 +1,10 @@
-import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
-export default async function Home() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  return (
-    <main className="mx-auto flex min-h-screen max-w-xl flex-col items-start justify-center gap-4 p-8">
-      <h1 className="text-2xl font-semibold">WOW LAB OS</h1>
-      <p className="text-gray-600">
-        Signed in as <span className="font-mono">{user?.email}</span>.
-      </p>
-      <p className="text-sm text-gray-500">
-        This is a bare S0/S1 placeholder — the real app shell (navigation, brand)
-        lands in S3.
-      </p>
-      <Link href="/admin/users" className="text-blue-600 underline">
-        Users &amp; roles (admin)
-      </Link>
-    </main>
-  );
+// Nothing in the app links here, and unauthenticated requests never reach
+// it (middleware redirects to /login first) -- this only ever runs for an
+// authenticated visitor who typed / directly. /profile is the real landing
+// surface (see app/auth/callback/route.ts's own default), so this sends
+// them there instead of the old S0/S1 placeholder it used to render.
+export default function Home() {
+  redirect("/profile");
 }
