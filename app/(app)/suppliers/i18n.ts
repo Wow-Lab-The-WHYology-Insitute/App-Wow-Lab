@@ -48,4 +48,9 @@ export const suppliersDict: Dictionary = {
   create_supplier: { en: "Create supplier", ro: "Creează furnizorul" },
   save: { en: "Save", ro: "Salvează" },
   cancel: { en: "Cancel", ro: "Anulează" },
+
+  // supplier-header.tsx (page.tsx's own markup -- missed in the earlier
+  // [id]-page pass; the RO walk caught both the back-link and the raw
+  // status badge below it, see OPEN_ITEMS).
+  back_link: { en: "← Suppliers", ro: "← Furnizori" },
 };
