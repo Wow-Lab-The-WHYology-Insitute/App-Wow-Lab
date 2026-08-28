@@ -16,18 +16,18 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 export type Locale = "en" | "ro";
 
-// The translation plumbing (t(), useLocale(), persisted locale) is real
-// and safe to use today — only the user-facing SWITCHER is gated. With
-// exactly one page translated, letting someone flip to RO from /contracts
-// would leave every other page abruptly English mid-session, which reads
-// as broken rather than in-progress. Flip this once a second page adopts
-// useTranslations() and that inconsistency stops being the common case. A
-// plain code constant, not an env var — this codebase has no feature-flag
+// Was gated off while only /contracts was translated -- flipping to RO
+// would have left every other page abruptly English mid-session, reading
+// as broken rather than in-progress. All 20 files with real hardcoded
+// copy are translated now (verified live, RO walk across all 12 routes,
+// twice), so that inconsistency is no longer the common case. A plain
+// code constant, not an env var — this codebase has no feature-flag
 // infra, and a single line to edit is less deployment friction than a new
 // NEXT_PUBLIC_* var that has to be set consistently across local/preview/
 // production (this project's own history: preview env vars have been a
-// recurring pain point).
-export const LOCALE_SWITCHER_ENABLED = false;
+// recurring pain point). Revert this one line alone if something turns
+// up in real use.
+export const LOCALE_SWITCHER_ENABLED = true;
 
 const STORAGE_KEY = "wowlab.locale";
 
