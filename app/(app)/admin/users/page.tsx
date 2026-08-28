@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import { AdminUsersClient } from "./admin-users-client";
+import { AdminUsersHeader } from "./admin-users-header";
 import { AccessDenied } from "@/components/ui/access-denied";
 
 type OrgMembership = {
@@ -156,13 +157,7 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="flex w-full flex-col gap-6">
-      <div>
-        <h1 className="font-display text-2xl text-brand-pink">Users &amp; roles</h1>
-        <p className="font-body text-muted mt-1 text-sm">
-          Organization: <span className="text-ink font-medium">{managedOrg.name}</span>{" "}
-          ({managedOrg.slug})
-        </p>
-      </div>
+      <AdminUsersHeader orgName={managedOrg.name} orgSlug={managedOrg.slug} />
       <AdminUsersClient
         orgId={managedOrg.id}
         roles={roles ?? []}

@@ -1,7 +1,8 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import { GroupDetailClient } from "./group-detail-client";
+import { GroupHeader } from "./group-header";
+import { GroupInfoSection } from "./group-info-section";
 import { AccessDenied } from "@/components/ui/access-denied";
 
 type GroupRow = {
@@ -39,43 +40,15 @@ type UserLookupRow = {
 type RoleIdRow = { id: string };
 type UserOrgRoleRow = { user_id: string };
 
-const MODULE_LABELS: Record<string, string> = {
-  gaga: "GAGA",
-  green_energy: "Green Energy",
-  wow_mix: "Wow Lab Mix",
-  tiktok: "Wow TikTok Science",
-  food_science: "Wow Food Science",
-  lotions: "Wow Lotions and Potions",
-  magic_physics: "Magic of Physics",
-  chem_me: "Chemistry for Me",
-  chem_hs: "Chemistry for Highschool",
-  lights: "Lights and Colours",
-  detective: "Detective Science",
-  astronomy: "Astronomy",
-  doctor: "I Wanna Be a Doctor",
-};
-const DELIVERY_FORMAT_LABELS: Record<string, string> = {
-  recurring: "Recurring (school club)",
-  scoala_altfel: "Școala Altfel",
-  saptamana_verde: "Săptămâna Verde",
-  party: "Party",
-  corporate: "Corporate",
-  custom: "Custom",
-};
-const GROUP_STATUS_LABELS: Record<string, string> = {
-  active: "Active",
-  paused: "Paused",
-  ended: "Ended",
-};
-
 // Same rule as groups/page.tsx's copy: never falls back to email (not even
 // selected below anymore). full_name is NOT NULL but can itself be a raw
 // email (handle_new_auth_user default) -- skipped, not trusted just for
-// being non-null. "" (not null) signals "nothing safe to show" -- this
-// file has no i18n wiring today (MODULE_LABELS etc. above are plain
-// English constants), so callers here fall back to a plain "Unnamed"
-// literal rather than routing through useTranslations, unlike groups/
-// page.tsx's callers (groups-client.tsx, group-detail-panel.tsx), which do.
+// being non-null. "" (not null) signals "nothing safe to show" -- module/
+// format/status labels now route through GroupHeader/GroupInfoSection's
+// own useTranslations() (group-header.tsx, group-info-section.tsx), but
+// this trainer-name fallback stays a plain "Unnamed" literal, unlike
+// groups/page.tsx's callers (groups-client.tsx, group-detail-panel.tsx),
+// which do translate it -- displayName() itself has no i18n wiring here.
 function displayName(u: Pick<UserLookupRow, "full_name" | "first_name" | "last_name">) {
   const full = [u.first_name, u.last_name].filter(Boolean).join(" ");
   if (full) return full;
@@ -205,47 +178,28 @@ export default async function GroupDetailPage({
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  const clientName = clientRow?.name ?? group.client_id;
+
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6">
-      <div>
-        <Link href="/groups" className="font-body text-muted text-xs hover:underline">
-          ← Groups
-        </Link>
-        <h1 className="font-display text-2xl text-brand-pink">
-          {clientRow?.name ?? group.client_id} · {MODULE_LABELS[group.module] ?? group.module}
-        </h1>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <Badge>{DELIVERY_FORMAT_LABELS[group.delivery_format] ?? group.delivery_format}</Badge>
-          <Badge tone={group.status === "active" ? "neutral" : "pink"}>
-            {GROUP_STATUS_LABELS[group.status] ?? group.status}
-          </Badge>
-        </div>
-      </div>
+      <GroupHeader
+        clientName={clientName}
+        module={group.module}
+        deliveryFormat={group.delivery_format}
+        status={group.status}
+      />
 
-      <Section title="Group info">
-        <Kv label="Client" value={clientRow?.name ?? group.client_id} />
-        <Kv label="Module" value={MODULE_LABELS[group.module] ?? group.module} />
-        <Kv label="Delivery format" value={DELIVERY_FORMAT_LABELS[group.delivery_format] ?? group.delivery_format} />
-        <Kv label="Schedule" value={group.schedule_pattern || "—"} />
-        <Kv label="Age range" value={group.age_range || "—"} />
-        <Kv
-          label="School-year calendar"
-          value={group.school_year_calendar_link ? "Open link" : "—"}
-          href={group.school_year_calendar_link ?? undefined}
-          external
-        />
-        {/* "Confirmed" here is the CONTRACT-TIME headcount (per enrollment,
-            at signup) — distinct from each session's own "Present" count
-            below (who actually showed up to THAT occurrence). Two
-            different attendance concepts already existed as separate
-            fields (children_confirmed here, sessions.attendance_count per
-            session below) -- investigated per Anca's request, confirmed
-            this already covers "contract-time confirmed vs. post-workshop
-            actual-present", so only the labeling changed, no new column. */}
-        <Kv label="Children confirmed (per contract)" value={group.children_confirmed?.toString() ?? "—"} />
-        <Kv label="Children billed" value={group.children_billed?.toString() ?? "—"} />
-        <Kv label="Notes" value={group.notes || "—"} />
-      </Section>
+      <GroupInfoSection
+        clientName={clientName}
+        module={group.module}
+        deliveryFormat={group.delivery_format}
+        schedulePattern={group.schedule_pattern}
+        ageRange={group.age_range}
+        calendarLink={group.school_year_calendar_link}
+        childrenConfirmed={group.children_confirmed}
+        childrenBilled={group.children_billed}
+        notes={group.notes}
+      />
 
       <GroupDetailClient
         groupId={group.id}
@@ -255,64 +209,5 @@ export default async function GroupDetailPage({
         trainerOptions={trainerOptions}
       />
     </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
-      <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
-
-function Kv({
-  label,
-  value,
-  href,
-  external,
-}: {
-  label: string;
-  value: string;
-  href?: string;
-  external?: boolean;
-}) {
-  return (
-    <div className="flex items-baseline justify-between border-b border-black/5 py-2 text-sm last:border-0">
-      <span className="font-body text-muted">{label}</span>
-      {href ? (
-        <a
-          href={href}
-          target={external ? "_blank" : undefined}
-          rel={external ? "noreferrer" : undefined}
-          className="text-brand-pink font-body font-medium hover:underline"
-        >
-          {value}
-        </a>
-      ) : (
-        <span className="font-body text-ink font-medium">{value}</span>
-      )}
-    </div>
-  );
-}
-
-function Badge({
-  children,
-  tone = "neutral",
-}: {
-  children: React.ReactNode;
-  tone?: "neutral" | "pink";
-}) {
-  return (
-    <span
-      className={`font-body inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-        tone === "pink" ? "bg-brand-pink/10 text-brand-pink" : "bg-ink/5 text-ink"
-      }`}
-    >
-      {children}
-    </span>
   );
 }

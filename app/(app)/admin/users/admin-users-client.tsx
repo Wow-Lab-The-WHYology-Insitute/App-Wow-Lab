@@ -15,10 +15,10 @@ import { adminUsersDict } from "./i18n";
 // 'disabled' come from enableAccess/disableAccess below). Confirmed live
 // (not assumed) against the current org's actual rows before building this
 // filter.
-const STATUS_LABELS: Record<string, string> = {
-  invited: "Invited",
-  active: "Active",
-  disabled: "Disabled",
+const STATUS_KEYS: Record<string, string> = {
+  invited: "status_invited",
+  active: "status_active",
+  disabled: "status_disabled",
 };
 
 type Role = { id: string; key: string; display_name: string };
@@ -67,6 +67,7 @@ export function AdminUsersClient({
   roles: Role[];
   members: Member[];
 }) {
+  const t = useTranslations(adminUsersDict);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -162,16 +163,14 @@ export function AdminUsersClient({
 
       <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
         <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
-          Members (
           {filteredMembers.length !== members.length
-            ? `${filteredMembers.length} of ${members.length}`
-            : members.length}
-          )
+            ? t("members_heading_filtered", { shown: filteredMembers.length, total: members.length })
+            : t("members_heading", { count: members.length })}
         </h2>
 
         {members.length === 0 ? (
           <p className="font-body text-muted text-sm">
-            No members in this organization.
+            {t("empty_no_members")}
           </p>
         ) : (
           <>
@@ -180,7 +179,7 @@ export function AdminUsersClient({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by name or email…"
+                placeholder={t("search_placeholder")}
                 className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 md:flex-1"
               />
               <select
@@ -188,7 +187,7 @@ export function AdminUsersClient({
                 onChange={(e) => setRoleFilter(e.target.value)}
                 className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
               >
-                <option value="all">All roles</option>
+                <option value="all">{t("filter_role_all")}</option>
                 {roles.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.display_name}
@@ -200,10 +199,10 @@ export function AdminUsersClient({
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
               >
-                <option value="all">All statuses</option>
-                {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                <option value="all">{t("filter_status_all")}</option>
+                {Object.entries(STATUS_KEYS).map(([value, key]) => (
                   <option key={value} value={value}>
-                    {label}
+                    {t(key)}
                   </option>
                 ))}
               </select>
@@ -212,15 +211,15 @@ export function AdminUsersClient({
                 onChange={(e) => setTestAccountFilter(e.target.value as "all" | "real" | "test")}
                 className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
               >
-                <option value="all">All accounts</option>
-                <option value="real">Real only</option>
-                <option value="test">Test only</option>
+                <option value="all">{t("filter_account_all")}</option>
+                <option value="real">{t("filter_account_real")}</option>
+                <option value="test">{t("filter_account_test")}</option>
               </select>
             </div>
 
             {filteredMembers.length === 0 ? (
               <p className="font-body text-muted text-sm">
-                No members match your search or filters.
+                {t("empty_no_match")}
               </p>
             ) : (
               <>
@@ -229,10 +228,10 @@ export function AdminUsersClient({
                   <thead>
                     <tr className="font-body text-muted border-b border-black/5 text-left text-xs font-bold tracking-wide uppercase">
                       <th className="py-2 pr-2 font-bold">#</th>
-                      <th className="py-2 pr-4 font-bold">Email</th>
-                      <th className="py-2 pr-4 font-bold">Roles</th>
-                      <th className="py-2 pr-4 font-bold">Status</th>
-                      <th className="py-2 font-bold">Actions</th>
+                      <th className="py-2 pr-4 font-bold">{t("col_email")}</th>
+                      <th className="py-2 pr-4 font-bold">{t("col_roles")}</th>
+                      <th className="py-2 pr-4 font-bold">{t("col_status")}</th>
+                      <th className="py-2 font-bold">{t("col_actions")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -305,6 +304,7 @@ function InviteForm({
     phone: string,
   ) => void;
 }) {
+  const t = useTranslations(adminUsersDict);
   const [email, setEmail] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [firstName, setFirstName] = useState("");
@@ -314,14 +314,14 @@ function InviteForm({
   return (
     <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
       <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
-        Invite user
+        {t("invite_user_title")}
       </h2>
       <div className="flex flex-col gap-3">
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="email@wowlab.ro"
+          placeholder={t("email_placeholder")}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         />
         <div className="flex flex-col gap-3 md:flex-row">
@@ -329,21 +329,21 @@ function InviteForm({
             type="text"
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
-            placeholder="First name (optional)"
+            placeholder={t("first_name_placeholder")}
             className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 md:flex-1"
           />
           <input
             type="text"
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
-            placeholder="Last name (optional)"
+            placeholder={t("last_name_placeholder")}
             className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 md:flex-1"
           />
           <input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="Phone (optional)"
+            placeholder={t("phone_placeholder")}
             className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 md:flex-1"
           />
         </div>
@@ -358,7 +358,7 @@ function InviteForm({
           onClick={() => onSubmit(email, selectedRoles, firstName, lastName, phone)}
           className="font-body w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
         >
-          Invite
+          {t("invite_button")}
         </button>
       </div>
     </section>
@@ -406,7 +406,7 @@ function MemberTableRow({
           <div>
             <div className="flex items-center gap-1.5">
               <span className="font-semibold">{name}</span>
-              {member.isTestAccount && <Badge tone="outline">Test</Badge>}
+              {member.isTestAccount && <Badge tone="outline">{t("badge_test")}</Badge>}
             </div>
             {hasName && <div className="text-muted text-xs">{member.email}</div>}
           </div>
@@ -427,14 +427,14 @@ function MemberTableRow({
                 onClick={onSave}
                 className="rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-3 py-1 text-xs font-bold text-white uppercase"
               >
-                Save
+                {t("save")}
               </button>
               <button
                 type="button"
                 onClick={onCancelEditing}
                 className="text-muted rounded-full border border-black/10 px-3 py-1 text-xs font-semibold uppercase"
               >
-                Cancel
+                {t("cancel")}
               </button>
             </div>
           </div>
@@ -445,21 +445,21 @@ function MemberTableRow({
                 <Badge key={label}>{label}</Badge>
               ))
             ) : (
-              <span className="text-muted text-xs">(no roles)</span>
+              <span className="text-muted text-xs">{t("no_roles")}</span>
             )}
             <button
               type="button"
               onClick={onStartEditing}
               className="text-brand-pink text-xs font-semibold underline"
             >
-              edit
+              {t("edit_action")}
             </button>
           </div>
         )}
       </td>
       <td className="py-3 pr-4">
         <Badge tone={member.status === "disabled" ? "pink" : "neutral"}>
-          {member.status}
+          {STATUS_KEYS[member.status] ? t(STATUS_KEYS[member.status]) : member.status}
         </Badge>
       </td>
       <td className="py-3">
@@ -469,7 +469,7 @@ function MemberTableRow({
           onClick={onToggleAccess}
           className="text-muted rounded-full border border-black/10 px-3 py-1 text-xs font-semibold uppercase transition-colors hover:border-brand-pink hover:text-brand-pink disabled:opacity-50"
         >
-          {member.status === "disabled" ? "Re-enable" : "Disable"}
+          {member.status === "disabled" ? t("reenable_button") : t("disable_button")}
         </button>
       </td>
     </tr>
@@ -506,7 +506,7 @@ function MemberCard({
             <span className="text-muted font-normal">#{index + 1}</span> {name}
             {member.isTestAccount && (
               <span className="ml-1.5 inline-block align-middle">
-                <Badge tone="outline">Test</Badge>
+                <Badge tone="outline">{t("badge_test")}</Badge>
               </span>
             )}
           </p>
@@ -530,14 +530,14 @@ function MemberCard({
               onClick={onSave}
               className="flex-1 rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-3 py-2 text-xs font-bold text-white uppercase disabled:opacity-50"
             >
-              Save
+              {t("save")}
             </button>
             <button
               type="button"
               onClick={onCancelEditing}
               className="text-muted flex-1 rounded-full border border-black/10 px-3 py-2 text-xs font-semibold uppercase"
             >
-              Cancel
+              {t("cancel")}
             </button>
           </div>
         </div>
@@ -549,13 +549,13 @@ function MemberCard({
                 <Badge key={label}>{label}</Badge>
               ))
             ) : (
-              <span className="text-muted text-xs">(no roles)</span>
+              <span className="text-muted text-xs">{t("no_roles")}</span>
             )}
           </div>
 
           <div className="mt-2">
             <Badge tone={member.status === "disabled" ? "pink" : "neutral"}>
-              {member.status}
+              {STATUS_KEYS[member.status] ? t(STATUS_KEYS[member.status]) : member.status}
             </Badge>
           </div>
 
@@ -565,7 +565,7 @@ function MemberCard({
               onClick={onStartEditing}
               className="text-brand-pink flex-1 rounded-full border border-black/10 px-3 py-2 text-xs font-semibold uppercase"
             >
-              Edit roles
+              {t("edit_roles_button")}
             </button>
             <button
               type="button"
@@ -573,7 +573,7 @@ function MemberCard({
               onClick={onToggleAccess}
               className="text-muted flex-1 rounded-full border border-black/10 px-3 py-2 text-xs font-semibold uppercase transition-colors hover:border-brand-pink hover:text-brand-pink disabled:opacity-50"
             >
-              {member.status === "disabled" ? "Re-enable" : "Disable"}
+              {member.status === "disabled" ? t("reenable_button") : t("disable_button")}
             </button>
           </div>
         </>

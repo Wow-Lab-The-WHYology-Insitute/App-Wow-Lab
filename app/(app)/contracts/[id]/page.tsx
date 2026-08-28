@@ -1,9 +1,6 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
-import { isDemoRecord } from "../format";
-import { MarkSignedButton } from "./mark-signed-button";
-import { DeleteContractButton } from "./delete-contract-button";
+import { ContractHeader } from "./contract-header";
 import { ContractDetailClient } from "./contract-detail-client";
 import { AccessDenied } from "@/components/ui/access-denied";
 
@@ -134,47 +131,24 @@ export default async function ContractDetailPage({
     legalEntityOptions = leo ?? [];
   }
 
+  const clientName = client?.name ?? contract.client_id;
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <div>
-        <Link href="/contracts" className="font-body text-muted text-xs hover:underline">
-          ← Contracts
-        </Link>
-        <h1
-          className={`font-display text-2xl ${contract.exit_number ? "text-brand-pink" : "text-muted italic"}`}
-        >
-          {contract.exit_number || `No exit number yet — ${client?.name ?? contract.client_id}`}
-        </h1>
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <Badge>{contract.contract_type}</Badge>
-          <Badge tone={contract.status === "signed" ? "neutral" : "pink"}>
-            {contract.status}
-          </Badge>
-          {isDemoRecord(contract.notes) && (
-            <span
-              title="Example seed record — not a verified real contract."
-              className="font-body inline-flex w-fit items-center gap-1 rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700"
-            >
-              ⚠ Demo data
-            </span>
-          )}
-          {canManage && (contract.status === "draft" || contract.status === "sent") && (
-            <MarkSignedButton contractId={contract.id} />
-          )}
-        </div>
-        {canManage && contract.status === "draft" && (
-          <div className="mt-2">
-            <DeleteContractButton
-              contractId={contract.id}
-              label={contract.exit_number || contract.entry_number || "this draft"}
-            />
-          </div>
-        )}
-      </div>
+      <ContractHeader
+        contractId={contract.id}
+        exitNumber={contract.exit_number}
+        entryNumber={contract.entry_number}
+        clientName={clientName}
+        contractType={contract.contract_type}
+        status={contract.status}
+        notes={contract.notes}
+        canManage={canManage}
+      />
 
       <ContractDetailClient
         contract={contract}
-        clientName={client?.name ?? contract.client_id}
+        clientName={clientName}
         legalEntityName={legalEntity?.name ?? contract.legal_entity_id}
         financeVisible={financeVisible}
         canManage={canManage}
@@ -182,23 +156,5 @@ export default async function ContractDetailPage({
         legalEntityOptions={legalEntityOptions}
       />
     </div>
-  );
-}
-
-function Badge({
-  children,
-  tone = "neutral",
-}: {
-  children: React.ReactNode;
-  tone?: "neutral" | "pink";
-}) {
-  return (
-    <span
-      className={`font-body inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-        tone === "pink" ? "bg-brand-pink/10 text-brand-pink" : "bg-ink/5 text-ink"
-      }`}
-    >
-      {children}
-    </span>
   );
 }

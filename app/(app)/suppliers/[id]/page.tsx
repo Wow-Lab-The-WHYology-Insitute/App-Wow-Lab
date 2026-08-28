@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import { SupplierInfoClient } from "./supplier-info-client";
+import { SupplierHeader } from "./supplier-header";
 import { AccessDenied } from "@/components/ui/access-denied";
 
 type SupplierRow = {
@@ -61,35 +61,9 @@ export default async function SupplierDetailPage({
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
-      <div>
-        <Link href="/suppliers" className="font-body text-muted text-xs hover:underline">
-          ← Suppliers
-        </Link>
-        <h1 className="font-display text-2xl text-brand-pink">{supplier.name}</h1>
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <Badge tone={supplier.status === "active" ? "neutral" : "pink"}>{supplier.status}</Badge>
-        </div>
-      </div>
+      <SupplierHeader name={supplier.name} status={supplier.status} />
 
       <SupplierInfoClient supplier={supplier} canEdit={canEdit} />
     </div>
-  );
-}
-
-function Badge({
-  children,
-  tone = "neutral",
-}: {
-  children: React.ReactNode;
-  tone?: "neutral" | "pink";
-}) {
-  return (
-    <span
-      className={`font-body inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-        tone === "pink" ? "bg-brand-pink/10 text-brand-pink" : "bg-ink/5 text-ink"
-      }`}
-    >
-      {children}
-    </span>
   );
 }
