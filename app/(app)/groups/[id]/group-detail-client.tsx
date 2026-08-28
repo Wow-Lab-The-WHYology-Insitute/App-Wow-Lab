@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useTranslations } from "@/lib/i18n";
+import { useTranslations, useLocale } from "@/lib/i18n";
 import { groupsDict } from "../i18n";
 import { addSession, updateSessionAllocation } from "../actions";
 
@@ -38,8 +38,13 @@ const SESSION_STATUS_TONES: Record<string, string> = {
   cancelled: "bg-red-100 text-red-700",
 };
 
-function formatShortDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-GB", {
+// Locale-aware -- takes the same "en" | "ro" shape as lib/format.ts's
+// formatDate/formatMoney, kept as its own function (not a call to
+// formatDate) because this table's day/month/year format is deliberately
+// longer ("15 Aug 2026") than formatDate's compact "15.08.26", not a
+// duplicate of it.
+function formatShortDate(iso: string, locale: "en" | "ro") {
+  return new Date(iso).toLocaleDateString(locale === "ro" ? "ro-RO" : "en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -255,9 +260,10 @@ function SessionTableRow({
   onSave,
 }: SessionRowProps) {
   const t = useTranslations(groupsDict);
+  const { locale } = useLocale();
   return (
     <tr className="font-body text-ink border-b border-black/5 align-top last:border-0">
-      <td className="py-3 pr-4 text-xs whitespace-nowrap">{formatShortDate(session.session_date)}</td>
+      <td className="py-3 pr-4 text-xs whitespace-nowrap">{formatShortDate(session.session_date, locale)}</td>
       {editing ? (
         <>
           <td className="py-3 pr-4">
@@ -354,11 +360,12 @@ function SessionCard({
   onSave,
 }: SessionRowProps) {
   const t = useTranslations(groupsDict);
+  const { locale } = useLocale();
   return (
     <div className="rounded-xl border border-black/5 p-4">
       <div className="flex items-center justify-between">
         <p className="font-body text-ink text-sm font-semibold">
-          {formatShortDate(session.session_date)}
+          {formatShortDate(session.session_date, locale)}
         </p>
         <Badge tone={SESSION_STATUS_TONES[session.status]}>
           {SESSION_STATUS_KEYS[session.status] ? t(SESSION_STATUS_KEYS[session.status]) : session.status}
