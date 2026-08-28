@@ -154,4 +154,9 @@ export const contractsDict: Dictionary = {
     ro: ". Salvarea va fi înregistrată în jurnalul de audit. Continui?",
   },
   confirm_and_save: { en: "Confirm & save", ro: "Confirmă și salvează" },
+
+  // contract-header.tsx (page.tsx's own markup, closing the gap bucket C
+  // left open).
+  back_link: { en: "← Contracts", ro: "← Contracte" },
+  draft_fallback_label: { en: "this draft", ro: "această ciornă" },
 };

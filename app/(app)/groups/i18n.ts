@@ -132,4 +132,17 @@ export const groupsDict: Dictionary = {
     ro: "Link Drive experiment (opțional)",
   },
   create_session_button: { en: "Create session", ro: "Creează sesiunea" },
+
+  // group-header.tsx / group-info-section.tsx (page.tsx's own markup,
+  // closing the gap bucket C left open). col_client/col_module/col_schedule
+  // above are reused as Kv labels here -- same text, same field.
+  back_link: { en: "← Groups", ro: "← Grupe" },
+  section_group_info_title: { en: "Group info", ro: "Informații grupă" },
+  kv_delivery_format: { en: "Delivery format", ro: "Format livrare" },
+  kv_age_range: { en: "Age range", ro: "Interval de vârstă" },
+  kv_calendar: { en: "School-year calendar", ro: "Calendar an școlar" },
+  open_link: { en: "Open link", ro: "Deschide link" },
+  kv_children_confirmed: { en: "Children confirmed (per contract)", ro: "Copii confirmați (per contract)" },
+  kv_children_billed: { en: "Children billed", ro: "Copii facturați" },
+  kv_notes: { en: "Notes", ro: "Note" },
 };

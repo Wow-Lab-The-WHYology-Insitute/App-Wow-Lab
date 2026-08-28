@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import { ClientContactsClient } from "./client-contacts-client";
-import { ClientStatusControl } from "./client-status-control";
 import { ClientInfoClient } from "./client-info-client";
+import { ClientHeader } from "./client-header";
+import { ClientContractsSection } from "./client-contracts-section";
 import { AccessDenied } from "@/components/ui/access-denied";
 
 type ClientRow = {
@@ -39,14 +39,6 @@ type ContractRow = {
   legal_entity_id: string;
 };
 type LegalEntityLookupRow = { id: string; name: string };
-
-const CLIENT_TYPE_LABELS: Record<string, string> = {
-  private_school: "Private school",
-  state_school: "State school",
-  corporate: "Corporate",
-  parent_b2c: "Parent B2C",
-  special_project: "Special project",
-};
 
 // client_contacts INSERT/UPDATE policy (202608100003): org/platform owner,
 // clients.create (sales_manager), or contracts.* excluding either finance
@@ -190,23 +182,13 @@ export default async function ClientDetailPage({
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6">
-      <div>
-        <Link href="/clients" className="font-body text-muted text-xs hover:underline">
-          ← Clients
-        </Link>
-        <h1 className="font-display text-2xl text-brand-pink">{client.name}</h1>
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <Badge>{CLIENT_TYPE_LABELS[client.client_type] ?? client.client_type}</Badge>
-          <Badge tone={client.status === "active" ? "neutral" : "pink"}>
-            {client.status}
-          </Badge>
-          <ClientStatusControl
-            clientId={client.id}
-            status={client.status}
-            canConvert={canConvert}
-          />
-        </div>
-      </div>
+      <ClientHeader
+        clientId={client.id}
+        name={client.name}
+        clientType={client.client_type}
+        status={client.status}
+        canConvert={canConvert}
+      />
 
       <ClientInfoClient
         client={client}
@@ -222,122 +204,11 @@ export default async function ClientDetailPage({
         canManage={canManage}
       />
 
-      <Section title={`Contracts (${contracts?.length ?? 0})`}>
-        {(contracts ?? []).length === 0 ? (
-          <Empty>No contracts on file.</Empty>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {(contracts ?? []).map((c) => (
-              <li key={c.id} className="border-b border-black/5 pb-3 last:border-0 last:pb-0">
-                <Link
-                  href={`/contracts/${c.id}`}
-                  className={`font-body font-mono text-sm font-semibold hover:underline ${
-                    c.exit_number ? "text-brand-pink" : "text-muted italic"
-                  }`}
-                >
-                  {c.exit_number || `No exit number yet — ${client.name}`}
-                </Link>
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                  <Badge>{c.contract_type}</Badge>
-                  <Badge tone={c.status === "signed" ? "neutral" : "pink"}>
-                    {c.status}
-                  </Badge>
-                  <span className="font-body text-muted text-xs">
-                    {c.period_start ?? "—"} → {c.period_end ?? "—"}
-                  </span>
-                </div>
-                <p className="font-body text-ink mt-1.5 text-sm">
-                  <MaskedValue value={c.billing_rule} financeVisible={financeVisible} />
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
+      <ClientContractsSection
+        contracts={contracts ?? []}
+        clientName={client.name}
+        financeVisible={financeVisible}
+      />
     </div>
   );
-}
-
-// Mirrors the mockup's own masked-field treatment (docs/mockup/
-// wow_lab_os_mockup.html: `.masked{font-family:monospace;...}`, "••••• 🔒")
-// — a blank cell would read as missing data, not intentional masking.
-function MaskedValue({
-  value,
-  financeVisible,
-}: {
-  value: string | null;
-  financeVisible: boolean;
-}) {
-  if (value !== null) return <span>{value}</span>;
-  if (financeVisible) return <span className="text-muted">Not set</span>;
-  return (
-    <span className="text-muted font-mono tracking-wide">••••• 🔒</span>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
-      <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
-
-function Kv({
-  label,
-  value,
-  mono,
-  href,
-  external,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-  href?: string;
-  external?: boolean;
-}) {
-  return (
-    <div className="flex items-baseline justify-between border-b border-black/5 py-2 text-sm last:border-0">
-      <span className="font-body text-muted">{label}</span>
-      {href ? (
-        <a
-          href={href}
-          target={external ? "_blank" : undefined}
-          rel={external ? "noreferrer" : undefined}
-          className="text-brand-pink font-body font-medium hover:underline"
-        >
-          {value}
-        </a>
-      ) : (
-        <span className={`text-ink ${mono ? "font-mono text-xs" : "font-body font-medium"}`}>
-          {value}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function Badge({
-  children,
-  tone = "neutral",
-}: {
-  children: React.ReactNode;
-  tone?: "neutral" | "pink";
-}) {
-  return (
-    <span
-      className={`font-body inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-        tone === "pink" ? "bg-brand-pink/10 text-brand-pink" : "bg-ink/5 text-ink"
-      }`}
-    >
-      {children}
-    </span>
-  );
-}
-
-function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="font-body text-muted text-sm">{children}</p>;
 }

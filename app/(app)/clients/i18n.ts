@@ -111,4 +111,13 @@ export const clientsDict: Dictionary = {
   role_at_client_placeholder: { en: "Role at client (optional)", ro: "Rol la client (opțional)" },
   email_placeholder: { en: "Email (optional)", ro: "Email (opțional)" },
   phone_placeholder: { en: "Phone (optional)", ro: "Telefon (opțional)" },
+
+  // client-header.tsx / client-contracts-section.tsx (page.tsx's own
+  // markup, closing the gap bucket C left open).
+  back_link: { en: "← Clients", ro: "← Clienți" },
+  // Parallel to contacts_heading above -- "this client's contracts",
+  // distinct from contractsDict's own empty_no_contracts ("no contracts
+  // visible for your role" -- an RLS framing, not "this client has none").
+  contracts_heading: { en: "Contracts ({{count}})", ro: "Contracte ({{count}})" },
+  empty_no_contracts_on_file: { en: "No contracts on file.", ro: "Niciun contract înregistrat." },
 };
