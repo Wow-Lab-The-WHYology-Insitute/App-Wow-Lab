@@ -2,7 +2,7 @@
 
 **Status:** propunere de arhitectură, neimplementată
 **Data:** 31 august 2026
-**Decizii de la Anca:** primite (§2)
+**Decizii de la Anca:** primite (§2, §12)
 **Prerechizit blocant:** `groups.contract_id` (§6) — confirmat de Mihai, de implementat înainte
 **Depinde de:** `WOWLAB_SAD_Field_Masking.md` (mecanismul de mascare), `WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md` (contractele de client)
 
@@ -349,8 +349,8 @@ pentru `org.settings.manage`.
 
 ## 8. Ce nu se construiește în V1
 
-- **Calculul plății trainerilor.** Contractul ține termenii; execuția plății e domeniu Finance
-  separat, cu deconturi și ore predate.
+- **Execuția plății trainerilor.** Modelul de calcul e documentat în §12; rularea ei efectivă —
+  interfața, deconturile, aprobarea — e domeniu Finance separat, în afara acestui V1.
 - **Facturi de la furnizori.** Contractul, nu tranzacțiile.
 - **Lanț de reînnoire** pe contractele de trainer. `renewal_of` a fost lăsat afară și la
   contractele de client, din același motiv: o cheie străină fără flux în spate nu e o
@@ -426,23 +426,124 @@ nu doar mai mare.
 
 ---
 
-## 12. Configurarea plăților trainerilor — tabele de politică
+## 12. Modelul de plată al trainerilor
 
-Patru tabele de valori de politică, toate administrate integral de Finance — cerința explicită
-a Ancăi: schimbarea unei sume nu trebuie să ceară o modificare de cod.
+Confirmat de Anca sau verificat direct pe datele ei — nu presupus. Elementele încă deschise
+sunt marcate explicit la §12.10, nu amestecate în restul textului.
 
-- **`trainer_grades`** — scala pe șapte niveluri, tariful orar per nivel. Ținta FK a
+### 12.1 Formula
+
+```
+tarif_grad × coeficient_durată × (1 + bonus_locație + bonus_limbă)
+```
+
+Rezultatul e suma **netă**. Uplift-ul de tip de contract (§12.4) se aplică peste acest
+rezultat — formula de mai sus nu-l include. Verificată de Anca pe patru exemple lucrate din
+procedura lor.
+
+### 12.2 Grade: șase, nu șapte
+
+Scala are **șase niveluri**, nu șapte cum presupunea versiunea precedentă a acestui document.
+Progresia e automată:
+
+```
+grad = min(6, floor(workshop-uri_livrate / 36) + 1)
+```
+
+Verificat pe toți cei 27 de traineri din fișierul lor de urmărire — nicio excepție. Praguri:
+0 / 36 / 72 / 108 / 144 / 180 workshop-uri.
+
+Ce numără drept „un workshop" la prag (trainer secundar? un workshop de 2 ore ca unul sau ca
+două? planurile de lecție?) rămâne deschis — §12.10.
+
+### 12.3 Scrierea planurilor de lecție nu e un grad
+
+E un tip de lucru separat, plătit per unitate — **120 lei net per plan**, fix, indiferent de
+vechime. Fișierul lor îl modelează ca un al șaptelea grad, pe o școală fictivă „New Lesson
+Plan". **Nu reproducem asta aici.** E o categorie de plată diferită de scala pe traineri, nu o
+treaptă suplimentară pe ea.
+
+### 12.4 Tipul de contract schimbă suma
+
+O singură grilă netă, plus un procent de uplift per tip de contract: drepturi de autor
+plătește net; PFA și SRL plătesc net + ~11%. `trainer_contracts.contract_type` (§3.2) nu mai e
+doar etichetă administrativă — alimentează calculul (§12.1). Se modelează ca procent pe tipul
+de contract (`contract_type_uplifts`, §12.8), nu ca grile nete duplicate per tip.
+
+Procentul exact — 11% sau 11.1% — rămâne deschis; Anca a folosit ambele valori. §12.10.
+
+### 12.5 Bonusul de locație e relativ la trainer, nu la școală
+
+Un trainer din Cluj care predă în Cluj ia 0%; același trainer care se deplasează în București
+ia 100%. Fișierul lor modelează bonusul ca proprietate a școlii — funcționează doar atât timp
+cât toți trainerii sunt din București, ceea ce nu mai e cazul.
+
+**De înregistrat: fiecare trainer are nevoie de un oraș de domiciliu.** Nivelul de bonus se
+rezolvă din perechea (domiciliul trainerului, locul livrării), nu doar din locul livrării.
+Orașul de domiciliu al fiecărui trainer rămâne deschis — §12.10.
+
+### 12.6 Școala Altfel / Săptămâna Verde — excepția de 2 ore
+
+Workshop-urile de 2 ore de acest tip folosesc coeficientul ×2, nu ×1.5 (§12.7).
+`groups.delivery_format` (deja în schemă, valorile `scoala_altfel`/`saptamana_verde`) ține deja
+distincția, deci regula se aplică automat din câmpul existent — nicio coloană nouă doar pentru
+asta.
+
+Anca a aprobat renunțarea la artificiul actual: azi trainerii împart un singur workshop de 2
+ore în două intrări de câte o oră ca să ocolească limita de ×1.5. Cu excepția explicită,
+artificiul dispare.
+
+### 12.7 Coeficienții de durată
+
+| Durată | Coeficient |
+|---|---|
+| sub 1h | 1.0 |
+| 1h | 1.0 |
+| 1.5h | 1.2 |
+| 2h | 1.5 (×2 pentru Școala Altfel/Săptămâna Verde, §12.6) |
+
+Nimic mai lung de 2h nu există azi; dacă va exista, se împarte în workshop-uri separate.
+
+### 12.8 Tabelele de configurare
+
+**Cinci** tabele de valori de politică, nu patru — `contract_type_uplifts` se adaugă față de
+lista din investigația precedentă (§12.4). Toate administrate integral de Finance, cerința
+explicită a Ancăi: schimbarea unei sume nu trebuie să ceară o modificare de cod.
+
+- **`trainer_grades`** — șase niveluri (§12.2), tariful net per nivel. Ținta FK a
   `trainer_contracts.initial_grade_id` (§3.2).
-- **`location_bonuses`** — procent de bonus per nivel de locație (București / Împrejurimi /
-  Alte orașe).
-- **`language_bonuses`** — procent de bonus per grup de limbă (română sau engleză / franceză,
-  germană, spaniolă).
-- **`duration_multipliers`** — coeficientul per durată de workshop.
+- **`location_bonuses`** — procent de bonus, rezolvat din (domiciliul trainerului, locul
+  livrării) — §12.5, nu doar din locul livrării.
+- **`language_bonuses`** — procent de bonus per grup de limbă.
+- **`duration_multipliers`** — coeficientul per durată de workshop (§12.7).
+- **`contract_type_uplifts`** — procent de uplift per tip de contract (§12.4).
 
-Structura exactă nu e proiectată aici — investigația (ce există deja, cum tratează schema
-valori care variază în timp, unde intră în navigare) vine înainte de propunere, nu după.
+Structura exactă (coloane, chei, RLS) nu e proiectată aici. **Construite goale — Finance le
+populează** după ce Anca dă cele șase sume exacte din grila nouă (§12.10).
 
-**Ce nu e în acest document: calculul plății.** Cum se combină gradul, locația, limba, durata
-și prezența într-o sumă de plată per sesiune e un document separat, blocat pe două lucruri care
-încă nu există: **grila curentă de tarife** și **nivelurile de bonus de locație**. Fără ele,
-orice formulă scrisă acum ar fi presupunere, nu arhitectură.
+### 12.9 Perioadele de valabilitate — singurul mecanism cu adevărat nou
+
+De semnalat explicit, nu de trecut sub tăcere: nimic din schema actuală tratează valori care
+variază în timp — verificat, nu presupus, în investigația care a precedat această secțiune.
+Fiecare valoare din fiecare tabel de la §12.8 are nevoie de o fereastră de valabilitate, iar
+calculul (§12.1) trebuie să rezolve valoarea în vigoare la **data sesiunii**, nu valoarea
+curentă la momentul calculului.
+
+Fără asta, o modificare de grilă rescrie tăcut plăți deja aprobate: dacă Finance urcă tariful
+de Junior în martie, sesiunile din februarie, neplătite încă, s-ar calcula greșit cu tariful
+nou dacă tabelul n-are decât o valoare „curentă".
+
+Nu proiectez mecanismul aici — constat cerința și faptul că nu are niciun precedent de urmat
+în schema asta.
+
+### 12.10 Deschis, în așteptarea Ancăi
+
+- Ce contează ca „un workshop" la pragul de progresie (§12.2): trainerul secundar? un workshop
+  de 2 ore ca unul sau ca două? planurile de lecție intră la număr?
+- 11% sau 11.1% de uplift (§12.4) — a folosit ambele valori.
+- Orașul de domiciliu al fiecărui trainer (§12.5).
+- Care traineri sunt încă activi.
+- Cele șase sume exacte din grila nouă (§12.8).
+
+Modelul de mai sus e confirmat; execuția plății (interfața, deconturile, aprobarea) rămâne în
+afara acestui V1, conform §8.
