@@ -116,6 +116,24 @@ export default async function AppLayout({
     }
   }
 
+  // Payment configuration: the broader finance.operations.* OR
+  // finance.reporting.* predicate (Sec12.8/Sec12.9 -- same as the ten grid
+  // tables' own RLS), NOT suppliers' narrower single-key gate. Laura holds
+  // finance.operations.* but not finance.reporting.*, so gating the whole
+  // FINANȚE group on canReadSuppliers alone (as it was before this flag
+  // existed) hid the entire group from her -- that was the bug, not a
+  // missing nav item.
+  let canManagePaymentConfig = false;
+  for (const m of memberships ?? []) {
+    if (
+      (await checkCapability(supabase, "finance.operations.*", m.organization_id)) ||
+      (await checkCapability(supabase, "finance.reporting.*", m.organization_id))
+    ) {
+      canManagePaymentConfig = true;
+      break;
+    }
+  }
+
   // labelKey, not label: these render inside ShellChrome, a client
   // component that resolves them through useTranslations(chromeDict) — this
   // server component has no locale (that's a client-only, localStorage-
@@ -152,11 +170,18 @@ export default async function AppLayout({
           },
         ]
       : []),
-    ...(canReadSuppliers
+    ...(canReadSuppliers || canManagePaymentConfig
       ? [
           {
             labelKey: "nav_group_finance",
-            items: [{ href: "/suppliers", labelKey: "nav_suppliers" }],
+            items: [
+              ...(canReadSuppliers
+                ? [{ href: "/suppliers", labelKey: "nav_suppliers" }]
+                : []),
+              ...(canManagePaymentConfig
+                ? [{ href: "/payment-config", labelKey: "nav_payment_config" }]
+                : []),
+            ],
           },
         ]
       : []),
