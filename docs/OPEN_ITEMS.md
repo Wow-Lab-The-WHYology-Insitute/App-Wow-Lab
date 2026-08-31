@@ -6,6 +6,8 @@ constraints. Every item below was checked against the current codebase and/or
 the live production database on 2026-08-26 — none of it is carried over from
 memory or notes without a fresh check. Where a check corrected or narrowed the
 original framing, the correction is written into the item itself, not hidden.
+Item 20 was added 2026-08-31, checked live as of that date, not part of the
+2026-08-26 pass.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -396,6 +398,63 @@ this column staying null is not evidence either way.
 **Lives in:** `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §6.2, §10;
 `supabase/migrations/202608290001_groups_contract_id.sql`;
 `scripts/verify_groups_contract_id.sql`.
+
+### 20. Payment configuration grids — built empty, waiting on real numbers
+
+**What it is:** the eleven payment-configuration tables (five versioned grids —
+`trainer_grade_versions`/`_rates`, `location_bonus_versions`/`_rates`,
+`language_bonus_versions`/`_rates`, `duration_multiplier_versions`/`_rates`,
+`contract_type_uplift_versions`/`_rates` — plus `trainer_grade_assignments`,
+per-row history, not versioned) and their six `app.resolve_*` functions are
+live in production
+(`supabase/migrations/202608310002_payment_config_tables.sql`, applied), with
+a working UI at `/payment-config`
+(`feat: add payment configuration page`, `658a27b`, merged to `main` at
+`8e672c2`). Confirmed live, read-only, right after apply: all eleven tables
+have 0 rows, RLS enabled on all of them, grants are exactly `INSERT, SELECT`
+(no `UPDATE` anywhere — a version is corrected only by inserting a new one,
+never edited), and all six resolvers are `SECURITY INVOKER`, `LANGUAGE
+plpgsql`.
+
+**Why it's empty on purpose:** the versioned-grids decision
+(`docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §12.9) means a resolver has
+nothing to return until at least one version exists — there is no default, no
+seed, and the UI doesn't imply otherwise. Confirmed live: each of the five
+sections on `/payment-config` renders "No version exists yet." rather than a
+table of zeros, for both a Finance-capable identity and a non-Finance one.
+Finance enters every value; nothing here is inferred or defaulted (matches
+the existing session-form convention of no default for values that vary per
+instance).
+
+**Confirmed live, both roles the nav gate now correctly separates** (the nav
+gate itself was a real bug, not a chore — see below): a `finance_operations`-
+only identity (Laura's actual capability set) sees the FINANȚE nav group with
+Payment configuration but not Suppliers, correctly, since she holds
+`finance.operations.*` but not `finance.reporting.*`. Before this round the
+whole FINANȚE group was gated on `finance.reporting.*` alone
+(`app/(app)/layout.tsx`'s old `canReadSuppliers`-only condition), which would
+have hidden the group from her entirely. An `operations_manager` identity (no
+finance capability) sees neither the group nor the page's data — direct
+navigation to `/payment-config` returns `AccessDenied` with the curated
+`access_denied_no_finance_capability` copy (EN+RO).
+
+**No live create-version test was run**, deliberately: it would have written
+a real financial-policy version into tables with no `UPDATE` grant, meaning
+cleanup would require a privileged `DELETE` — the exact habit this session
+has otherwise stopped doing to production data.
+
+**Blocked on:** Anca sending the six real grid amounts (trainer grade rates,
+location/language bonus percentages, duration multipliers, contract type
+uplift percentages) — nothing technical. The real end-to-end test is Laura
+entering the first version through the real form once that data arrives;
+that data is meant to stay, not be created-then-deleted as a verification
+step.
+**Lives in:** `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §12 (the whole
+payment-model chapter, §12.9 specifically for the versioning decision);
+`supabase/migrations/202608310001_sessions_location_language.sql` and
+`202608310002_payment_config_tables.sql`; `app/(app)/payment-config/`
+(`page.tsx`, `payment-config-client.tsx`, `actions.ts`, `i18n.ts`);
+`app/(app)/layout.tsx` (`canManagePaymentConfig`, the FINANȚE nav gate fix).
 
 ---
 
