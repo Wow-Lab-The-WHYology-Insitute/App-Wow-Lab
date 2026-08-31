@@ -1,7 +1,7 @@
 # WOW LAB OS — SAD: Contracte de trainer și furnizor
 
 **Status:** propunere de arhitectură, neimplementată
-**Data:** 27 august 2026
+**Data:** 31 august 2026
 **Decizii de la Anca:** primite (§2)
 **Prerechizit blocant:** `groups.contract_id` (§6) — confirmat de Mihai, de implementat înainte
 **Depinde de:** `WOWLAB_SAD_Field_Masking.md` (mecanismul de mascare), `WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md` (contractele de client)
@@ -33,6 +33,19 @@ periculos, nu doar incomod.
 
 Segregarea e asimetrică și intenționat așa: **Anka vede contractele de trainer, Laura nu le
 vede pe cele de furnizor.**
+
+Decizii suplimentare de la Anca, pe cele trei întrebări deschise din §9:
+
+- **Numerotarea.** Un registru per entitate juridică, comun contractelor de client, trainer și
+  furnizor — nu un registru separat per tip de contract. Trei registre: Experimente Wow,
+  Brandine Advertising, Asociația STEMplicity. Rămâne deschis dacă platforma alocă următorul
+  număr sau doar îl înregistrează — azi `entry_number`/`exit_number` sunt text liber, fără
+  generare.
+- **Tipuri de contract.** PFA, SRL, drepturi de autor. Profesiile liberale (medici, biologi)
+  rămân deschise — trimise la contabilitatea ei, nu presupuse aici.
+- **Tariful.** Nu stă pe contract. Vine din grad, iar contractul înregistrează **gradul la
+  semnare** — vezi §3.2 și §12. De obicei nivelul 1; angajările cu experiență pot începe la
+  nivelul 2 sau 3.
 
 Decizii luate cu Mihai:
 - Furnizorii primesc tabel propriu, nu text liber.
@@ -79,21 +92,25 @@ id                uuid pk
 organization_id   uuid not null fk -> organizations
 user_id           uuid not null fk -> users          -- trainerul
 legal_entity_id   uuid not null fk -> legal_entities -- pe care firmă e încheiat
-contract_type     text not null                      -- vezi §9, decizie deschisă
+contract_type     text not null                      -- pfa | srl | drepturi_autor, vezi §2
 entry_number      text
 exit_number       text
 period_start      date
 period_end        date
 status            text not null default 'draft'      -- draft | sent | signed | expired | terminated
 signed_date       date
-rate              numeric                            -- 🔒 mascat, vezi §5
-rate_unit         text                               -- 🔒 mascat: „lei / oră predată" etc.
+initial_grade_id  uuid not null fk -> trainer_grades  -- 🔒 mascat, vezi §5 și §12 — gradul la semnare
 drive_ref         text
 notes             text
 created_at, updated_at
 ```
 
 🔒 auditat.
+
+**Tariful nu e pe acest rând.** `initial_grade_id` înregistrează gradul trainerului *la
+semnare* — tariful curent se rezolvă prin `trainer_grades` (§12), nu se copiază aici. Cum se
+tratează schimbarea tarifului unui grad după ce există contracte semnate pe gradul respectiv
+face parte din investigația din §12, nu presupusă aici.
 
 **Un trainer poate avea mai multe rânduri active simultan**, câte unul pe entitate legală.
 Nu se pune constrângere unică pe `user_id` — asta e exact ce a spus Anca. Constrângerea
@@ -166,9 +183,11 @@ a greși tăcut, contra unui tabel nou.
 Aceeași problemă ca la `contracts`, aceeași soluție — mecanismul din
 `WOWLAB_SAD_Field_Masking.md` §3, aplicat a treia oară.
 
-**`trainer_contracts`:** `rate` și `rate_unit` mascate. Vizibile pentru
-`finance.operations.*`, `finance.reporting.*`, org owner. Ascunse pentru toți ceilalți,
-inclusiv Cătălina.
+**`trainer_contracts`:** `initial_grade_id` mascat — nu `rate`, care nu mai există pe acest
+tabel (§3.2). Scopul mascării se mută, nu dispare: gradul e la fel de sensibil ca un tarif —
+a ști că cineva e „Glowing Senior 2" plus acces la grila din `trainer_grades` (§12) dă tariful
+orar la fel de direct ca o coloană `rate` necriptată. Vizibil pentru `finance.operations.*`,
+`finance.reporting.*`, org owner. Ascuns pentru toți ceilalți, inclusiv Cătălina.
 
 **`supplier_contracts`:** `contract_value` mascat. Vizibil pentru `finance.reporting.*` și
 org owner. **Nu** pentru `finance.operations.*` — Laura nu vede contractele de furnizor deloc
@@ -177,7 +196,7 @@ org owner. **Nu** pentru `finance.operations.*` — Laura nu vede contractele de
 **Ramura „propriul rând".** Anca a spus că vizibilitatea contractului pentru trainer e opțională
 și că renunțăm dacă e complicație. Nu mai e: ramura a fost construită de două ori, la
 `users_masked` și în predicatul de la `client_contacts`. Un trainer își vede propriul contract,
-cu tarif cu tot, pentru că e al lui.
+cu gradul lui cu tot, pentru că e al lui.
 
 Recomand s-o construim. 21+ traineri care nu mai întreabă pe WhatsApp, la costul unei linii în
 predicat.
@@ -189,7 +208,7 @@ when tc.user_id = app.current_user_id()                       -- propriul contra
   or (app.belongs_to_org(tc.organization_id)
       and (app.has_capability('finance.operations.*', tc.organization_id)
         or app.has_capability('finance.reporting.*', tc.organization_id)))
-then row(tc.rate, tc.rate_unit)
+then tc.initial_grade_id
 else null
 ```
 
@@ -250,7 +269,7 @@ La alocare, per trainer și per grupă:
 Ultima stare e obligatorie. O grupă fără contract nu trebuie să arate verde — mai bine „nu
 știu" decât o afirmație falsă.
 
-Cătălina vede status, entitate și perioadă. **Nu** vede `rate`.
+Cătălina vede status, entitate și perioadă. **Nu** vede `initial_grade_id`.
 
 ---
 
@@ -311,9 +330,9 @@ de tip grant primită de organizație (bani care intră), nu plăți către furn
 Reutilizarea lui ar lega accesul la `suppliers` de o cheie dintr-un domeniu fără legătură, doar
 pentru că azi se întâmplă să fie ținută de aceiași oameni — s-ar rupe tăcut în ziua în care
 cineva capătă `grants.*` fără `finance.reporting.*` sau invers. `finance.reporting.*` e alegerea
-corectă și pentru că e deja cheia de demascare pt `trainer_contracts.rate`/`supplier_contracts.
-contract_value` (§5) — reutilizarea ei pt CRUD pe `suppliers` ține accesul și mascarea pe aceeași
-cheie, nu pe două chei diferite care ar putea diverge.
+corectă și pentru că e deja cheia de demascare pt `trainer_contracts.initial_grade_id`/
+`supplier_contracts.contract_value` (§5) — reutilizarea ei pt CRUD pe `suppliers` ține accesul
+și mascarea pe aceeași cheie, nu pe două chei diferite care ar putea diverge.
 
 Predicatul RLS pe `suppliers`, identic pe SELECT/INSERT/UPDATE:
 
@@ -345,19 +364,19 @@ pentru `org.settings.manage`.
 
 ## 9. Decizii deschise
 
-**Pentru Anca:**
+**Pentru Anca — răspunse, vezi §2:**
 
-1. **Numerotarea.** Contractele de client au `entry_number`/`exit_number` — registru de intrări
-   și ieșiri. Contractele de trainer și furnizor intră în același registru, sau au registre
-   separate? În practică registrele sunt de obicei pe entitate legală, ceea ce ar însemna
-   registre separate. De confirmat cu ea sau cu contabilitatea.
+1. **Numerotarea** — rezolvat. Un registru per entitate juridică, comun celor trei tipuri de
+   contract, nu un registru separat per tip. Rămâne deschis dacă platforma alocă numărul sau
+   doar îl înregistrează.
 
-2. **Tipuri de contract de trainer.** Drepturi de autor, PFA, altceva? Lista determină
-   `contract_type`. Nu o inventez.
+2. **Tipuri de contract de trainer** — rezolvat. PFA, SRL, drepturi de autor. Profesiile
+   liberale (medici, biologi) rămân deschise, trimise la contabilitatea ei.
 
-3. **Tariful stă în platformă?** `rate` presupune că da. Dacă tariful e doar în documentul de
-   pe Drive și platforma ține doar referința, coloanele `rate`/`rate_unit` dispar și mascarea
-   devine inutilă pe acest tabel. Întrebare simplă, consecință mare.
+3. **Tariful stă în platformă?** — rezolvat, dar nu cum specula întrebarea. Tariful nu stă pe
+   `trainer_contracts` deloc; nici nu rămâne doar pe Drive. Contractul înregistrează gradul la
+   semnare (`initial_grade_id`, §3.2), iar tariful curent se rezolvă prin `trainer_grades`
+   (§12). Mascarea nu devine inutilă — se mută pe coloana de grad (§5).
 
 **Pentru Mihai:**
 
@@ -382,14 +401,17 @@ asserțiuni scrise, migrație de revenire în același commit, una singură pe r
 4. **`supplier_contracts`** — același tipar, mai simplu.
 5. **Verificarea Cătălinei** — la alocare, în interfața de grupe.
 
-Pașii 1 și 2 nu depind de deciziile deschise din §9 și pot începe imediat. Pașii 3-5 au nevoie
-de răspunsurile 2 și 3 de la Anca.
+Răspunsurile 2 și 3 de la Anca au sosit (§2) — pașii 3-5 nu mai sunt blocați de ele. Pasul 3
+rămâne blocat pe `trainer_grades` (§12): `initial_grade_id` e `not null`, deci tabelul de
+grade trebuie să existe și să aibă cel puțin un rând înainte ca primul `trainer_contracts` să
+poată fi scris.
 
 ---
 
 ## 11. GDPR și retenție
 
-Contractele de trainer conțin date personale — nume, CNP eventual, tarif, coordonate PFA.
+Contractele de trainer conțin date personale — nume, CNP eventual, gradul (care determină
+tariful, §3.2), coordonate PFA.
 Se aplică aceleași reguli ca la `client_contacts`: rezidență UE/Frankfurt, minimizare, drept
 la ștergere.
 
@@ -401,3 +423,26 @@ identificabilă nu mai e contract.
 Nu rezolv asta aici. O semnalez pentru că `OPEN_ITEMS.md` conține deja golul de retenție —
 nu există niciun mecanism programat, nicăieri — iar contractele de trainer îl fac mai complicat,
 nu doar mai mare.
+
+---
+
+## 12. Configurarea plăților trainerilor — tabele de politică
+
+Patru tabele de valori de politică, toate administrate integral de Finance — cerința explicită
+a Ancăi: schimbarea unei sume nu trebuie să ceară o modificare de cod.
+
+- **`trainer_grades`** — scala pe șapte niveluri, tariful orar per nivel. Ținta FK a
+  `trainer_contracts.initial_grade_id` (§3.2).
+- **`location_bonuses`** — procent de bonus per nivel de locație (București / Împrejurimi /
+  Alte orașe).
+- **`language_bonuses`** — procent de bonus per grup de limbă (română sau engleză / franceză,
+  germană, spaniolă).
+- **`duration_multipliers`** — coeficientul per durată de workshop.
+
+Structura exactă nu e proiectată aici — investigația (ce există deja, cum tratează schema
+valori care variază în timp, unde intră în navigare) vine înainte de propunere, nu după.
+
+**Ce nu e în acest document: calculul plății.** Cum se combină gradul, locația, limba, durata
+și prezența într-o sumă de plată per sesiune e un document separat, blocat pe două lucruri care
+încă nu există: **grila curentă de tarife** și **nivelurile de bonus de locație**. Fără ele,
+orice formulă scrisă acum ar fi presupunere, nu arhitectură.
