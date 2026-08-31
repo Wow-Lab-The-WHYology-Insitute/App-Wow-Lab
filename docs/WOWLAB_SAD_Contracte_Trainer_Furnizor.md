@@ -99,7 +99,7 @@ period_start      date
 period_end        date
 status            text not null default 'draft'      -- draft | sent | signed | expired | terminated
 signed_date       date
-initial_grade_id  uuid not null fk -> trainer_grades  -- 🔒 mascat, vezi §5 și §12 — gradul la semnare
+initial_grade_level  integer not null                 -- 🔒 mascat, vezi §5 și §12 — gradul la semnare (1-6)
 drive_ref         text
 notes             text
 created_at, updated_at
@@ -107,7 +107,16 @@ created_at, updated_at
 
 🔒 auditat.
 
-**Tariful nu e pe acest rând.** `initial_grade_id` înregistrează gradul trainerului *la
+**`initial_grade_level` nu e o cheie străină.** Corecție față de o versiune anterioară a acestui
+document, care propunea `initial_grade_id uuid fk -> trainer_grades`. Odată ce `trainer_grades`
+s-a versionat (§12.9), un „rând" din acel tabel nu mai e o identitate stabilă — e „tariful
+nivelului N în versiunea asta". Gradul unui trainer (1-6) e o clasificare stabilă, independentă
+de care versiune a grilei e curentă; legarea lui printr-o FK la un rând versionat ar cupla din
+nou cele două lucruri pe care §12.9 le separă intenționat. `initial_grade_level` e deci o
+valoare simplă, constrânsă (`between 1 and 6`), la fel ca `groups.module` sau `sessions.status`
+— nu o relație.
+
+**Tariful nu e pe acest rând.** `initial_grade_level` înregistrează gradul trainerului *la
 semnare* — tariful curent se rezolvă prin `trainer_grades` (§12), nu se copiază aici. Cum se
 tratează schimbarea tarifului unui grad după ce există contracte semnate pe gradul respectiv
 face parte din investigația din §12, nu presupusă aici.
@@ -183,7 +192,7 @@ a greși tăcut, contra unui tabel nou.
 Aceeași problemă ca la `contracts`, aceeași soluție — mecanismul din
 `WOWLAB_SAD_Field_Masking.md` §3, aplicat a treia oară.
 
-**`trainer_contracts`:** `initial_grade_id` mascat — nu `rate`, care nu mai există pe acest
+**`trainer_contracts`:** `initial_grade_level` mascat — nu `rate`, care nu mai există pe acest
 tabel (§3.2). Scopul mascării se mută, nu dispare: gradul e la fel de sensibil ca un tarif —
 a ști că cineva e „Glowing Senior 2" plus acces la grila din `trainer_grades` (§12) dă tariful
 orar la fel de direct ca o coloană `rate` necriptată. Vizibil pentru `finance.operations.*`,
@@ -208,7 +217,7 @@ when tc.user_id = app.current_user_id()                       -- propriul contra
   or (app.belongs_to_org(tc.organization_id)
       and (app.has_capability('finance.operations.*', tc.organization_id)
         or app.has_capability('finance.reporting.*', tc.organization_id)))
-then tc.initial_grade_id
+then tc.initial_grade_level
 else null
 ```
 
@@ -269,7 +278,7 @@ La alocare, per trainer și per grupă:
 Ultima stare e obligatorie. O grupă fără contract nu trebuie să arate verde — mai bine „nu
 știu" decât o afirmație falsă.
 
-Cătălina vede status, entitate și perioadă. **Nu** vede `initial_grade_id`.
+Cătălina vede status, entitate și perioadă. **Nu** vede `initial_grade_level`.
 
 ---
 
@@ -330,7 +339,7 @@ de tip grant primită de organizație (bani care intră), nu plăți către furn
 Reutilizarea lui ar lega accesul la `suppliers` de o cheie dintr-un domeniu fără legătură, doar
 pentru că azi se întâmplă să fie ținută de aceiași oameni — s-ar rupe tăcut în ziua în care
 cineva capătă `grants.*` fără `finance.reporting.*` sau invers. `finance.reporting.*` e alegerea
-corectă și pentru că e deja cheia de demascare pt `trainer_contracts.initial_grade_id`/
+corectă și pentru că e deja cheia de demascare pt `trainer_contracts.initial_grade_level`/
 `supplier_contracts.contract_value` (§5) — reutilizarea ei pt CRUD pe `suppliers` ține accesul
 și mascarea pe aceeași cheie, nu pe două chei diferite care ar putea diverge.
 
@@ -375,7 +384,7 @@ pentru `org.settings.manage`.
 
 3. **Tariful stă în platformă?** — rezolvat, dar nu cum specula întrebarea. Tariful nu stă pe
    `trainer_contracts` deloc; nici nu rămâne doar pe Drive. Contractul înregistrează gradul la
-   semnare (`initial_grade_id`, §3.2), iar tariful curent se rezolvă prin `trainer_grades`
+   semnare (`initial_grade_level`, §3.2), iar tariful curent se rezolvă prin `trainer_grades`
    (§12). Mascarea nu devine inutilă — se mută pe coloana de grad (§5).
 
 **Pentru Mihai:**
@@ -402,7 +411,7 @@ asserțiuni scrise, migrație de revenire în același commit, una singură pe r
 5. **Verificarea Cătălinei** — la alocare, în interfața de grupe.
 
 Răspunsurile 2 și 3 de la Anca au sosit (§2) — pașii 3-5 nu mai sunt blocați de ele. Pasul 3
-rămâne blocat pe `trainer_grades` (§12): `initial_grade_id` e `not null`, deci tabelul de
+rămâne blocat pe `trainer_grades` (§12): `initial_grade_level` e `not null`, deci tabelul de
 grade trebuie să existe și să aibă cel puțin un rând înainte ca primul `trainer_contracts` să
 poată fi scris.
 
@@ -496,11 +505,24 @@ din București — unde chiar a călătorit — ar primi 0%, ca și cum ar fi ac
 (domiciliul trainerului, locul livrării), citește ambele cazuri corect, pentru că întreabă de
 unde a plecat trainerul, nu doar unde a ajuns.
 
-**`public.users` nu are azi nicio coloană de oraș de domiciliu** — verificat direct în
-`information_schema`, nu presupus: cele 12 coloane ale tabelului sunt `id`, `email`,
+**Corecție: nu pe `users`.** O versiune anterioară a acestui document propunea o coloană de
+oraș de domiciliu pe `users`, rezolvată împreună cu locul livrării într-un tarif de bonus.
+Greșit: singurele două puncte confirmate sunt „domiciliu = livrare → 0%" și „Alexandra sau
+Viorel livrează în București → 100%" — nu există o regulă confirmată pentru orice altă pereche
+(de ex. Alexandra livrează într-un oraș care nu e nici Cluj, nici București). O coloană pe
+`users` plus un rezolver ar cere inventarea unei reguli generale (domiciliu × livrare) pe care
+nimeni n-a confirmat-o, ca să rezolve o problemă care apare pentru 2 din 11 oameni.
+
+**Decizie: nivelul se înregistrează direct pe sesiune, de către cine o introduce.**
+`sessions.location_tier` ține nivelul deja rezolvat pentru acea sesiune — nu domiciliul
+trainerului, nu locul livrării separat, ci concluzia. Cine introduce sesiunea știe deja unde s-a
+predat (nimic altceva nu ține asta) și, în practică, știe sau poate afla de unde a plecat
+trainerul — Cătălina face alocarea, are contextul. Asta evită rezolvarea cazului general
+nespecificat: nu mai există o pereche de valori de combinat, doar un răspuns pe care un om
+l-a stabilit o dată, per sesiune. `public.users` nu capătă nicio coloană nouă pentru asta —
+verificat direct în `information_schema`: cele 12 coloane ale tabelului (`id`, `email`,
 `full_name`, `status`, `is_platform_owner`, `created_at`, `updated_at`, `first_name`,
-`last_name`, `phone`, `avatar_url`, `is_test_account`. Una nouă e necesară pentru ca nivelul de
-bonus să se poată rezolva.
+`last_name`, `phone`, `avatar_url`, `is_test_account`) rămân neschimbate.
 
 ### 12.6 Școala Altfel / Săptămâna Verde — excepția de 2 ore
 
@@ -530,10 +552,11 @@ Nimic mai lung de 2h nu există azi; dacă va exista, se împarte în workshop-u
 lista din investigația precedentă (§12.4). Toate administrate integral de Finance, cerința
 explicită a Ancăi: schimbarea unei sume nu trebuie să ceară o modificare de cod.
 
-- **`trainer_grades`** — șase niveluri (§12.2), tariful net per nivel. Ținta FK a
-  `trainer_contracts.initial_grade_id` (§3.2).
-- **`location_bonuses`** — procent de bonus, rezolvat din (domiciliul trainerului, locul
-  livrării) — §12.5, nu doar din locul livrării.
+- **`trainer_grades`** — șase niveluri (§12.2), tariful net per nivel. Nivelul de pe
+  `trainer_contracts.initial_grade_level` (§3.2) e o valoare simplă (1-6), nu o cheie străină
+  către acest tabel — vezi corecția din §3.2.
+- **`location_bonuses`** — procent de bonus per nivel de locație, rezolvat direct din
+  `sessions.location_tier` — §12.5, nu dintr-un domiciliu de trainer stocat separat.
 - **`language_bonuses`** — procent de bonus per grup de limbă.
 - **`duration_multipliers`** — coeficientul per durată de workshop (§12.7).
 - **`contract_type_uplifts`** — procent de uplift per tip de contract (§12.4).
