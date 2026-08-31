@@ -521,20 +521,64 @@ explicită a Ancăi: schimbarea unei sume nu trebuie să ceară o modificare de 
 Structura exactă (coloane, chei, RLS) nu e proiectată aici. **Construite goale — Finance le
 populează** după ce Anca dă cele șase sume exacte din grila nouă (§12.10).
 
-### 12.9 Perioadele de valabilitate — singurul mecanism cu adevărat nou
+### 12.9 Perioadele de valabilitate — decizie
 
-De semnalat explicit, nu de trecut sub tăcere: nimic din schema actuală tratează valori care
-variază în timp — verificat, nu presupus, în investigația care a precedat această secțiune.
-Fiecare valoare din fiecare tabel de la §12.8 are nevoie de o fereastră de valabilitate, iar
-calculul (§12.1) trebuie să rezolve valoarea în vigoare la **data sesiunii**, nu valoarea
-curentă la momentul calculului.
+Nimic din schema actuală tratează valori care variază în timp — verificat, nu presupus, în
+investigația care a precedat această secțiune. Fiecare valoare din fiecare tabel de la §12.8,
+plus gradul fiecărui trainer, are nevoie de o rezolvare temporală: calculul (§12.1) trebuie să
+folosească valoarea în vigoare la **data sesiunii**, nu valoarea curentă la momentul
+calculului. Fără asta, o modificare de grilă rescrie tăcut plăți deja aprobate.
 
-Fără asta, o modificare de grilă rescrie tăcut plăți deja aprobate: dacă Finance urcă tariful
-de Junior în martie, sesiunile din februarie, neplătite încă, s-ar calcula greșit cu tariful
-nou dacă tabelul n-are decât o valoare „curentă".
+**Grilele de politică (§12.8) folosesc grile versionate — varianta „versiuni", nu validitate
+pe rând.** O versiune are o dată de intrare în vigoare și ține toate rândurile ei; o schimbare
+de tarife creează o versiune nouă, nu editează rânduri existente. Motivul e evenimentul deja
+documentat: singura revizuire cunoscută a grilei de grade a mutat toate cele șase niveluri
+deodată, pe 30.05.2026 — mecanismul trebuie să aibă forma evenimentului pe care îl
+înregistrează, nu forma opusă. Suprafețele de eșec diferă în fel, nu doar în grad: rezolvarea
+„ultima versiune cu data ≤ data sesiunii" poate întoarce zero rânduri sau exact unul —
+niciodată două, prin construcție. Validitatea pe rând (`valid_from`/`valid_to`) poate întoarce
+zero **sau** două, iar două rânduri valide simultan nu e o eroare vizibilă — e un număr greșit
+calculat tăcut.
 
-Nu proiectez mecanismul aici — constat cerința și faptul că nu are niciun precedent de urmat
-în schema asta.
+**Se aplică la toate cele cinci tabele din §12.8, inclusiv celor fără nicio dovadă că s-ar fi
+schimbat vreodată ca set.** Deliberat: niciunul dintre celelalte patru n-are un istoric de
+revizuire documentat, dar aceeași persoană (Finance) le administrează pe toate cinci, iar un
+mecanism unic ținut minte o dată e mai sigur decât cinci mecanisme optimizate individual,
+fiecare cu propriul mod de a eșua. Costul: la o schimbare care afectează un singur rând,
+rândurile neschimbate se re-introduc în versiunea nouă în loc să rămână pe loc — preț mic,
+plătit o dată per revizuire.
+
+**Alocarea gradului per trainer NU folosește grile versionate.** Folosește un istoric pe rând,
+un rând per trainer per schimbare de grad, cu dată de intrare în vigoare, unde rândul cel mai
+recent înaintea datei căutate câștigă — fără pas de închidere, pentru că un rând nou
+suprascrie prin faptul că e mai nou, nu pentru că cineva a marcat manual finalul celui vechi.
+Motivul separării: gradul fiecărui trainer sunt 27 de fapte independente, nesincronizate —
+trainerul X trece pragul de 36 de workshop-uri în ziua lui, fără nicio legătură cu ziua
+trainerului Y. Nu există o graniță comună de aliniat, cum există la o grilă. Trebuie **stocat,
+nu derivat**: gradul de start pentru o angajare cu experiență (§2, §12.2) e o decizie umană
+fără formulă în spate — o funcție de progresie pură nu poate produce acel număr, doar un rând
+stocat poate.
+
+**Calculul pe citire (fără stocare, gradul recalculat mereu din numărul de workshop-uri) e
+respins**, din două motive independente. Orice corecție de status pe o sesiune existentă
+schimbă retroactiv numărul de workshop-uri pentru toate datele ulterioare — nu e o editare
+rară de Finance, e un eveniment operațional obișnuit (intrare târzie, corecție), deci expunerea
+e mai mare decât la o editare de grilă, nu mai mică. Și o formulă pură n-are unde să țină un
+grad de start care a fost o decizie umană, nu un rezultat de calcul. Reconstituirea numărului
+istoric din `row_history` ca să compensăm ar însemna folosirea jurnalului de audit ca sursă de
+adevăr temporală pentru logica de business — exact riscul semnalat deja în investigația
+precedentă, nu unul nou.
+
+**Rezolvarea trebuie să eșueze vizibil la fiecare căutare temporală, independent.** O singură
+plată de sesiune are nevoie de cel puțin trei rezolvări temporale reușite: gradul trainerului
+la data sesiunii, tariful din grilă la acea dată, și fiecare bonus versionat (locație, limbă)
+la acea dată. Niciuna nu se coalesce tăcut la zero, la cea mai apropiată valoare, sau la o
+valoare implicită — o rezolvare fără rând găsit oprește calculul, nu returnează un număr
+aproximativ. Același principiu ca la §6.3: starea „nu se poate verifica" e o stare vizibilă
+proprie, nu se transformă tăcut într-un răspuns valid.
+
+Structura exactă (coloane, funcția de rezolvare) nu e proiectată aici — doar decizia de
+formă și motivele ei.
 
 ### 12.10 Deschis, în așteptarea Ancăi
 
