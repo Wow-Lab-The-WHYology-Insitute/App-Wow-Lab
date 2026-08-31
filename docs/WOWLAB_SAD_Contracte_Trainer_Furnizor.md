@@ -453,8 +453,15 @@ grad = min(6, floor(workshop-uri_livrate / 36) + 1)
 Verificat pe toți cei 27 de traineri din fișierul lor de urmărire — nicio excepție. Praguri:
 0 / 36 / 72 / 108 / 144 / 180 workshop-uri.
 
-Ce numără drept „un workshop" la prag (trainer secundar? un workshop de 2 ore ca unul sau ca
-două? planurile de lecție?) rămâne deschis — §12.10.
+Reguli de numărare, confirmate de Anca:
+
+- un workshop unde trainerul e **secundar** contează
+- un workshop de 2 ore contează ca **unul**, nu ca două
+- planurile de lecție **nu** contează
+
+Motivul, pentru că explică toată scala: gradul răsplătește experiența de predare la clasă, nu
+contribuția în general. Numărătoarea e un **număr simplu** de sesiuni livrate unde trainerul
+apare ca principal SAU secundar — nu o sumă ponderată.
 
 ### 12.3 Scrierea planurilor de lecție nu e un grad
 
@@ -466,11 +473,12 @@ treaptă suplimentară pe ea.
 ### 12.4 Tipul de contract schimbă suma
 
 O singură grilă netă, plus un procent de uplift per tip de contract: drepturi de autor
-plătește net; PFA și SRL plătesc net + ~11%. `trainer_contracts.contract_type` (§3.2) nu mai e
-doar etichetă administrativă — alimentează calculul (§12.1). Se modelează ca procent pe tipul
-de contract (`contract_type_uplifts`, §12.8), nu ca grile nete duplicate per tip.
+plătește net; PFA și SRL plătesc **net + 11.1%**. `trainer_contracts.contract_type` (§3.2) nu
+mai e doar etichetă administrativă — alimentează calculul (§12.1). Se modelează ca procent pe
+tipul de contract (`contract_type_uplifts`, §12.8), nu ca grile nete duplicate per tip.
 
-Procentul exact — 11% sau 11.1% — rămâne deschis; Anca a folosit ambele valori. §12.10.
+Confirmat de Anca: 11% și 11.1% erau același număr — 11% a fost un lapsus. Fără ambiguitate
+rămasă.
 
 ### 12.5 Bonusul de locație e relativ la trainer, nu la școală
 
@@ -478,9 +486,21 @@ Un trainer din Cluj care predă în Cluj ia 0%; același trainer care se deplase
 ia 100%. Fișierul lor modelează bonusul ca proprietate a școlii — funcționează doar atât timp
 cât toți trainerii sunt din București, ceea ce nu mai e cazul.
 
-**De înregistrat: fiecare trainer are nevoie de un oraș de domiciliu.** Nivelul de bonus se
-rezolvă din perechea (domiciliul trainerului, locul livrării), nu doar din locul livrării.
-Orașul de domiciliu al fiecărui trainer rămâne deschis — §12.10.
+**Confirmat: doar 2 din cei 11 traineri activi locuiesc în afara Bucureștiului** — Alexandra
+Nuțu (Cluj) și Viorel Tobosaru (Cernavodă). Regula contează chiar la doar 2 din 11: modelul
+„proprietate a școlii" citește nivelul de bonus direct din orașul școlii, presupunând implicit
+că orice trainer pornește din București. Pentru Alexandra, presupunerea asta se inversează de
+două ori: un workshop la o școală din Cluj — unde locuiește, deci n-a călătorit deloc — ar primi
+bonusul de „oraș îndepărtat" ca și cum ar fi venit din București; iar un workshop la o școală
+din București — unde chiar a călătorit — ar primi 0%, ca și cum ar fi acasă. Modelul corect,
+(domiciliul trainerului, locul livrării), citește ambele cazuri corect, pentru că întreabă de
+unde a plecat trainerul, nu doar unde a ajuns.
+
+**`public.users` nu are azi nicio coloană de oraș de domiciliu** — verificat direct în
+`information_schema`, nu presupus: cele 12 coloane ale tabelului sunt `id`, `email`,
+`full_name`, `status`, `is_platform_owner`, `created_at`, `updated_at`, `first_name`,
+`last_name`, `phone`, `avatar_url`, `is_test_account`. Una nouă e necesară pentru ca nivelul de
+bonus să se poată rezolva.
 
 ### 12.6 Școala Altfel / Săptămâna Verde — excepția de 2 ore
 
@@ -580,14 +600,27 @@ proprie, nu se transformă tăcut într-un răspuns valid.
 Structura exactă (coloane, funcția de rezolvare) nu e proiectată aici — doar decizia de
 formă și motivele ei.
 
-### 12.10 Deschis, în așteptarea Ancăi
+### 12.10 Închis și deschis
 
-- Ce contează ca „un workshop" la pragul de progresie (§12.2): trainerul secundar? un workshop
-  de 2 ore ca unul sau ca două? planurile de lecție intră la număr?
-- 11% sau 11.1% de uplift (§12.4) — a folosit ambele valori.
-- Orașul de domiciliu al fiecărui trainer (§12.5).
-- Care traineri sunt încă activi.
+**Închis, confirmat de Anca:**
+
+- Regulile de numărare la prag (§12.2) — secundar contează, 2h contează ca unul, planurile de
+  lecție nu contează.
+- Uplift-ul de tip de contract (§12.4) — 11.1%, nu 11%; cele două cifre erau același număr.
+- Orașul de domiciliu al trainerului (§12.5) — necesar, confirmat cu date reale pentru 2 din
+  11 traineri activi.
+
+**Deschis, ce rămâne cu adevărat:**
+
 - Cele șase sume exacte din grila nouă (§12.8).
+- Tipul de contract pentru profesiile liberale (medici, biologi) — vezi §2, §9 item 2. Rămâne
+  relevant aici pentru că determină dacă `contract_type_uplifts` are nevoie de o a treia
+  valoare, nu doar drepturi de autor/PFA-SRL.
+
+**Notă despre roster:** 11 traineri activi azi, nu cei 27 din fișierul de urmărire folosit la
+verificarea din §12.2 — fișierul e istoric, nu curent. Numele nu se listează aici: sunt date
+operaționale care se învechesc în mai puțin de o lună și au un singur loc corect, baza de date,
+nu un document de arhitectură.
 
 Modelul de mai sus e confirmat; execuția plății (interfața, deconturile, aprobarea) rămâne în
 afara acestui V1, conform §8.
