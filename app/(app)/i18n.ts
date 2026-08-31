@@ -4,6 +4,7 @@ import { contractsDict } from "./contracts/i18n";
 import { groupsDict } from "./groups/i18n";
 import { profileDict } from "./profile/i18n";
 import { suppliersDict } from "./suppliers/i18n";
+import { paymentConfigDict } from "./payment-config/i18n";
 
 // App chrome (nav/sidebar/header) — the one dictionary shared by every
 // authenticated screen, since layout.tsx/shell-chrome.tsx render on top of
@@ -27,6 +28,7 @@ export const chromeDict: Dictionary = {
   nav_groups_enrollment: groupsDict.page_title,
   nav_group_finance: { en: "Finance", ro: "Finanțe" },
   nav_suppliers: suppliersDict.page_title,
+  nav_payment_config: paymentConfigDict.page_title,
   aria_open_menu: { en: "Open menu", ro: "Deschide meniul" },
   aria_close_menu: { en: "Close menu", ro: "Închide meniul" },
   sign_out: { en: "Sign out", ro: "Ieșire" },

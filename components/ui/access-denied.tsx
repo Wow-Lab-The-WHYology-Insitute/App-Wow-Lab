@@ -35,6 +35,10 @@ const accessDeniedDict: Dictionary = {
     en: "You don't have org.members.manage in any organization.",
     ro: "Nu deții org.members.manage în nicio organizație.",
   },
+  access_denied_no_finance_capability: {
+    en: "You don't have finance.operations.* or finance.reporting.* in any organization.",
+    ro: "Nu deții finance.operations.* sau finance.reporting.* în nicio organizație.",
+  },
 };
 
 export function AccessDenied({ reasonKey }: { reasonKey: string }) {
