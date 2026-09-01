@@ -1,0 +1,26 @@
+-- 202609010001_correct_client_contacts_retention_comment.sql
+-- Corrects a live COMMENT ON statement, not a file comment. Checked before
+-- writing this: 202608100001's original `comment on table
+-- public.client_contacts is '...'` is a real SQL statement -- it wrote to
+-- pg_description, queryable live via obj_description('public.client_
+-- contacts'::regclass), confirmed still present verbatim today. The
+-- other false retention claim found in the same investigation
+-- (202608270001's "runs automatically at 36 months") is entirely inside
+-- `--` line comments in that file -- never executed, nothing in the live
+-- database to correct there. This migration touches only the one
+-- COMMENT ON that actually reached the database.
+--
+-- 202608100001's original text is not being edited (applied migrations
+-- stay as-applied, per this project's own convention) -- this is a new
+-- COMMENT ON that supersedes it going forward, same pattern already used
+-- for DATABASE_CONVENTIONS.md #9 itself (the doc corrected in place
+-- rather than editing the already-applied migration that first stated
+-- the false claim).
+--
+-- The correction: "once the anonymization job is built" implied a job
+-- was pending/imminent. As of this migration, the decision (recorded in
+-- docs/OPEN_ITEMS.md) is that no scheduling mechanism is being built now
+-- -- this table holds zero rows today, so there is nothing to anonymize
+-- yet, and no confirmed shape to write an anonymization job against.
+
+comment on table public.client_contacts is 'AUDITED, PII. GDPR anonymization-at-36-months (DATABASE_CONVENTIONS.md #9) is a policy decision, not an implemented mechanism -- confirmed 2026-09-01: no scheduling mechanism exists anywhere on this stack, and none is being built now (see docs/OPEN_ITEMS.md). Reopens when the first real personal-data row enters production (the 14-school import). Until then, the client_contacts DELETE policy (202608270001) is the only implemented erasure route for this table -- an on-demand path someone has to invoke, not a substitute for the automatic one.';

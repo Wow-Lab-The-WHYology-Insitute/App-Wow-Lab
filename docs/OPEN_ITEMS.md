@@ -10,6 +10,9 @@ Item 20 was added 2026-08-31, checked live as of that date, not part of the
 2026-08-26 pass. The "Seed data cannot be reliably distinguished from real
 data" entry was resolved 2026-09-01, and items 21-22 were added the same
 date, checked live as of then — neither part of the 2026-08-26 pass either.
+"No scheduled execution mechanism" was decided (not built now, with a
+stated reopen trigger) the same 2026-09-01 date, also freshly checked live,
+not carried over from the 2026-08-26 pass.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -22,85 +25,75 @@ is the entire reason this file exists instead of being a wishlist.
 
 ---
 
-## No scheduled execution mechanism exists
+## No scheduled execution mechanism — decided, not built now
 
-**What it is:** nothing in this system runs on a timer. Confirmed live, comprehensively: `pg_cron`
-is not in `pg_extension` (full list checked: `pg_stat_statements`, `pgcrypto`, `plpgsql`,
-`supabase_vault`, `uuid-ossp` — nothing scheduling-related); `vercel.json` declares no `crons`;
-`package.json` has no cron/scheduler dependency; no `pg_proc` function named
-`%retention%`/`%anonymiz%`/`%gdpr%`/`%purge%`/`%scrub%` exists; there is no Supabase Edge Function
-doing this either. This is one gap with several symptoms, not several separate gaps — anything
-that should happen "automatically, on a schedule, without a person clicking a button" currently
-doesn't happen at all, for any reason, anywhere in this codebase.
+**Decision, 2026-09-01: no scheduling mechanism is being built.** Nothing on this stack runs on a
+timer, and nothing will until the trigger condition below fires. Confirmed live the same day as
+this decision: `pg_cron` is **not enabled** but **is available** — `pg_available_extensions` lists
+it (version 1.6.4, `installed_version` NULL) — and Supabase has already pre-wired the grant
+plumbing for it (`extensions.grant_pg_cron_access()`, a dormant event trigger, not authored by this
+project, that fires the moment the extension is created; the `cron` schema itself doesn't exist
+yet). `vercel.json` is `{"framework": "nextjs"}` — no `crons` key, no `vercel.ts` either. No
+`supabase/functions/` directory exists. No `.github` directory exists — no scheduled GitHub Action
+either. Vercel Cron's actual plan entitlement on this project **could not be verified** — no CLI
+auth available in this environment (`vercel whoami` → "Not authorized"); same specific gap already
+recorded in item 16 below, for a different check. Not assumed either way.
 
-**Known symptoms today:**
-1. **Retention/anonymization** (36-month rule) — documented in `docs/DATABASE_CONVENTIONS.md` §9
-   and shown as an active, toggled-on setting in the mockup, when no mechanism exists to run it.
-   Full detail below, in this same entry.
-2. **Contract expiry transitions** — signed contracts past their term don't move to `expired`
-   automatically, because nothing runs to move them. See its own entry, "Contracts past
-   `period_end` stay `signed`," further down — that entry is the second half of this same root
-   cause, recorded separately because it also raises a design question (stored status vs. derived
-   on read) that's independent of the scheduling gap itself.
-3. **Anything else time-driven that gets designed later** inherits this same blocker by
-   default — worth checking against this entry before assuming a "runs nightly" or "expires after
-   N days" feature can just be written as a function and left to fire itself.
+**Only one requirement genuinely needs a clock: anonymizing stored personal data at 36 months**
+(`docs/DATABASE_CONVENTIONS.md` §9). It mutates a row nobody asked it to change — overwriting a
+real person's name has no read-time equivalent. **It cannot be built yet, independent of the
+scheduling decision above:** `client_contacts` holds zero rows in production today; no per-child
+table exists, by deliberate design (`docs/WOWLAB_SAD_Domeniul_Operational_Groups_Sessions.md`'s
+numeric-first attendance model, `attendance_count` only); no `candidates` table exists at all
+(recruitment is mockup/plan-stage only, `docs/phase1-development-plan.md` §3). There is no data to
+anonymize and no confirmed row shape to write a job against yet — building the mechanism now would
+mean building it blind.
 
-**Why the retention symptom belongs at the platform level, not under `file_refs`:** it's a real,
-unenforced gap across every category of personal data this platform is supposed to age out
-automatically —
-- `client_contacts` — PII (email, phone, full_name) for a real person, confirmed live (Vlad
-  Rasnoveanu, Lycée Français).
-- `row_history`/`audit_log` snapshots — jsonb blobs containing PII and historical financial values,
-  confirmed live to never expire (see item 4 below).
-- `file_refs.gdpr_class` — the originally-scoped item, still real, see its own entry below for what's
-  specific to it.
-- Children's names and rejected candidates — see the correction below: neither actually has stored
-  data today, but both are described elsewhere as already-retained-and-anonymized.
+**Everything else that looked temporal is read-time math, and two working precedents already exist
+in this codebase.** `TermBar`/`getTermStatus()` (`app/(app)/contracts/term-bar.tsx`) computes
+contract renewal pressure live from `period_end` and `now`, recomputed on every render, never
+stored. The five payment-config resolvers (`app.resolve_*`,
+`supabase/migrations/202608310002_payment_config_tables.sql`) resolve whichever version is valid
+at a given date the same way, on every read. **Contract expiry stays derived, on purpose:**
+`contracts.status` never needs to physically become `'expired'`, because nothing that asks "is this
+contract still current" reads the stored column for that fact — the one place that shows renewal
+pressure today (the `/contracts` overdue banner) already derives it live, matching `TermBar`'s own
+math exactly so the two can never silently disagree.
 
-**Documents and the mockup both describe this as active when it does not exist.**
-`docs/DATABASE_CONVENTIONS.md` §9 stated "Personal data is anonymized in place at 36 months — never
-hard-deleted" as fact (corrected in this pass — see below). The mockup goes further and shows it as
-a live, toggled-on setting: `docs/mockup/wow_lab_os_mockup.html` line 1109, the Organization
-Settings page's "Active policies" panel, has three rows all badged "on" (`b-teal`, the same class
-used for genuinely active policies): "Anonymize children 36 months after group ends,"
-"Rejected-candidate retention — 36 months," and "Confidential evaluations (OD-7)." Checked the
-actual backing data: both real organizations' `org_settings.settings` jsonb is `{}` — empty, no
-retention configuration stored anywhere, not even inert. The mockup's toggles have no
-implementation behind them at all.
+**Separate note, not a scheduling gap — record this on its own:** the `contracts.status` CHECK
+constraint permits `'expired'` and `'renewed'` as values, but **no code path in this application
+ever writes either one.** `markContractSigned` (`app/(app)/contracts/actions.ts`) is the only place
+`status` is written after creation, and it only ever writes `'signed'`. Confirmed live: zero
+contracts anywhere carry `status = 'expired'` or `'renewed'` today. This is a dead branch in the
+enum regardless of whether a scheduled job is ever built — even a job would need this write path
+built first, and today it doesn't exist at all, manual or automatic.
 
-**Correction to two of the three categories the mockup implies are being retained:** confirmed
-live, neither has any data to retain in the first place —
-- Children's names are never stored. `docs/WOWLAB_SAD_Domeniul_Operational_Groups_Sessions.md`
-  states the attendance model is deliberately "numeric-first" (`attendance_count`, an integer)
-  specifically so no per-child record has to exist; a per-child table
-  (`session_child_attendance`) is explicitly named as something not built, "fiindcă nu există
-  cerere reală pt el" (no real demand for it).
-- Rejected candidates: no `candidates` table exists anywhere in `information_schema.tables`. The
-  recruitment flow (`docs/phase1-development-plan.md` §3) is mockup/plan-stage only, never built as
-  real schema.
+**Trigger condition — when this reopens:** the first real personal-data row entering production,
+which is the 14-school import. Not before.
 
-So the gap is live and real for `client_contacts`, `users` PII, and `row_history`/`audit_log` —
-and moot for children's names and candidates until those features are built with actual data.
+**Prerequisite to decide at that reopening, not now:** a scheduled write has no JWT to read, by
+construction, so `row_history` would record `actor_user_id = NULL` for it. Confirmed empirically
+this session, not inferred: every one of the 24 rows deleted by this session's own service-role
+purge scripts (`scripts/purge_tier1_seed_data.ts`, `scripts/purge_tier2_seed_data.ts`) recorded
+`actor_user_id = NULL` in `row_history`, with zero exceptions across all six affected tables.
+**The `202608260001` fix cannot solve this** — that fix corrected `row_history_capture()` reading a
+GUC nothing ever set; a scheduled job (`pg_cron` running as `postgres`, or a service-role-
+authenticated write from anywhere else) has no `request.jwt.claims` at all for `auth.uid()` to
+read, no matter how the trigger is written. Giving a job a resolvable, non-null attribution would
+need a system-actor identity in `public.users` to point `actor_user_id` at — **no such concept
+exists anywhere in this schema today** (checked: zero matches for
+`system_user`/`automation_user`/`service_account`/anything similar). Not designed here — flagged so
+it gets decided deliberately when the anonymization job is actually built, not discovered as a
+surprise gap after the fact.
 
-**This session's own earlier claim was wrong too, for the record:** the `client_contacts` DELETE
-migration comment (`supabase/migrations/202608270001_client_contacts_delete.sql`) states the
-36-month anonymization job "runs automatically and is scheduled" — asserted without having been
-verified, now confirmed false. That migration is already applied and is not being edited to fix
-this (correcting applied migration history isn't the right move); `docs/DATABASE_CONVENTIONS.md`
-§9 carries the correction instead. Practically: **`client_contacts` DELETE (202608270001) is
-currently the only implemented erasure route for personal data in this system** — not one option
-among several, the only one, for anyone who asks to be removed now.
-
-**Blocked on:** choosing a scheduling mechanism for this platform (Supabase `pg_cron`, a Vercel
-cron hitting an API route, or an external scheduler) — none exists today in any form, so every
-symptom above is blocked on the same missing piece of infrastructure, not on separate designs.
-**Lives in:** `docs/DATABASE_CONVENTIONS.md` §9 (corrected this pass); `docs/mockup/
-wow_lab_os_mockup.html` line 1109 (the false "on" badges); `docs/
-WOWLAB_SAD_Domeniul_Operational_Groups_Sessions.md` (numeric-first principle, no per-child data);
-`supabase/migrations/202608270001_client_contacts_delete.sql` (the uncorrected, applied migration
-comment); `package.json`, `vercel.json`, `pg_extension` (checked, nothing scheduling-related in
-any of them).
+**Lives in:** `docs/DATABASE_CONVENTIONS.md` §9; `docs/mockup/wow_lab_os_mockup.html` line 1109
+(corrected this pass — the two false badges now read "planned," `b-slate`, not "on," `b-teal`);
+`supabase/migrations/202609010001_correct_client_contacts_retention_comment.sql` (corrects the one
+live `COMMENT ON` that carried the false claim — `202608270001`'s equivalent claim is entirely
+inside `--` file comments, never reached the database, left as-is, applied migration file
+unedited); `app/(app)/contracts/term-bar.tsx`; `app/(app)/contracts/actions.ts`
+(`markContractSigned`); `supabase/migrations/202608260001_fix_row_history_actor_user_id.sql`; item
+16 below (Vercel plan, same unverifiable-in-this-environment gap).
 
 ---
 
@@ -167,20 +160,19 @@ real signed contract today, and it isn't overdue or critical.
 
 **Both halves of why, recorded separately on purpose:**
 1. **The missing mechanism.** No scheduled job exists to notice a contract's term ended and act on
-   it — this is a direct symptom of "No scheduled execution mechanism exists" above, not an
-   independent gap. Nothing in this codebase currently runs "for every signed contract where
-   `period_end < today`, do X."
-2. **The open design question, independent of the mechanism.** Even once something can run on a
-   schedule, it still has to be decided whether `expired` should be a **stored status** (something
-   writes `status = 'expired'` at some point, so `contracts.status` stays the single source of
-   truth `markContractSigned`/`deleteContract` already treat it as) or a **derived-on-read** state
-   (every reader computes `is_expired = status = 'signed' AND period_end < today` at query time,
-   the same way `TermBar` already computes `isPast` client-side, and `status` itself never changes
-   until a human acts). These have different implications: a stored status needs the scheduled
-   write mechanism above and a decision about whether it's still safe to `markContractSigned`-style
-   edit an expired contract; a derived state needs no write path at all but means `contracts.status
-   = 'signed'` alone is no longer sufficient to answer "is this contract still current" anywhere it's
-   checked (RLS policies, the dashboard, `contracts-client.tsx`'s own status badge).
+   it — this is a direct symptom of "No scheduled execution mechanism — decided, not built now"
+   above, not an independent gap. Nothing in this codebase currently runs "for every signed
+   contract where `period_end < today`, do X," and per that entry's decision, nothing will until
+   its trigger condition (the 14-school import) fires.
+2. **The design question, decided as part of that same 2026-09-01 decision: derived, not
+   stored.** `expired` stays a **derived-on-read** state — every reader computes
+   `is_expired = status = 'signed' AND period_end < today` at query time, the same way `TermBar`
+   already computes `isPast`, and `contracts.status` itself never changes until a human acts. This
+   was chosen specifically *because* no scheduled write mechanism exists or is being built — a
+   stored status would need one. Residual consequence, still true and still worth stating plainly:
+   `contracts.status = 'signed'` alone is **not** sufficient to answer "is this contract still
+   current" anywhere it's checked (RLS policies, the dashboard, `contracts-client.tsx`'s own status
+   badge) — every one of those has to derive it the same way `TermBar` does, not trust the column.
 
 **Confirmed not caught by the existing render logic:** `TermBar`'s `isRenewalCritical` requires
 `!isPast` — an already-ended contract renders in muted gray ("ended N months ago"), not flagged.
@@ -188,8 +180,9 @@ The dashboard inventory (this session) found 0 contracts in `TermBar`'s own "cri
 and 4 past end entirely — the existing UI's one piece of renewal-pressure signal doesn't surface
 the more urgent bucket at all today.
 
-**Blocked on:** the scheduling mechanism (see above) plus the stored-vs-derived decision, which
-doesn't depend on the mechanism and could be settled first.
+**Blocked on:** nothing left to decide for this half — derived-on-read is the decision. Still
+blocked on the scheduling entry's own trigger condition for the unrelated "notice and act on it"
+mechanism (e.g. a future notification), if that's ever wanted.
 **Lives in:** `app/(app)/contracts/term-bar.tsx` (`isRenewalCritical`, `isPast`);
 `app/(app)/contracts/actions.ts` (`markContractSigned` — the only place `status` is written after
 creation, per item 8 below).
