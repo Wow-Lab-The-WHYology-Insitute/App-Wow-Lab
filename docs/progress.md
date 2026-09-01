@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-08-31 18:29 (ora București)
+**Ultima actualizare:** 2026-09-01 17:12 (ora București)
 
 **Unde suntem acum:** Phase 0 (WS-B) și WS-D (RLS) complete. **Phase 1** în curs: Clients & Contracts (C1 schemă/RLS + C2 UI) și Domeniul Operațional — Grupe & Sesiuni (G1 schemă/RLS + G2 UI) ambele construite, verificate live pe roluri reale, și în curs de merge pe `main` (intrarea #54 de mai jos). Detalii complete în intrările numerotate din secțiunea de jos a fișierului, nu în tabelul „Snapshot status" de mai jos (rămas ca istoric WS-B, nu mai e actualizat).
 
@@ -487,6 +487,29 @@ typecheck+build curate. Merge pe `main` prin PR, deploy Vercel producție confir
 typecheck+build curate pe toată durata. Commit-uri: `feat: record delivery location and language on sessions` (migrarea a), `feat: add versioned payment configuration tables and resolvers` (migrarea b), `feat: add payment configuration page` (migrarea c, `658a27b`), mergeate pe `main` (`8e672c2`).
 
 **Item deschis, scris în `docs/OPEN_ITEMS.md`:** toate cele unsprezece tabele sunt goale, deliberat, până Anca trimite cele șase seturi de sume reale — vezi item 20 acolo pentru detaliu complet.
+
+---
+
+61. 2026-09-01, 17:12 (ora București) — Investigație live seed-vs-real în `wow-lab`, purjare completă în 2 tranșe (24 rânduri), cont Cătălina reparat, item nou pe `users.status`, și confirmarea că doar 2 din 7 membri numiți ai echipei au cont real.
+
+**Contextul.** Cerere de investigație read-only: care rânduri din `wow-lab` sunt seed de migrare, reziduu de verificare UI, sau date reale de business — fără nicio propunere de curățare în etapa de investigație. Verificat live, nu din memorie: număr de rânduri + `created_at` grupat pe secundă per tabel, prezența unei intrări `row_history` per rând, referințe FK explicite, markerii structurali existenți (`organizations.is_test`, `users.is_test_account`, convenția de text din `notes`), și izolarea `wow-lab-test-b`.
+
+**Constatarea centrală.** Trei câmpuri erau citite ca semnal fiabil și niciunul nu era: `contracts.notes` (textul „Example seed record" — câmp text simplu, needitat prin nicio capabilitate, singurul semnal din care trăiește `isDemoRecord()`), `users.is_test_account` (setat o singură dată de backfill-ul static al migrării `202608120006`, niciodată reactualizat — deja ratează conturile `maxdigitalro+*`), și `users.status` (vezi mai jos). Trigger-ul `row_history_capture()` prinde doar UPDATE/DELETE, niciodată INSERT — deci absența unei intrări în `row_history` pe un rând înseamnă „niciodată atins de la creare", nu „niciodată văzut". Tabelul `users` nu are deloc trigger `row_history` atașat — o lacună structurală a schemei, nu o dovadă de neatingere.
+
+**Contul Cătălinei, reparat.** `test+catalina@wowlab.dev` avea rând în `public.users` (din `seed.sql`) dar zero rând în `auth.users` — nu se putea autentifica deloc. Riscul verificat înainte de orice scriere: `handle_new_auth_user()` are `on conflict (id) do nothing`, deci crearea identității auth cu același `id` devine no-op sigur, nu coliziune sau suprascriere. Rulat `admin.auth.admin.createUser({id, email, email_confirm: true})`, exact procedura din `DATABASE_CONVENTIONS.md` §11 — verificat independent după: id-urile coincid, email confirmat, rândul `public.users` neschimbat. Commit `a4caddc`.
+
+**Plan de purjare, apoi execuție în 2 tranșe, 24 rânduri total.** `docs/WOWLAB_Purge_Plan_Seed_Data.md` scris cu dovada completă, nu doar propunere: graful FK (toate constrângerile sunt `NO ACTION`, nicio `CASCADE` — ordinea de ștergere e obligatorie, nu stil), verificarea politicii DELETE pe `contracts` (poartă pe `status='draft'`, niciunul dintre contractele vizate nu era draft — bypass deliberat prin `service_role`, consemnat explicit de fiecare dată), ce reține `row_history`/`audit_log` după ștergere, și valorile reale `legal_name`/`cui` din `202608110003` pentru re-introducere ulterioară din tracker. Backup complet — toate coloanele, toate cele 24 rânduri — scris înainte de orice DELETE: `scripts/purge_backup_2026-09-01.json`, commit `ce7cd00`.
+
+- **Tranșa 1 (13 rânduri, commit `4ba0a65`):** 1 furnizor („DELETE-ME-TEST-SUPPLIER" — rând reziduu de verificare, live pe producție, cu `notes` care spune explicit că nu putea fi șters prin UI fiindcă acea funcție încă nu există), 6 sesiuni, 4 grupe (toate pe Cambridge School — confirmate de Mihai ca reziduu din construcția modulului), contractul Maxdigital, clientul Maxdigital (confirmat de Mihai ca substitut de testare UI, nu client real).
+- **Tranșa 2 (11 rânduri, commit `2f609b6`):** cele 5 contracte demo, contactul Vlad Rasnoveanu, cei 5 clienți demo.
+
+Verificare independentă identică la fiecare tranșă (interogări proaspete, nu output-ul scriptului de ștergere): toate rândurile dispărute după `id`; `row_history` are exact o intrare DELETE cu `old_values` populat pentru fiecare; `users`/`user_org_roles`/`legal_entities`/`org_settings` neschimbate (checksum + număr de rânduri identice cu un baseline luat imediat înainte de fiecare ștergere, zero intrări noi în `row_history` pe acele patru tabele); `/clients`, `/contracts`, `/groups` randează 200 sub o sesiune autentificată reală. **Rezultat final, confirmat explicit, nu doar efect secundar:** `wow-lab` are acum zero clienți, zero contracte, zero grupe, zero sesiuni, zero furnizori.
+
+**Starea goală pe `/groups`, verificată vizual cu Playwright, nu doar status HTTP.** Mesaj explicit „No groups visible for your role." într-un card, header-ul paginii rămâne coerent fără date sub el, bara de căutare/filtre nu există deloc la zero rânduri (nu doar ascunsă — `groups-client.tsx` nu o montează sub `groups.length === 0`), view-ul mobil colapsează la același card unic, nimic de pierdut vizual. Un semnal moale, nereparat aici: textul se poate citi drept „nu ai permisiune", nu „nu există date".
+
+**`docs/OPEN_ITEMS.md` închis pe acest subiect, două intrări noi deschise.** „Seed data cannot be reliably distinguished from real data" marcată REZOLVATĂ — nu prin marcaj, prin ștergere; regula care o înlocuiește: verificarea rulează în `wow-lab-test-b` (deja există, `organizations.is_test=true`, izolare confirmată complet — zero rânduri de business, niciun user comun, nicio referință încrucișată), nu în producție. Item nou 21: `users.status` e scris o singură dată la creare și niciun cod nu-l tranziționează la `'active'` la autentificare reală — 9 utilizatori reali poartă eticheta „invited" greșit; `auth.users.last_sign_in_at` are deja adevărul, nimic nu citește `status` pentru vreo decizie de acces. Item nou 22: din 7 membri numiți ai echipei, doar Anca și Anka au cont real — Cătălina are doar fixture-ul de test, Laura/Alexandra/Teo/Raluca n-au niciun rând, de niciun fel, în `public.users` sau `auth.users`.
+
+Commit-uri din această sesiune: `a4caddc` (auth Cătălina), `ce7cd00` (backup), `e13ee2f` (plan), `4ba0a65` (tranșa 1), `2f609b6` (tranșa 2).
 
 ---
 

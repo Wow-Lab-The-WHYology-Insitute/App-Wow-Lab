@@ -7,7 +7,9 @@ the live production database on 2026-08-26 — none of it is carried over from
 memory or notes without a fresh check. Where a check corrected or narrowed the
 original framing, the correction is written into the item itself, not hidden.
 Item 20 was added 2026-08-31, checked live as of that date, not part of the
-2026-08-26 pass.
+2026-08-26 pass. The "Seed data cannot be reliably distinguished from real
+data" entry was resolved 2026-09-01, and items 21-22 were added the same
+date, checked live as of then — neither part of the 2026-08-26 pass either.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -102,51 +104,44 @@ any of them).
 
 ---
 
-## Seed data cannot be reliably distinguished from real data
+## Seed data cannot be reliably distinguished from real data — RESOLVED
 
-There is no reliable way to tell a seed row from a real one anywhere in this database.
+**Resolved 2026-09-01, by removal, not by marking.** This entry originally described 24 rows in
+`wow-lab` with no reliable seed-vs-real signal: 5 demo clients, their 5 demo contracts and 1 client
+contact, the 4 Cambridge groups and their 6 sessions, the Maxdigital client and its 1 contract, and
+1 test supplier row. All 24 were purged, across two dependency-ordered tiers: **Tier 1, 13 rows**
+(1 supplier, 6 sessions, 4 groups, the Maxdigital contract, the Maxdigital client — commit
+`4ba0a65`) and **Tier 2, 11 rows** (the 5 demo contracts, 1 client contact, the 5 demo clients —
+commit `2f609b6`). A full pre-delete backup — every column, all 24 rows — lives at
+`scripts/purge_backup_2026-09-01.json`; the investigation, evidence, and dependency-order reasoning
+that preceded execution lives at `docs/WOWLAB_Purge_Plan_Seed_Data.md`. Every deletion is
+independently confirmed captured in `row_history` (`old_values` populated, exactly one entry per
+row, verified by fresh query against the live database, not the deletion scripts' own output) —
+the rows are gone from the live tables, not from the record.
 
-`isDemoRecord()` (`app/(app)/contracts/format.ts`) is the only thing that exists for this, and it
-covers `contracts` only, by substring-matching one hardcoded marker (`"Example seed record"`)
-against the `notes` column. It was built to drive a single visible badge on one table, tracing back
-to one seed migration (`202608100007`) — it became a general seed-vs-real detector by accumulation,
-because it was the only signal anyone had, not because it was designed to be one.
+**No structural marker was added, and none is needed while production holds no seed rows.** The
+original framing of this entry treated the missing marker as the gap to close. It wasn't — the gap
+was that verification work ran against the production `wow-lab` org at all. The rule that replaces
+the marker: verification runs in `wow-lab-test-b`, which already exists, already carries
+`organizations.is_test = true`, and was confirmed this session to be fully isolated from `wow-lab`
+— zero rows in any business table, no user shared between the two orgs, no FK or other reference
+from either org into the other. The 24 purged rows entered production because verification
+happened in the production org, not because a column was missing to mark them once they did.
 
-`clients`, `groups`, `sessions`, and `client_contacts` carry no marker of any kind — confirmed live,
-zero rows in any of those four tables contain the marker text, even though at least some of their
-rows originated from the same seeding work as the marked contracts. The seed clients (Cambridge
-School, IBSB, King's Oak, Lycée Français, Zitec) were deliberately given real, project-established
-names rather than being marked fake — the client identity is treated as real; only the demo
-contracts attached to them are placeholders.
+**Standing caution, recorded once here rather than as three separate bugs.** Three fields were read
+as evidence during this investigation and none of them meant what they appeared to mean: the
+`contracts.notes` "Example seed record" string (`isDemoRecord()`'s only signal — a plain,
+uncapability-gated, editable text field, not a structural marker), `users.is_test_account` (set
+once by one migration's static backfill list, never revisited — item 18 below already found it
+missing the `maxdigitalro+*` accounts it exists to catch), and `users.status` (see item 21 below —
+stored at creation, never updated after, doesn't mean what "invited" vs "active" implies it means).
+All three share the same shape: written once, at creation time, by a migration or a one-time
+script, never maintained afterward, and easy to mistake for a live, enforced signal because they
+look like one. Read any of these three fields, anywhere they show up again, as "what a migration or
+script wrote once" — not as current state.
 
-`is_test_account` (on `users`/`users_masked`) is not a structural fix for this, for two reasons.
-It exists only on `users` — nowhere near `contracts`, `clients`, `groups`, or `sessions` — so it
-can't be reused for those tables even in principle. And it already fails its own job on the one
-table it's on: the `maxdigitalro+<role>@gmail.com` agency verification accounts (item 18 above) all
-have `is_test_account = false`, despite being exactly the kind of row that flag exists to catch.
-
-The one marker that does exist is editable through a real, shipped form. `updateContract`
-(`app/(app)/contracts/actions.ts`) accepts `notes` as a normal, uncapability-gated field in its
-UPDATE payload — a Contract Administrator correcting or clearing a contract's notes through the
-real edit form would silently erase the only signal that row was ever seed data, with nothing to
-notice or prevent it.
-
-**This has already caused two real mistakes in this session, not a hypothetical risk:**
-1. The `/contracts` overdue banner (this session) reported "4 signed contracts have passed their
-   end date" as a real, actionable finding. All four were seed rows. The banner had to be corrected
-   after being verified against production, not before.
-2. The `groups.contract_id` backfill rule (item 19 above) — "client has exactly one contract,
-   populate automatically" — is a correct rule that would have linked real, non-seed groups to a
-   seed contract, passed every assertion, and reported success while being wrong. It was caught
-   only because the investigation happened to check the contract's own `notes` field before
-   proposing the backfill, not because anything in the schema would have caught it.
-
-**This needs to be settled before real school data enters production.** Once real rows and seed
-rows are mixed in the same tables with no marker distinguishing them, the distinction cannot be
-reconstructed after the fact — there will be no way to ask the database "which of these clients,
-groups, or contracts were ever real" once real ones start arriving alongside unmarked seed ones.
-
-No solution proposed here — this entry is the gap and its consequences, not a fix.
+**Lives in:** `docs/WOWLAB_Purge_Plan_Seed_Data.md`; `scripts/purge_backup_2026-09-01.json`;
+commits `4ba0a65` (Tier 1), `2f609b6` (Tier 2).
 
 ---
 
@@ -456,6 +451,30 @@ payment-model chapter, §12.9 specifically for the versioning decision);
 (`page.tsx`, `payment-config-client.tsx`, `actions.ts`, `i18n.ts`);
 `app/(app)/layout.tsx` (`canManagePaymentConfig`, the FINANȚE nav gate fix).
 
+### 22. Five of seven named team members have no account at all
+
+Checked directly against every row in `public.users` and `auth.users` this session — not a
+name-pattern guess that could miss a variant spelling. Of seven people named across this project's
+docs and conversations: **Anca (Tanasescu) and Anka (Orban) are the only two with a real account**
+— both on real addresses, both with a matching `auth.users` row. The other five: **Cătălina Trușan
+has a fixture account only** (`test+catalina@wowlab.dev`) and no row on any address outside
+`wowlab.dev`, anywhere. **Laura Moale, Alexandra Nuțu, Teo Merisan, and Raluca Margean have no row
+at all** — not a fixture, not a real address, not `is_test_account`, nothing — confirmed against a
+full listing of every `email`/`full_name` currently in `public.users`.
+
+Related to item 18 above (Pending invites — cut deliberately), which already found that none of the
+`status = 'invited'` rows represent real pending onboarding today. This item states the sharper
+fact underneath that one: it isn't only that the invites on file are stale residue instead of
+signal — for five of seven named team members, **no invite, account, or fixture exists to be
+stale.**
+
+**Onboarding the team is a prerequisite for the 14 schools, not a follow-up.**
+
+No fix proposed here — this entry is the gap, not a fix.
+
+**Lives in:** `public.users`, `auth.users` (live data, checked this session); item 18 above
+(related finding, same underlying data).
+
 ---
 
 ## Masking rollout, remaining
@@ -728,6 +747,36 @@ fix shape as `profile/page.tsx` got in bucket C (extract into small
 `client-info-header.tsx`) — not attempted here since it wasn't named in
 the three buckets and is a real scoping decision, not a mechanical
 follow-on.
+
+### 21. `users.status` is stored, unmaintained, and gates nothing
+
+Confirmed live this session, both by reading every write path and by cross-referencing
+`auth.users` for real accounts. Four write paths exist, total: `supabase/seed.sql` (literal INSERT
+values at seed time), `public.handle_new_auth_user()` (an `AFTER INSERT ON auth.users` trigger,
+hardcodes `'invited'` — confirmed no `AFTER UPDATE` trigger exists on `auth.users` at all, only
+this INSERT one and an unrelated `on_auth_user_deleted`), and `enableAccess`/`disableAccess` in
+`app/(app)/admin/users/actions.ts` (set `'active'`/`'disabled'`, but only on an admin's explicit
+manual ban/unban action). **No code path transitions `invited` to `active` in response to a real
+sign-in, ever.** Confirmed live: all 8 `maxdigitalro+<role>@gmail.com` accounts plus
+`anca.tanasescu@gmail.com` — 9 real users, item 18 above — have a matching `auth.users` row, a
+confirmed email, and a real `last_sign_in_at` timestamp, while `public.users.status` still reads
+`'invited'` for every one of them.
+
+Confirmed nothing gates on it: zero RLS policies reference `users.status` (checked every `create
+policy` statement across all migrations — only `sessions.status`/`suppliers.status`/
+`contracts.status` appear), `lib/capabilities.ts` has zero references, and the actual app guard
+(`middleware.ts` → `lib/supabase/middleware.ts`) has zero references. Exactly two reads exist
+anywhere in the app, both display-only: the admin Members list badge
+(`app/(app)/admin/users/page.tsx`) and a diagnostic "Technical Details" panel on `/profile`
+(`app/(app)/profile/page.tsx`). `auth.users.last_sign_in_at` already holds the fact this column is
+trying to represent, correctly, for every account that has ever signed in.
+
+**Open question is whether the column should exist at all, not how to fix it** — no fix proposed
+here.
+
+**Lives in:** `supabase/migrations/202607130004_add_auth_support_functions.sql`
+(`handle_new_auth_user`); `app/(app)/admin/users/actions.ts` (`enableAccess`, `disableAccess`);
+`app/(app)/admin/users/page.tsx`; `app/(app)/profile/page.tsx`.
 
 ---
 
