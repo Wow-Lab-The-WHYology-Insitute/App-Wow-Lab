@@ -505,6 +505,17 @@ deliberat: copiază fișierul înapoi în `supabase/migrations/` cu un timestamp
 original — istoricul remote ține minte ce s-a aplicat deja), rulează `db push`, apoi mută-l
 înapoi în `supabase/rollbacks/`.
 
+**Pas lipsă, găsit abia la prima rulare reală a procedurii (2026-09-01, commit `b7bbffb`):**
+imediat după ce fișierul e mutat înapoi, rulează și
+`supabase migration repair --status reverted <timestamp-ul reveniri> --linked`. Motivul, într-o
+linie: revenirea împinsă rămâne înregistrată permanent în `schema_migrations` chiar și după ce
+fișierul ei local dispare, iar următorul `db push`, pentru orice motiv, eșuează pe această
+nepotrivire.
+
+Această procedură a fost executată efectiv, cap-coadă, pentru prima dată pe 2026-09-01 —
+golul de mai sus e exact ce a scos la iveală acea rulare. Oricine a urmat-o înainte de acea
+dată a urmat o cale netestată.
+
 ### 6.3 Una singură pe rundă, la oră fără trafic, verificată imediat în aplicație
 
 Nu șase tabele într-o migrație. `contracts` prima. După aplicare, se deschide efectiv pagina
