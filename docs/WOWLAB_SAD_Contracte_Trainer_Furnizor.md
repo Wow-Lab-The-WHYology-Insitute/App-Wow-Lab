@@ -647,3 +647,61 @@ nu un document de arhitectură.
 
 Modelul de mai sus e confirmat; execuția plății (interfața, deconturile, aprobarea) rămâne în
 afara acestui V1, conform §8.
+
+## Anexă A — Baseline-ul numărului de workshop-uri, validat (25 iunie 2026)
+
+Calculat din fișierul lor de urmărire și validat de două ori independent, mai jos. Nu există nicăieri
+altundeva în repo — dacă s-ar pierde de aici, ar trebui refăcut de la zero din fișierul lor. Spre
+deosebire de nota despre roster din §12.10 (nume care se învechesc în mai puțin de o lună, deci nu au
+ce căuta într-un document de arhitectură), acesta e un calcul de validare ancorat la o dată fixă
+(25 iunie 2026) — dovada că formula de grad (§12.2) produce gradul real al fiecărui trainer activ,
+nu o listă operațională curentă. Nu se actualizează la fiecare rundă de plată; se reface doar dacă
+formula sau fișierul-sursă se schimbă.
+
+**Regula, validată de două ori.** Numărătoarea = un rând per workshop livrat. Un workshop de 2 ore
+contează ca unul. Planurile de lecție nu contează. Trainerul secundar contează. (Aceleași reguli ca
+în §12.2, reconfirmate aici împotriva datelor reale, nu doar afirmate.)
+
+*Validarea 1.* Pentru trainerii a căror întreagă carieră încape în fișierul de urmărire (angajați
+după august 2024), numărul calculat se potrivește exact cu cifra proprie a fiecăruia: Teodora 89,
+Adelina 17, Răzvan 3, Raluca 15, Alina 4, Gîță 9. Cazul cel mai puternic e Răzvan: are 6 planuri de
+lecție în fișier. Dacă planurile de lecție ar conta, ar avea 9; cifra lor e 3 — confirmă direct că
+regula „planurile de lecție nu contează" e cea aplicată de fapt, nu doar cea declarată.
+
+*Validarea 2.* Cu numărul pe toată cariera, `grad = min(6, floor(n/36)+1)` (§12.2) produce exact
+gradul pe care îl deține azi fiecare trainer activ — toți cei zece cu numere cunoscute, fără nicio
+excepție.
+
+**Baseline-ul, la 25 iunie 2026:**
+
+| Trainer | Workshop-uri (toată cariera) |
+|---|---|
+| Cătălina Trusan | 827 |
+| Sonia Ganea | 212 |
+| Andrada Eremia | 186 |
+| Elena Bacalum | 118 |
+| Teodora Merișan | 101 |
+| Alexandra Nuțu | 89 |
+| Viorel Tobosaru | 41 |
+| Raluca Popa | 22 |
+| Alina Garofil | 5 |
+| Răzvan Bălașov | 3 |
+| Luiza Mirt | necunoscut |
+
+**De ce numărul pe toată cariera, nu doar 2026.** Fișierul lor de urmărire începe la 6 august 2024;
+compania a operat și înainte de asta, deci totalul trainerilor mai vechi include istoric care nu e
+în fișier și nu poate fi recalculat. Numărând doar 2026, Cătălina ar retrograda de la gradul 6 la
+gradul 3, Sonia și Andrada de la 6 la 2, Elena de la 4 la 1 — reduceri reale de salariu cauzate de o
+decizie de import de date, nu de o schimbare reală de experiență.
+
+**Discrepanțe cunoscute, nerezolvate.** Cifrele proprii ale trei traineri recenți diferă ușor de
+numărul calculat: Alexandra Nuțu 89 vs 80, Alexandra Gruia 13 vs 12, Maria Nicolescu 41 vs 36. Nu e
+sistematic — probabil numărători manuale făcute în momente diferite. Se verifică cu Cătălina înainte
+de import, nu se presupune care cifră e corectă.
+
+**Ce nu se importă.** Cele ~1320 de rânduri istorice de pontaj rămân în afara platformei. Sunt plăți
+deja aprobate; importarea lor ar crea o a doua sursă de adevăr care ar diverge de fișierul lor.
+Platforma calculează înainte, din sesiunile pe care le înregistrează ea însăși.
+
+**Deschis.** Ultima intrare din fișierul lor e 25 iunie 2026; azi e 1 septembrie. Iulie și august nu
+sunt contabilizate. Luiza Mirt nu are niciun număr în roster-ul actual.
