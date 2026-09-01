@@ -658,6 +658,14 @@ ce căuta într-un document de arhitectură), acesta e un calcul de validare anc
 nu o listă operațională curentă. Nu se actualizează la fiecare rundă de plată; se reface doar dacă
 formula sau fișierul-sursă se schimbă.
 
+**Scopul acestei anexe expiră la primul import.** Cifrele de mai jos sunt un seed unic, valabil ca
+un calcul despre 25 iunie 2026 și nimic altceva. Odată încărcate în platformă, baza de date devine
+sursa de adevăr, iar această anexă devine istorie — păstrată pentru metodă și pentru validare, nu
+consultabilă ca dată curentă. Oricine găsește o discrepanță între această anexă și baza de date,
+după import, trebuie să aibă încredere în baza de date. Asta e diferența reală față de nota despre
+roster din §12.10: un roster afirmă un fapt prezent și putrezește în tăcere; anexa asta afirmă un
+calcul trecut și e înlocuită explicit.
+
 **Regula, validată de două ori.** Numărătoarea = un rând per workshop livrat. Un workshop de 2 ore
 contează ca unul. Planurile de lecție nu contează. Trainerul secundar contează. (Aceleași reguli ca
 în §12.2, reconfirmate aici împotriva datelor reale, nu doar afirmate.)
