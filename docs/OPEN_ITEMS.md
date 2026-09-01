@@ -12,7 +12,9 @@ data" entry was resolved 2026-09-01, and items 21-22 were added the same
 date, checked live as of then — neither part of the 2026-08-26 pass either.
 "No scheduled execution mechanism" was decided (not built now, with a
 stated reopen trigger) the same 2026-09-01 date, also freshly checked live,
-not carried over from the 2026-08-26 pass.
+not carried over from the 2026-08-26 pass. "Migration history was missing
+3 applied migrations" was found, repaired, and its fix proven end-to-end
+the same date — also not part of the 2026-08-26 pass.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -186,6 +188,108 @@ mechanism (e.g. a future notification), if that's ever wanted.
 **Lives in:** `app/(app)/contracts/term-bar.tsx` (`isRenewalCritical`, `isPast`);
 `app/(app)/contracts/actions.ts` (`markContractSigned` — the only place `status` is written after
 creation, per item 8 below).
+
+---
+
+## Migration history was missing 3 applied migrations — RESOLVED
+
+**Found while correcting the false retention claim above, not by going looking for it.**
+Applying `202609010001` (the `client_contacts` comment fix) via `supabase db push --linked`
+failed — not on that migration, but on `202608310001`, with `column "location_tier" of relation
+"sessions" already exists (SQLSTATE 42701)`. Investigated before repairing anything: `supabase
+migration list --linked` showed `202608310001` and `202608310002` present as files with **no
+remote entry at all** — `"remote":""`. Confirmed live, both directions, that these were the only
+two: `supabase_migrations.schema_migrations` held 54 rows against 57 files, and the diff was clean
+in the direction that would have been more alarming (zero recorded entries with no matching file —
+nothing was ever silently deleted from the migrations directory after being applied).
+
+**Confirmed these had actually run, not merely gone missing from history — a materially different,
+lower-severity problem.** Checked every object each migration should have created, live: both
+`sessions.location_tier`/`language_group` columns and their `CHECK` constraints existed exactly as
+`202608310001` specifies; all 11 payment-config tables and all 6 `app.resolve_*` functions existed
+exactly as `202608310002` specifies. Both had clearly been applied through some path other than
+`db push` in an earlier session — there is no audit trail for schema DDL the way `row_history`
+tracks row-level DML, so which exact mechanism (most likely an ad-hoc `supabase db query --linked
+--file` run, the same shape as what happened with `202609010001` below) cannot be proven after the
+fact, only inferred as the most likely explanation given the pattern.
+
+**`db push` was unusable for anything, for anyone, while this lasted — not a narrow gap.**
+`db push` always applies the oldest not-yet-recorded migration first. With `202608310001` stuck at
+the front of that list, **every** `db push`, regardless of what it was actually meant to deliver,
+would hit the same `42701` error and abort before reaching anything else — reproduced directly, not
+inferred. This included the project's own documented disaster-recovery mechanism: §6.2 of
+`docs/WOWLAB_SAD_Field_Masking.md` describes rolling back a migration by copying its rollback file
+from `supabase/rollbacks/` into `supabase/migrations/` under a new timestamp and running `db push`.
+A rollback copied in today would sort *after* the three stuck entries — the push would still die on
+`202608310001` first, and the actual rollback would never be reached. **The documented recovery
+path was non-functional for as long as this gap existed**, confirmed by walking through exactly
+what would have happened, not assumed.
+
+**`202609010001` was applied through `db query --linked --file`, not `db push` — the exact ad-hoc-
+SQL-on-production pattern §6.4 of the same document warns against, forced by this gap rather than
+chosen.** §6.4's own stated reason: a direct `db query` connection carries no `auth.uid()`, so
+writes through it land in `row_history` with `actor_user_id: null` — unattributed, which the
+document calls a compliance concern for a platform that will hold data about children. Checked
+precisely for this specific instance: `COMMENT ON TABLE` is DDL against `pg_description`, not row-
+level DML, so it never fires a `row_history` trigger at all — this particular workaround left no
+unattributed audit row behind. That is incidental to *this* statement, not a property of the
+workaround itself: had `db push` still been broken when a real data-writing migration needed to
+ship, the same forced detour through `db query` would have produced exactly the `actor_user_id:
+null` rows §6.4 warns about, on whichever table that migration touched.
+
+**Repair:** `supabase migration repair --status applied <version> --linked` for all three versions
+— the CLI's purpose-built mechanism for this exact state, confirmed via `--help` to update only the
+history bookkeeping, execute no SQL. Verified independently after running it, not from the
+command's own output: `schema_migrations` holds 57 rows matching the 57 files exactly, both
+directions; `db push --dry-run` reports "Remote database is up to date"; all three objects
+(`sessions` columns/constraints, all 11 payment-config tables, the `client_contacts` comment)
+spot-checked byte-identical to before the repair — pure bookkeeping, no schema mutation, as the
+mechanism promises.
+
+**Recovery path proven end-to-end, not just declared fixed.** A throwaway migration
+(`202609010002`, a single empty table, `public._migration_history_recovery_drill`) was pushed for
+real — landed and recorded, confirmed by fresh query, not `db push`'s own success message. Then
+rolled back through §6.2's documented procedure exactly: its rollback file, already sitting in
+`supabase/rollbacks/`, was copied into `supabase/migrations/` under a new timestamp
+(`202609010003`), pushed, and the copy removed from `supabase/migrations/` once applied (the
+original in `supabase/rollbacks/` was never touched, so it stays reusable under a stable name —
+equivalent in effect to §6.2's literal "move it back," cleaner in practice since nothing has to be
+renamed back afterward). Confirmed after: the table is gone, and both `202609010002` and
+`202609010003` are recorded in `schema_migrations`.
+
+**§6.2's own documented procedure is missing its actual last step — found only by executing it for
+real, apparently for the first time.** Its text ends at "run `db push`, then move it back into
+`supabase/rollbacks/`." Doing exactly that left `db push --dry-run` broken again, immediately: the
+remote history still had a permanent row for `202609010003` (the rollback, once pushed, is a real
+applied migration and stays in history forever — rollbacks aren't undone from `schema_migrations`,
+they're recorded as their own forward entry), but the file was gone from
+`supabase/migrations/` per that same "move it back" instruction. `db push --dry-run` immediately
+reported `Remote migration versions not found in local migrations directory` and named the exact
+fix itself: `supabase migration repair --status reverted 202609010003`. Confirmed the table has no
+`status` column (`version`, `name`, `statements` only) — `--status reverted` works by removing the
+row entirely, the only way "not applied" can be represented in a table where presence is the only
+signal. Ran it, verified independently after: the `202609010003` row is gone, `schema_migrations`
+holds 58 rows (57 original + the permanent `202609010002` create) matching 58 files exactly, and
+`db push --dry-run` reports "Remote database is up to date" again. **This is very likely the first
+time this project's rollback procedure has ever been executed for real** — every other file in
+`supabase/rollbacks/` looks like a written-but-never-invoked safety net — which is exactly why this
+gap in the procedure's own text had never surfaced before.
+
+**§6.2 does need amending, one sentence: its "move it back" step should say to also run `supabase
+migration repair --status reverted <new-timestamp>` immediately after**, or the next `db push` for
+any reason breaks again the same way this whole investigation started. Separately, a smaller,
+genuinely cosmetic wrinkle: the copied rollback file's internal header comment still names its
+original filename after being pushed under a different timestamp — §6.2 only instructs changing
+the filename on copy, not editing content, so this is an expected byproduct, not a deviation;
+worth a one-line note but not load-bearing the way the missing repair step is.
+
+**Final state, confirmed independently after the extra repair, not assumed:** `schema_migrations`
+holds 58 rows matching 58 files exactly, both directions; `db push --dry-run` reports "Remote
+database is up to date"; the drill table is gone. Both `db push` and the §6.2 rollback procedure
+are genuinely working now — proven by running the full cycle twice in effect, once naively per the
+written text and once with the fix the drill itself surfaced.
+
+**Lives in:** `docs/WOWLAB_SAD_Field_Masking.md` §6.2, §6.4; `supabase/migrations/202609010002_migration_history_recovery_drill.sql`; `supabase/rollbacks/202609010002_migration_history_recovery_drill_rollback.sql`; `supabase_migrations.schema_migrations` (live, not file-tracked).
 
 ---
 
