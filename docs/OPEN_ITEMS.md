@@ -12,7 +12,9 @@ data" entry was resolved 2026-09-01, and items 21-22 were added the same
 date, checked live as of then — neither part of the 2026-08-26 pass either.
 "No scheduled execution mechanism" was decided (not built now, with a
 stated reopen trigger) the same 2026-09-01 date, also freshly checked live,
-not carried over from the 2026-08-26 pass. "Migration history was missing
+not carried over from the 2026-08-26 pass. Item 20 was updated and item 23
+added 2026-09-02, both freshly checked live/against the real workbook as of
+that date. "Migration history was missing
 3 applied migrations" was found, repaired, and its fix proven end-to-end
 the same date — also not part of the 2026-08-26 pass.
 
@@ -491,7 +493,7 @@ this column staying null is not evidence either way.
 `supabase/migrations/202608290001_groups_contract_id.sql`;
 `scripts/verify_groups_contract_id.sql`.
 
-### 20. Payment configuration grids — built empty, waiting on real numbers
+### 20. Payment configuration grids — six now, one seeded, five still empty
 
 **What it is:** the eleven payment-configuration tables (five versioned grids —
 `trainer_grade_versions`/`_rates`, `location_bonus_versions`/`_rates`,
@@ -535,18 +537,77 @@ a real financial-policy version into tables with no `UPDATE` grant, meaning
 cleanup would require a privileged `DELETE` — the exact habit this session
 has otherwise stopped doing to production data.
 
-**Blocked on:** Anca sending the six real grid amounts (trainer grade rates,
-location/language bonus percentages, duration multipliers, contract type
-uplift percentages) — nothing technical. The real end-to-end test is Laura
-entering the first version through the real form once that data arrives;
-that data is meant to stay, not be created-then-deleted as a verification
-step.
+**2026-09-02 update: a sixth grid, and a provenance column on
+`trainer_grade_assignments`, both added and live.**
+
+`trainer_grade_assignments.source` (`text not null check (source in
+('computed','manual'))`, no default — `202609020001`) records whether a
+grade came from the §12.2 workshop-count formula or was set deliberately by
+a person (Luiza Mirt's grade 3 on return being the first real case of the
+latter). Added while the table was empty specifically so `NOT NULL` cost
+nothing — no backfill decision to make. **It protects nothing today, on
+purpose, not by oversight:** no write path in this application consults it
+(nothing writes to this table at all yet), and no recalculation job exists
+that could read it to decide whether a computed row should be allowed to
+supersede a manual one. The column exists so that job, whenever it's built,
+has something to check before overwriting a deliberate human decision — the
+protection itself is that job's to implement, not this column's. Also
+established this round, argued not assumed: `app.resolve_trainer_grade()`
+should not become source-aware — its job is "what grade applies on date D,"
+identical regardless of origin; whether a computed row may supersede a
+manual one is a write-time policy question for whatever inserts new rows,
+not a read-time branch in a resolver whose entire six-function family does
+nothing but plain two-step lookups.
+
+`lesson_plan_rate_versions`/`lesson_plan_rates` (`202609020002`) is a sixth
+grid, for lesson-plan pay (§12.3) — deliberately not folded into
+`trainer_grades` as a seventh grade, matching §12.3's own explicit
+rejection of that shape. Chosen as a full versions/rates pair (matching the
+other five) over a single non-versioned value on §12.9's own stated
+reasoning: versioning was applied uniformly to all five original grids even
+without direct evidence any of them would change, on the argument that one
+mechanism remembered once is safer than several reasoned about
+individually. §12.3 rules out lesson-plan pay varying by trainer; it says
+nothing about the rate never varying by date — not enough to earn an
+exception to that same logic. **Unlike the other five, this one is not
+empty:** seeded with one version, `effective_date = 2024-01-01`, `rate =
+120`, `created_by = anca.tanasescu@gmail.com` — confirmed by Anca, the rate
+has been 120 lei net per plan since 2024 and has not changed. Dated
+2024-01-01 rather than the migration date deliberately: `resolve_lesson_plan_rate`
+raises for any date before the earliest version, so a version dated today
+would make every lesson plan written before today unresolvable once
+lesson-plan work itself can be recorded (see below) — dating it at the true
+effective date is what avoids that.
+
+**Still blocked on accounts, a different blocker than the six grid
+amounts:** the lesson-plan *work* itself (31 plans written 31.08.2026 —
+Răzvan Alexandru Bălașov 4, Raluca Popa 17, Teodora Merișan 10) has nowhere
+to be recorded — no table exists for it (see item 23 below) — and could not
+be recorded even if one did: none of Răzvan Bălașov, Raluca Popa, Teodora
+Merișan, or Luiza Mirt exist in `public.users`, and any such table's
+`trainer_id` would need to be `NOT NULL REFERENCES users(id)`, matching
+every other person-attached table in this schema. Same blocker, different
+angle, as item 22's finding on named team members. Happy Face awards and
+per-article writing (item 23 below) are blocked the same way, for the same
+underlying reason.
+
+**Blocked on:** Anca sending the five remaining real grid amounts (trainer
+grade rates, location/language bonus percentages, duration multipliers,
+contract type uplift percentages) — nothing technical. The lesson-plan rate
+is no longer blocked — it's seeded. The real end-to-end test for the
+remaining five is Laura entering the first version through the real form
+once that data arrives; that data is meant to stay, not be
+created-then-deleted as a verification step.
 **Lives in:** `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §12 (the whole
-payment-model chapter, §12.9 specifically for the versioning decision);
-`supabase/migrations/202608310001_sessions_location_language.sql` and
-`202608310002_payment_config_tables.sql`; `app/(app)/payment-config/`
-(`page.tsx`, `payment-config-client.tsx`, `actions.ts`, `i18n.ts`);
-`app/(app)/layout.tsx` (`canManagePaymentConfig`, the FINANȚE nav gate fix).
+payment-model chapter, §12.3 for lesson-plan pay, §12.9 specifically for the
+versioning decision); `supabase/migrations/202608310001_sessions_location_language.sql`,
+`202608310002_payment_config_tables.sql`, `202609020001_add_trainer_grade_assignments_source.sql`,
+`202609020002_lesson_plan_rate_tables.sql`; `app/(app)/payment-config/`
+(`page.tsx`, `payment-config-client.tsx`, `actions.ts`, `i18n.ts` — no UI
+section for either addition yet, matching `trainer_grade_assignments`'s own
+existing no-section precedent); `app/(app)/layout.tsx`
+(`canManagePaymentConfig`, the FINANȚE nav gate fix); item 22 and item 23
+below (the accounts blocker and the evaluation domain, respectively).
 
 ### 22. Five of seven named team members have no account at all
 
@@ -569,8 +630,74 @@ stale.**
 
 No fix proposed here — this entry is the gap, not a fix.
 
+**2026-09-02 addendum, unresolved, not this entry's to resolve:** `WOWLAB_SAD_Contracte_Trainer_Furnizor.md`'s Appendix A (the validated 25-June-2026 workshop-count baseline) names a **"Teodora Merișan"** (101 workshops) and a **"Raluca Popa"** (22 workshops) — plausibly the same people as this item's "Teo Merisan" and "Raluca Margean" under fuller first names and, for Raluca, a different surname entirely. Neither reading is confirmed by anything in this repo. Both are, independently of this item, still absent from `public.users` — see item 20's 2026-09-02 update and item 23 below.
+
 **Lives in:** `public.users`, `auth.users` (live data, checked this session); item 18 above
-(related finding, same underlying data).
+(related finding, same underlying data); `WOWLAB_SAD_Contracte_Trainer_Furnizor.md` Appendix A (the
+name-variant discrepancy above).
+
+### 23. Performance evaluation domain — read from the real workbook, nothing designed
+
+**What it is:** Anca's real Performance Criteria workbook was read this session — not the app, not
+a document already in this repo, not the mockup. **No design proposed against any of it** — this
+entry is the findings, recorded as given, per explicit instruction not to design this domain, which
+is blocked on Anca.
+
+**Happy Face bonuses come from a monthly criteria matrix, maintained by Cătălina.** Rows are
+criteria, columns are people, cells hold written justifications. Eight positive criteria, one
+compliance criterion, seven negative ones grouped under "SAD". Per the workbook's own legend: each
+criterion met earns one smiley per month; repeated negative behavior leads to a conversation with
+the manager, not an automatic penalty. No monthly total is ever negative.
+
+**The evaluation does not drive grade changes — checked directly, not inferred from a tab's name.**
+A tab named "compliance criteria for up/downgrading trainers" reads, by its name, like it should
+link criteria to grade movement. It holds something else entirely: monthly meeting attendance,
+training attendance, and an annual replacement rate. Nothing anywhere in the workbook ties a Happy
+Face criterion to a grade change — grade remains exactly the §12.2 workshop-count formula, or (as of
+item 20's 2026-09-02 update) a manual override, never this matrix. Consequence: `org_settings.
+evaluations_confidential` (OD-7) does not automatically apply to this matrix — it was not built for
+it. But the matrix does hold named, critical observations about real people, and whether its
+visibility should be restricted the same way, differently, or not at all **is Anca's decision,
+still open.** Not designed here.
+
+**Monthly totals are typed by hand, not computed from the criteria — confirmed against real data,
+not assumed from the mechanism's description.** May 2026: two people show a total of 500, a third
+shows 50. Of the two at 500, one has exactly one criterion marked, the other has none. The person at
+50 has one criterion marked. The total does not derive from a count of marked criteria by any
+visible rule. Separately, the compliance tab shows distinct "bonus SA" amounts — 100, 200, 300 —
+tied to Școala Altfel. Unexplained in the workbook itself; awaiting Anca.
+
+**Replacement rate is measured three separate ways, by three different mechanisms — whether that's
+one measure or three is open, not reconciled here.** (1) A monthly observation entered directly in
+the Happy Face matrix. (2) An annual statistic in the compliance tab — lessons delivered per year
+vs. replacements needed; two people currently exceed a 20% threshold there. (3) A compensation input
+at the same 20% threshold in `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md`. Whether these three
+are the same number tracked in three places, or three genuinely distinct measures that happen to
+share a name and a threshold, is a question for Anca — not resolved by inference here.
+
+**Lesson-plan writers have their own evaluation system, separate from the trainers' one.** The
+workbook's "LP WRITERS" tab carries its own positive criteria and its own "SAD" (negative) list,
+structurally parallel to but distinct from the trainers' matrix — a July 2025 total of 100 shown for
+four people. This is a **second evaluation domain**, entirely separate from the trainers' one, that
+nothing in this platform accounts for in any way today — no table, no capability, no mention
+anywhere prior to this entry.
+
+**~20 people in the Happy Face history are former collaborators, confirmed by Anca not being added
+to this platform.** Their history stays in Laura's spreadsheet and will not be imported — whenever
+Happy Face awards are built here, the application will hold awards only from that build date
+forward. Recording this explicitly because the alternative is someone mistaking it for data loss: a
+bonus report in the app will show no history before the feature's own build date, for real people
+who genuinely received real awards before then. That gap is a deliberate scope boundary confirmed by
+Anca, not evidence anything went missing.
+
+**Blocked on:** Anca — this domain has no confirmed design to build against on any of the six points
+above.
+**Lives in:** Anca's Performance Criteria workbook (not in this repo, not the mockup); `org_settings.
+evaluations_confidential` (OD-7, confirmed not automatically applicable here); `docs/
+WOWLAB_SAD_Contracte_Trainer_Furnizor.md` (the 20%-threshold compensation input, one of the three
+replacement-rate measurements above); item 20 above (grade-vs-evaluation independence, confirmed
+from both directions); item 22 above (the same people this domain is about, still without
+`public.users` rows).
 
 ---
 
