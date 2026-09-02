@@ -1,0 +1,51 @@
+-- 202609020001_add_trainer_grade_assignments_source.sql
+-- Records whether a trainer_grade_assignments row came from the workshop-
+-- count formula (§12.2) or was set deliberately by a person -- e.g. Luiza
+-- Mirt's grade 3 on return, a human decision with no formula behind it
+-- (§12.9: "gradul de start... e o decizie umană fără formulă în spate").
+-- Nothing in this table currently distinguishes the two; this column is
+-- the only thing that will, once real rows exist.
+--
+-- Follows an existing convention, not a new one: the exact shape already
+-- used four times in this table's own sibling migration (202608310002)
+-- -- location_tier, language_group, delivery_context, contract_type are
+-- all `text not null` plus a same-migration `CHECK (col in (...))`
+-- against a short literal list. Checked before writing this: no
+-- `source`/`origin`/`derived`/`method` column exists anywhere else in
+-- the schema. `users.status` is a small closed-vocabulary text column
+-- too, but deliberately not the precedent followed here -- it has no
+-- CHECK constraint at all and is already recorded in docs/OPEN_ITEMS.md
+-- as unmaintained and misleading, not a shape to repeat.
+--
+-- NOT NULL, no DEFAULT. The table is empty -- 0 rows, confirmed live
+-- before writing this migration, not assumed -- so a NOT NULL column
+-- costs nothing today: no existing row to backfill, no value to infer
+-- for one. This is also why it's being added now rather than later:
+-- once real rows exist, adding NOT NULL would force a backfill decision
+-- -- guessing 'computed' vs 'manual' for rows already written -- that
+-- this migration avoids entirely by running while there is nothing to
+-- guess about. No DEFAULT, matching this migration family's own stated
+-- discipline (202608310002: "Niciun câmp de grilă nu are valoare
+-- implicită") -- this value carries real meaning and should never be
+-- silently inferred at insert time.
+--
+-- Deliberately excluded from this migration: a companion
+-- computed_from_workshop_count column. It belongs with the recalculation
+-- job that would actually populate it -- adding it now, with no writer
+-- to attach it to, would be exactly the kind of unattached column this
+-- project's own discipline argues against elsewhere.
+--
+-- Does NOT change app.resolve_trainer_grade() -- deliberately, argued in
+-- docs/OPEN_ITEMS.md, not assumed. That function's job is "what grade
+-- applies on date D," identical regardless of a row's origin. Whether a
+-- computed row should ever be allowed to supersede a manual one is a
+-- write-time policy question for whatever eventually inserts new rows (a
+-- recalculation job, not built), not a read-time branch inside a
+-- resolver whose entire existing family -- all six -- does nothing but a
+-- plain two-step lookup with no embedded business logic. Verified by
+-- this migration's own dry run (scripts/verify_trainer_grade_assignments_source.sql):
+-- the function's definition is byte-identical before and after this ALTER.
+
+alter table public.trainer_grade_assignments
+  add column source text not null
+    check (source in ('computed', 'manual'));
