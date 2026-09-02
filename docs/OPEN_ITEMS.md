@@ -800,6 +800,28 @@ invite.html`; `app/login/page.tsx` (the banner, from `8d00681`).
 
 ---
 
+### 29. `displayName()` — the same rule, duplicated in five files, no shared module
+
+Confirmed live: `admin/users/admin-users-client.tsx`, `groups/page.tsx`, `groups/[id]/page.tsx`,
+`payment-config/page.tsx`, and now `profile/page.tsx` (this session, item e's fix) each carry their
+own local `displayName()`/equivalent. One rule, five independent copies: prefer
+`first_name`+`last_name`, fall back to `full_name`, skip the fallback if it looks like an email.
+The first four are byte-identical. The fifth necessarily differs in shape — it isn't producing one
+display string for read-only rendering, it's deriving two separate initial values for an editable
+form, and it feeds an unsplit `full_name` into the first-name field rather than a combined string
+into a label. Same rule, not the same function signature.
+
+**Not a defect, not urgent, not to be fixed under time pressure.** Recording as a refactor with an
+explicit trigger, not an open-ended someday: extract to one shared module the next time this rule
+changes, or the next time a sixth call site needs it — whichever comes first. Until then, five
+copies (four identical, one a variant) is the known, accepted state, not an oversight to clean up
+opportunistically.
+
+**Lives in:** `app/(app)/admin/users/admin-users-client.tsx`, `app/(app)/groups/page.tsx`,
+`app/(app)/groups/[id]/page.tsx`, `app/(app)/payment-config/page.tsx`, `app/(app)/profile/page.tsx`.
+
+---
+
 ## Masking rollout, remaining
 
 These three are already tracked in `docs/WOWLAB_SAD_Field_Masking.md` §2.5,
