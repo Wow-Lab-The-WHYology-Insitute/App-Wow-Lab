@@ -765,6 +765,41 @@ row, not a deliberate distinction — flagging, not correcting.
 
 ---
 
+### 28. One activation invite link failed and landed on `/login` — could not be reproduced
+
+Confirmed live this session: the first click of one of the six wow-lab-test-b trainer invite
+emails failed and landed on `/login` instead of activating the account. Investigated whether this
+means a real routing defect — specifically, whether failure can reach `/login` through a path other
+than `app/auth/callback/route.ts`, which is the only redirect site that sets
+`?error=auth-callback-failed` (the param the banner built in `8d00681` checks for;
+`lib/supabase/middleware.ts`'s own unauthenticated-request redirect carries `?next=<path>` instead,
+no error signal at all).
+
+The invite template (`supabase/templates/invite.html`) points directly at
+`{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=invite` — our own route, with the
+exact params it expects, not a Supabase-hosted intermediate URL. Reproduced every failure mode
+directly against it: an already-used token, a malformed token, and a request with no params at all
+all land on `/login?error=auth-callback-failed` and would show the banner. A real navigation
+(Playwright, not manually-injected cookies) through a valid, unused link also propagated the
+session cookie correctly and landed cleanly on `/profile`. **Could not reproduce a failure that
+reaches `/login` without the error signal.**
+
+Most likely cause, unconfirmed: a mail client or security gateway prefetching the single-use link
+and consuming the token before the human's actual click — common with Gmail and corporate link
+scanners, and these are real Gmail addresses. From the callback's point of view this is
+indistinguishable from any other already-used token, and per the reproduction above it still lands
+on the error-banner path, not a bare page. **Not a confirmed defect.** Worth noting operationally:
+this can plausibly happen to a real invitee's first click too, not just these fixtures, and the
+remedy in that case is simply to resend the invite — a second, fresh link works normally (fresh
+account, no fixture cleanup needed, per the reproduction above).
+
+**No fix proposed here** — do not act.
+
+**Lives in:** `app/auth/callback/route.ts`; `lib/supabase/middleware.ts`; `supabase/templates/
+invite.html`; `app/login/page.tsx` (the banner, from `8d00681`).
+
+---
+
 ## Masking rollout, remaining
 
 These three are already tracked in `docs/WOWLAB_SAD_Field_Masking.md` §2.5,
@@ -1099,6 +1134,21 @@ fix shape as `profile/page.tsx` got in bucket C (extract into small
 the three buckets and is a real scoping decision, not a mechanical
 follow-on.
 
+**2026-09-02 — observed live, not just inferred, for the first time:**
+activating one of the six wow-lab-test-b trainer fixtures via a real
+invite-link click landed on `/profile` rendered in English, despite the
+account belonging to a Romanian-context org. Confirmed cause matches this
+item exactly: `lib/i18n.tsx`'s `LocaleProvider` initializes with
+`useState<Locale>("en")` and only reads the persisted choice from
+`localStorage` in a post-mount `useEffect`. The switcher itself lives only
+on `/login` (a second, independent `LocaleProvider` instance sharing the
+same `wowlab.locale` key). Invite/magic-link activation goes
+`/auth/callback` → `/profile` directly and never visits `/login`, so the
+key is never written and `(app)`'s provider mounts with nothing to read —
+`"en"` stands. Same structural gap as the rest of this item, now confirmed
+on a real activation path rather than reasoned about in the abstract. No
+fix proposed here.
+
 ### 24. `/login` was outside `LocaleProvider` and showed no message on a failed magic link — RESOLVED
 
 **Correction on how this item started: there was never a prior entry stating `/login` sits
@@ -1180,6 +1230,14 @@ anywhere in the app, both display-only: the admin Members list badge
 (`app/(app)/admin/users/page.tsx`) and a diagnostic "Technical Details" panel on `/profile`
 (`app/(app)/profile/page.tsx`). `auth.users.last_sign_in_at` already holds the fact this column is
 trying to represent, correctly, for every account that has ever signed in.
+
+**2026-09-02 — confirmed again on day-one rows, not just historical ones.** All six
+wow-lab-test-b trainer fixtures seeded this session, activated via real invite links within
+minutes to hours of creation, show the identical pattern live: `auth.users.last_sign_in_at`
+populated for all six, `public.users.status` still reading `'invited'` for all six. This isn't a
+symptom that only shows up on old rows that predate some fix — a brand-new row, activated the
+same day it was created, drifts on its very first sign-in, immediately. Strengthens rather than
+changes the decision below.
 
 **Decision (2026-09-02): remove the column, derive instead.** Investigated what each of the two
 display sites actually needs (admin Members badge/button: purely binary, "is this account
