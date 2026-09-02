@@ -19,6 +19,8 @@ that date. "Migration history was missing
 the same date — also not part of the 2026-08-26 pass. Item 10 was resolved
 2026-09-02 across two rounds (a DB constraint + the create-path fix, then
 `markContractSigned`'s new optional date), both live-verified the same date.
+Item 14's `LOCALE_SWITCHER_ENABLED` claim was corrected and items 24-25
+added 2026-09-02, all freshly checked live that date.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -985,10 +987,18 @@ don't import from `lib/i18n`, not "roughly 15"
 (`app/(app)/admin/users/page.tsx`, both `clients/[id]/*-client.tsx` files,
 `clients/page.tsx`, `clients/[id]/page.tsx`, `contracts/[id]/*.tsx`,
 `contracts/page.tsx`, `contracts/term-bar.tsx`, `groups/[id]/*.tsx`,
-`groups/page.tsx`, `nav-link.tsx`, `profile/*.tsx`). `LOCALE_SWITCHER_ENABLED
-= false` confirmed in `lib/i18n.tsx`, with its own comment stating every
-existing page is hardcoded English — the flag and the reasoning both check
-out; only the count needed updating.
+`groups/page.tsx`, `nav-link.tsx`, `profile/*.tsx`). At the time this was
+written, `LOCALE_SWITCHER_ENABLED = false` was confirmed live in `lib/i18n.tsx`,
+with its own comment stating every existing page is hardcoded English.
+
+**2026-09-02 correction — that claim is now stale, not still true.**
+`LOCALE_SWITCHER_ENABLED` is `true`, confirmed live. `lib/i18n.tsx`'s own
+comment on the flag explains why: it was flipped on once "All 20 files with
+real hardcoded copy are translated now (verified live, RO walk across all 12
+routes, twice)" — a real event that happened after this item was first
+written, not an error in the original count. The switcher is genuinely live
+and user-facing today, not a designed-but-disabled feature — see item 24
+below, which found and closed the one real page still outside its reach.
 
 **Lives in:** `lib/i18n.tsx` line 30.
 
@@ -1028,6 +1038,65 @@ fix shape as `profile/page.tsx` got in bucket C (extract into small
 `client-info-header.tsx`) — not attempted here since it wasn't named in
 the three buckets and is a real scoping decision, not a mechanical
 follow-on.
+
+### 24. `/login` was outside `LocaleProvider` and showed no message on a failed magic link — RESOLVED
+
+**Correction on how this item started: there was never a prior entry stating `/login` sits
+outside `LocaleProvider`.** That was carried across several turns as an unverified assumption,
+not read from anywhere in this file — checked directly before writing this entry, not assumed
+again. What follows is what was actually found, investigated fresh, then fixed.
+
+**`/login` was structurally outside `LocaleProvider`, for two independent reasons, not one.**
+(1) Route-group structure: `app/login/` is a sibling of `app/(app)/`, never nested under it —
+`LocaleProvider` is mounted exactly once, in `app/(app)/layout.tsx`, and Next.js only applies a
+segment's layout to routes nested beneath it. (2) Even hypothetically ignoring (1): that same
+layout is an `async` Server Component that calls `redirect("/login")` for an unauthenticated
+visitor *before* its own `return (<LocaleProvider>...)` statement is ever reached — so an
+unauthenticated request would bounce out before the provider was constructed regardless.
+Confirmed live: `/login` rendered **hardcoded English, unconditionally** — zero imports from
+`lib/i18n` anywhere in `app/login/`. It did not attempt to read locale and fail, and it did not
+throw — `useLocale()`'s own `if (!ctx) throw new Error(...)` guard is real and would fire for any
+*other* page that called it outside the provider, but `/login` never called it at all, so that
+path was never exercised. Its old safety here was incidental, not structural.
+
+**Separately, and more urgent given timing: a failed magic link looked identical to a fresh
+page.** `/auth/callback` redirects to `/login?error=auth-callback-failed` on any failure —
+missing `token_hash`/`type`, or a real `verifyOtp` error (expired link, already-used link) both
+converge on this one value. Checked every `redirect("/login")` call site in the app (the
+callback, `app/(app)/layout.tsx`'s auth gate, `app/(app)/actions.ts`'s sign-out): this is the
+only error value the app ever emits when redirecting here, from the only place that emits one.
+`/login` ignored the param entirely — nothing distinguished a dead link from a first visit.
+
+**Both resolved, 2026-09-02, three commits.** `8d00681`: `/login/page.tsx` reads the `error`
+search param (Next 15 — awaited, not a hook) and renders a message when it's present, styled to
+match the app's existing `bg-brand-pink/10` error-banner convention. `4e982d6`: a second,
+independent `LocaleProvider` mounted around `/login`'s content (reads the same `wowlab.locale`
+`localStorage` key, so a returning user's stored preference already applies here for free);
+every hardcoded string — including the new callback-failure message and the server action's own
+error copy — moved into `app/login/i18n.ts`; a visible EN/RO switch added, reusing
+`components/ui/locale-switcher.tsx` unmodified rather than building a second one, gated behind
+the same `LOCALE_SWITCHER_ENABLED` flag every other page checks. The server action
+(`sendMagicLink`) now returns a stable `errorKey` instead of a hardcoded message string, since it
+runs server-side with no way to know the caller's locale — the client resolves the actual text,
+the same principle the payment-config resolvers already use for their own exception messages.
+Browser-verified before each commit, not assumed: the failure banner renders correctly and only
+on a failed callback; the switch changes every string (proper nouns and the example email address
+deliberately left untranslated, identical in both); the choice survives a full page reload; the
+failure banner itself correctly renders in Romanian too, once switched.
+
+**Lives in:** `app/login/page.tsx`, `login-content.tsx`, `login-form.tsx`, `actions.ts`,
+`i18n.ts`; `app/auth/callback/route.ts`; `components/ui/locale-switcher.tsx`; `lib/i18n.tsx`.
+
+### 25. No `error.tsx`, `not-found.tsx`, or `global-error.tsx` exists anywhere
+
+Checked directly: zero files of any of these three names anywhere under `app/`. Next.js's own
+unstyled, unbranded, English-only default boundaries apply across the entire application — an
+unhandled render error or a genuinely missing route shows the framework's generic page, not
+anything carrying this app's own visual identity or, now that item 24 is resolved, its locale
+system either. Found while investigating item 24's neighboring routes, not built, not urgent —
+recorded because it's real and easy to lose track of once the more pressing `/login` gaps closed.
+
+**Lives in:** `app/` (absence, not a file — checked via `find`, not inferred).
 
 ### 21. `users.status` is stored, unmaintained, and gates nothing
 

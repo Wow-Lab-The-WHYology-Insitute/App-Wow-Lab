@@ -3,7 +3,7 @@
 > Jurnal de progres al construcției. Actualizat pe măsură ce avansăm. Recomandat: ține-l în repo la `docs/progress.md`.
 > **Convenție de timp:** fiecare intrare poartă data/ora **Bucureștiului**. Cele scrise de Claude au ora luată din sistem la momentul scrierii; cele adăugate de tine — notează ora de atunci.
 
-**Ultima actualizare:** 2026-09-02 15:41 (ora București)
+**Ultima actualizare:** 2026-09-02 16:44 (ora București)
 
 **Unde suntem acum:** Phase 0 (WS-B) și WS-D (RLS) complete. **Phase 1** în curs: Clients & Contracts (C1 schemă/RLS + C2 UI) și Domeniul Operațional — Grupe & Sesiuni (G1 schemă/RLS + G2 UI) ambele construite, verificate live pe roluri reale, și în curs de merge pe `main` (intrarea #54 de mai jos). Detalii complete în intrările numerotate din secțiunea de jos a fișierului, nu în tabelul „Snapshot status" de mai jos (rămas ca istoric WS-B, nu mai e actualizat).
 
@@ -599,6 +599,24 @@ Commit-uri din această sesiune: `d8614bd` (construcția 1), `06eb9b7` (construc
 `docs/OPEN_ITEMS.md`: item 10 marcat REZOLVAT, cu toate cele trei runde, întrebarea deschisă despre data din viitor, și golul Opțiunii B consemnate explicit.
 
 Commit-uri din această rundă: `67c5c0b` (constrângere + reparație creare), plus commit-ul acestei intrări (Opțiunea A + `docs/OPEN_ITEMS.md`).
+
+---
+
+66. 2026-09-02, 16:44 (ora București) — `/login` reparat în două comitete separate: mesajul de eșec pe link expirat, apoi localizarea completă a paginii cu propriul `LocaleProvider` și un comutator EN/RO vizibil. Plus o corecție de precizie în `OPEN_ITEMS.md`: o presupunere purtată câteva runde fără sursă scrisă, verificată acum și înlocuită cu ce s-a găsit efectiv.
+
+**Corecție înainte de orice altceva.** Intrarea „`/login` e în afara `LocaleProvider`" nu exista nicăieri în `OPEN_ITEMS.md` ca linie scrisă — verificat direct, nu presupus a doua oară. Fusese purtată câteva runde ca o presupunere proprie, nesursată. Ce urmează e ce s-a găsit investigând de la zero, nu ce fusese „cunoscut" dinainte.
+
+**Commit 1 (`8d00681`) — mesajul de eșec pe link expirat.** `/auth/callback` redirecționează la `/login?error=auth-callback-failed` la orice eșec — `token_hash`/`type` lipsă, sau o eroare reală de la `verifyOtp` (link expirat, deja folosit) — ambele converg spre aceeași valoare unică. Verificat fiecare loc din aplicație care face `redirect("/login")` (callback-ul, garda de autentificare din `app/(app)/layout.tsx`, deconectarea din `app/(app)/actions.ts`): asta e singura valoare de eroare emisă vreodată, din singurul loc care emite una. `page.tsx` a rămas Server Component — citește `searchParams` (Next 15: promisiune, așteptată, nu hook) și randează un mesaj când parametrul e prezent, cu același stil `bg-brand-pink/10` deja folosit peste tot în aplicație pentru erori.
+
+**Commit 2 (`4e982d6`) — localizarea completă.** `/login` era în afara `LocaleProvider` din două motive independente, nu unul: (1) structura de rute — `app/login/` e frate cu `app/(app)/`, niciodată cuibărit sub el; `LocaleProvider` se montează o singură dată, în `app/(app)/layout.tsx`; (2) chiar și ipotetic ignorând (1) — acel layout face `redirect("/login")` pentru un vizitator neautentificat ÎNAINTE ca propriul `<LocaleProvider>` să fie construit. Randa engleză hardcodată necondiționat — zero importuri din `lib/i18n` — nu citea locale și pica, nu arunca nicio eroare (`useLocale()` chiar aruncă dacă e apelat în afara provider-ului, dar `/login` nu-l apela deloc).
+
+Reparat cu un al doilea `LocaleProvider`, independent, montat direct în jurul conținutului paginii — citește aceeași cheie `wowlab.locale` din `localStorage`, deci preferința unui utilizator care revine se aplică deja gratuit. Comutatorul EN/RO reutilizează exact `components/ui/locale-switcher.tsx`, nemodificat — deja generic, deja folosit pe `/contracts` — nu unul nou inventat, condiționat de același `LOCALE_SWITCHER_ENABLED` verificat peste tot. Fiecare șir hardcodat mutat în `app/login/i18n.ts`, inclusiv textul de eroare al acțiunii de server: `sendMagicLink` întoarce acum o cheie stabilă (`errorKey`), nu un mesaj — acțiunea rulează pe server și n-are cum să știe locale-ul apelantului; clientul (deja în interiorul provider-ului) rezolvă textul real, același principiu pe care rezolverele de configurare de plată îl folosesc deja pentru propriile mesaje `RAISE EXCEPTION`. „WOW LAB"/„WOW LAB OS" și adresa exemplu `you@wowlab.ro` au rămas literale, nu intrări în dicționar — nume proprii și un format exemplu, identice în ambele limbi, aceeași convenție ca „SmartBill/SAGA" în altă parte a aplicației. Fără citire `Accept-Language`, fără rezoluție de locale pe server — deliberat în afara scopului, exact decizia mai mare pe care item 14 o numește deja.
+
+**Verificat prin browser înainte de fiecare commit, nu presupus.** Comutatorul vizibil, engleză implicit la o vizită nouă; click pe RO traduce fiecare șir (placeholder-ul de email a rămas corect literal); un reload complet păstrează RO (`localStorage` funcționează pentru al doilea provider independent); bannerul de eșec de la commit-ul 1 se randează corect și în română, o dată comutat. Zero erori în consolă pe tot parcursul.
+
+**`docs/OPEN_ITEMS.md` corectat, nu doar completat.** `LOCALE_SWITCHER_ENABLED` era documentat ca `false` — e `true`, live, de când cele 20 de fișiere cu text hardcodat au fost traduse; corectat, nu doar adăugat pe lângă. Item nou 24: investigația reală despre `/login`, cele două motive structurale, comportamentul confirmat (engleză hardcodată, nicio aruncare), marcat REZOLVAT cu cele două commit-uri. Item nou 25: nu există `error.tsx`, `not-found.tsx`, sau `global-error.tsx` nicăieri în aplicație — găsit investigând vecinii lui `/login`, nu construit, nu urgent, dar real.
+
+Commit-uri din această rundă: `8d00681` (mesaj de eșec), `4e982d6` (localizare), plus commit-ul acestei intrări (`OPEN_ITEMS.md`).
 
 ---
 
