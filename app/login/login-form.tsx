@@ -2,6 +2,8 @@
 
 import { useActionState, useState } from "react";
 import { Turnstile } from "@marsidev/react-turnstile";
+import { useTranslations } from "@/lib/i18n";
+import { loginDict } from "./i18n";
 import { sendMagicLink, type SendMagicLinkState } from "./actions";
 
 const initialState: SendMagicLinkState = { status: "idle" };
@@ -26,6 +28,7 @@ function renderWithMailtoLink(message: string) {
 }
 
 export function LoginForm() {
+  const t = useTranslations(loginDict);
   const [state, formAction, isPending] = useActionState(
     sendMagicLink,
     initialState,
@@ -35,7 +38,7 @@ export function LoginForm() {
   if (state.status === "sent") {
     return (
       <p className="font-body text-ink rounded-xl bg-brand-pink/10 px-4 py-3 text-center text-sm">
-        Check your email for a sign-in link.
+        {t("sent_message")}
       </p>
     );
   }
@@ -47,7 +50,7 @@ export function LoginForm() {
           htmlFor="email"
           className="font-body text-ink text-sm font-medium"
         >
-          Email
+          {t("email_label")}
         </label>
         <input
           id="email"
@@ -62,7 +65,9 @@ export function LoginForm() {
 
       {state.status === "error" && (
         <p className="font-body text-ink rounded-lg bg-brand-pink/10 px-3 py-2 text-sm">
-          {renderWithMailtoLink(state.message ?? "")}
+          {renderWithMailtoLink(
+            t(state.errorKey === "missing_email" ? "error_missing_email" : "error_send_failed"),
+          )}
         </p>
       )}
 
@@ -80,7 +85,7 @@ export function LoginForm() {
         disabled={isPending || !captchaToken}
         className="font-body mt-1 rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-6 py-3.5 text-sm font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
       >
-        {isPending ? "Sending…" : "Send magic link"}
+        {isPending ? t("sending") : t("submit")}
       </button>
     </form>
   );

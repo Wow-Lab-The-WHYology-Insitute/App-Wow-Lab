@@ -2,9 +2,16 @@
 
 import { createClient } from "@/lib/supabase/server";
 
+// errorKey, not a message string -- this action runs server-side and has
+// no way to know the caller's locale (it's client-only state, see
+// lib/i18n.tsx); the client resolves the actual text via loginDict
+// (app/login/i18n.ts), the same way login-form.tsx already renders
+// every other string on this page.
+export type SendMagicLinkErrorKey = "missing_email" | "send_failed";
+
 export type SendMagicLinkState = {
   status: "idle" | "sent" | "error";
-  message?: string;
+  errorKey?: SendMagicLinkErrorKey;
 };
 
 export async function sendMagicLink(
@@ -15,7 +22,7 @@ export async function sendMagicLink(
   const captchaToken = String(formData.get("captchaToken") ?? "");
 
   if (!email) {
-    return { status: "error", message: "Enter an email address." };
+    return { status: "error", errorKey: "missing_email" };
   }
 
   const supabase = await createClient();
@@ -34,11 +41,7 @@ export async function sendMagicLink(
 
   if (error) {
     // Deliberately generic: don't reveal whether an email is invited.
-    return {
-      status: "error",
-      message:
-        "Couldn't send a link. Check the address and try again or contact us at info@wowlab.ro.",
-    };
+    return { status: "error", errorKey: "send_failed" };
   }
 
   return { status: "sent" };
