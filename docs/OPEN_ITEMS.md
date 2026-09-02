@@ -705,6 +705,66 @@ from both directions); item 22 above (the same people this domain is about, stil
 
 ---
 
+### 26. No current-organization concept — a real gap, never exercised
+
+Confirmed live this session (wow-lab-test-b investigation). There is no "current org" anywhere in
+the session — no column, no cookie, no URL segment. `/clients`, `/contracts`, and `/groups` each
+independently loop over the caller's `user_org_roles` memberships with a first-match-wins pattern
+(`for (const m of memberships) { if (capability check) { targetOrg = m.organization_id; break } }`),
+used for exactly one thing: picking which single org a "+ New X" **create** action targets. The
+**read** queries on all three pages carry no explicit `.eq("organization_id", …)` filter at all —
+they rely entirely on RLS, which is itself correctly per-row org-scoped (every policy branch
+evaluates `app.has_capability(key, organization_id)` against each row's own `organization_id`, not
+globally — confirmed by reading the live policy SQL in `202608100003`, not assumed from the
+"unsegmented" wording in a code comment, which turned out to refer to client_type segmentation for
+finance roles, not cross-org leakage).
+
+The consequence: if a user ever holds membership in **two** organizations, their `/clients`,
+`/contracts`, and `/groups` pages would show both orgs' rows merged into one flat list with no
+per-row org indicator anywhere in the UI. This is a real, exercisable gap, not a hypothetical — it
+has simply never been hit, because no user in this project has ever had multi-org membership. The
+`platform.org_switcher.use` capability is seeded into the roles/capabilities system for exactly this
+scenario but has no UI behind it anywhere (grepped the whole app for `org_switcher`; zero matches).
+
+The six trainer accounts seeded into wow-lab-test-b this session (item below, `4c182a8`) are
+deliberately single-org, asserted live after seeding — so this gap still isn't exercised. It would
+be exercised the moment any user is given membership in both wow-lab and wow-lab-test-b, or in any
+future second production org.
+
+**No fix proposed here** — reporting the gap, not designing a current-org mechanism.
+
+**Lives in:** `app/(app)/clients/page.tsx`, `app/(app)/contracts/page.tsx`, `app/(app)/groups/page.tsx`
+(the first-match-wins `createOrgId` loops, and the unfiltered list queries); `app/(app)/layout.tsx`
+(`canManageUsers`, the same first-match-wins shape for nav visibility); `supabase/migrations/
+202608100003_add_clients_contracts_rls_policies.sql` (the actual per-row org-scoping that makes this
+safe today).
+
+---
+
+### 27. `test+platform@wowlab.dev` — sole platform-owner account, `is_test_account` wrong
+
+Confirmed live this session. Exactly one user holds `is_platform_owner = true`:
+`test+platform@wowlab.dev` (`status: active`). `app.is_platform_owner()` is a deliberate,
+by-design cross-org RLS bypass (`SECURITY DEFINER`, convention #3 — see `202607090001`) — not a bug
+in itself. But it means that once wow-lab-test-b holds any data (as of this session it does, six
+trainer accounts, item 26's seeding), this account's session sees wow-lab-test-b's rows mixed into
+its view of wow-lab production `/clients`, `/contracts`, `/groups`. This is a pre-existing condition
+of the bypass's own design, made visible for the first time by this session's seeding — not caused
+by it, and not a new mechanism.
+
+Separately: this account's `is_test_account` column reads `false`, despite the `test+` email prefix
+matching every other SQL-impersonation fixture in the project (`test+catalina@wowlab.dev`,
+`test+user-b@wowlab.dev`, etc., all of which read `true`). Looks like a data-entry gap on this one
+row, not a deliberate distinction — flagging, not correcting.
+
+**No fix proposed here** — do not act.
+
+**Lives in:** `public.users.is_platform_owner` / `public.users.is_test_account` (data, not schema);
+`supabase/migrations/202607090001_create_app_schema_rls_helper_functions.sql`
+(`app.is_platform_owner()`).
+
+---
+
 ## Masking rollout, remaining
 
 These three are already tracked in `docs/WOWLAB_SAD_Field_Masking.md` §2.5,
@@ -1121,8 +1181,36 @@ anywhere in the app, both display-only: the admin Members list badge
 (`app/(app)/profile/page.tsx`). `auth.users.last_sign_in_at` already holds the fact this column is
 trying to represent, correctly, for every account that has ever signed in.
 
-**Open question is whether the column should exist at all, not how to fix it** — no fix proposed
-here.
+**Decision (2026-09-02): remove the column, derive instead.** Investigated what each of the two
+display sites actually needs (admin Members badge/button: purely binary, "is this account
+currently banned" — the tone/button-label logic only ever checks `status === "disabled"`; the
+3-way label text and filter dropdown are the only place the wider `invited`/`active`/`disabled`
+value leaks through, and that value is already the thing confirmed wrong above. `/profile`
+Technical Details: a raw debug-panel display, no branching on it at all) against what `auth.users`
+already tracks. Two separate needs, two separate answers, both already correct in `auth.users` at
+zero incremental cost:
+
+- The ban state: `disableAccess`/`enableAccess` already call Supabase Auth's native ban mechanism
+  (`admin.auth.admin.updateUserById(id, { ban_duration: "876000h" | "none" })`) *before* writing
+  `users.status` — confirmed by reading both functions. The app's own code comment identifies the
+  real enforcement point: `getUser()` (not `getSession()`) revalidates against the Auth server on
+  every request, so a banned user's next request anywhere is rejected. `banned_until` is the
+  authoritative record; `users.status` is a redundant mirror of it.
+- The active-vs-invited distinction: `auth.users.last_sign_in_at` answers this exactly and cannot
+  drift, because Auth sets it as a side effect of the sign-in event it describes, not as a second
+  write someone has to remember to make. `users.status` answers it wrong today, for 9 of 11 real
+  users, precisely because no code path ever performs that second write.
+
+Trigger for the decision: keeping the column *without* building the missing maintenance (the
+option this item originally left open) just keeps drifting — it already has, for 9 of 11 real
+users, in this project's ~2-month life. Deriving is less code than maintaining, not more, once
+`auth.users` already holds both facts correctly.
+
+**Not being done now:** the admin Members list reads this for N rows in one page load, so removing
+the stored column requires a batched read against `auth.users` (a `SECURITY DEFINER` function
+taking an array of ids, matching the existing `app.is_platform_owner()` convention, or a
+service-role `listUsers()` join) — that batching belongs with that screen's next rework, not ahead
+of it. `/profile`'s single-row case is trivial either way and isn't the blocker.
 
 **Lives in:** `supabase/migrations/202607130004_add_auth_support_functions.sql`
 (`handle_new_auth_user`); `app/(app)/admin/users/actions.ts` (`enableAccess`, `disableAccess`);
