@@ -46,9 +46,35 @@ export default async function ProfilePage() {
   // docs/WOWLAB_SAD_Field_Masking.md §2.3 step 2.
   const { data: ownProfile } = await supabase
     .from("users_masked")
-    .select("email, is_platform_owner, status, first_name, last_name, phone, avatar_url")
+    .select(
+      "email, is_platform_owner, status, first_name, last_name, full_name, phone, avatar_url",
+    )
     .eq("id", user.id)
     .maybeSingle();
+
+  // handle_new_auth_user() writes full_name from invite metadata but never
+  // touches first_name/last_name (confirmed by reading it live — it isn't
+  // in the INSERT's column list at all), so a freshly-invited account
+  // reaches here with a real name in full_name and both structured columns
+  // still null. admin/users, groups, groups/[id] and payment-config all
+  // already fall back to full_name for READ-ONLY display in exactly this
+  // case (each with its own local displayName() — duplicated four times,
+  // not shared). This form is edit-only, not read-only, so the same
+  // fallback can't split full_name into the two inputs below: which word
+  // is the first name and which is the last is a guess this app has no
+  // basis for, and the admin invite form already offers first/last as an
+  // explicit optional step at invite time — guessing here would silently
+  // second-guess that. Instead, when both columns are null, the whole
+  // full_name goes into the first-name field, unsplit, exactly as the
+  // other four pages would render it as one atomic string — still
+  // editable, still no split invented. Same email-looking-value guard
+  // those four use, so a pre-202608200003 row whose full_name is a raw
+  // email never lands in the fields either.
+  const bothNamesUnset = !ownProfile?.first_name && !ownProfile?.last_name;
+  const fullNameFallback =
+    bothNamesUnset && ownProfile?.full_name && !ownProfile.full_name.includes("@")
+      ? ownProfile.full_name
+      : null;
 
   // avatar_url is a Storage PATH in the private `avatars` bucket, never a
   // public URL — resolved to a short-lived signed URL here, through this
@@ -204,7 +230,7 @@ export default async function ProfilePage() {
 
       <ProfileSection
         email={ownProfile?.email ?? user.email ?? ""}
-        initialFirstName={ownProfile?.first_name ?? null}
+        initialFirstName={ownProfile?.first_name ?? fullNameFallback}
         initialLastName={ownProfile?.last_name ?? null}
         initialPhone={ownProfile?.phone ?? null}
         initialAvatarUrl={signedAvatarUrl}
