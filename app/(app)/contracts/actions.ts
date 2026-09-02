@@ -28,7 +28,6 @@ export async function addContract(
   periodStart: string,
   periodEnd: string,
   billingRule: string,
-  signedDate: string,
   estimatedValue: string,
   previousYearValue: string,
 ): Promise<ActionResult> {
@@ -52,7 +51,12 @@ export async function addContract(
       period_start: periodStart || null,
       period_end: periodEnd || null,
       billing_rule: billingRule.trim() || null,
-      signed_date: signedDate || null,
+      // No signed_date here, deliberately -- status is hardcoded to
+      // 'draft' immediately below, and there is no legitimate value this
+      // field could hold on a contract that has just been created and
+      // not yet marked signed. markContractSigned is the only path that
+      // ever sets signed_date (see contracts_signed_date_status_check,
+      // 202609020003).
       estimated_value: estimatedValue.trim() ? Number(estimatedValue) : null,
       previous_year_value: previousYearValue.trim() ? Number(previousYearValue) : null,
       status: "draft",

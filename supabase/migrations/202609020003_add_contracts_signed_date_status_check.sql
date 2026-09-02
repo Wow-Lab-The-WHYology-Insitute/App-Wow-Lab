@@ -1,0 +1,43 @@
+-- 202609020003_add_contracts_signed_date_status_check.sql
+-- Closes item 10 in docs/OPEN_ITEMS.md: `addContract` accepted a
+-- signed_date on a contract it forces to status 'draft' -- a signing
+-- date on something not signed, reachable through the real "New
+-- Contract" form's labeled "Signed Date" field, not just via a direct
+-- action call. Confirmed live before writing this: 0 rows in
+-- `contracts` today (post-purge), so this needs no backfill decision --
+-- there is nothing that could already violate it. That window closes
+-- the moment real contracts arrive; adding it now, while it costs
+-- nothing, is deliberate.
+--
+-- Single-row invariant, not a transition -- this is what makes a CHECK
+-- able to express it completely, unlike markContractSigned's own guard
+-- (`current.status !== "draft" && current.status !== "sent"`), which
+-- needs the OLD status to judge a transition and could never live in a
+-- CHECK. This constraint only ever looks at one row's own two columns.
+--
+-- Not established anywhere in the SAD before this migration -- checked,
+-- not assumed: `signed_date`'s only prior documented meaning
+-- (202608110001) is its relationship to period_start, not to status.
+-- The rule below is the natural reading of "the date it was actually
+-- signed" against the status enum's own lifecycle (draft -> sent ->
+-- signed -> expired/renewed) -- expired and renewed are only reachable
+-- by having been signed first, so both may carry the signed_date that
+-- transition set, same as signed itself. draft and sent cannot have
+-- happened yet.
+--
+-- Enforced everywhere a row can be written, not only through the app
+-- code paths that happen to check today -- deliberately, given how many
+-- times this session found something bypassing the normal app path
+-- entirely (ad-hoc db query writes, the migration-history gap, service-
+-- role scripts) with nothing else catching it.
+--
+-- Paired with, not a replacement for, removing signed_date from
+-- addContract entirely (same round) -- the constraint alone would have
+-- turned a silently-ignored field into a raw 23514 on a labeled,
+-- legitimate-looking form field. Both together: the field no longer
+-- exists on create, and nothing anywhere can insert the bad combination
+-- even if it tried.
+
+alter table public.contracts
+  add constraint contracts_signed_date_status_check
+    check (signed_date is null or status in ('signed', 'expired', 'renewed'));

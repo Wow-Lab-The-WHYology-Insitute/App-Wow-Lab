@@ -522,7 +522,6 @@ export function ContractsClient({
                 start,
                 end,
                 rule,
-                signedDate,
                 estimatedValue,
                 previousYearValue,
               ) => {
@@ -538,7 +537,6 @@ export function ContractsClient({
                     start,
                     end,
                     rule,
-                    signedDate,
                     estimatedValue,
                     previousYearValue,
                   );
@@ -799,7 +797,6 @@ function NewContractForm({
     start: string,
     end: string,
     rule: string,
-    signedDate: string,
     estimatedValue: string,
     previousYearValue: string,
   ) => void;
@@ -812,7 +809,6 @@ function NewContractForm({
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [rule, setRule] = useState("");
-  const [signedDate, setSignedDate] = useState("");
   const [estimatedValue, setEstimatedValue] = useState("");
   const [previousYearValue, setPreviousYearValue] = useState("");
 
@@ -896,15 +892,6 @@ function NewContractForm({
           placeholder={t("billing_rule_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
         />
-        <label className="font-body text-muted flex flex-col gap-1 text-xs">
-          {t("signed_date_label")}
-          <input
-            type="date"
-            value={signedDate}
-            onChange={(e) => setSignedDate(e.target.value)}
-            className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
-          />
-        </label>
         <input
           type="number"
           step="0.01"
@@ -935,7 +922,6 @@ function NewContractForm({
             start,
             end,
             rule,
-            signedDate,
             estimatedValue,
             previousYearValue,
           )

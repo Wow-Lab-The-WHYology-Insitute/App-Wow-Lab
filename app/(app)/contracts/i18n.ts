@@ -100,7 +100,6 @@ export const contractsDict: Dictionary = {
     en: "Billing rule (e.g. 95 lei/child/session)",
     ro: "Regulă de facturare (ex. 95 lei/copil/ședință)",
   },
-  signed_date_label: { en: "Signed Date", ro: "Data semnării" },
   estimated_value_placeholder: { en: "Estimated value (optional)", ro: "Valoare estimată (opțional)" },
   previous_year_value_placeholder: { en: "Previous year value (optional)", ro: "Valoare an anterior (opțional)" },
   create_contract: { en: "Create contract", ro: "Creează contractul" },
