@@ -84,16 +84,17 @@ export async function addContract(
 
 export async function markContractSigned(
   contractId: string,
+  signedDate?: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = await createClient();
 
-  // Read current status/signed_date first, under the caller's own session
-  // (RLS still applies) — this is what lets us tell "not visible to you /
-  // doesn't exist" apart from "visible, but the wrong status" below,
-  // rather than collapsing both into one ambiguous 0-rows-affected error.
+  // Read current status first, under the caller's own session (RLS still
+  // applies) — this is what lets us tell "not visible to you / doesn't
+  // exist" apart from "visible, but the wrong status" below, rather than
+  // collapsing both into one ambiguous 0-rows-affected error.
   const { data: current } = await supabase
     .from("contracts")
-    .select("status, signed_date")
+    .select("status")
     .eq("id", contractId)
     .maybeSingle();
 
@@ -111,17 +112,24 @@ export async function markContractSigned(
     };
   }
 
-  // signed_date: only set if it isn't already there — addContract lets a
-  // date be backdated at creation time, and that value must win over
-  // "today" if it's already set.
-  const signedDate = current.signed_date ?? new Date().toISOString().slice(0, 10);
+  // signed_date: the caller's value if supplied (a real, possibly past,
+  // signing date — the "14 schools arrive with contracts already signed"
+  // case), else today. There used to be a third source here — "preserve
+  // current.signed_date if it's already set" — removed, not left in:
+  // it's provably dead now, not just unused today. We already know
+  // current.status is 'draft' or 'sent' at this point (the check above
+  // passed), and contracts_signed_date_status_check (202609020003)
+  // guarantees signed_date IS NULL whenever status is draft/sent — so
+  // current.signed_date could only ever have been null here, enforced by
+  // the database, not by which code paths happen to exist today.
+  const resolvedSignedDate = signedDate || new Date().toISOString().slice(0, 10);
 
   // .in("status", [...]) here is defense against a race: the read above
   // and this write aren't atomic, so if the status changed between them
   // (e.g. two tabs), this still won't move anything but a draft/sent row.
   const { data, error } = await supabase
     .from("contracts")
-    .update({ status: "signed", signed_date: signedDate })
+    .update({ status: "signed", signed_date: resolvedSignedDate })
     .eq("id", contractId)
     .in("status", ["draft", "sent"])
     .select("id");

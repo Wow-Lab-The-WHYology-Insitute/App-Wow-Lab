@@ -83,6 +83,8 @@ export const contractsDict: Dictionary = {
   edit: { en: "Edit", ro: "Editează" },
 
   mark_as_signed: { en: "Mark as signed", ro: "Marchează ca semnat" },
+  mark_signed_date_label: { en: "Signed on", ro: "Semnat pe" },
+  confirm_mark_signed: { en: "Confirm signed", ro: "Confirmă semnarea" },
   delete_draft: { en: "Delete draft", ro: "Șterge ciorna" },
   delete_confirm_prefix: { en: "Delete ", ro: "Șterge " },
   delete_confirm_suffix: { en: "? This cannot be undone.", ro: "? Nu poate fi anulat." },

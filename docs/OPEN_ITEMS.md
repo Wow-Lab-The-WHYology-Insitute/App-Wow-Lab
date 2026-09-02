@@ -16,7 +16,9 @@ not carried over from the 2026-08-26 pass. Item 20 was updated and item 23
 added 2026-09-02, both freshly checked live/against the real workbook as of
 that date. "Migration history was missing
 3 applied migrations" was found, repaired, and its fix proven end-to-end
-the same date — also not part of the 2026-08-26 pass.
+the same date — also not part of the 2026-08-26 pass. Item 10 was resolved
+2026-09-02 across two rounds (a DB constraint + the create-path fix, then
+`markContractSigned`'s new optional date), both live-verified the same date.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -869,18 +871,73 @@ currently seeds these two roles differently).
 
 ## Small fixes
 
-### 10. `addContract` accepts `signed_date` on a contract forced to draft
+### 10. `addContract` accepted `signed_date` on a contract forced to draft — RESOLVED
 
-Confirmed live and reachable through the real UI: the "New Contract" form
-(`app/(app)/contracts/contracts-client.tsx`, `signed_date_label` input) sends
-a `signedDate` value through to `addContract`, which inserts it as-is while
-hardcoding `status: "draft"`. No CHECK constraint on `contracts` ties
-`signed_date` to `status` (confirmed via `pg_constraint`). A contract can be
-created as a draft that already carries a signed date. Currently latent:
-zero rows in production have this combination today.
+**Closed across two rounds, 2026-09-02.** Round 1 (`67c5c0b`): a DB-level constraint
+(`contracts_signed_date_status_check`, `202609020003` — `signed_date is null or status
+in ('signed','expired','renewed')`) plus removing `signed_date` entirely from
+`addContract` — the parameter, the insert key, and the "Signed Date" form field. Not
+validation, a deletion: `status` is hardcoded to `'draft'` on every create, so there was
+never a legitimate value that field could hold there. Both landed together, deliberately
+— the constraint alone would have turned a silently-ignored field into a raw `23514` on
+a labeled, legitimate-looking form field; the create-path fix alone would have protected
+only the one call site that remembers, not `updateContract`, not a future write path, not
+a direct/service-role write.
 
-**Lives in:** `app/(app)/contracts/actions.ts` (`addContract`);
-`app/(app)/contracts/contracts-client.tsx` (the form field).
+Round 2 (this entry's own commit): `markContractSigned` now takes an optional
+`signedDate`, precedence caller-value-else-today. The `current.signed_date` fallback
+branch it used to have was removed, not left in — confirmed **provably** dead, not just
+empirically unused: by the time that line was reached, `current.status` is already known
+to be `'draft'` or `'sent'` (the guard above it already passed), and the new CHECK
+constraint guarantees `signed_date IS NULL` whenever status is one of those two — so
+`current.signed_date` could never have been anything else, enforced by the database, not
+by which code paths happen to exist today. `MarkSignedButton` became a small inline
+form (date input defaulting to today, editable), matching `DeleteContractButton`'s
+existing trigger-then-confirm-pill shape on the same page — the local precedent
+consulted before writing it, not a new pattern. Browser-verified with a real session:
+backdated date (`2024-03-15`) stored exactly; date field cleared and submitted stored
+today's date (`current_date`, confirmed matching); `row_history` recorded both changes
+with a real `actor_user_id` (`ecebf92b…`, resolves to `test+ui-contract-admin@wowlab.dev`
+— not null, not a service-role artifact); the transition guard re-confirmed live —
+attempting the exact `UPDATE ... WHERE status IN ('draft','sent')` shape against an
+already-signed row affected 0 rows. Fixture rows cleaned up after; `contracts` and
+`clients` confirmed back to 0.
+
+**Open question, reported not decided: should a future `signed_date` be rejected?** A
+contract signed tomorrow isn't signed. No validation of this exists anywhere in this
+change — the date input has no `max` attribute, `markContractSigned` doesn't compare the
+supplied date to today, and no CHECK constraint expresses it. The case for enforcing it:
+"signed in the future" is nonsensical the same way "signed while still a draft" was —
+arguably the identical class of defect this whole item just closed, just on the other
+side of the date. The case for leaving it alone: unlike draft-vs-signed (a closed,
+five-value enum with an unambiguous CHECK), "future" is relative to `now()`, which a
+plain `CHECK` cannot express in Postgres (CHECK expressions must be immutable — `now()`
+isn't) — enforcing it at the DB level needs a trigger, a materially heavier mechanism
+than the single-row `CHECK` that closed the rest of this item cheaply. It could live
+client-side (a `max` on the date input — cheap, but skippable, same as any client-only
+validation), in the action (`signedDate > today` rejected before the UPDATE — matches
+this codebase's own precedent of business-rule checks living in the action layer, e.g.
+`markContractSigned`'s own status-transition guard), or via a trigger (the only DB-level
+option, and the first trigger this codebase would write for a business-rule check rather
+than audit capture — a genuinely bigger step than a CHECK). No proposal made here on
+purpose — this is the reasoning, not a decision.
+
+**Remaining gap, not built, real the day someone enters a wrong date:** `signed_date` can
+now be *set* at the moment of signing, but still cannot be *corrected* afterward —
+`updateContract`'s payload never includes `signed_date` (confirmed, unchanged by either
+round). This is Option B from the investigation that preceded this fix (adding
+`signed_date` to the edit form, gated to `FROZEN_STATUSES` — `["signed","expired","renewed"]`,
+already defined in `contract-detail-client.tsx` and, not coincidentally, identical to the
+CHECK's own permitted set). Not built because the concrete near-term need (the 14 schools
+arriving with contracts already signed in the past) is served by Option A alone — but a
+fat-fingered date typed into the new inline form has no way back today except a direct
+database write.
+
+**Lives in:** `app/(app)/contracts/actions.ts` (`addContract`, `markContractSigned`);
+`app/(app)/contracts/[id]/mark-signed-button.tsx`;
+`app/(app)/contracts/contracts-client.tsx`;
+`app/(app)/contracts/[id]/contract-detail-client.tsx` (`FROZEN_STATUSES`, the Option B gap);
+`supabase/migrations/202609020003_add_contracts_signed_date_status_check.sql`.
 
 ### 11. Catalina's account cannot authenticate
 
