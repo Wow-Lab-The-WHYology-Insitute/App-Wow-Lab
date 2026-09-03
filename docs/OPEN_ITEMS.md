@@ -20,7 +20,9 @@ the same date — also not part of the 2026-08-26 pass. Item 10 was resolved
 2026-09-02 across two rounds (a DB constraint + the create-path fix, then
 `markContractSigned`'s new optional date), both live-verified the same date.
 Item 14's `LOCALE_SWITCHER_ENABLED` claim was corrected and items 24-25
-added 2026-09-02, all freshly checked live that date.
+added 2026-09-02, all freshly checked live that date. Item 22 got a second
+addendum and item 30 was added 2026-09-03, both freshly checked live that
+date.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -636,9 +638,49 @@ No fix proposed here — this entry is the gap, not a fix.
 
 **2026-09-02 addendum, unresolved, not this entry's to resolve:** `WOWLAB_SAD_Contracte_Trainer_Furnizor.md`'s Appendix A (the validated 25-June-2026 workshop-count baseline) names a **"Teodora Merișan"** (101 workshops) and a **"Raluca Popa"** (22 workshops) — plausibly the same people as this item's "Teo Merisan" and "Raluca Margean" under fuller first names and, for Raluca, a different surname entirely. Neither reading is confirmed by anything in this repo. Both are, independently of this item, still absent from `public.users` — see item 20's 2026-09-02 update and item 23 below.
 
-**Lives in:** `public.users`, `auth.users` (live data, checked this session); item 18 above
+**2026-09-03 addendum — the gap substantially closed, one open thread inside it.** Eight real
+accounts created (`scripts/create_eight_real_wow_lab_accounts.ts`), in `wow-lab` only, no
+invitations sent: Cătălina Trușan (`catalina_moale@yahoo.com` — a separate account from the
+`test+catalina@wowlab.dev` fixture, which is untouched, kept deliberately for impersonation
+testing), Laura Moale, Alexandra Nuțu, Teodora Merișan, Răzvan Alexandru Bălașov, Raluca Popa,
+Luiza Mirt — all with roles assigned — and Raluca Margean, account created with **no role**
+(see below). This operationally settles the 2026-09-02 addendum's open naming question: Mihai's
+own account list treats "Raluca Popa" and "Raluca Margean" as two distinct people, provisioned as
+two separate accounts — not an Anca-confirmed fact, but no longer an open ambiguity for this
+repo's data.
+
+Roles: Cătălina got `operations_manager`+`curriculum_manager`+`evaluator`, matching her existing
+fixture's live role set exactly (not inferred — read directly from `user_org_roles`). Laura got
+`finance_operations` (directly confirmed, progress.md line 480). Răzvan, Raluca Popa, and Luiza
+Mirt got `trainer` (confirmed via Appendix A / the grade-assignments source column's own "Mirt's
+grade 3 on return" comment, migration `202609020001`). **Two role grants are inferred, not
+sourced, and need Anca's confirmation:** Alexandra Nuțu's `trainer` (inferred from progress.md's
+"hibrizi trainer+admin" line naming her alongside Cătălina/Teodora, plus her 89-workshop Appendix A
+count — nothing states this as a role directly) and Teodora's `inventory_custodian` (nothing in
+any doc assigns her this specific admin role; only that she does some kind of admin work).
+**Raluca Margean got no role at all** — the original "trainer" proposal was directly contradicted
+by progress.md's "echipa admin-only" grouping (with Laura/Anka, neither a trainer) and by her
+absence from Appendix A's trainer roster entirely, and no confirmed alternative role exists;
+Mihai's explicit instruction was to create the account and leave the role pending Anca.
+
+No invitations sent to any of the eight — created via `admin.auth.admin.createUser()`
+specifically to avoid `inviteUserByEmail()`'s automatic email. Consequence found, not yet fixed as
+of this addendum: the existing admin "Invite" button (`inviteUser()` in
+`app/(app)/admin/users/actions.ts`) calls `inviteUserByEmail`, which fails with "already
+registered" on all eight now that the accounts exist — sending their real invitations needs a
+different mechanism.
+
+**A verification bug, worth recording as a general lesson, not just a fixed mistake.** The first
+live assertion pass hardcoded "one `user_org_roles` row per person" and failed — not because of
+bad data, but because Cătălina legitimately holds three role rows in the one org. An assertion
+that silently encodes an unstated assumption (here: one role per person) fails on *correct* data
+that violates the assumption, not on a real defect. Fixed in the same script to assert org
+membership (one org, or zero for Raluca Margean) rather than row count.
+
+**Lives in:** `public.users`, `auth.users`, `user_org_roles` (live data); item 18 above
 (related finding, same underlying data); `WOWLAB_SAD_Contracte_Trainer_Furnizor.md` Appendix A (the
-name-variant discrepancy above).
+name-variant discrepancy above); `scripts/create_eight_real_wow_lab_accounts.ts` (the 2026-09-03
+creation + the corrected assertion).
 
 ### 23. Performance evaluation domain — read from the real workbook, nothing designed
 
@@ -819,6 +861,28 @@ opportunistically.
 
 **Lives in:** `app/(app)/admin/users/admin-users-client.tsx`, `app/(app)/groups/page.tsx`,
 `app/(app)/groups/[id]/page.tsx`, `app/(app)/payment-config/page.tsx`, `app/(app)/profile/page.tsx`.
+
+---
+
+### 30. `WOWLAB_SAD_Catalog_Roluri.md` — a real project file, not yet in `docs/`
+
+**Correction to an inference made this session (2026-09-03).** While cross-checking role
+assignments for item 22's eight accounts, this filename turned up nowhere in this repo or its git
+history and was reported to Mihai as not existing. That was wrong in scope, not narrowly wrong in
+fact: the file is a real project document — external to this repo today — that has simply never
+been ported into `docs/`. The "SAD documents referenced across the project" audit below only ever
+checked filenames actually referenced from *within* the codebase (migrations, app code, other
+docs); a document nobody has referenced in-repo yet is invisible to that check by construction,
+not evidence it doesn't exist elsewhere. Mihai will place the file in `docs/` himself.
+
+**Standing item:** once `docs/WOWLAB_SAD_Catalog_Roluri.md` exists in this repo, it becomes the
+real source for role-catalog cross-checks — replacing the weaker substitute used for item 22 (the
+live `roles` table plus whatever role assignments happen to be documented elsewhere). Until then,
+that substitute is what any role-catalog check in this repo has to fall back to.
+
+**Lives in:** should live in `docs/WOWLAB_SAD_Catalog_Roluri.md` (not present as of this entry);
+the "SAD documents referenced across the project" section below (scope corrected there too); item
+22's 2026-09-03 addendum (the role-catalog cross-check this gap affected directly).
 
 ---
 
@@ -1343,6 +1407,14 @@ app code, other docs) was checked for existence. All resolved:
 document referenced anywhere is missing. No mention of a Trainer/Curriculum/
 Academy/Financial/HR-domain SAD was found either, so there's no evidence one
 was ever planned and lost.
+
+**Correction, 2026-09-03 (item 30).** This audit's scope is "referenced from the codebase" — it
+says nothing about SAD documents that exist but have never been referenced from any migration, app
+file, or other doc, and it never claimed to. `WOWLAB_SAD_Catalog_Roluri.md` is exactly that case: a
+real project file, external to this repo today, not yet ported into `docs/`. Don't read "No SAD
+document referenced anywhere is missing" as "no other SAD document exists anywhere" — it was never
+that strong a claim, but a plain reading of it produced exactly that wrong inference once this
+session, reported to Mihai and corrected in item 30.
 
 ---
 
