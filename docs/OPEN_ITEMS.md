@@ -663,12 +663,19 @@ by progress.md's "echipa admin-only" grouping (with Laura/Anka, neither a traine
 absence from Appendix A's trainer roster entirely, and no confirmed alternative role exists;
 Mihai's explicit instruction was to create the account and leave the role pending Anca.
 
-No invitations sent to any of the eight — created via `admin.auth.admin.createUser()`
-specifically to avoid `inviteUserByEmail()`'s automatic email. Consequence found, not yet fixed as
-of this addendum: the existing admin "Invite" button (`inviteUser()` in
-`app/(app)/admin/users/actions.ts`) calls `inviteUserByEmail`, which fails with "already
-registered" on all eight now that the accounts exist — sending their real invitations needs a
-different mechanism.
+No invitations sent to any of the eight at creation time — created via
+`admin.auth.admin.createUser()` specifically to avoid `inviteUserByEmail()`'s automatic email.
+Consequence found, and since fixed the same day: the existing admin "Invite" button
+(`inviteUser()` in `app/(app)/admin/users/actions.ts`) calls `inviteUserByEmail`, which fails with
+"already registered" on all eight now that the accounts exist. A new "Resend invitation" action
+(`resendInvitation()`, same file) fixes this for any account that exists but has never signed in —
+`signInWithOtp` with `shouldCreateUser:false`, the same mechanism and email template the real
+login flow already uses for a returning user's magic link, reused via a service-role call to
+bypass the Turnstile check the public `/login` form requires (confirmed live: a service_role call
+reaches GoTrue's user-existence check instead of a captcha error). Verified live, real send: sent
+to Raluca Popa specifically (one of the eight, chosen for this), confirmed via a second,
+independently generated token that the resulting link verifies and lands a real session on
+`/profile` showing her name, email, and Trainer role. Not sent to the other seven.
 
 **A verification bug, worth recording as a general lesson, not just a fixed mistake.** The first
 live assertion pass hardcoded "one `user_org_roles` row per person" and failed — not because of
@@ -680,7 +687,9 @@ membership (one org, or zero for Raluca Margean) rather than row count.
 **Lives in:** `public.users`, `auth.users`, `user_org_roles` (live data); item 18 above
 (related finding, same underlying data); `WOWLAB_SAD_Contracte_Trainer_Furnizor.md` Appendix A (the
 name-variant discrepancy above); `scripts/create_eight_real_wow_lab_accounts.ts` (the 2026-09-03
-creation + the corrected assertion).
+creation + the corrected assertion); `app/(app)/admin/users/actions.ts` (`resendInvitation`),
+`app/(app)/admin/users/page.tsx` (`last_sign_in_at` resolution), `app/(app)/admin/users/
+admin-users-client.tsx` and `i18n.ts` (the "Resend invitation" button, RO/EN).
 
 ### 23. Performance evaluation domain — read from the real workbook, nothing designed
 

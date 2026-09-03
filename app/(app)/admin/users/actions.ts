@@ -138,6 +138,69 @@ export async function inviteUser(
   return { ok: true };
 }
 
+export async function resendInvitation(
+  orgId: string,
+  targetUserId: string,
+): Promise<ActionResult> {
+  const check = await assertCanManageOrg(orgId);
+  if ("error" in check) return { ok: false, error: check.error };
+
+  // SERVICE_ROLE — privileged, dev-review-required, only reached after the
+  // capability check above.
+  //
+  // Why this exists: inviteUser() above can only ever be used once per
+  // email — a second call (e.g. the eight accounts created directly via
+  // admin.auth.admin.createUser(), 2026-09-03) hits inviteUserByEmail's
+  // "already registered" error, confirmed live, because invite-type link
+  // generation is fundamentally a create-user operation. This is the
+  // resend path for an account that already exists but has never signed
+  // in: signInWithOtp with shouldCreateUser:false, same mechanism
+  // app/login/actions.ts uses for a returning user's magic link, and the
+  // SAME email template/redirect (magic_link.html -> /auth/callback ->
+  // verifyOtp) — confirmed live to handle token_hash+type generically,
+  // with no invite-specific branch anywhere in that path.
+  //
+  // No captchaToken: confirmed live that a service_role-authenticated
+  // call to this endpoint bypasses the Turnstile check the public /login
+  // form requires (an anon-key call without one is rejected; this one
+  // reached "Signups not allowed for otp" instead of a captcha error) —
+  // there is no captcha widget on this admin screen to produce a token.
+  const admin = createServiceRoleClient();
+
+  const { data: target, error: targetError } = await admin
+    .from("users")
+    .select("email")
+    .eq("id", targetUserId)
+    .single();
+
+  if (targetError || !target) {
+    return { ok: false, error: targetError?.message ?? "User not found." };
+  }
+
+  const { error } = await admin.auth.signInWithOtp({
+    email: target.email,
+    options: {
+      shouldCreateUser: false,
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+    },
+  });
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  await writeAuditLog({
+    organizationId: orgId,
+    actorUserId: check.actorUserId,
+    eventType: "user.invitation_resent",
+    targetId: targetUserId,
+    payload: { email: target.email },
+  });
+
+  revalidatePath("/admin/users");
+  return { ok: true };
+}
+
 export async function editRoles(
   orgId: string,
   targetUserId: string,

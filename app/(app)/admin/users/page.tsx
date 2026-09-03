@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase-admin";
 import { checkCapability } from "@/lib/capabilities";
 import { AdminUsersClient } from "./admin-users-client";
 import { AdminUsersHeader } from "./admin-users-header";
@@ -89,8 +90,23 @@ export default async function AdminUsersPage() {
       lastName: string | null;
       avatarPath: string | null;
       isTestAccount: boolean;
+      lastSignInAt: string | null;
     }
   >();
+
+  // auth.users.last_sign_in_at isn't in the exposed API schema (config.toml
+  // [api] schemas = ["public", "graphql_public"]) — the only way to read it
+  // is the admin API, via the service-role client, only reached here after
+  // the org.members.manage capability check above. Used to gate the
+  // "resend invitation" action to accounts that exist but have never
+  // completed a sign-in — public.users.status doesn't track this
+  // (OPEN_ITEMS.md item 21: stored, unmaintained, gates nothing).
+  const admin = createServiceRoleClient();
+  const { data: authList } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const lastSignInByUserId = new Map<string, string | null>();
+  for (const authUser of authList?.users ?? []) {
+    lastSignInByUserId.set(authUser.id, authUser.last_sign_in_at ?? null);
+  }
 
   for (const row of memberRows ?? []) {
     const u = row.users_masked as unknown as {
@@ -125,6 +141,7 @@ export default async function AdminUsersPage() {
         lastName: u.last_name,
         avatarPath: u.avatar_url,
         isTestAccount: u.is_test_account,
+        lastSignInAt: lastSignInByUserId.get(row.user_id) ?? null,
       });
     }
   }

@@ -6,6 +6,7 @@ import {
   editRoles,
   disableAccess,
   enableAccess,
+  resendInvitation,
 } from "./actions";
 import { useTranslations } from "@/lib/i18n";
 import { adminUsersDict } from "./i18n";
@@ -39,6 +40,12 @@ type Member = {
   // list without hiding them (Mihai's call — still needed for ongoing
   // Phase 1 verification work).
   isTestAccount: boolean;
+  // auth.users.last_sign_in_at, resolved server-side (page.tsx, service
+  // role — not in the exposed API schema). null means the account has
+  // never completed a sign-in, regardless of what `status` says
+  // (OPEN_ITEMS.md item 21: status is unmaintained and doesn't track
+  // this) — the only real gate for showing "Resend invitation".
+  lastSignInAt: string | null;
 };
 
 // Never falls back to email — this is one of the two pages the users
@@ -115,6 +122,14 @@ export function AdminUsersClient({
         member.status === "disabled"
           ? await enableAccess(orgId, member.userId)
           : await disableAccess(orgId, member.userId);
+      if (!result.ok) setError(result.error);
+    });
+  }
+
+  function resendMemberInvitation(member: Member) {
+    setError(null);
+    startTransition(async () => {
+      const result = await resendInvitation(orgId, member.userId);
       if (!result.ok) setError(result.error);
     });
   }
@@ -251,6 +266,7 @@ export function AdminUsersClient({
                         onCancelEditing={() => cancelEditing(member)}
                         onSave={() => saveEditing(member)}
                         onToggleAccess={() => toggleAccess(member)}
+                        onResendInvitation={() => resendMemberInvitation(member)}
                       />
                     ))}
                   </tbody>
@@ -276,6 +292,7 @@ export function AdminUsersClient({
                       onCancelEditing={() => cancelEditing(member)}
                       onSave={() => saveEditing(member)}
                       onToggleAccess={() => toggleAccess(member)}
+                      onResendInvitation={() => resendMemberInvitation(member)}
                     />
                   ))}
                 </div>
@@ -377,6 +394,7 @@ type MemberRowProps = {
   onCancelEditing: () => void;
   onSave: () => void;
   onToggleAccess: () => void;
+  onResendInvitation: () => void;
 };
 
 function MemberTableRow({
@@ -391,11 +409,13 @@ function MemberTableRow({
   onCancelEditing,
   onSave,
   onToggleAccess,
+  onResendInvitation,
 }: MemberRowProps) {
   const t = useTranslations(adminUsersDict);
   const rawName = displayName(member);
   const hasName = rawName !== "";
   const name = rawName || t("unnamed_user");
+  const canResend = member.lastSignInAt === null && member.status !== "disabled";
 
   return (
     <tr className="font-body text-ink border-b border-black/5 align-top last:border-0">
@@ -463,14 +483,26 @@ function MemberTableRow({
         </Badge>
       </td>
       <td className="py-3">
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={onToggleAccess}
-          className="text-muted rounded-full border border-black/10 px-3 py-1 text-xs font-semibold uppercase transition-colors hover:border-brand-pink hover:text-brand-pink disabled:opacity-50"
-        >
-          {member.status === "disabled" ? t("reenable_button") : t("disable_button")}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {canResend && (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={onResendInvitation}
+              className="text-muted rounded-full border border-black/10 px-3 py-1 text-xs font-semibold uppercase transition-colors hover:border-brand-pink hover:text-brand-pink disabled:opacity-50"
+            >
+              {t("resend_invitation_button")}
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={onToggleAccess}
+            className="text-muted rounded-full border border-black/10 px-3 py-1 text-xs font-semibold uppercase transition-colors hover:border-brand-pink hover:text-brand-pink disabled:opacity-50"
+          >
+            {member.status === "disabled" ? t("reenable_button") : t("disable_button")}
+          </button>
+        </div>
       </td>
     </tr>
   );
@@ -491,11 +523,13 @@ function MemberCard({
   onCancelEditing,
   onSave,
   onToggleAccess,
+  onResendInvitation,
 }: MemberRowProps) {
   const t = useTranslations(adminUsersDict);
   const rawName = displayName(member);
   const hasName = rawName !== "";
   const name = rawName || t("unnamed_user");
+  const canResend = member.lastSignInAt === null && member.status !== "disabled";
 
   return (
     <div className="rounded-xl border border-black/5 p-4">
@@ -559,7 +593,7 @@ function MemberCard({
             </Badge>
           </div>
 
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={onStartEditing}
@@ -575,6 +609,16 @@ function MemberCard({
             >
               {member.status === "disabled" ? t("reenable_button") : t("disable_button")}
             </button>
+            {canResend && (
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={onResendInvitation}
+                className="text-muted flex-1 rounded-full border border-black/10 px-3 py-2 text-xs font-semibold uppercase transition-colors hover:border-brand-pink hover:text-brand-pink disabled:opacity-50"
+              >
+                {t("resend_invitation_button")}
+              </button>
+            )}
           </div>
         </>
       )}

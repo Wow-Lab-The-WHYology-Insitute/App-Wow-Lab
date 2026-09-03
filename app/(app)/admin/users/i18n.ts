@@ -70,4 +70,9 @@ export const adminUsersDict: Dictionary = {
   edit_roles_button: { en: "Edit roles", ro: "Editează rolurile" },
   reenable_button: { en: "Re-enable", ro: "Reactivează" },
   disable_button: { en: "Disable", ro: "Dezactivează" },
+  // Shown only for accounts that exist but have never signed in
+  // (last_sign_in_at null) — resends via signInWithOtp/magic_link, since
+  // the Invite button's inviteUserByEmail fails on an account that
+  // already exists (confirmed live, 2026-09-03).
+  resend_invitation_button: { en: "Resend invitation", ro: "Retrimite invitația" },
 };
