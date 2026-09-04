@@ -677,6 +677,18 @@ to Raluca Popa specifically (one of the eight, chosen for this), confirmed via a
 independently generated token that the resulting link verifies and lands a real session on
 `/profile` showing her name, email, and Trainer role. Not sent to the other seven.
 
+**Naming note, worth keeping so the label isn't misread later.** "Resend invitation" is a UI label,
+not a description of the mechanism: `generateLink({type:'invite'})` returns `422 email_exists` for
+an already-existing user (confirmed live), so this action cannot use the invite mechanism at all.
+It sends a standard magic link (`signInWithOtp`, `type=magiclink`, `magic_link.html` — "Your sign-in
+link", not the invite template's "You've been invited") — same outcome for the recipient (a working
+`/auth/callback` link that activates the account on first click), different mechanism and different
+email copy from the original invite. `shouldCreateUser:false` is set explicitly (confirmed by
+reading the live code, not assumed) and re-verified live on 2026-09-04: a request for an address
+with no existing account errors (`otp_disabled`, "Signups not allowed for otp") and creates nothing
+in either `auth.users` or `public.users` — a typo'd email on this screen fails loudly rather than
+silently creating a real account, matching the platform's invite-only design.
+
 **A verification bug, worth recording as a general lesson, not just a fixed mistake.** The first
 live assertion pass hardcoded "one `user_org_roles` row per person" and failed — not because of
 bad data, but because Cătălina legitimately holds three role rows in the one org. An assertion
