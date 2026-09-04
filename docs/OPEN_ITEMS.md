@@ -22,7 +22,9 @@ the same date — also not part of the 2026-08-26 pass. Item 10 was resolved
 Item 14's `LOCALE_SWITCHER_ENABLED` claim was corrected and items 24-25
 added 2026-09-02, all freshly checked live that date. Item 22 got a second
 addendum and item 30 was added 2026-09-03, both freshly checked live that
-date.
+date. Item 27's `is_test_account` half was resolved 2026-09-04, verified
+live except for the one caveat recorded in the item itself (no Docker, so
+the reset-order claim is reasoned, not executed end to end).
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -804,27 +806,75 @@ safe today).
 
 ---
 
-### 27. `test+platform@wowlab.dev` — sole platform-owner account, `is_test_account` wrong
+### 27. `test+platform@wowlab.dev` — cross-org RLS-bypass visibility (open); `is_test_account` (RESOLVED 2026-09-04)
 
-Confirmed live this session. Exactly one user holds `is_platform_owner = true`:
-`test+platform@wowlab.dev` (`status: active`). `app.is_platform_owner()` is a deliberate,
+**Still open, no fix proposed here — do not act.** Exactly one user holds `is_platform_owner =
+true`: `test+platform@wowlab.dev` (`status: active`). `app.is_platform_owner()` is a deliberate,
 by-design cross-org RLS bypass (`SECURITY DEFINER`, convention #3 — see `202607090001`) — not a bug
-in itself. But it means that once wow-lab-test-b holds any data (as of this session it does, six
-trainer accounts, item 26's seeding), this account's session sees wow-lab-test-b's rows mixed into
-its view of wow-lab production `/clients`, `/contracts`, `/groups`. This is a pre-existing condition
-of the bypass's own design, made visible for the first time by this session's seeding — not caused
-by it, and not a new mechanism.
+in itself. But it means that once wow-lab-test-b holds any data (as of the session that first found
+this, it does — six trainer accounts, item 26's seeding), this account's session sees
+wow-lab-test-b's rows mixed into its view of wow-lab production `/clients`, `/contracts`, `/groups`.
+Pre-existing condition of the bypass's own design, not caused by anything in this item, not a new
+mechanism.
 
-Separately: this account's `is_test_account` column reads `false`, despite the `test+` email prefix
-matching every other SQL-impersonation fixture in the project (`test+catalina@wowlab.dev`,
-`test+user-b@wowlab.dev`, etc., all of which read `true`). Looks like a data-entry gap on this one
-row, not a deliberate distinction — flagging, not correcting.
+**Resolved 2026-09-04, on three fronts — recording all three, because fixing only one would have
+looked complete.** The original finding here was narrower than what a full audit turned up: this
+account's `is_test_account` read `false` despite the `test+` prefix matching every other
+SQL-impersonation fixture in the project — flagged then as "a data-entry gap on this one row," not
+corrected. It was one row of seventeen.
 
-**No fix proposed here** — do not act.
+1. **The remote's wrong rows, corrected by id.** `test+platform@wowlab.dev` itself (`35e2bb7`),
+   then a full-table audit found sixteen more (`79aefce`, migration `202609040002`) — none caught by
+   the original 2026-08-12 backfill (`202608120006`)'s static list, for three different reasons:
+   predates that migration but outside its stated scope (the two wow-lab-test-b members), created
+   the same day or shortly after and simply missed, or created weeks later and never revisited at
+   all. Corrected by explicit id, not by address pattern — a pattern accurate today would silently
+   catch a real person who matches it later.
+
+2. **`seed.sql`, which would have undone the correction on the very next reset.** Three of the
+   seventeen (`test+platform`, `test+trainer-b`, `test+user-b`) are rows `seed.sql` itself inserts,
+   and that file never set `is_test_account` on any of its ten rows (`1c7fd25`). Migrations replay
+   before `seed.sql` on every reset, so an id-based backfill migration can never reach a row
+   `seed.sql` hasn't inserted yet — and more fundamentally, no id-based migration can ever reach
+   *any* of these rows on a fresh reset regardless of ordering, because every fixture id here is
+   `gen_random_uuid()`, generated fresh every time. The fix had to be set inline, at the point of
+   insert, in `seed.sql` itself (and its `ON CONFLICT` branch, so it also overwrites what the two
+   fixture-seeding migrations below leave behind for the two emails they share with it).
+
+3. **The admin invite form, which now asks explicitly.** `is_test_account` is now a checkbox on
+   `/admin/users`' invite form (`c9d86a4`), unchecked by default, written by `inviteUser()` in the
+   same follow-up `UPDATE` that already sets `first_name`/`last_name`/`phone`. The intent exists
+   only at the moment of creation, in whoever is creating the account — it cannot be inferred from
+   the address afterward, which is exactly how this drifted in the first place.
+
+**Why it drifted: account creation happens in at least eight independent places**, none of which
+set this column until now — one production UI action (`inviteUser()`,
+`app/(app)/admin/users/actions.ts`); four one-off scripts, each calling the Supabase Admin API
+independently (`bootstrap-first-admin.ts`, `seed_test_org_b_trainers.ts`,
+`create_eight_real_wow_lab_accounts.ts`, and the two `activate_*_auth_identity.ts` scripts, which
+attach an auth identity to an already-existing row rather than creating a new one); and three
+direct-SQL insert blocks that bypass the application layer and the `handle_new_auth_user()` trigger
+entirely (`seed.sql` and fixture-seeding migrations `202608100005`, `202608130004`). That count is
+the actual mechanism of the drift, not carelessness at any one site — a fix aimed at only one of
+these eight would have left the other seven exactly as drift-prone as before. The scripts were
+deliberately left alone (one-off tools, each written for a known purpose, reviewed individually
+before running) — only the ongoing, repeatable path (the admin UI) and the reset-safe source of
+truth (`seed.sql`) were fixed.
+
+**Verification caveat, worth keeping attached to this record.** The reset-order reasoning above
+(`seed.sql` runs last, id-based migrations can't reach reset-fresh rows) was not verified by an
+actual `supabase db reset` — Docker is not installed in this environment (`docker: command not
+found`). Verified instead by a rolled-back dry run of the updated `seed.sql` block against the live
+schema (real `INSERT`/`ON CONFLICT` path, real constraints, nothing committed — all ten rows read
+`true` afterward) and by reasoning through migration filename order and `seed.sql`'s documented
+run-last behavior. Not the same as watching a real reset produce the right state end to end.
 
 **Lives in:** `public.users.is_platform_owner` / `public.users.is_test_account` (data, not schema);
 `supabase/migrations/202607090001_create_app_schema_rls_helper_functions.sql`
-(`app.is_platform_owner()`).
+(`app.is_platform_owner()`, the still-open bypass-visibility finding); commits `35e2bb7`, `79aefce`
+(migration `202609040002`), `1c7fd25`, `c9d86a4`; `app/(app)/admin/users/actions.ts` (`inviteUser`),
+`admin-users-client.tsx`, `i18n.ts`; `supabase/seed.sql`; item 22's 2026-09-03/04 addenda (the audit
+that surfaced this).
 
 ---
 
