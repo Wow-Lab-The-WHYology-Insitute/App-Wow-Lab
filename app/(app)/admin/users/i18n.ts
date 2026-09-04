@@ -57,6 +57,9 @@ export const adminUsersDict: Dictionary = {
   last_name_placeholder: { en: "Last name (optional)", ro: "Nume (opțional)" },
   phone_placeholder: { en: "Phone (optional)", ro: "Telefon (opțional)" },
   invite_button: { en: "Invite", ro: "Invită" },
+  // Explicit intent, asked once at creation — not inferred from the
+  // address afterward (OPEN_ITEMS.md item 22, 2026-09-04 addendum).
+  is_test_account_label: { en: "This is a test/fixture account", ro: "Acesta este un cont de test" },
 
   badge_test: { en: "Test", ro: "Test" },
   save: { en: "Save", ro: "Salvează" },

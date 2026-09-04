@@ -63,6 +63,7 @@ export async function inviteUser(
   firstName: string,
   lastName: string,
   phone: string,
+  isTestAccount: boolean,
 ): Promise<ActionResult> {
   const check = await assertCanManageOrg(orgId);
   if ("error" in check) return { ok: false, error: check.error };
@@ -98,13 +99,22 @@ export async function inviteUser(
     return { ok: false, error: error?.message ?? "Invite failed." };
   }
 
-  if (firstName.trim() || lastName.trim() || phone.trim()) {
+  // is_test_account: an explicit choice on the form, not inferred from the
+  // address — the person creating the account is the only one who
+  // actually knows intent at this moment (see OPEN_ITEMS.md item 22's
+  // 2026-09-04 addendum: every attempt to infer this after the fact, from
+  // scripts or from seed.sql, drifted). Defaults false to match the
+  // column's own default; included here unconditionally (not only when
+  // true) so an admin un-checking it on an existing false-by-default row
+  // is still a real, explicit write, not a silent no-op.
+  if (firstName.trim() || lastName.trim() || phone.trim() || isTestAccount) {
     const { error: profileError } = await admin
       .from("users")
       .update({
         first_name: firstName.trim() || null,
         last_name: lastName.trim() || null,
         phone: phone.trim() || null,
+        is_test_account: isTestAccount,
       })
       .eq("id", data.user.id);
 
@@ -131,7 +141,7 @@ export async function inviteUser(
     actorUserId: check.actorUserId,
     eventType: "user.invited",
     targetId: data.user.id,
-    payload: { email, roleIds },
+    payload: { email, roleIds, isTestAccount },
   });
 
   revalidatePath("/admin/users");

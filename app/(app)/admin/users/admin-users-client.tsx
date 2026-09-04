@@ -167,10 +167,10 @@ export function AdminUsersClient({
         orgId={orgId}
         roles={roles}
         isPending={isPending}
-        onSubmit={(email, roleIds, firstName, lastName, phone) => {
+        onSubmit={(email, roleIds, firstName, lastName, phone, isTestAccount) => {
           setError(null);
           startTransition(async () => {
-            const result = await inviteUser(orgId, email, roleIds, firstName, lastName, phone);
+            const result = await inviteUser(orgId, email, roleIds, firstName, lastName, phone, isTestAccount);
             if (!result.ok) setError(result.error);
           });
         }}
@@ -319,6 +319,7 @@ function InviteForm({
     firstName: string,
     lastName: string,
     phone: string,
+    isTestAccount: boolean,
   ) => void;
 }) {
   const t = useTranslations(adminUsersDict);
@@ -327,6 +328,10 @@ function InviteForm({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
+  // Defaults false, matching users.is_test_account's own column default.
+  // An explicit choice, not inferred from the address — the person
+  // creating the account is the only one who knows intent at this moment.
+  const [isTestAccount, setIsTestAccount] = useState(false);
 
   return (
     <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
@@ -369,10 +374,19 @@ function InviteForm({
           selected={selectedRoles}
           onChange={setSelectedRoles}
         />
+        <label className="font-body text-ink flex items-center gap-1.5 text-xs">
+          <input
+            type="checkbox"
+            checked={isTestAccount}
+            onChange={(e) => setIsTestAccount(e.target.checked)}
+            className="accent-[#EC008C]"
+          />
+          {t("is_test_account_label")}
+        </label>
         <button
           type="button"
           disabled={isPending || !email || selectedRoles.length === 0}
-          onClick={() => onSubmit(email, selectedRoles, firstName, lastName, phone)}
+          onClick={() => onSubmit(email, selectedRoles, firstName, lastName, phone, isTestAccount)}
           className="font-body w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
         >
           {t("invite_button")}
