@@ -745,6 +745,24 @@ either way, and the gap only bites for the one state (zero roles) this project h
 account into before this session. Worth a real fix if a second zero-role account is ever created on
 purpose.
 
+**RESOLVED 2026-09-04, same day.** `user_org_roles.role_id` made nullable (`202609040003`) — a null
+role_id is "member of this org, no role assigned yet," representable as a real row for the first
+time, not the absence of one. `app.belongs_to_org()` (`202607090001`) already defined org membership
+as "has any `user_org_roles` row in this org", independent of role — the schema just couldn't
+produce that row before; no RLS policy on `user_org_roles`/`users` references `role_id` in its
+predicate (checked live before writing the migration), so nothing else needed to change at that
+layer. A partial unique index caps it at one no-role row per (org, user). Raluca Margean given
+exactly that row (`202609040004`) — still no role, Anca's decision to make, not this migration's.
+`page.tsx`'s `!u || !r` guard relaxed to `!u` only (a null role embed is a real, expected state now,
+not a bad row); `editRoles()` now re-inserts a no-role row when saved with nothing checked, instead
+of silently deleting someone's only membership row and making them vanish again on the next edit.
+Reused the existing `no_roles` i18n string for display — already bilingual, no new key needed.
+Verified live in the browser: she now appears in the Members list, her row reads "(no roles)", her
+role checkboxes are reachable (opened and cancelled without changing anything — still no role
+assigned); her own "Resend invitation" button doesn't show, correctly, since she already has a real
+`last_sign_in_at` from the verification pass earlier that same day — checked separately, and
+correctly, on a disposable zero-role fixture created and deleted for exactly this purpose.
+
 **All eight now invited, one at a time, reported after each rather than as a batch.** Raluca Popa
 confirmed already activated first (`last_sign_in_at` set from the 2026-09-03 verification pass) —
 not sent a second link that day; sent one more anyway that same day as a safety margin, already

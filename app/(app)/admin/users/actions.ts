@@ -248,6 +248,25 @@ export async function editRoles(
     if (insertError) {
       return { ok: false, error: insertError.message };
     }
+  } else {
+    // Saving with nothing checked must not silently remove this person
+    // from the org — the DELETE above already cleared every role row,
+    // including any prior no-role membership row, so without this insert
+    // they'd end up with zero user_org_roles rows and vanish from the
+    // Members list entirely (202609040003/202609040004: role_id null is
+    // how "member, no role assigned" is represented). Re-insert exactly
+    // that row instead of leaving org membership as a side effect nobody
+    // chose.
+    const { error: insertError } = await admin.from("user_org_roles").insert({
+      organization_id: orgId,
+      user_id: targetUserId,
+      role_id: null,
+      assigned_by: check.actorUserId,
+    });
+
+    if (insertError) {
+      return { ok: false, error: insertError.message };
+    }
   }
 
   await writeAuditLog({

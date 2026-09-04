@@ -118,25 +118,32 @@ export default async function AdminUsersPage() {
       avatar_url: string | null;
       is_test_account: boolean;
     } | null;
+    // r is null for a genuine org member who holds no role yet
+    // (202609040003 made user_org_roles.role_id nullable specifically for
+    // this — "member of this org, no role assigned" is a real row, not a
+    // missing one). Not the same as a bad row: only !u (no matching user)
+    // is skipped now.
     const r = row.roles as unknown as {
       id: string;
       key: string;
       display_name: string;
     } | null;
-    if (!u || !r) continue;
+    if (!u) continue;
 
     const existing = membersByUser.get(row.user_id);
     if (existing) {
-      existing.roleIds.push(r.id);
-      existing.roleLabels.push(r.display_name);
+      if (r) {
+        existing.roleIds.push(r.id);
+        existing.roleLabels.push(r.display_name);
+      }
     } else {
       membersByUser.set(row.user_id, {
         userId: row.user_id,
         email: u.email,
         fullName: u.full_name,
         status: u.status,
-        roleIds: [r.id],
-        roleLabels: [r.display_name],
+        roleIds: r ? [r.id] : [],
+        roleLabels: r ? [r.display_name] : [],
         firstName: u.first_name,
         lastName: u.last_name,
         avatarPath: u.avatar_url,
