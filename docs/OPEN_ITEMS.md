@@ -29,8 +29,11 @@ third addendum the same date: the two pending roles assigned, all eight
 real accounts invited, and a zero-role account's invisibility in
 `/admin/users` found and recorded — all freshly checked live. Also
 2026-09-04: item 22 and item 23 each got one more confirmed-by-Anca note
-(Cătălina's address; Școala Altfel bonuses vs. Happy Face), and item 31
-was added (Anka's 11 roles, confirmed deliberate).
+(Cătălina's address; Școala Altfel bonuses vs. Happy Face), item 31
+was added (Anka's 11 roles, confirmed deliberate), the zero-role gap in
+item 22 was resolved the same date (see item 22 itself), and item 32 was
+added (email OTP expiry raised to 24h, plus an unrelated live redirect-
+URL drift found and corrected during the same push).
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -1073,6 +1076,60 @@ who runs a similar audit finds the answer already recorded, instead of re-discov
 **Lives in:** `public.users`, `user_org_roles` (live data, `wow-lab`); `org_settings.
 evaluations_confidential` (OD-7, the policy this account's `evaluator` grant intersects); the
 SAD-comparison chat report, 2026-09-03/04 (where this was first found, not previously written here).
+
+---
+
+### 32. Email OTP expiry raised from 1 hour to 24 hours
+
+**Why:** of six real invitations sent the morning of 2026-09-04, three (Laura, Teodora, Luiza Mirt)
+lapsed unopened within the hour — confirmed live, not inferred: `auth.one_time_tokens` cross-
+referenced against `auth.users.last_sign_in_at` for all six showed the other three activating within
+minutes of being sent, while these three's token rows sat unconsumed past the 1-hour `otp_expiry`
+window with no sign-in recorded. `supabase/config.toml` `[auth.email]` `otp_expiry`: `3600` → `86400`
+(1h → 24h). Confirmed this reached the live project both ways: `supabase config push` prints a
+pre-push diff against the *remote* config before writing anything — the diff for this push showed
+`otp_expiry = 3600` on the remote side, matching what `config.toml` already said, so the value being
+raised was a real, live one, not a stale local assumption; a second, immediate push then reported
+"Remote Auth config is up to date" with no further diff, confirming `86400` had landed.
+
+**The tradeoff, stated plainly, not left implicit:** a longer window only helps someone who still
+has inbox access and simply hasn't opened the email yet. It does nothing for a link already
+consumed by something other than the intended person — a prefetch, a mail-client link scanner — nor
+for someone who's given up and deleted the email. For those cases the only real remedy is still a
+fresh resend (`resendInvitation()`, `db280ac`), unaffected by this change.
+
+**Single-use behavior is unchanged and unaffected by this setting.** Confirmed already in this
+session (previous report) and previously in this repo (`item 28`): consumption and expiry are two
+independent failure paths through the identical `verifyOtp` call, both producing the same generic
+`auth-callback-failed` banner. Raising `otp_expiry` widens the *time* window; it does not make a
+once-clicked (or once-prefetched) link work twice.
+
+**`supabase/templates/invite.html`:** "will expire shortly" → "will expire in 24 hours" (the actual
+figure, not a vaguer restatement); the single-use warning in the same sentence is untouched, since
+that's the half that actually causes real failures. This template serves invitations only —
+confirmed via `config.toml`'s `[auth.email.template.invite]` mapping — not magic-link sign-ins,
+which use the separate `magic_link.html`. Worth flagging, not fixed here since not asked: that file
+carries the identical vague "will expire shortly" wording (twice — inline body copy and footer) and
+is used for more than one thing (`/login`'s normal returning-user sign-in, and `resendInvitation()`'s
+"Resend invitation" button) — its wording would need to stay true for both if it's ever revisited.
+
+**An unintended side effect of the same push, found and corrected in this same session, not left
+to be discovered later.** `config push` sends the entire `[auth]` block as one object, not per-
+field. The first push's own pre-push diff showed the *remote* project carrying four
+`additional_redirect_urls` entries (`app-wow-lab-wowlab-ro-anca-tanasescu-...vercel.app` variants)
+that were never present in `config.toml` — live drift that predates this session, unrelated to
+`otp_expiry`. That push briefly removed them from the live allow-list as a side effect of writing
+`otp_expiry`. Restored in `config.toml` and pushed again within the same session, confirmed via a
+third push reporting "up to date" with no remaining diff. Origin of that drift unconfirmed —
+plausibly a second Vercel project alias/rename this file was never updated for, same class as the
+original four URLs' own "already live, do not remove" comment, just one file-update further behind.
+Not sent to Laura, Teodora, or Luiza Mirt — their original links are already past the old 1-hour
+window; whether to resend now that the window is longer is a decision left open, not made here.
+
+**Lives in:** `supabase/config.toml` (`[auth.email]` `otp_expiry`, `additional_redirect_urls`);
+`supabase/templates/invite.html`; `supabase/templates/magic_link.html` (the un-fixed sibling,
+flagged above); `auth.one_time_tokens`, `auth.users.last_sign_in_at` (live data cross-referenced);
+item 28 above (single-use-vs-expiry, the prior evidence this session's finding matches).
 
 ---
 

@@ -170,6 +170,18 @@ site_url = "https://app.wowlab.ro"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 # Original Vercel prod + preview wildcards (already live, do not remove) + the
 # eventual app.wowlab.ro custom domain + localhost for local dev testing.
+#
+# The four "wowlab-ro" variants below were live on the remote project but
+# absent from this file until 2026-09-04 -- found only because `supabase
+# config push` (for the unrelated otp_expiry change, this same session)
+# printed a pre-push diff showing them on the remote side and not here.
+# The first push already went through before this was noticed, which
+# means it briefly removed them from the live allow-list (config push
+# treats local as authoritative for the whole [auth] block, not per-
+# field) -- restored in the same session, pushed again immediately. Origin
+# unconfirmed: plausibly a second Vercel project alias/rename this file
+# was never updated for (see the original four's own "already live, do
+# not remove" note above -- same class of drift, one file update behind).
 additional_redirect_urls = [
   "https://app-wow-lab-anca-tanasescu-s-projects.vercel.app/",
   "https://app-wow-lab-anca-tanasescu-s-projects.vercel.app/**",
@@ -178,6 +190,10 @@ additional_redirect_urls = [
   "https://app.wowlab.ro/auth/callback",
   "http://localhost:3000/auth/callback",
   "http://127.0.0.1:3000/auth/callback",
+  "https://app-wow-lab-wowlab-ro-anca-tanasescu-s-projects.vercel.app/",
+  "https://app-wow-lab-wowlab-ro-anca-tanasescu-s-projects.vercel.app/**",
+  "https://app-*-wow-lab-wowlab-ro-anca-tanasescu-s-projects.vercel.app",
+  "https://app-*-wow-lab-wowlab-ro-anca-tanasescu-s-projects.vercel.app/**",
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
@@ -274,8 +290,20 @@ max_frequency = "1m0s"
 # Restored to match the value already live on the remote project (8 digits, not
 # the template default of 6 — not something this task intended to change).
 otp_length = 8
-# Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+# Number of seconds before the email OTP expires. Raised from the 3600s
+# (1h) default to 86400s (24h) 2026-09-04: three of six real invitations
+# sent the same morning lapsed unopened within the hour (confirmed live,
+# auth.one_time_tokens cross-referenced against auth.users.last_sign_in_at
+# — see OPEN_ITEMS.md). This block's own prior real-world evidence that
+# 3600 genuinely reached the live project: progress.md entry #34/#35
+# (2026-08-06) confirmed a real invite link failing with the exact
+# auth-callback-failed signature at the 1h mark, and a Management-API
+# check the same day confirmed a sibling [auth.email]-adjacent setting
+# (rate_limit_email_sent) matched this file. A longer window only helps
+# someone who still has inbox access and hasn't already given up — it
+# does not change single-use behavior (supabase/templates/invite.html,
+# magic_link.html), which is unaffected by this setting either way.
+otp_expiry = 86400
 
 # Production SMTP: Resend, sending as platform@wowlab.ro (domain-level
 # verification via DNS, not a mailbox credential). Replaces the wowlab.ro
