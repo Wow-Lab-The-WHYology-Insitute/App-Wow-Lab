@@ -27,7 +27,10 @@ live except for the one caveat recorded in the item itself (no Docker, so
 the reset-order claim is reasoned, not executed end to end). Item 22 got a
 third addendum the same date: the two pending roles assigned, all eight
 real accounts invited, and a zero-role account's invisibility in
-`/admin/users` found and recorded — all freshly checked live.
+`/admin/users` found and recorded — all freshly checked live. Also
+2026-09-04: item 22 and item 23 each got one more confirmed-by-Anca note
+(Cătălina's address; Școala Altfel bonuses vs. Happy Face), and item 31
+was added (Anka's 11 roles, confirmed deliberate).
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -654,6 +657,14 @@ own account list treats "Raluca Popa" and "Raluca Margean" as two distinct peopl
 two separate accounts — not an Anca-confirmed fact, but no longer an open ambiguity for this
 repo's data.
 
+**Cătălina's address, confirmed by Anca, 2026-09-04: `catalina_moale@yahoo.com` is correct** —
+the same address this account was already created under on 2026-09-03, now confirmed rather than
+assumed correct. Worth recording specifically because a *different* address,
+`catalina.moale@gmail.com`, appears in the Happy Face spreadsheet (item 23's workbook) — a `.`
+instead of `_` before the surname, and `gmail.com` instead of `yahoo.com`. That gmail address is
+not the one to use for her account; do not treat it as an alternate or a correction if it surfaces
+again from that spreadsheet.
+
 Roles: Cătălina got `operations_manager`+`curriculum_manager`+`evaluator`, matching her existing
 fixture's live role set exactly (not inferred — read directly from `user_org_roles`). Laura got
 `finance_operations` (directly confirmed, progress.md line 480). Răzvan, Raluca Popa, and Luiza
@@ -780,7 +791,16 @@ not assumed from the mechanism's description.** May 2026: two people show a tota
 shows 50. Of the two at 500, one has exactly one criterion marked, the other has none. The person at
 50 has one criterion marked. The total does not derive from a count of marked criteria by any
 visible rule. Separately, the compliance tab shows distinct "bonus SA" amounts — 100, 200, 300 —
-tied to Școala Altfel. Unexplained in the workbook itself; awaiting Anca.
+tied to Școala Altfel.
+
+**Confirmed by Anca, 2026-09-04: Școala Altfel bonuses and Happy Face awards are two different
+things and stay separate, by design, not an accident of the spreadsheet's layout.** A Happy Face
+has a configured value and a criterion from the fixed list; an SA bonus is an arbitrary amount with
+a written reason, decided by Anca directly, not tied to any criterion. Mixing the two into one
+mechanism would make the per-face value meaningless — already visible in the May 2026 rows above,
+where the untied SA amounts are exactly what breaks any attempt to derive a monthly total from a
+count of marked criteria. Not designed here; recorded as a real modeling constraint for whenever
+this domain is built, not a should-fix on the workbook.
 
 **Replacement rate is measured three separate ways, by three different mechanisms — whether that's
 one measure or three is open, not reconciled here.** (1) A monthly observation entered directly in
@@ -1000,6 +1020,41 @@ that substitute is what any role-catalog check in this repo has to fall back to.
 **Lives in:** should live in `docs/WOWLAB_SAD_Catalog_Roluri.md` (not present as of this entry);
 the "SAD documents referenced across the project" section below (scope corrected there too); item
 22's 2026-09-03 addendum (the role-catalog cross-check this gap affected directly).
+
+---
+
+### 31. `anka@asismart.ro` holds all 11 non-superuser roles — deliberate, confirmed by Anca, not test state
+
+The SAD-comparison report done this session (2026-09-03/04, not previously written to this file)
+found a real, non-test account — Anka Orban, `anka@asismart.ro` — holding `contract_administrator`,
+`finance_admin_reporting`, `finance_operations`, `inventory_custodian`, `evaluator`,
+`curriculum_manager`, `candidate`, `community_people`, `operations_manager`, `sales_manager`, and
+`senior_trainer` simultaneously, all in `wow-lab`, all assigned in one batch on 2026-08-14 by
+`anca.tanasescu@gmail.com`. Flagged at the time as pattern-matching a testing session (every role
+but the two superuser ones, assigned together, with a `disabled`→`enabled` cycle inside the same
+hour) rather than a real, intended grant.
+
+**Confirmed by Anca, 2026-09-04: this is deliberate, not leftover test state — she keeps all 11.**
+Anca's stated grounds: roles are changeable from the app at any time, so there is no cost to a
+broad grant that isn't easily reversed later — the concern that made this look like an anomaly
+(an unusually wide, all-at-once grant) doesn't hold the same weight when reversing it is a normal
+`editRoles` call away, not a migration or a data fix.
+
+**This explicitly includes `evaluator` — worth being precise about, given `evaluations_confidential`
+(OD-7).** `evaluator` carries `evaluations.assigned.read`/`evaluations.assigned.write`. Anca's own
+policy setting is that evaluations are confidential under OD-7. Holding both the policy-setting
+authority and the `evaluator` capability on the same account is therefore a deliberate access
+decision by the person who owns that policy, not an oversight that happens to intersect with it —
+recorded explicitly so this does not get re-flagged as an anomaly by a future pass that finds the
+same combination and assumes, as this session initially did, that it looks like test residue.
+
+**No fix proposed here — do not act.** This entry exists so the next person (or the next session)
+who runs a similar audit finds the answer already recorded, instead of re-discovering the same
+"looks like a testing session" pattern and re-flagging it as unresolved.
+
+**Lives in:** `public.users`, `user_org_roles` (live data, `wow-lab`); `org_settings.
+evaluations_confidential` (OD-7, the policy this account's `evaluator` grant intersects); the
+SAD-comparison chat report, 2026-09-03/04 (where this was first found, not previously written here).
 
 ---
 
