@@ -266,22 +266,42 @@ on conflict (organization_id) do update
       updated_at = now();
 
 -- 9. Synthetic TEST users (test+role@wowlab.dev — never real team members' data).
-insert into public.users (id, email, full_name, status, is_platform_owner)
+--
+-- is_test_account = true on every row here: every one of these is a fixture
+-- by construction (this whole block exists only to create them). Added
+-- 2026-09-04 after a live audit found this file was never updated when the
+-- column was introduced (202608120006) -- three of these emails were still
+-- reading false on the remote (test+platform, test+trainer-b, test+user-b),
+-- and would have reverted to false on the very next `db reset`: migrations
+-- run before seed.sql, so an UPDATE-based backfill migration can never
+-- reach a row this file hasn't inserted yet, and this file's own insert
+-- didn't set the column. Setting it directly in each row's VALUES, and
+-- again below in the ON CONFLICT branch, means that stays true regardless
+-- of insert order relative to any other migration that touches the same
+-- email (202608100005 and 202608130004 both insert two of these same
+-- emails, with is_test_account absent from their own column list --
+-- deliberately left as-is, not edited: they're already-applied migrations,
+-- and editing an applied migration's file changes nothing about what the
+-- remote already ran, it only makes the file misrepresent it going
+-- forward. This ON CONFLICT branch is what corrects their rows too, since
+-- this file always runs last in a reset).
+insert into public.users (id, email, full_name, status, is_platform_owner, is_test_account)
 values
-  (gen_random_uuid(), 'test+platform@wowlab.dev', 'Test Platform Owner', 'active', true),
-  (gen_random_uuid(), 'test+owner-a@wowlab.dev', 'Test Org A Owner', 'active', false),
-  (gen_random_uuid(), 'test+catalina@wowlab.dev', 'Test User Catalina (Ops + Curriculum + Evaluator)', 'active', false),
-  (gen_random_uuid(), 'test+trainer-a@wowlab.dev', 'Test Trainer A', 'active', false),
-  (gen_random_uuid(), 'test+trainer-b@wowlab.dev', 'Test Trainer B', 'active', false),
-  (gen_random_uuid(), 'test+user-b@wowlab.dev', 'Test Org B Owner', 'active', false),
-  (gen_random_uuid(), 'test+finance-ops-a@wowlab.dev', 'Test Finance Operations A', 'active', false),
-  (gen_random_uuid(), 'test+finance-admin-a@wowlab.dev', 'Test Finance Admin Reporting A', 'active', false),
-  (gen_random_uuid(), 'test+sales-a@wowlab.dev', 'Test Sales Manager A', 'active', false),
-  (gen_random_uuid(), 'test+contract-admin-a@wowlab.dev', 'Test Contract Administrator A', 'active', false)
+  (gen_random_uuid(), 'test+platform@wowlab.dev', 'Test Platform Owner', 'active', true, true),
+  (gen_random_uuid(), 'test+owner-a@wowlab.dev', 'Test Org A Owner', 'active', false, true),
+  (gen_random_uuid(), 'test+catalina@wowlab.dev', 'Test User Catalina (Ops + Curriculum + Evaluator)', 'active', false, true),
+  (gen_random_uuid(), 'test+trainer-a@wowlab.dev', 'Test Trainer A', 'active', false, true),
+  (gen_random_uuid(), 'test+trainer-b@wowlab.dev', 'Test Trainer B', 'active', false, true),
+  (gen_random_uuid(), 'test+user-b@wowlab.dev', 'Test Org B Owner', 'active', false, true),
+  (gen_random_uuid(), 'test+finance-ops-a@wowlab.dev', 'Test Finance Operations A', 'active', false, true),
+  (gen_random_uuid(), 'test+finance-admin-a@wowlab.dev', 'Test Finance Admin Reporting A', 'active', false, true),
+  (gen_random_uuid(), 'test+sales-a@wowlab.dev', 'Test Sales Manager A', 'active', false, true),
+  (gen_random_uuid(), 'test+contract-admin-a@wowlab.dev', 'Test Contract Administrator A', 'active', false, true)
 on conflict (email) do update
   set full_name = excluded.full_name,
       status = excluded.status,
       is_platform_owner = excluded.is_platform_owner,
+      is_test_account = excluded.is_test_account,
       updated_at = now();
 
 -- 10. Test user role assignments.
