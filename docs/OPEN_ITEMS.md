@@ -24,7 +24,10 @@ added 2026-09-02, all freshly checked live that date. Item 22 got a second
 addendum and item 30 was added 2026-09-03, both freshly checked live that
 date. Item 27's `is_test_account` half was resolved 2026-09-04, verified
 live except for the one caveat recorded in the item itself (no Docker, so
-the reset-order claim is reasoned, not executed end to end).
+the reset-order claim is reasoned, not executed end to end). Item 22 got a
+third addendum the same date: the two pending roles assigned, all eight
+real accounts invited, and a zero-role account's invisibility in
+`/admin/users` found and recorded — all freshly checked live.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -698,12 +701,55 @@ that silently encodes an unstated assumption (here: one role per person) fails o
 that violates the assumption, not on a real defect. Fixed in the same script to assert org
 membership (one org, or zero for Raluca Margean) rather than row count.
 
+**2026-09-04, later — the two pending roles assigned, all eight invited, and one structural gap
+found while checking the eighth.** `sales_manager` → `anca.tanasescu@gmail.com`, `contract_administrator`
+→ `lauraflorentinaa220@gmail.com`, both through the real `/admin/users` "Edit roles" UI (not a
+script), each added alongside the person's existing role rather than replacing them — Anca keeps
+`platform_owner`, Laura keeps `finance_operations`. Confirmed live: `audit_log` holds a
+`user.roles_updated` row for each with a real `actor_user_id`, and both roles' capability grants
+resolve correctly via `role_capabilities` (`clients.convert` for Anca's new `sales_manager`,
+`contracts.*` for Laura's new `contract_administrator`), independent of any bypass. This closes the
+SAD-comparison report's finding that these two roles were unassigned in production contrary to the
+SAD's checklist — see item 30's cross-reference and the 2026-09-03 SAD-comparison chat report.
+
+Before sending anything, Raluca Margean's zero-role experience was checked live, not assumed: a
+real session (fresh browser context, real magic-link verification, not SQL impersonation) lands
+cleanly on `/profile` — nav shows only "Profile", the page reads "You are an unassigned user. You
+don't have access to any additional sections yet.", zero console or page errors. Not broken;
+`app/(app)/layout.tsx` and `profile/page.tsx` were both already written defensively for an empty
+`memberships` array (`?? []` throughout, an explicit `unassigned_role_label` fallback string already
+in `profile/i18n.ts`), so this wasn't a near-miss found by luck — the empty case was already handled,
+just never exercised by a real zero-role session until now.
+
+**A second thing this check found, not asked for but real: a zero-role account is invisible in
+`/admin/users` itself, not just gated by sign-in state.** The Members list (`page.tsx`) is built by
+querying `user_org_roles` and joining out to `users` — anchored on the role table, not the user
+table — so an account with zero role rows produces zero list rows, full stop. Raluca Margean never
+appears there, under any search term or filter, regardless of whether she's signed in. Her
+"Resend invitation" therefore couldn't be sent through the button that worked for the other six —
+sent instead via the identical mechanism (`signInWithOtp`, `shouldCreateUser:false`), invoked
+directly rather than through the UI it's normally reached from, with the same `audit_log` event
+type and a note explaining why. Not proposing a fix here — the underlying mechanism is identical
+either way, and the gap only bites for the one state (zero roles) this project has never put a real
+account into before this session. Worth a real fix if a second zero-role account is ever created on
+purpose.
+
+**All eight now invited, one at a time, reported after each rather than as a batch.** Raluca Popa
+confirmed already activated first (`last_sign_in_at` set from the 2026-09-03 verification pass) —
+not sent a second link that day; sent one more anyway that same day as a safety margin, already
+recorded above. The remaining seven — Cătălina, Laura, Alexandra, Teodora, Răzvan, Luiza Mirt,
+Raluca Margean — each confirmed individually via the real admin UI (six of seven) or direct
+invocation (Raluca Margean, per the gap above) before moving to the next; no failures.
+
 **Lives in:** `public.users`, `auth.users`, `user_org_roles` (live data); item 18 above
 (related finding, same underlying data); `WOWLAB_SAD_Contracte_Trainer_Furnizor.md` Appendix A (the
 name-variant discrepancy above); `scripts/create_eight_real_wow_lab_accounts.ts` (the 2026-09-03
-creation + the corrected assertion); `app/(app)/admin/users/actions.ts` (`resendInvitation`),
-`app/(app)/admin/users/page.tsx` (`last_sign_in_at` resolution), `app/(app)/admin/users/
-admin-users-client.tsx` and `i18n.ts` (the "Resend invitation" button, RO/EN).
+creation + the corrected assertion); `app/(app)/admin/users/actions.ts` (`resendInvitation`,
+`editRoles`), `app/(app)/admin/users/page.tsx` (`last_sign_in_at` resolution, and the
+`user_org_roles`-anchored Members query behind the new gap above), `app/(app)/admin/users/
+admin-users-client.tsx` and `i18n.ts` (the "Resend invitation" button, RO/EN); `app/(app)/layout.tsx`,
+`app/(app)/profile/page.tsx`, `app/(app)/profile/access-summary.tsx`, `app/(app)/profile/i18n.ts`
+(the zero-role empty state, confirmed already correct).
 
 ### 23. Performance evaluation domain — read from the real workbook, nothing designed
 
