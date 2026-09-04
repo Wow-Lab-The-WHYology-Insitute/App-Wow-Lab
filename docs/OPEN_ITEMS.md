@@ -1108,10 +1108,16 @@ once-clicked (or once-prefetched) link work twice.
 figure, not a vaguer restatement); the single-use warning in the same sentence is untouched, since
 that's the half that actually causes real failures. This template serves invitations only —
 confirmed via `config.toml`'s `[auth.email.template.invite]` mapping — not magic-link sign-ins,
-which use the separate `magic_link.html`. Worth flagging, not fixed here since not asked: that file
-carries the identical vague "will expire shortly" wording (twice — inline body copy and footer) and
-is used for more than one thing (`/login`'s normal returning-user sign-in, and `resendInvitation()`'s
-"Resend invitation" button) — its wording would need to stay true for both if it's ever revisited.
+which use the separate `magic_link.html`.
+
+**Correction, same day: fixing `invite.html` alone was the wrong scope.** `magic_link.html` carries
+the identical vague wording (twice — inline body copy and footer) and is the template
+`resendInvitation()`'s "Resend invitation" button actually sends — the mechanism that reaches
+Laura, Teodora, and Luiza Mirt specifically. Fixed the same way, both occurrences: "expires
+shortly"/"will expire shortly" → the real 24-hour figure, single-use warning untouched. Pushed and
+verified the same way — the push whose only purpose was this template change showed exactly one
+diff hunk (the template content), confirming nothing else in the `[auth]` block had drifted since
+the previous push; a following push reported "up to date" with zero remaining diff.
 
 **An unintended side effect of the same push, found and corrected in this same session, not left
 to be discovered later.** `config push` sends the entire `[auth]` block as one object, not per-
@@ -1126,10 +1132,28 @@ original four URLs' own "already live, do not remove" comment, just one file-upd
 Not sent to Laura, Teodora, or Luiza Mirt — their original links are already past the old 1-hour
 window; whether to resend now that the window is longer is a decision left open, not made here.
 
+**Full `[auth]` drift audit, requested separately, reported not acted on.** Asked whether any other
+field differs between live and `config.toml`, in either direction, beyond the redirect URLs already
+found and fixed. The honest answer required by the question itself: `config push` is the only
+inspection mechanism available (checked — no `--dry-run`/diff-only flag exists, and this project has
+no Management API credentials wired into any session), and it is not a safe read: in this
+non-interactive context it computes the diff and applies it in the same operation, with no pause
+between (the confirmation gate is skipped under `--agent auto` — already established 2026-07-15, see
+that date's progress.md entry). **The only inspection tool is also the thing that overwrites** — any
+value set through the dashboard and never written back to `config.toml` is invisible until the next
+push, at which point it is silently replaced, not surfaced for review first. Not a new problem
+introduced by anything above; the redirect-URL drift is a direct instance of exactly this risk, just
+one that happened to be self-correcting because the push that would have erased it silently was
+inspected before moving on, not because the tooling caught it. No new drift beyond the redirect URLs
+was found: a diff run for an unrelated, single-field change (the `magic_link.html` fix above) would
+have shown any other difference too, by construction — a diff compares the whole object, not just the
+field being changed — and none appeared, then or on the confirming re-run. That is current as of the
+last push this session, not a standing guarantee; nothing here watches for drift introduced after.
+
 **Lives in:** `supabase/config.toml` (`[auth.email]` `otp_expiry`, `additional_redirect_urls`);
-`supabase/templates/invite.html`; `supabase/templates/magic_link.html` (the un-fixed sibling,
-flagged above); `auth.one_time_tokens`, `auth.users.last_sign_in_at` (live data cross-referenced);
-item 28 above (single-use-vs-expiry, the prior evidence this session's finding matches).
+`supabase/templates/invite.html`; `supabase/templates/magic_link.html`; `auth.one_time_tokens`,
+`auth.users.last_sign_in_at` (live data cross-referenced); item 28 above (single-use-vs-expiry, the
+prior evidence this session's finding matches).
 
 ---
 
