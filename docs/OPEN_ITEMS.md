@@ -33,7 +33,11 @@ real accounts invited, and a zero-role account's invisibility in
 was added (Anka's 11 roles, confirmed deliberate), the zero-role gap in
 item 22 was resolved the same date (see item 22 itself), and item 32 was
 added (email OTP expiry raised to 24h, plus an unrelated live redirect-
-URL drift found and corrected during the same push).
+URL drift found and corrected during the same push). Items 33-34 were
+added 2026-09-07 (the 30 May roster compared against Appendix A rather
+than assumed superseded; Anca's current active roster, cross-referenced
+against both), and item 23's ~20-people note was corrected the same date
+after that roster showed five of those people are active today.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -838,13 +842,20 @@ four people. This is a **second evaluation domain**, entirely separate from the 
 nothing in this platform accounts for in any way today — no table, no capability, no mention
 anywhere prior to this entry.
 
-**~20 people in the Happy Face history are former collaborators, confirmed by Anca not being added
-to this platform.** Their history stays in Laura's spreadsheet and will not be imported — whenever
-Happy Face awards are built here, the application will hold awards only from that build date
-forward. Recording this explicitly because the alternative is someone mistaking it for data loss: a
-bonus report in the app will show no history before the feature's own build date, for real people
-who genuinely received real awards before then. That gap is a deliberate scope boundary confirmed by
-Anca, not evidence anything went missing.
+**Corrected 2026-09-07 — the original framing here was too broad.** This entry originally said the
+~20 people in the Happy Face history are former collaborators, on the grounds that Anca confirmed
+they aren't being added to this platform. That conflated two separate facts. Anca's current active
+roster (item 33) names Sonia Ganea, Andrada Eremia, Cătălina, Teodora, and Alexandra as active
+today — all five appear in the Happy Face history. Appearing in that history says nothing about
+whether someone is active now; it's a record of who received an award at some point, not a
+membership roster. What actually holds, and is genuinely confirmed by Anca: the **historical bonus
+records themselves are not imported.** Their history stays in Laura's spreadsheet — whenever Happy
+Face awards are built here, the application will hold awards only from that build date forward.
+Recording this explicitly because the alternative is someone mistaking it for data loss: a bonus
+report in the app will show no history before the feature's own build date, for real people who
+genuinely received real awards before then, some of whom are still active. That gap is a deliberate
+scope boundary confirmed by Anca, not evidence anything went missing — but it is a scope boundary on
+*bonus history import*, not a statement about who currently works here.
 
 **Blocked on:** Anca — this domain has no confirmed design to build against on any of the six points
 above.
@@ -1154,6 +1165,117 @@ last push this session, not a standing guarantee; nothing here watches for drift
 `supabase/templates/invite.html`; `supabase/templates/magic_link.html`; `auth.one_time_tokens`,
 `auth.users.last_sign_in_at` (live data cross-referenced); item 28 above (single-use-vs-expiry, the
 prior evidence this session's finding matches).
+
+---
+
+### 33. 30 May workshop roster vs. Appendix A — compared, not assumed; Appendix A is the baseline
+
+Checked rather than taken on faith that these are simply earlier/later snapshots of the same thing.
+
+**Every name common to both grew or held, none shrank.** 10 of the 30 May roster's 27 names also
+appear in `WOWLAB_SAD_Contracte_Trainer_Furnizor.md` Appendix A (25 June 2026): Cătălina Trușan
+(820→827), Sonia Ganea (208→212), Andrada Eremia (182→186), Teodora Merișan (89→101), Raluca Popa
+(15→22), Alina Garofil (4→5) — all higher, consistent with a later snapshot. Elena Bacalum (118),
+Alexandra Nuțu (89), Viorel Tobosaru (41), and Răzvan Bălașov (3) are **identical in both** — flat
+over the ~26 days between the two dates, not a violation of "counts can only grow," but worth
+recording: 4 of the 10 delivered nothing in that window, or their figures weren't refreshed for the
+25 June pull. **No name is lower in Appendix A than in May** — the "these are earlier/later
+snapshots of the same roster" premise holds on every overlapping name.
+
+**Total delta across the 10 common names: +35 workshops** over ~26 days (7+4+4+0+12+0+0+7+1+0).
+Concentrated in 6 of the 10 people; the other 4 contributed zero.
+
+**17 of the May roster's 27 names do not appear in Appendix A at all**: Diana Fainarea, Andreea
+Minea, Diana Pricopi, Andreea Grulic, Diana Gardus (Cocea), Fatima, Sanziana, Diego, Tudor Nedelcu,
+Darius Mirea, Mirela Popa, Andreea Tudor, Maria Nicolescu, Adelina Paduraru, Alexandra Gruia, Gita
+Adelina, Andra Onas — several with substantial career counts (Diana Fainarea 224, Andreea Minea 225,
+Diana Pricopi 191), so this isn't "the small contributors dropped off." **One name, Luiza Mirt,
+appears in Appendix A with no May counterpart and no number** ("necunoscut"). This 27-vs-11 split is
+not new information invented by this comparison — it matches, almost to the number, what
+§12.10 of the same document already states: *"11 traineri activi azi, nu cei 27 din fișierul de
+urmărire folosit la verificarea din §12.2 — fișierul e istoric, nu curent."* Appendix A is scoped to
+currently-active trainers, not to everyone who ever appears in the tracking file — the 30 May roster
+is that broader, historical file, not a rejected or wrong data source, just answering a different
+question (who ever delivered a workshop vs. who's active today).
+
+**Grade-arithmetic check on the 30 May roster: zero disagreements.** Reverse-engineered the tier
+name → numeric grade mapping from the roster's own internally consistent pattern: Junior=1, Rising
+Star=2, Enthusiastic Mid=3, Experienced Mid=4, Glowing Senior=6 (all nine "Glowing Senior" rows
+compute to exactly 6 via `min(6, floor(n/36)+1)` on their own printed count). Checked all 27 rows
+against this mapping: every single one matches its own arithmetic exactly. No manual overrides
+found in this roster. One real gap in what this can prove: nobody in the May roster falls in the
+grade-5 range (144–179 workshops — the closest are Elena Bacalum at 118 and Fatima at 180), so
+whether "Glowing Senior" also covers grade 5, or grade 5 has its own unlisted tier name, can't be
+determined from this data alone.
+
+**Directive, now backed by the comparison above rather than asserted ahead of it: Appendix A
+(25 June 2026) is the current workshop-count baseline. The 30 May roster is superseded and must not
+be used for grade computation** — not because it's wrong, but because it's older, and every
+overlapping figure it holds is confirmed lower or equal, never higher.
+
+**Appendix A is dated but not citably sourced.** It dates itself three times, unambiguously: in its
+own header ("Anexă A — Baseline-ul numărului de workshop-uri, validat (25 iunie 2026)"), in its body
+("ancorat la o dată fixă (25 iunie 2026)"), and in its table caption ("Baseline-ul, la 25 iunie
+2026"). Its stated source is generic, quoting exactly: **"Calculat din fișierul lor de urmărire"**
+("Calculated from their tracking file") — no filename, no link, no named document, just a
+description. The calculation cannot be reproduced from the document alone; anyone needing to
+re-derive or re-verify it has to go back to whoever holds "their tracking file," which this
+document never identifies more specifically than that.
+
+**No fix proposed here** — a workshop-count source issue, not a code issue.
+
+**Lives in:** `WOWLAB_SAD_Contracte_Trainer_Furnizor.md` Appendix A; the 30 May 2026 roster
+screenshot (external, not in this repo); item 22 above (name-variant discrepancies this comparison
+partly resolves); item 34 below (Anca's current active roster, which supersedes both tables as a
+staffing list, though not as a workshop-count source — those are different questions).
+
+---
+
+### 34. Anca's current active roster (2026-09-07) — supersedes both historical tables as a staffing list
+
+Neither the 30 May roster nor Appendix A (item 33) is a current staffing list — both are
+workshop-count snapshots, and Appendix A's own text says as much (item 33: scoped to "active
+today" only for the purpose of validating the grade formula, not maintained as a roster). Anca has
+now sent the actual current list, which is the real answer to "who works here":
+
+**Active (11):** Cătălina Trușan, Sonia Ganea, Alexandra Nuțu (Cluj), Andrada Eremia, Teodora
+Merișan, Raluca Popa, Alina Garofil, Răzvan Bălașov, Elena Bacalum (reserve), Viorel Toboșaru
+(Cernavodă), Luiza Mirt (possible return).
+
+**On trial, possible addition:** Lorina (no surname given yet).
+
+**Not trainers:** Raluca Margean (articles — consistent with item 22's finding that "trainer" was
+the wrong role for her); Laura (invoices, currently on maternity leave — this project's own records
+call her "Laura Moale," Anca's current wording says "Laura Preda"; reported separately this session,
+not yet recorded here as its own item since it was asked as report-only).
+
+**No longer active (9):** Fatima, Sânziana, Diego, Bianca Necula, Mihai Popa, Roxana Vasile, Ene
+Vladimir-Lucian, Bordea Daria, Gabriela Enache.
+
+**Cross-referenced against item 33's 17 May-only names, not just recorded side by side.** Only 3 of
+those 17 — Fatima, Sânziana, Diego — are confirmed "no longer active" by Anca's list. The other 14
+(Diana Fainarea, Andreea Minea, Diana Pricopi, Andreea Grulic, Diana Gardus (Cocea), Tudor Nedelcu,
+Darius Mirea, Mirela Popa, Andreea Tudor, Maria Nicolescu, Adelina Paduraru, Alexandra Gruia, Gita
+Adelina, Andra Onas) appear in neither Anca's active list nor her no-longer-active list — genuinely
+unaccounted for, some with large career counts, not resolved here. Separately, 6 of Anca's 9
+"no longer active" names (Bianca Necula, Mihai Popa, Roxana Vasile, Ene Vladimir-Lucian, Bordea
+Daria, Gabriela Enache) appear in neither the May roster nor Appendix A at all — people who left
+before or outside the window either table covers.
+
+**Blocking, recorded as such — not a nice-to-have.** Five people on this active list have no
+account and no email address anywhere in this repo or the live database: **Sonia Ganea, Andrada
+Eremia, Alina Garofil, Elena Bacalum, Viorel Toboșaru.** Confirmed live, not assumed — checked
+`public.users` by name against all 43 rows, zero matches for any of the five. Their accounts can't
+be created the way the other eight real accounts were (item 22) until an address exists for each;
+nothing to build against here yet.
+
+**No fix proposed here** — waiting on addresses for the five, and on Anca for anything about Lorina
+or the Laura Moale/Preda surname question (reported this session, not yet its own item here).
+
+**Lives in:** `public.users` (live data, checked this session); item 22 above (the original eight
+real accounts, same pattern this blocks on repeating); item 33 above (the two historical tables this
+roster supersedes as a staffing statement); item 23 above (the ~20-people correction this roster
+triggered).
 
 ---
 
