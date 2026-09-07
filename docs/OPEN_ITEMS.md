@@ -37,7 +37,12 @@ URL drift found and corrected during the same push). Items 33-34 were
 added 2026-09-07 (the 30 May roster compared against Appendix A rather
 than assumed superseded; Anca's current active roster, cross-referenced
 against both), and item 23's ~20-people note was corrected the same date
-after that roster showed five of those people are active today.
+after that roster showed five of those people are active today. Item 33
+got a same-date update (grades 5/6 confirmed as separately named in
+Anca's pay grid, unresolved in the roster's own naming). Item 35 was
+added the same date: the "Laura Moale" surname's actual provenance,
+checked against git history rather than accepted from a working
+hypothesis that was itself a month off, pending Anca's confirmation.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -1208,6 +1213,16 @@ grade-5 range (144–179 workshops — the closest are Elena Bacalum at 118 and 
 whether "Glowing Senior" also covers grade 5, or grade 5 has its own unlisted tier name, can't be
 determined from this data alone.
 
+**Update, 2026-09-07: grades 5 and 6 do have separate names — just not in this roster.** Anca's pay
+grid names them distinctly: **"Magic Senior"** for grade 5, **"Glowing Senior"** for grade 6. The
+trainer roster (this item's own May data) uses one label, "Glowing Senior," for both — every person
+who reached grade 5 or 6 in that snapshot happened to already be at 6, so the roster's own naming
+convention was never actually exercised at grade 5 to know whether it would say "Magic Senior" there
+or collapse it into "Glowing Senior" too. Still unresolved, and still no practical impact — nobody
+currently active occupies that band — but it's a labeling question to settle before someone does,
+not purely academic anymore now that the two names are confirmed to exist and differ somewhere in
+this system.
+
 **Directive, now backed by the comparison above rather than asserted ahead of it: Appendix A
 (25 June 2026) is the current workshop-count baseline. The 30 May roster is superseded and must not
 be used for grade computation** — not because it's wrong, but because it's older, and every
@@ -1270,12 +1285,64 @@ be created the way the other eight real accounts were (item 22) until an address
 nothing to build against here yet.
 
 **No fix proposed here** — waiting on addresses for the five, and on Anca for anything about Lorina
-or the Laura Moale/Preda surname question (reported this session, not yet its own item here).
+or the Laura Moale/Preda surname question (item 35 below).
 
 **Lives in:** `public.users` (live data, checked this session); item 22 above (the original eight
 real accounts, same pattern this blocks on repeating); item 33 above (the two historical tables this
 roster supersedes as a staffing statement); item 23 above (the ~20-people correction this roster
 triggered).
+
+---
+
+### 35. "Laura Moale" — a surname with no source, propagated into a real account. Pending Anca.
+
+Mihai recorded "Laura Moale" without a source, and it was carried into a real user account. Anca
+now writes **"Laura Preda."** Not corrected here — Mihai is asking Anca to confirm the surname
+first; changing a real person's name on the strength of one message would be the same mistake in
+the other direction. This entry exists to record the provenance precisely and the general lesson,
+not to fix anything.
+
+**The provenance, checked rather than assumed — and the working hypothesis about when this happened
+was itself wrong by a month.** The original account was: "Moale" entered the record on 2026-09-01 in
+item 22, asserted with no source, most likely contaminated from "Cătălina Moale" (who carries that
+surname in the Happy Face spreadsheet). Checking it against git history instead of accepting it:
+**"Laura Moale" is in this repo a full month earlier** — `docs/mockup/wow_lab_os_mockup.html`,
+commit `edfab8a1`, 2026-07-31 (the mockup's very first commit), two occurrences. No `progress.md`
+entry documents that commit's own construction or data sources — an undocumented origin, not
+traceable further within this repo. `progress.md` entry 25, the *same day*, discusses "Laura"
+repeatedly in prose and never once uses a surname — the mockup's HTML and the written narrative
+already disagreed with each other on day one, and nobody reconciled it for five weeks. Item 22
+(2026-09-01) almost certainly inherited "Moale" from the already-existing mockup, not from a fresh
+encounter with the Happy Face spreadsheet at that moment — whether the mockup's *own* origin traces
+back to "Cătălina Moale" is Mihai's plausible working hypothesis, still unconfirmed, and this repo
+has no record of that commit's reasoning to check it against either way.
+
+**Every location the surname now appears, as of 2026-09-07, none of them changed:**
+`docs/mockup/wow_lab_os_mockup.html` (2×, 2026-07-31, earliest known); `docs/OPEN_ITEMS.md` item 22
+(2×, 2026-09-01); `docs/progress.md` entry 68 (2026-09-04); `scripts/create_eight_real_wow_lab_accounts.ts`
+(`lastName`, `fullName`, 2026-09-03); the live `public.users` row for `lauraflorentinaa220@gmail.com`
+(`first_name`, `last_name`, `full_name` — checked live 2026-09-07); the same account's
+`auth.users.raw_user_meta_data.full_name` (a separate, fourth copy in the auth layer, checked live
+the same date); and two of this session's own commit messages (`b46bfd6`, `ed26e62`) — permanent,
+immutable git history that won't change even once Anca confirms either name.
+
+**The general lesson, worth keeping independent of how this specific case resolves.** A plausible
+detail supplied from context, then repeated, becomes indistinguishable from a sourced one within
+days — not because anyone is careless, but because repetition itself reads as confirmation once the
+original moment of invention is a few commits back. This is the same failure as the Raluca Margean
+role assignment (item 22's role-correction work, 2026-09-03): a plausible-sounding role, proposed
+without a direct source, that turned out to contradict the actual evidence once checked. Both were
+Mihai's, both were caught by deliberately checking against source material, not by anyone noticing
+something looked wrong — the surname read as perfectly ordinary right up until a live git-history
+check split it into "a month earlier than stated" and "already contradicted by the day's own written
+record." Neither failure was visible from the inside.
+
+**No fix proposed here — blocked on Anca's confirmation, by design.**
+
+**Lives in:** `docs/mockup/wow_lab_os_mockup.html`; `docs/OPEN_ITEMS.md` item 22 (the account this
+surname belongs to) and item 22's role-correction work (the Raluca Margean parallel); `docs/progress.md`
+entries 25 and 68; `scripts/create_eight_real_wow_lab_accounts.ts`; `public.users` and
+`auth.users.raw_user_meta_data` (live data, `lauraflorentinaa220@gmail.com`).
 
 ---
 
