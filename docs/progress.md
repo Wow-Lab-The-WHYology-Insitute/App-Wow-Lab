@@ -696,6 +696,22 @@ Nicio schimbare de cod în această intrare — doar `docs/OPEN_ITEMS.md`, corec
 
 ---
 
+71. 2026-09-08 (ora București) — Investigația de grupe raportată anterior a produs cod pentru cele două goluri care nu depindeau de Anca: `updateGroup`, plus `contract_id` pe formularul de creare și cel de editare. Al treilea gol (`children_billed`/`children_confirmed`) rămas explicit needitabil, cu motivul consemnat direct în cod.
+
+**`updateGroup`, exact tiparul `updateContract`/`updateClient` — nu inventat din nou.** `app/(app)/groups/actions.ts` primește o acțiune nouă, o singură cale de scriere pentru `notes` și `contract_id`, cu contractul re-validat pe server (nu doar filtrat în formular) să aparțină clientului grupei înainte de scriere — aceeași reținere ca la câmpurile financiare din `updateContract`. `group-info-section.tsx`, până acum un component static fără stare, a devenit exact forma lui `client-info-client.tsx`: `isEditing` local, buton „Edit" condiționat de o capabilitate nouă (`canManage`, aceeași cheie `groups.create` pe care politica RLS de UPDATE o verifică deja — nicio migrare de bază de date necesară, autoritatea era deja acolo, doar stratul de aplicație lipsea). Verificat înainte de scris cod: politica RLS „authenticated update groups" (202608130003) există deja și acoperă toate coloanele necondiționat — golul era 100% în aplicație, nu în bază.
+
+**`contract_id`, pe ambele formulare, cu filtrare reală pe client, nu doar pe organizație.** Dropdown-ul de contract e filtrat client-side la contractele clientului selectat — pe formularul de creare, alegerea se resetează automat dacă utilizatorul schimbă clientul după ce a ales deja un contract (altfel ar rămâne o legătură tăcută către clientul greșit, exact riscul semnalat în raport). Nicio pre-selecție implicită nicăieri — dropdown-ul pornește gol de fiecare dată, „fără contract" fiind un răspuns la fel de valid ca oricare altul, per decizia din 202608290001 că o grupă poate exista înainte de semnarea contractului ei.
+
+**Verificat live, cu sesiune reală, nu service role — `test+ui-ops@wowlab.dev`, nu Cătălina.** Alegere directă din nota adăugată azi la item 21: un script de verificare care se autentifică pe un cont real lasă o urmă vizibilă pe `last_sign_in_at` al acelui om; fixture-ul de test există exact pentru asta. Asertat prin browser, apoi confirmat independent din bază, nu doar din log-ul consolei (aceeași cursă între revalidarea Next.js și citirea imediată a stării găsită și în tura precedentă, pe Laura): o grupă creată fără contract, apoi editată să primească unul (persistat corect, confirmat din `groups.contract_id`); o a doua grupă creată cu contractul ales direct la creare (confirmă că `addGroup` chiar scrie coloana, nu doar `updateGroup`); dropdown-ul de pe formularul de editare a arătat, pentru o grupă a clientului A, doar contractul lui A, niciodată pe-al lui B. Fixture-uri șterse după, `groups`/`contracts`/`clients` confirmate înapoi la zero în `wow-lab`.
+
+**`children_confirmed`/`children_billed` — golul consemnat în cod, nu doar în raport.** `group-info-section.tsx` poartă acum un comentariu explicit lângă cele două câmpuri: rămân needitabile fiindcă întrebarea de mascare din SAD (`WOWLAB_SAD_Domeniul_Operational_Groups_Sessions.md` §4) n-a primit niciodată un răspuns, doar a fost amânată „de decis la construcție" — iar construcția de azi nu e locul unde se decide tăcut ce n-a decis nimeni explicit.
+
+`docs/OPEN_ITEMS.md`: item 38 adăugat — întrebarea de mascare pe `children_billed`, închisă prin omisiune (ValueCell chemat cu `visible={true}` fix, comentariul propriu al codului susținând că decizia a fost luată) mai degrabă decât printr-o decizie reală. Consemnat și tiparul general: a opta apariție în acest proiect a unui text scris care descrie o stare niciodată decisă sau nu mai adevărată.
+
+Commit-uri citate în această intrare: `a54b985`.
+
+---
+
 ## Lecții / capcane (de nu uitat)
 
 - **Migrare scrisă ≠ aplicată.** Tabelele apar doar după `supabase db push`.
