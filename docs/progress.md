@@ -680,6 +680,22 @@ Commit-uri citate în această intrare: `2c37006`.
 
 ---
 
+70. 2026-09-08 (ora București) — Cererea de a crea și invita cei cinci traineri lipsă a găsit ambele lucruri deja făcute mai devreme în aceeași sesiune; verificat live, nu presupus din cerere, și golul din item 34 închis pe bune.
+
+**Nimic de creat, nimic de trimis — verificat, nu presupus din formularea cererii.** `978be3b`, deja pe disc din acest fir de sesiune, crease deja cele cinci conturi (Sonia Ganea, Andrada Eremia, Alina Garofil, Elena Bacalum, Viorel Toboșaru), iar capturi de ecran din scratchpad, datate tot azi, la câteva minute după commit, arătau că invitațiile fuseseră deja trimise la toate cinci prin fluxul de „resend" din admin. Interogat live, nu doar citit din commit: toate cinci țin exact un rând `user_org_roles`, în `wow-lab`, niciunul în `wow-lab-test-b`; `is_test_account=false` pe toate cinci; cele opt rânduri din `wow-lab-test-b` tot nu ating `wow-lab`. Toate asertările cerute au trecut — dar pentru că fuseseră deja adevărate, nu pentru că s-ar fi rulat ceva acum.
+
+**Starea reală a invitațiilor, pe fiecare persoană, din `auth.one_time_tokens` și `last_sign_in_at`, nu din memoria conversației.** Trei din cinci s-au autentificat deja singure (Sonia 08:25, Alina 08:41, Andrada 09:30, toate azi). Elena Bacalum și Viorel Toboșaru încă n-au intrat, dar fiecare ține un token neconsumat din azi, 08:24, cu mult sub fereastra de 24h (item 32) — o invitație vie, nu trimisă din nou fără rost. Luiza Mirt, din cei opt inițiali, a ieșit la iveală ca excepție reală: singurul ei token e din 2026-09-04, patru zile vechi, expirat sub orice regulă folosită vreodată în acest proiect, și nu s-a autentificat niciodată — semnalat, nu reparat, fiindcă cererea de azi era despre cei cinci noi, nu despre ea.
+
+**O contaminare de semnal, prinsă înainte să ajungă în raport ca fapt curat.** `last_sign_in_at` al Ralucăi Popa arată azi — dar din scriptul propriu de verificare RLS de mai devreme din aceeași sesiune (item 37), care i-a re-autentificat contul printr-un `verifyOtp` real ca să testeze o politică, nu dintr-o autentificare nouă, independentă, a ei. Coloana ține doar cea mai recentă valoare, așa că autentificarea ei reală, deja consemnată din 2026-09-03/04, nu mai e vizibilă separat acolo — un fapt demn de reținut oricând un script de verificare din această sesiune atinge un cont real, nu doar unul de fixture.
+
+**Toți cei unsprezece traineri activi ai Ancăi (item 34) au acum cont** — golul pe care item 34 îl consemna ca blocant e închis, nu doar parțial atenuat. Actualizat direct în item 34, nu ca notă separată: starea „blocking" scoasă, înlocuită cu situația reală, persoană cu persoană.
+
+`docs/OPEN_ITEMS.md`: item 34 rescris — nu mai e blocant, e o listă de stare (7 autentificați, 2 cu invitație vie, 1 cu invitație expirată, 1 timestamp contaminat explicat).
+
+Nicio schimbare de cod în această intrare — doar `docs/OPEN_ITEMS.md`, corectat pe baza stării live găsite mai sus.
+
+---
+
 ## Lecții / capcane (de nu uitat)
 
 - **Migrare scrisă ≠ aplicată.** Tabelele apar doar după `supabase db push`.

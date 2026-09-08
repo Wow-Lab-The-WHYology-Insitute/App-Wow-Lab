@@ -51,7 +51,9 @@ future surname change); item 31 got Anka's actual substantive reason
 were closed by Anca (former collaborators, possible reactivation); and
 item 36 was added (permanent-group count, pending one confirmation). Item 37 was added the same
 date: the contracts write-side finance exclusion, investigated then removed on Anca's explicit
-decision, verified live as the real users afterward.
+decision, verified live as the real users afterward. Item 34's blocking note was resolved the same
+date: the five accounts it named were already created and already invited earlier in this session,
+found by checking the live database rather than assumed from the request that asked for them again.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -1296,20 +1298,29 @@ departure than "may come back for the right project"). Separately, 6 of Anca's o
 Daria, Gabriela Enache) still appear in neither the May roster nor Appendix A at all — people who
 left before or outside the window either table covers; unrelated to the fourteen above.
 
-**Blocking, recorded as such — not a nice-to-have.** Five people on this active list have no
-account and no email address anywhere in this repo or the live database: **Sonia Ganea, Andrada
-Eremia, Alina Garofil, Elena Bacalum, Viorel Toboșaru.** Confirmed live, not assumed — checked
-`public.users` by name against all 43 rows, zero matches for any of the five. Their accounts can't
-be created the way the other eight real accounts were (item 22) until an address exists for each;
-nothing to build against here yet.
+**RESOLVED, 2026-09-08.** The five — Sonia Ganea, Andrada Eremia, Alina Garofil, Elena Bacalum,
+Viorel Toboșaru — got addresses from Anca and accounts the same day (`978be3b`, same procedure as
+item 22's original eight), and invitations went out to all five within minutes of creation. All
+**11** of Anca's active trainers now have an account in `wow-lab`. Verified live, not assumed:
 
-**No fix proposed here** — waiting on addresses for the five, and on Anca for anything about Lorina
-or the Laura Moale/Preda surname question (item 35 below).
+- **Signed in already:** Cătălina Trușan, Sonia Ganea, Alexandra Nuțu, Andrada Eremia, Teodora
+  Merișan, Alina Garofil, Răzvan Bălașov.
+- **Outstanding invitation, not yet consumed, not expired:** Elena Bacalum and Viorel Toboșaru —
+  each holds one unconsumed token from 2026-09-08, well inside the 24h window (item 32).
+- **Invitation lapsed, never signed in:** Luiza Mirt — her one token on file is from 2026-09-04,
+  four days stale under any expiry setting this project has used. Needs a fresh resend; not sent
+  here without asking first, since this item's own scope was the five new accounts, not Luiza.
+- **Raluca Popa** shows a sign-in today, 2026-09-08, but that timestamp is this session's own RLS
+  verification script re-authenticating her account for a `contracts` capability test (item 37) —
+  not new independent activity by her. Her genuine sign-in is the one already on record from
+  2026-09-03/04 (item 22); `auth.users.last_sign_in_at` only ever holds the most recent value, so
+  the earlier, real one is no longer separately visible in that column.
 
-**Lives in:** `public.users` (live data, checked this session); item 22 above (the original eight
-real accounts, same pattern this blocks on repeating); item 33 above (the two historical tables this
-roster supersedes as a staffing statement); item 23 above (the ~20-people correction this roster
-triggered).
+**Lives in:** `public.users`/`auth.users`/`auth.one_time_tokens` (live data, checked this session);
+`scripts/create_five_more_wow_lab_trainers.ts` (`978be3b`); item 22 above (the original eight real
+accounts, same pattern this repeated); item 33 above (the two historical tables this roster
+supersedes as a staffing statement); item 23 above (the ~20-people correction this roster
+triggered); item 37 (the verification work that touched Raluca Popa's `last_sign_in_at`).
 
 ---
 
