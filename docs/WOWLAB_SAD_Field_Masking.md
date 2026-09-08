@@ -214,6 +214,28 @@ cu același mecanism. Recomand tratare separată, după ce cele cinci de mai sus
 Împreună cu ea: o convenție despre ce are voie să intre în `audit_log.payload`, scrisă înainte
 să existe zece tipuri de evenimente, nu după.
 
+### 2.7 `groups`/`sessions` — sumă facturabilă, constrângere pentru o funcție nefăcută încă
+
+Nu există azi niciun cod care calculează o sumă facturabilă din `children_confirmed`,
+`children_billed` sau `sessions.attendance_count` — verificat exhaustiv
+(`docs/OPEN_ITEMS.md`, item 39). `billing_rule` e text liber, niciodată interpretat;
+`offer_structure` e doar clasificarea modelului de preț, cu propriul comentariu de coloană care
+spune explicit "NOT financially sensitive... plain passthrough"; nicio interogare nu combină
+vreunul din ele cu un număr de copii. `docs/phase1-development-plan.md`, rândul #11 ("Generator
+cod facturare"), e marcat 🔴 **Nefăcut** — o funcție reală, numită, dar încă neconstruită.
+
+Regulă confirmată de Anca (item 38/39 din `docs/OPEN_ITEMS.md`), opusă presupunerii inițiale a
+SAD-ului de Grupe & Sesiuni §4 (care specula mascare *pentru* Operations pe `children_billed`):
+**numărul de copii — confirmat, facturat, sau prezent la sesiune — e vizibil pentru toată lumea,
+inclusiv traineri și Cătălina. Ce trebuie ascuns e suma facturabilă rezultată, odată ce există.**
+Cătălina vede ambele numere fără restricție azi (politica SELECT existentă pe `groups`, fără
+schimbare necesară) — nu trebuie să vadă vreodată banii calculați din ele.
+
+**Nimic de implementat acum** — nu există câmp de mascat, fiindcă nu există calculul. Constrângere
+scrisă înainte de construcție, exact ca să nu se repete tiparul găsit la `children_billed` însuși
+(o întrebare amânată de SAD, închisă tăcut printr-un default de construcție în loc de o decizie
+scrisă) — vezi item 38 din `docs/OPEN_ITEMS.md` pentru istoricul complet.
+
 ---
 
 ## 3. Mecanismul ales
@@ -557,3 +579,7 @@ Fiecare pas trece prin protocolul din secțiunea 6, integral.
   în loc de API poate fi falsă. De sincronizat.
 - **Review de dezvoltator** pe implementarea finală, înainte ca date reale de școli și copii să
   intre în producție. Rămâne prerechizitul stabilit în WS-D și nu se auto-validează.
+- **§2.7 — sumă facturabilă din `groups`/`sessions`:** regulă confirmată de Anca, nimic de
+  construit până nu există generatorul de facturare (`docs/phase1-development-plan.md` #11) și,
+  înaintea lui, un mecanism real de înregistrat prezența la sesiune (`docs/OPEN_ITEMS.md`, item 39,
+  găsirea 2 — traineri fără nicio cale de scriere pe `sessions` azi).

@@ -57,6 +57,14 @@ found by checking the live database rather than assumed from the request that as
 Item 38 was added the same date: `groups.children_billed`'s masking question, left open by the SAD
 and closed by omission rather than by an actual decision — recorded alongside `updateGroup`
 (`contract_id`/`notes`), the two `groups` gaps built this round that didn't depend on Anca first.
+Item 38 was resolved later the same date: Anca answered, opposite to the SAD's own guess (counts
+visible to everyone, the invoiceable amount hidden, not the reverse). Item 39 was added the same
+date with the full decision record: `children_billed` decided derived-not-stored, not built;
+`children_confirmed` writable in principle but blocked on an RLS gap; the real blocker named —
+nobody can currently record session attendance, trainers included, on any layer; the masking rule
+written into `WOWLAB_SAD_Field_Masking.md` §2.7 as a constraint on the not-yet-built billing
+generator; and `delivery_format` gating confirmed for four formats, with `custom` left open rather
+than guessed.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -1463,7 +1471,7 @@ own header quotes the two superseded comments in full and traces this decision);
 
 ---
 
-### 38. `groups.children_billed` masking — closed by omission, not by decision; the pattern behind it
+### 38. `groups.children_billed` masking — RESOLVED, answered by Anca opposite to the SAD's guess
 
 `WOWLAB_SAD_Domeniul_Operational_Groups_Sessions.md` §4 left this open explicitly, not silently:
 
@@ -1505,10 +1513,121 @@ as if the question had been settled, to anyone who didn't already know it hadn't
 treating as a standing review question for any future "de decis la construcție" note in a SAD: check
 whether construction actually decided it, or just picked a default and moved on.
 
+**Resolved, 2026-09-08 — Anca answered, and the answer runs the opposite direction from the SAD's
+own guess.** The SAD speculated masking might apply *to Operations* (Cătălina) on `children_billed`.
+Anca's actual rule is the reverse: the **child counts** (`children_confirmed`, `children_billed`,
+and `sessions.attendance_count`) are visible to everyone, Cătălina and trainers included — what has
+to stay hidden from both of them is the **invoiceable amount**, a number that doesn't exist in this
+codebase yet. So `ValueCell`'s hardcoded `visible={true}` on both count fields turns out to be
+*correct*, by coincidence, not because anyone had decided it was — the comment asserting "no masking
+dimension here" was still describing a decision nobody had made, even though the eventual answer
+landed on the same default. The full decision, its reasoning, and the four other findings from the
+same investigation are recorded in item 39, immediately below.
+
+**Worth naming plainly: the answer only exists because the omission was written down instead of
+left silent.** This item's own original finding — the SAD deferred the question, and construction
+picked a default without saying so — is what put a concrete question in front of Anca to answer at
+all. Had `ValueCell`'s `visible={true}` simply shipped without this item ever being written, the
+default would have stood indefinitely, indistinguishable from a real decision, exactly as described
+above for `users.status`, `is_test_account`, and the rest. The general pattern's fix isn't
+"guess less" — it's "write the omission down where someone will read it," which is what closed this
+one.
+
 **Lives in:** `docs/WOWLAB_SAD_Domeniul_Operational_Groups_Sessions.md` §4;
 `components/ui/data-table.tsx` (`ValueCell`); `app/(app)/groups/groups-client.tsx`,
 `app/(app)/groups/group-detail-panel.tsx`, `app/(app)/groups/[id]/group-info-section.tsx` (all three
-render sites); `app/(app)/groups/actions.ts` (`updateGroup`'s own scope comment).
+render sites); `app/(app)/groups/actions.ts` (`updateGroup`'s own scope comment); item 39 (the full
+decision record).
+
+---
+
+### 39. `children_confirmed`/`children_billed` — one writable field, one derived, one blocked on a bigger gap
+
+Anca's answer to item 38's masking question came with the full picture of how these two fields
+actually work, which changes what gets built and where. Recorded here as five separate findings —
+they don't all point at the same fix.
+
+**1. `children_billed` should not be a writable field at all — derived, not stored, same precedent
+as contract expiry.** Anca: *"the children actually present. Entered by trainers, at the session."*
+That's a per-session fact. The SAD's own §6 already names the aggregate as the real billing input:
+*"Facturarea viitoare va deriva din `sessions.attendance_count` agregat, nu din fișe nominale"* —
+future billing derives from `sessions.attendance_count`, aggregated, not from `children_billed`
+itself. A single group-level integer cannot faithfully represent a `recurring` group's many
+sessions, each with its own, possibly different, attendance — only a single-occurrence group
+(a party, one corporate workshop) collapses the two to the same number, and only by coincidence.
+Storing `children_billed` as its own writable column would recreate the exact risk this codebase
+already ruled against for `contracts.status = 'expired'` (`docs/OPEN_ITEMS.md`'s "Contracts past
+`period_end` stay `signed`" entry: *"Contract expiry stays derived, on purpose... every reader
+computes `is_expired`... at query time"*) — two stored representations of one fact, with nothing
+keeping them in sync. **Decision: `children_billed` is computed at read time as
+`SUM(sessions.attendance_count)` for the group (likely filtered to `status = 'delivered'`), never
+written directly. Not built now** — it depends on finding 2 below being fixed first.
+
+**2. The real gap, and it blocks any billing work, not just this field: nobody can record what
+actually happened at a session.** `attendance_count` is writable in exactly one place —
+`NewSessionForm` (`group-detail-client.tsx`) — gated on `sessions.create` (Operations Manager +
+Master), and only **at the moment a session is created**, before it has happened. Confirmed on
+every layer: `trainer`/`senior_trainer` hold `mywork.*`, `curriculum.read`, `community.read`,
+`finance.own.read`, `materials.custody`, `presentations.own` (`supabase/seed.sql`) — nothing that
+reaches `sessions.create`. The `sessions` INSERT/UPDATE RLS policies (`202608130003`) check only
+`is_platform_owner() OR org.settings.manage OR sessions.create` — `mywork.*` appears in the SELECT
+policy alone, never INSERT or UPDATE. `updateSessionAllocation`, the only post-creation edit action
+that exists, is deliberately scoped to `trainer_principal_id`/`trainer_secundar_id` only (its own
+comment says so). Anca says trainers enter attendance; today they structurally cannot, on any layer,
+and neither can anyone else after a session is created. **This blocks finding 1 above and any real
+billing computation** — there is no correct aggregate to compute from a fact nobody can actually
+record. Needs Anca's confirmation before it's buildable: does she want trainers writing attendance
+directly (new capability, new RLS policy, new UI), or reporting it to Cătălina who enters it
+(no new capability, just a missing post-creation edit path)? Different answers, different scope.
+
+**3. `children_confirmed` is writable in principle, blocked by RLS today, and needs a different
+capability than `groups.create`.** Anca: filled in by Anka and Laura. Checked what they actually
+hold: `finance_operations` (Laura) and `finance_admin_reporting` (Anka) both grant `groups.read`
+only (`supabase/seed.sql`) — neither holds `groups.create`, the *only* capability the `groups`
+UPDATE policy (`202608130003`) checks. What Laura and Anka actually share is `contracts.*`
+(`contract_administrator`, confirmed live in item 37's own verification) — matching
+`children_confirmed`'s real nature as a contract-side fact ("the count agreed in the contract, or
+confirmed by the school's representative"), not an operational one. **Needs an RLS change** — a new
+UPDATE policy branch (or an added condition on the existing one) admitting `contracts.*`, not just
+`groups.create` — before any form can work for the people who are supposed to use it. Cătălina
+(`operations_manager`) already reads both counts under the existing SELECT policy (Operations
+Manager sees every group/session in the org, §4's Record-level design) — confirmed, no gap there.
+She should **not** gain write on `children_confirmed`: Anca said see, not fill, and she doesn't hold
+`contracts.*` anyway, so the capability boundary already matches the intent without changing
+anything.
+
+**4. Masking rule, recorded as a constraint on a feature that doesn't exist yet, not implemented
+against fields that don't exist.** See item 38's resolution above for the full reversal. Checked
+exhaustively for anywhere an invoiceable amount could already be computed or shown: none —
+`billing_rule` is plain free text, `offer_structure` is a stored pricing-model classification with
+zero code ever reading it to compute anything (its own column comment: *"NOT financially
+sensitive... plain passthrough"*), and no query anywhere joins either against `children_confirmed`,
+`children_billed`, or `attendance_count`. `docs/phase1-development-plan.md` row 11 ("Generator cod
+facturare") is listed 🔴 **Nefăcut** — a real, named, unbuilt feature. The rule itself — child counts
+open to everyone including trainers, the eventual invoiceable amount hidden from Cătălina and
+trainers both — is now recorded in `docs/WOWLAB_SAD_Field_Masking.md` §2.7, as a constraint that
+feature has to satisfy when it's built, not as masking logic written against fields that don't exist
+today.
+
+**5. Both count fields should be gated by `delivery_format` — three formats confirmed, one open.**
+Anca scoped her answer explicitly to `scoala_altfel`, `saptamana_verde`, `party`, and `corporate` —
+four of the six `delivery_format` values — as the per-child formats where any of this applies.
+`recurring` (the fixed-sum, ongoing school-club format) was not named, and finding 1's own
+structural argument explains why it wouldn't fit the same way. **`custom` is unanswered** — Anca's
+scoping doesn't cover it either way, and it must not be guessed at construction time the way
+`delivery_format`'s own split from "Tip atelier" already was once, accepted as risk, in this same
+SAD (§3). A direct question, not an assumption, when this is built.
+
+**Nothing built yet, deliberately — this is the decision record ahead of construction, not a
+retrofit after.** Finding 2 gates findings 1 and (functionally) 4; finding 3 needs Anca's own RLS
+scope confirmed before a form is written for it; finding 5's `custom` case needs a direct answer.
+
+**Lives in:** `docs/WOWLAB_SAD_Domeniul_Operational_Groups_Sessions.md` §2/§4/§6;
+`docs/WOWLAB_SAD_Field_Masking.md` §2.7; `docs/phase1-development-plan.md` row 11;
+`supabase/migrations/202608130003_add_groups_sessions_rls_policies.sql`; `supabase/seed.sql`
+(role/capability grants); `app/(app)/groups/actions.ts` (`addSession`, `updateSessionAllocation`);
+`app/(app)/groups/[id]/group-detail-client.tsx` (`NewSessionForm`); item 37 above (Laura/Anka's
+`contracts.*`, verified live); item 38 above (the masking question this closes).
 
 ---
 

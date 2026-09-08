@@ -712,6 +712,24 @@ Commit-uri citate în această intrare: `a54b985`.
 
 ---
 
+72. 2026-09-08 (ora București) — Răspunsul Ancăi la întrebarea de mascare a schimbat ce se construiește: un câmp de scris, unul derivat niciodată stocat, și un blocaj real mai mare decât oricare din cele două, găsit abia acum.
+
+**`children_billed` decis derivat, nu stocat — nu se construiește ca formular.** Anca: „copiii efectiv prezenți, introdus de traineri, la sesiune" — un fapt per sesiune, nu per grupă. SAD-ul propriu, §6, numește deja suma agregată a `sessions.attendance_count` ca intrare reală de facturare, nu `children_billed` însuși. Un singur întreg pe grupă nu poate reprezenta corect o grupă `recurring` cu multe sesiuni, fiecare cu prezența ei — se suprapun doar la o grupă cu o singură apariție, și doar din întâmplare. Decizie: `children_billed` se calculează la citire, `SUM(sessions.attendance_count)`, niciodată scris direct — același precedent „derivat, nu stocat" deja stabilit pentru expirarea contractelor.
+
+**Blocajul real, mai mare decât câmpul însuși: nimeni nu poate consemna azi ce s-a întâmplat efectiv la o sesiune.** `attendance_count` e scriibil într-un singur loc, la crearea sesiunii, doar de Operations Manager — înainte ca sesiunea să aibă loc. Trainerii nu ating `sessions` pe niciun nivel: nici capabilitate (`mywork.*` apare doar la SELECT), nici RLS, nici formular. `updateSessionAllocation`, singura cale de editare după creare, e limitată deliberat la alocarea de traineri. Anca spune că trainerii introduc prezența; azi, structural, nu pot — pe niciun strat. Consemnat ca blocaj pentru orice lucru de facturare, nu doar pentru `children_billed`: nu există un fapt corect de agregat cât timp nimeni nu-l poate înregistra.
+
+**`children_confirmed` — scriibil în principiu, blocat de o politică RLS greșit țintită.** Anka și Laura, cine îl completează real, țin `contracts.*` — politica UPDATE de pe `groups` verifică azi doar `groups.create`, pe care niciuna din ele nu-l ține. Nevoie de o schimbare de RLS, nu doar de formular. Cătălina citește deja ambele numere prin politica SELECT existentă — nimic de schimbat acolo — și nu trebuie să capete scriere: Anca a spus să vadă, nu să completeze, iar ea oricum nu ține `contracts.*`.
+
+**Mascarea, răspuns opus presupunerii SAD-ului.** Numerele de copii sunt vizibile pentru toată lumea, inclusiv traineri; ce trebuie ascuns e suma facturabilă — care nu există încă nicăieri în cod (`billing_rule` text liber, `offer_structure` doar clasificare, nicio interogare nu le combină cu vreun număr de copii). Regula scrisă ca o constrângere pentru generatorul de facturare (`docs/phase1-development-plan.md` #11, nefăcut), nu implementată împotriva unor câmpuri care nu există.
+
+**`delivery_format` confirmat ca filtru — trei sferturi din răspuns, un sfert lăsat deschis.** Anca a numit explicit `scoala_altfel`, `saptamana_verde`, `party`, `corporate`; `recurring` nu a fost numit, consecvent cu argumentul structural de mai sus. `custom` a rămas neadresat — consemnat ca întrebare deschisă, nu ghicit.
+
+`docs/OPEN_ITEMS.md`: item 38 închis — Anca a răspuns, direcție opusă presupunerii SAD-ului, iar răspunsul a existat doar fiindcă omisiunea a fost scrisă în loc de expediată tăcut. Item 39 adăugat cu toate cele cinci descoperiri de mai sus. `docs/WOWLAB_SAD_Field_Masking.md`: §2.7 adăugat (regula de mascare pentru suma facturabilă viitoare) și un pointer în §8.
+
+Nicio schimbare de cod în această intrare — investigație raportată, nimic construit, per cererea explicită.
+
+---
+
 ## Lecții / capcane (de nu uitat)
 
 - **Migrare scrisă ≠ aplicată.** Tabelele apar doar după `supabase db push`.
