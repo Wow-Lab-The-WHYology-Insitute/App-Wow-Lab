@@ -54,6 +54,9 @@ date: the contracts write-side finance exclusion, investigated then removed on A
 decision, verified live as the real users afterward. Item 34's blocking note was resolved the same
 date: the five accounts it named were already created and already invited earlier in this session,
 found by checking the live database rather than assumed from the request that asked for them again.
+Item 38 was added the same date: `groups.children_billed`'s masking question, left open by the SAD
+and closed by omission rather than by an actual decision — recorded alongside `updateGroup`
+(`contract_id`/`notes`), the two `groups` gaps built this round that didn't depend on Anca first.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -1457,6 +1460,55 @@ this is a separate question pending her own answer.
 own header quotes the two superseded comments in full and traces this decision);
 `supabase/rollbacks/202609080001_remove_contracts_write_finance_exclusion_rollback.sql`;
 `app/(app)/contracts/page.tsx`, `app/(app)/contracts/[id]/page.tsx`, `app/(app)/contracts/actions.ts`.
+
+---
+
+### 38. `groups.children_billed` masking — closed by omission, not by decision; the pattern behind it
+
+`WOWLAB_SAD_Domeniul_Operational_Groups_Sessions.md` §4 left this open explicitly, not silently:
+
+> "Field: fără câmpuri financiare sensibile pe acest domeniu direct (billing_rule rămâne pe
+> contracts) — dar `children_billed` ar putea avea sens mascat pt Operations, de decis la
+> construcție (nu blocant)." — *(No sensitive financial fields on this domain directly — but
+> children_billed might make sense masked for Operations, to be decided at construction time. Not
+> blocking.)*
+
+That decision point was never revisited. What got built instead settled it by default: both
+`children_confirmed` and `children_billed` render through `ValueCell` — the identical shared
+component (`components/ui/data-table.tsx`) that does real, capability-gated masking for contracts'
+financial fields (`visible={financeVisible}` there) — but called here with `visible={true}`
+hardcoded, in all three places these fields appear (`groups-client.tsx`'s list columns,
+`group-detail-panel.tsx`'s expandable row, `group-info-section.tsx`'s detail page). The component's
+own comment in `group-detail-panel.tsx` states this as settled fact: *"ValueCell here has no
+capability/masking dimension (visible is always true)."* That comment describes a decision nobody
+actually made — the SAD only ever deferred it, "de decis la construcție," and construction picked
+the easiest default (no masking) without anyone confirming that was the right call. Pending Anca.
+
+**No fix proposed here.** `updateGroup` (`app/(app)/groups/actions.ts`, added alongside this item)
+deliberately excludes both fields from its own scope for the identical reason — see that action's
+own comment header. Building either a masked read path or an editable one ahead of Anca's answer
+would settle the same open question a second way, just as silently as the first time.
+
+**The general pattern, not just this one field.** This is the eighth instance surfaced in this
+project of written text describing a state that was never actually decided, or that used to be true
+and no longer is: `users.status` claiming a value no code path maintains (item 21); `is_test_account`
+silently unset across eight independent write sites (item 27's original finding); a live
+`config.toml` redirect-URL drift silently overwritten by an unrelated push (item 32); the SAD's own
+`operations_manager`+`curriculum_manager` merge, applied everywhere in `seed.sql` except the one
+place still gated on an unchecked approval box (item 30); the `contracts` finance-exclusion's
+`finance.operations.*` half, carrying a "load-bearing, not decorative" comment for a reason nobody
+ever recorded (item 37, just above); the `row_history`/`audit_log` masking gap, tracked as its own
+deferred SAD checklist (`WOWLAB_SAD_Field_Masking.md` §5); and now this one. Deferred decisions do
+not stay visible on their own — nothing marks them as still-open once code ships around them. They
+get implemented as whichever default was easiest to write, and the code that results reads exactly
+as if the question had been settled, to anyone who didn't already know it hadn't been. Worth
+treating as a standing review question for any future "de decis la construcție" note in a SAD: check
+whether construction actually decided it, or just picked a default and moved on.
+
+**Lives in:** `docs/WOWLAB_SAD_Domeniul_Operational_Groups_Sessions.md` §4;
+`components/ui/data-table.tsx` (`ValueCell`); `app/(app)/groups/groups-client.tsx`,
+`app/(app)/groups/group-detail-panel.tsx`, `app/(app)/groups/[id]/group-info-section.tsx` (all three
+render sites); `app/(app)/groups/actions.ts` (`updateGroup`'s own scope comment).
 
 ---
 

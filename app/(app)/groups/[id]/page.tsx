@@ -18,8 +18,11 @@ type GroupRow = {
   notes: string | null;
   age_range: string | null;
   school_year_calendar_link: string | null;
+  contract_id: string | null;
 };
 type ClientLookupRow = { id: string; name: string };
+type ContractLookupRow = { id: string; exit_number: string | null };
+type ContractOptionRow = { id: string; client_id: string; exit_number: string | null };
 type SessionRow = {
   id: string;
   session_date: string;
@@ -74,7 +77,7 @@ export default async function GroupDetailPage({
   const { data: group } = await supabase
     .from("groups")
     .select(
-      "id, organization_id, client_id, module, delivery_format, schedule_pattern, children_confirmed, children_billed, status, notes, age_range, school_year_calendar_link",
+      "id, organization_id, client_id, module, delivery_format, schedule_pattern, children_confirmed, children_billed, status, notes, age_range, school_year_calendar_link, contract_id",
     )
     .eq("id", id)
     .maybeSingle<GroupRow>();
@@ -92,6 +95,24 @@ export default async function GroupDetailPage({
     .select("id, name")
     .eq("id", group.client_id)
     .maybeSingle<ClientLookupRow>();
+
+  // The group's own linked contract, for the read view -- resolved
+  // separately from contractOptions below (which only exists for the
+  // editor and is fetched org-wide). A null result here with
+  // group.contract_id set is NOT the same fact as group.contract_id being
+  // null itself: the first is "linked, but this session's contracts SELECT
+  // policy filters it out" (e.g. a Trainer viewing a group whose contract
+  // sits behind the finance-scoped branch), the second is "no contract
+  // linked at all" -- collapsing them would misreport an RLS boundary as
+  // an empty field, the same distinction ValueCell already draws for
+  // null-vs-masked-vs-zero.
+  const { data: linkedContract } = group.contract_id
+    ? await supabase
+        .from("contracts")
+        .select("id, exit_number")
+        .eq("id", group.contract_id)
+        .maybeSingle<ContractLookupRow>()
+    : { data: null };
 
   const { data: sessions } = await supabase
     .from("sessions")
@@ -144,6 +165,27 @@ export default async function GroupDetailPage({
   // trainer-reallocation edit, same relationship as createOrgId elsewhere.
   const canManageSessions = await checkCapability(supabase, "sessions.create", group.organization_id);
 
+  // groups.create capability (matches the RLS UPDATE policy on groups
+  // itself, 202608130003 -- Operations Manager + Master) — gates the group
+  // record's own Edit action (notes, contract_id), same relationship
+  // canManageContracts has to contracts' UPDATE policy.
+  const canManage = await checkCapability(supabase, "groups.create", group.organization_id);
+
+  // contractOptions: every contract in this group's org, only fetched when
+  // the edit form will actually render -- same "only fetch what the
+  // button needs" discipline as trainerOptions just above. GroupEditForm
+  // filters this client-side to group.client_id, matching NewGroupForm's
+  // (groups-client.tsx) filtering of the identical shape.
+  let contractOptions: ContractOptionRow[] = [];
+  if (canManage) {
+    const { data: cto } = await supabase
+      .from("contracts")
+      .select("id, client_id, exit_number")
+      .eq("organization_id", group.organization_id)
+      .returns<ContractOptionRow[]>();
+    contractOptions = cto ?? [];
+  }
+
   // Trainer picker options, only fetched when the form/edit controls will
   // actually render — same "only fetch what the button needs" discipline
   // as contracts/page.tsx's clientOptions/legalEntityOptions.
@@ -190,6 +232,8 @@ export default async function GroupDetailPage({
       />
 
       <GroupInfoSection
+        groupId={group.id}
+        clientId={group.client_id}
         clientName={clientName}
         module={group.module}
         deliveryFormat={group.delivery_format}
@@ -199,6 +243,11 @@ export default async function GroupDetailPage({
         childrenConfirmed={group.children_confirmed}
         childrenBilled={group.children_billed}
         notes={group.notes}
+        contractId={group.contract_id}
+        contractExitNumber={linkedContract?.exit_number ?? null}
+        contractVisible={group.contract_id ? linkedContract !== null : true}
+        canManage={Boolean(canManage)}
+        contractOptions={contractOptions}
       />
 
       <GroupDetailClient

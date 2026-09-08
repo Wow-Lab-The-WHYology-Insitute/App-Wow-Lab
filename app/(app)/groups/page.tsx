@@ -16,6 +16,7 @@ type GroupRow = {
 };
 type ClientLookupRow = { id: string; name: string; legal_name: string | null };
 type ClientOptionRow = { id: string; name: string; organization_id: string };
+type ContractOptionRow = { id: string; client_id: string; exit_number: string | null };
 type SessionLookupRow = {
   group_id: string;
   session_date: string;
@@ -197,15 +198,35 @@ export default async function GroupsPage() {
   // create groups in (only fetched when that org is known, i.e. the
   // button will actually render) — same pattern as contracts/page.tsx's
   // clientOptions.
+  // contractOptions: every contract in the org the caller can create
+  // groups in, prefetched the same way clientOptions already is (not
+  // fetched per-client on demand) -- NewGroupForm filters this list
+  // client-side to the selected client's own contracts as that selection
+  // changes, same "fetch once, narrow in the form" shape the rest of this
+  // page already uses. Only fetched when the button will actually render.
+  // Requires this session's own contracts.read/contracts.* -- confirmed
+  // live that operations_manager (the real role this button is for) holds
+  // contracts.read, which the contracts SELECT policy's unsegmented branch
+  // grants the full org list to (no finance capability held, so the
+  // finance-scoped branch never applies).
   let clientOptions: ClientOptionRow[] = [];
+  let contractOptions: ContractOptionRow[] = [];
   if (createOrgId) {
-    const { data: co } = await supabase
-      .from("clients")
-      .select("id, name, organization_id")
-      .eq("organization_id", createOrgId)
-      .order("name")
-      .returns<ClientOptionRow[]>();
+    const [{ data: co }, { data: cto }] = await Promise.all([
+      supabase
+        .from("clients")
+        .select("id, name, organization_id")
+        .eq("organization_id", createOrgId)
+        .order("name")
+        .returns<ClientOptionRow[]>(),
+      supabase
+        .from("contracts")
+        .select("id, client_id, exit_number")
+        .eq("organization_id", createOrgId)
+        .returns<ContractOptionRow[]>(),
+    ]);
     clientOptions = co ?? [];
+    contractOptions = cto ?? [];
   }
 
   return (
@@ -214,6 +235,7 @@ export default async function GroupsPage() {
         groups={rows}
         createOrgId={createOrgId}
         clientOptions={clientOptions}
+        contractOptions={contractOptions}
         isTrainerView={isTrainerView}
       />
     </div>

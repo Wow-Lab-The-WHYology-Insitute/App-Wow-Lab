@@ -25,12 +25,30 @@ export async function addGroup(
   status: string,
   ageRange: string,
   schoolYearCalendarLink: string,
+  contractId: string,
 ): Promise<ActionResult> {
   if (!clientId || !module || !deliveryFormat) {
     return { ok: false, error: "Client, module, and delivery format are required." };
   }
 
   const supabase = await createClient();
+
+  // contract_id is optional (202608290001: a group can legitimately exist
+  // before its contract is signed) but when supplied must belong to the
+  // same client the group is being created for -- re-checked here, not
+  // trusted from the form's own client-side filtering, same reasoning as
+  // updateGroup below.
+  if (contractId) {
+    const { data: contract } = await supabase
+      .from("contracts")
+      .select("id, client_id")
+      .eq("id", contractId)
+      .maybeSingle();
+    if (!contract || contract.client_id !== clientId) {
+      return { ok: false, error: "That contract does not belong to the selected client." };
+    }
+  }
+
   const { data, error } = await supabase
     .from("groups")
     .insert({
@@ -42,6 +60,7 @@ export async function addGroup(
       status,
       age_range: ageRange.trim() || null,
       school_year_calendar_link: schoolYearCalendarLink.trim() || null,
+      contract_id: contractId || null,
     })
     .select("id")
     .single();
@@ -52,6 +71,75 @@ export async function addGroup(
 
   revalidatePath("/groups");
   return { ok: true, id: data.id };
+}
+
+// Same relationship as updateContract/updateClient: runs through the
+// caller's own session client, so the "authenticated update groups" RLS
+// policy (202608130003 -- groups.create, i.e. Operations Manager + Master)
+// is the real authority; this action's own checks are a second, explicit
+// line so the caller gets a real reason rather than a mystery no-op.
+//
+// In scope: notes and contract_id -- both plain scalars the RLS UPDATE
+// policy already covers unconditionally, same as every other field on
+// this table. Deliberately NOT in scope: children_confirmed and
+// children_billed. The SAD (WOWLAB_SAD_Domeniul_Operational_Groups_
+// Sessions.md §4) flagged children_billed as possibly needing masking for
+// Operations, "de decis la construcție" -- that decision was never made,
+// only deferred, and is now recorded as its own open question
+// (OPEN_ITEMS.md). Adding either field to this action ahead of that
+// answer would settle the question by accident, the same way ValueCell's
+// hardcoded visible=true already did on the read side. They stay
+// read-only until Anca answers.
+export async function updateGroup(
+  groupId: string,
+  notes: string,
+  contractId: string,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  const { data: current } = await supabase
+    .from("groups")
+    .select("id, client_id")
+    .eq("id", groupId)
+    .maybeSingle();
+
+  if (!current) {
+    return { ok: false, error: "Group not found, or not visible to your role." };
+  }
+
+  if (contractId) {
+    const { data: contract } = await supabase
+      .from("contracts")
+      .select("id, client_id")
+      .eq("id", contractId)
+      .maybeSingle();
+    if (!contract || contract.client_id !== current.client_id) {
+      return { ok: false, error: "That contract does not belong to this group's client." };
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("groups")
+    .update({
+      notes: notes.trim() || null,
+      contract_id: contractId || null,
+    })
+    .eq("id", groupId)
+    .select("id");
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return {
+      ok: false,
+      error: "Not permitted (requires Operations Manager or Master).",
+    };
+  }
+
+  revalidatePath(`/groups/${groupId}`);
+  revalidatePath("/groups");
+  return { ok: true, id: groupId };
 }
 
 export async function addSession(

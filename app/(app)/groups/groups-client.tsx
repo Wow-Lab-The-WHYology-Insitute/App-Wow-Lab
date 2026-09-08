@@ -32,6 +32,7 @@ type Group = {
   trainerSecundarName: string | null;
 };
 type ClientOption = { id: string; name: string };
+type ContractOption = { id: string; client_id: string; exit_number: string | null };
 
 const MODULE_KEYS = [
   "gaga",
@@ -236,11 +237,13 @@ export function GroupsClient({
   groups,
   createOrgId,
   clientOptions,
+  contractOptions,
   isTrainerView,
 }: {
   groups: Group[];
   createOrgId: string | null;
   clientOptions: ClientOption[];
+  contractOptions: ContractOption[];
   isTrainerView: boolean;
 }) {
   const t = useTranslations(groupsDict);
@@ -450,9 +453,19 @@ export function GroupsClient({
           {isFormOpen && (
             <NewGroupForm
               clientOptions={clientOptions}
+              contractOptions={contractOptions}
               isPending={isPending}
               t={t}
-              onSubmit={(clientId, module, deliveryFormat, schedulePattern, status, ageRange, schoolYearCalendarLink) => {
+              onSubmit={(
+                clientId,
+                module,
+                deliveryFormat,
+                schedulePattern,
+                status,
+                ageRange,
+                schoolYearCalendarLink,
+                contractId,
+              ) => {
                 setError(null);
                 startTransition(async () => {
                   const result = await addGroup(
@@ -464,6 +477,7 @@ export function GroupsClient({
                     status,
                     ageRange,
                     schoolYearCalendarLink,
+                    contractId,
                   );
                   if (!result.ok) setError(result.error);
                   else setIsFormOpen(false);
@@ -638,11 +652,13 @@ const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "S
 
 function NewGroupForm({
   clientOptions,
+  contractOptions,
   isPending,
   onSubmit,
   t,
 }: {
   clientOptions: ClientOption[];
+  contractOptions: ContractOption[];
   isPending: boolean;
   t: (key: string, vars?: Record<string, string | number>) => string;
   onSubmit: (
@@ -653,6 +669,7 @@ function NewGroupForm({
     status: string,
     ageRange: string,
     schoolYearCalendarLink: string,
+    contractId: string,
   ) => void;
 }) {
   const [clientId, setClientId] = useState(clientOptions[0]?.id ?? "");
@@ -661,6 +678,24 @@ function NewGroupForm({
   const [status, setStatus] = useState("active");
   const [ageRange, setAgeRange] = useState("");
   const [calendarLink, setCalendarLink] = useState("");
+  // Nullable stays meaningful here -- always starts empty, never
+  // pre-selects the client's first contract. A group created before its
+  // contract is signed (202608290001's own modeled case) must default to
+  // "no contract", not to a silent guess.
+  const [contractId, setContractId] = useState("");
+  const contractsForClient = contractOptions.filter((c) => c.client_id === clientId);
+
+  function handleClientChange(newClientId: string) {
+    setClientId(newClientId);
+    // The previously-picked contract almost certainly doesn't belong to
+    // the new client -- leaving it selected would silently carry a stale,
+    // wrong-client link into the submit below. Only kept if it happens to
+    // also belong to the new client (same contract id can't repeat across
+    // clients, so in practice this always clears).
+    if (contractId && !contractOptions.some((c) => c.id === contractId && c.client_id === newClientId)) {
+      setContractId("");
+    }
+  }
 
   const isRecurring = deliveryFormat === "recurring";
   const [scheduleDay, setScheduleDay] = useState(DAYS_OF_WEEK[0]);
@@ -682,13 +717,26 @@ function NewGroupForm({
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <select
           value={clientId}
-          onChange={(e) => setClientId(e.target.value)}
+          onChange={(e) => handleClientChange(e.target.value)}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         >
           <option value="">{t("select_client")}</option>
           {clientOptions.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
+            </option>
+          ))}
+        </select>
+        <select
+          value={contractId}
+          onChange={(e) => setContractId(e.target.value)}
+          disabled={!clientId}
+          className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 disabled:opacity-50"
+        >
+          <option value="">{t("select_contract")}</option>
+          {contractsForClient.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.exit_number || t("contract_option_no_exit")}
             </option>
           ))}
         </select>
@@ -779,7 +827,9 @@ function NewGroupForm({
       <button
         type="button"
         disabled={isPending || !clientId || !module || !deliveryFormat}
-        onClick={() => onSubmit(clientId, module, deliveryFormat, schedulePattern, status, ageRange, calendarLink)}
+        onClick={() =>
+          onSubmit(clientId, module, deliveryFormat, schedulePattern, status, ageRange, calendarLink, contractId)
+        }
         className="font-body focus-visible:ring-brand-pink mt-3 w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
       >
         {t("create_group")}

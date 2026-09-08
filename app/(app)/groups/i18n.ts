@@ -77,6 +77,8 @@ export const groupsDict: Dictionary = {
 
   new_group_form_title: { en: "New group", ro: "Grupă nouă" },
   select_client: { en: "Select client…", ro: "Alege clientul…" },
+  select_contract: { en: "No contract yet", ro: "Fără contract deocamdată" },
+  contract_option_no_exit: { en: "(no exit number yet)", ro: "(fără număr de ieșire încă)" },
   status_label: { en: "Status", ro: "Status" },
   age_range_placeholder: { en: "Age range (e.g. 6-9 ani — optional)", ro: "Interval de vârstă (ex. 6-9 ani — opțional)" },
   calendar_link_placeholder: {
@@ -145,4 +147,17 @@ export const groupsDict: Dictionary = {
   kv_children_confirmed: { en: "Children confirmed (per contract)", ro: "Copii confirmați (per contract)" },
   kv_children_billed: { en: "Children billed", ro: "Copii facturați" },
   kv_notes: { en: "Notes", ro: "Note" },
+  kv_contract: { en: "Contract", ro: "Contract" },
+  contract_none: { en: "No contract linked yet", ro: "Niciun contract legat încă" },
+  contract_hidden: {
+    en: "Linked (not visible to your role)",
+    ro: "Legat (nevizibil pentru rolul tău)",
+  },
+
+  // group-info-section.tsx's edit form (updateGroup) -- mirrors
+  // clients/i18n.ts and contracts/i18n.ts's own edit/save/cancel/notes
+  // naming exactly, not invented fresh for this file.
+  edit: { en: "Edit", ro: "Editează" },
+  edit_group_title: { en: "Edit group", ro: "Editează grupa" },
+  notes_placeholder: { en: "Notes (optional)", ro: "Note (opțional)" },
 };
