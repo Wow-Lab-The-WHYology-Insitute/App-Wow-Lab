@@ -43,6 +43,13 @@ Anca's pay grid, unresolved in the roster's own naming). Item 35 was
 added the same date: the "Laura Moale" surname's actual provenance,
 checked against git history rather than accepted from a working
 hypothesis that was itself a month off, pending Anca's confirmation.
+Updated 2026-09-08: item 35 resolved ("Moale" confirmed correct by
+Anca; this item's own contamination hypothesis was the thing that was
+wrong, not the surname) with a new forward-looking note (Cătălina's
+future surname change); item 31 got Anka's actual substantive reason
+(covering Laura's maternity leave); item 34's 14-unaccounted-for names
+were closed by Anca (former collaborators, possible reactivation); and
+item 36 was added (permanent-group count, pending one confirmation).
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -1077,6 +1084,13 @@ broad grant that isn't easily reversed later — the concern that made this look
 (an unusually wide, all-at-once grant) doesn't hold the same weight when reversing it is a normal
 `editRoles` call away, not a migration or a data fix.
 
+**The substantive reason, from Anca, 2026-09-08 — not just the meta-reasoning above for why a broad
+grant is low-cost.** Anka covers Laura's responsibilities during Laura's maternity leave, which is
+exactly why the role set needs to be this wide: Laura's own real set is `finance_operations` +
+`contract_administrator` (item 22), and covering for her plus holding Anka's own normal
+responsibilities is what actually accounts for the breadth, not an unexplained maximal grant. This
+is the concrete "why," on top of the "why it's safe to leave broad" already recorded above.
+
 **This explicitly includes `evaluator` — worth being precise about, given `evaluations_confidential`
 (OD-7).** `evaluator` carries `evaluations.assigned.read`/`evaluations.assigned.write`. Anca's own
 policy setting is that evaluations are confidential under OD-7. Holding both the policy-setting
@@ -1268,14 +1282,17 @@ not yet recorded here as its own item since it was asked as report-only).
 Vladimir-Lucian, Bordea Daria, Gabriela Enache.
 
 **Cross-referenced against item 33's 17 May-only names, not just recorded side by side.** Only 3 of
-those 17 — Fatima, Sânziana, Diego — are confirmed "no longer active" by Anca's list. The other 14
-(Diana Fainarea, Andreea Minea, Diana Pricopi, Andreea Grulic, Diana Gardus (Cocea), Tudor Nedelcu,
-Darius Mirea, Mirela Popa, Andreea Tudor, Maria Nicolescu, Adelina Paduraru, Alexandra Gruia, Gita
-Adelina, Andra Onas) appear in neither Anca's active list nor her no-longer-active list — genuinely
-unaccounted for, some with large career counts, not resolved here. Separately, 6 of Anca's 9
+those 17 — Fatima, Sânziana, Diego — were confirmed "no longer active" by Anca's list at the time.
+The other 14 (Diana Fainarea, Andreea Minea, Diana Pricopi, Andreea Grulic, Diana Gardus (Cocea),
+Tudor Nedelcu, Darius Mirea, Mirela Popa, Andreea Tudor, Maria Nicolescu, Adelina Paduraru,
+Alexandra Gruia, Gita Adelina, Andra Onas) appeared in neither Anca's active list nor her
+no-longer-active list. **Closed by Anca, 2026-09-08:** these fourteen are former collaborators who
+may be reactivated for large projects like Școala Altfel — not added to the platform for now, and
+not the same status as the 9 already named "no longer active" (which reads as a more settled
+departure than "may come back for the right project"). Separately, 6 of Anca's original 9
 "no longer active" names (Bianca Necula, Mihai Popa, Roxana Vasile, Ene Vladimir-Lucian, Bordea
-Daria, Gabriela Enache) appear in neither the May roster nor Appendix A at all — people who left
-before or outside the window either table covers.
+Daria, Gabriela Enache) still appear in neither the May roster nor Appendix A at all — people who
+left before or outside the window either table covers; unrelated to the fourteen above.
 
 **Blocking, recorded as such — not a nice-to-have.** Five people on this active list have no
 account and no email address anywhere in this repo or the live database: **Sonia Ganea, Andrada
@@ -1294,55 +1311,76 @@ triggered).
 
 ---
 
-### 35. "Laura Moale" — a surname with no source, propagated into a real account. Pending Anca.
+### 35. "Laura Moale" — RESOLVED: the surname is correct. The check was right; this item's own conclusion was not.
 
-Mihai recorded "Laura Moale" without a source, and it was carried into a real user account. Anca
-now writes **"Laura Preda."** Not corrected here — Mihai is asking Anca to confirm the surname
-first; changing a real person's name on the strength of one message would be the same mistake in
-the other direction. This entry exists to record the provenance precisely and the general lesson,
-not to fix anything.
+**Confirmed by Anca, 2026-09-08: "Moale" is correct.** Laura Moale is Cătălina Moale's
+sister-in-law; "Preda" is Laura's maiden name — the surname changed at marriage, both names are
+genuinely hers, and "Moale" is the one that belongs on the account. Nothing about the account
+changes: `public.users`, `auth.users.raw_user_meta_data`, the mockup, and every prior doc mention
+were already correct. This entry stays open in edited form rather than being deleted, because the
+part worth keeping isn't the outcome — it's that the process which produced the wrong hypothesis is
+exactly the process that's supposed to catch this class of error, and it's worth being honest about
+where it fell short.
 
-**The provenance, checked rather than assumed — and the working hypothesis about when this happened
-was itself wrong by a month.** The original account was: "Moale" entered the record on 2026-09-01 in
-item 22, asserted with no source, most likely contaminated from "Cătălina Moale" (who carries that
-surname in the Happy Face spreadsheet). Checking it against git history instead of accepting it:
-**"Laura Moale" is in this repo a full month earlier** — `docs/mockup/wow_lab_os_mockup.html`,
-commit `edfab8a1`, 2026-07-31 (the mockup's very first commit), two occurrences. No `progress.md`
-entry documents that commit's own construction or data sources — an undocumented origin, not
-traceable further within this repo. `progress.md` entry 25, the *same day*, discusses "Laura"
-repeatedly in prose and never once uses a surname — the mockup's HTML and the written narrative
-already disagreed with each other on day one, and nobody reconciled it for five weeks. Item 22
-(2026-09-01) almost certainly inherited "Moale" from the already-existing mockup, not from a fresh
-encounter with the Happy Face spreadsheet at that moment — whether the mockup's *own* origin traces
-back to "Cătălina Moale" is Mihai's plausible working hypothesis, still unconfirmed, and this repo
-has no record of that commit's reasoning to check it against either way.
+**What this item originally got wrong.** The working hypothesis recorded here was that "Moale" was
+contamination from "Cătălina Moale" — a plausible-sounding mix-up between two people who happen to
+share both a first initial's context (both connected to the same spreadsheet) and, coincidentally,
+a surname. The real explanation was more mundane and entirely different: a genuine family
+relationship (sister-in-law), not a data-entry confusion at all. The share surname was never a
+coincidence to explain — it was the actual fact, sitting in plain view, and the hypothesis reached
+past it toward a more interesting-sounding failure story instead.
 
-**Every location the surname now appears, as of 2026-09-07, none of them changed:**
-`docs/mockup/wow_lab_os_mockup.html` (2×, 2026-07-31, earliest known); `docs/OPEN_ITEMS.md` item 22
-(2×, 2026-09-01); `docs/progress.md` entry 68 (2026-09-04); `scripts/create_eight_real_wow_lab_accounts.ts`
-(`lastName`, `fullName`, 2026-09-03); the live `public.users` row for `lauraflorentinaa220@gmail.com`
-(`first_name`, `last_name`, `full_name` — checked live 2026-09-07); the same account's
-`auth.users.raw_user_meta_data.full_name` (a separate, fourth copy in the auth layer, checked live
-the same date); and two of this session's own commit messages (`b46bfd6`, `ed26e62`) — permanent,
-immutable git history that won't change even once Anca confirms either name.
+**The general lesson still holds, sharpened by getting the specific case wrong.** The surname
+genuinely was unsourced in this project's own record — that part of the check was correct and worth
+doing regardless of outcome, since acting on Anca's single "Preda" message and overwriting a real
+person's account would have been exactly as wrong, in the other direction, as never having flagged
+"Moale" as unsourced in the first place. What this item adds on top: **checking that something is
+unverified is not the same as being able to guess correctly why it looks the way it does.** The
+provenance research two sessions ago (the mockup predating item 22 by a month, the same-day
+prose/HTML disagreement) was real, checked, correct work — and none of it, however thorough,
+amounted to evidence for *why* "Moale" appeared, only for *when*. The "contamination" story filled
+that gap with something plausible instead of leaving it open. Record the check as the right call
+and the conclusion it produced as a separate, wrong thing — not because the checking failed, but
+because a plausible-sounding causal story was treated as more than an unconfirmed guess, which is
+the same shape of error this item was written to warn about in the first place, just one level up.
+This is the same failure class as the Raluca Margean role assignment (item 22): a detail that
+sounded right, wasn't checked as hard as the parts that could be checked, and stood until it
+mattered enough to look.
 
-**The general lesson, worth keeping independent of how this specific case resolves.** A plausible
-detail supplied from context, then repeated, becomes indistinguishable from a sourced one within
-days — not because anyone is careless, but because repetition itself reads as confirmation once the
-original moment of invention is a few commits back. This is the same failure as the Raluca Margean
-role assignment (item 22's role-correction work, 2026-09-03): a plausible-sounding role, proposed
-without a direct source, that turned out to contradict the actual evidence once checked. Both were
-Mihai's, both were caught by deliberately checking against source material, not by anyone noticing
-something looked wrong — the surname read as perfectly ordinary right up until a live git-history
-check split it into "a month earlier than stated" and "already contradicted by the day's own written
-record." Neither failure was visible from the inside.
-
-**No fix proposed here — blocked on Anca's confirmation, by design.**
+**New, forward-looking: Cătălina Trușan will return to the surname Moale after her divorce.** Her
+account (`catalina_moale@yahoo.com`) is under Trușan today — not a change to make now, Anca was
+explicit about that — but once it happens, **two active people will share the surname Moale**
+(Cătălina and Laura), on top of already being distinguishable only by the coincidence this item
+spent two sessions investigating. Worth remembering when that day comes: a display name collision
+between two real, active, unrelated-by-that-surname people, arriving from a direction nobody was
+watching for.
 
 **Lives in:** `docs/mockup/wow_lab_os_mockup.html`; `docs/OPEN_ITEMS.md` item 22 (the account this
-surname belongs to) and item 22's role-correction work (the Raluca Margean parallel); `docs/progress.md`
-entries 25 and 68; `scripts/create_eight_real_wow_lab_accounts.ts`; `public.users` and
-`auth.users.raw_user_meta_data` (live data, `lauraflorentinaa220@gmail.com`).
+surname belongs to, and the Raluca Margean parallel); `docs/progress.md` entries 25 and 68;
+`scripts/create_eight_real_wow_lab_accounts.ts`; `public.users` and `auth.users.raw_user_meta_data`
+(live data, `lauraflorentinaa220@gmail.com` and `catalina_moale@yahoo.com`).
+
+---
+
+### 36. Permanent-group assignments — a count of four, pending one confirmation that may make it five
+
+From Anca, 2026-09-08, not derived or inferred: Raluca Popa will have permanent groups, likely at
+IBSB, pending the school's own confirmation expected next week. The permanent-group list — who is
+allocated to a recurring group on an ongoing basis, as opposed to per-session/rotating allocation —
+is **four people today** and may become **five** once IBSB confirms. The four aren't named here;
+this project's own convention (§12.10 of `WOWLAB_SAD_Contracte_Trainer_Furnizor.md`) is that
+current-roster names belong in the database once there's a real table to hold them, not
+architecture documents, and there's no `groups`-adjacent "permanent assignment" table yet to check
+this against — recorded here as the pending business fact, not as a data correction.
+
+**Re-verify next week.** If IBSB confirms, the list becomes five and Raluca Popa's permanent
+assignment is real; if not, it stays four and this note can close without further action either
+way.
+
+**No fix proposed here** — nothing to build yet, no table this maps to today.
+
+**Lives in:** Anca's confirmation, 2026-09-08 (not yet in this repo in any structured form); the
+eventual `groups`/allocation schema, whenever a "permanent vs. rotating" distinction gets modeled.
 
 ---
 
