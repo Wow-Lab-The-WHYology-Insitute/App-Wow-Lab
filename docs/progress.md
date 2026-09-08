@@ -662,6 +662,24 @@ Commit-uri citate în această intrare: `b46bfd6`, `db280ac`, `720263a`, `35e2bb
 
 ---
 
+69. 2026-09-08 (ora București) — Excluderea de scriere pe contracte, investigată înainte de orice schimbare, apoi scoasă doar pe decizia explicită a Ancăi, verificată live ca utilizatorii reali, nu ca service role.
+
+**Ce bloca, de fapt.** Politicile INSERT/UPDATE pe `contracts` (`202608100003`) și cea de DELETE (`202608280001`) excludeau pe oricine ținea `finance.reporting.*` sau `finance.operations.*` de la scrierea unui contract, chiar și când ținea și `contracts.*` de la `contract_administrator` — o blocare necondiționată, spre deosebire de SELECT, unde aceeași excludere, ca aspect, nu e o blocare, ci direcționează rolurile de finance către propria ramură de citire, segmentată pe tipul clientului. Bloca doi oameni reali, Laura și Anka, de la administrarea contractelor — parte din rolul `contract_administrator` pe care îl țin amândouă (`WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md`, linia 120, descrie chiar responsabilitățile Laurei ca incluzând „contractele școli private").
+
+**Cele două jumătăți ale excluderii aveau istorii diferite — verificat, nu presupus simetric.** Jumătatea `finance.reporting.*` avea un motiv real, îngust: oprea `finance_admin_reporting` să treacă verificarea de scriere prin aceeași cheie `contracts.*` care deschide și citirea — cele două roluri împart cheia asta. Jumătatea `finance.operations.*` nu avea niciun motiv consemnat — nici în comentariul propriu al `202608100003`, nici în SAD, nici în istoricul git — și bloca exact combinația de roluri (`contract_administrator` + `finance.operations.*`, setul real al Laurei) care nu exista în organizație când excluderea a fost scrisă.
+
+**Decizia Ancăi, 2026-09-06, aplicată 2026-09-08: cine ține `contract_administrator` scrie contracte indiferent de orice rol de finance ținut în plus** — acceptând că aceeași persoană care scrie termenii unui contract poate fi și cea care facturează pe baza lor, nu două joburi separate. `202609080001` scoate și recreează cele trei politici de scriere fără cele două ramuri `NOT has_capability(...)`; `canManageContracts()` din `contracts/page.tsx` și duplicatul ei din `contracts/[id]/page.tsx`, plus verificarea de la ștergere din `contracts/actions.ts`, simplificate identic. Rollback scris separat, restaurează predicatul original dacă decizia se schimbă vreodată. Politicile SELECT pe `contracts`/`clients`/`client_contacts` rămase neatinse deliberat — acolo segregarea de citire e chiar cea specificată de SAD, pe care Anca n-a schimbat-o.
+
+**Verificat live, ca utilizatorii reali, nu ca service role.** Laura și Anka pot fiecare insera, actualiza și șterge un contract; un trainer e respins de RLS la inserare; citirea Laurei tot mai întoarce doar contractul unei școli private dintr-un fixture mixt, nu și cel al unui client corporate. Verificat și în browser, cap-coadă, ca Laura, pe un server de dev real: butonul „+ New contract" vizibil, contract creat, deschis, editat (numărul de intrare salvat), marcat semnat — rândurile de fixture șterse după, `contracts` și `clients` confirmate înapoi la zero în `wow-lab`.
+
+**Ce n-a fost extins.** `client_contacts` ține exact aceeași excludere de scriere pe INSERT/UPDATE și ar bloca aceiași doi oameni de la administrarea contactelor unui client — o sarcină pe care comentariul propriu al aceleiași migrări o descrie ca aparținând cui administrează contractul acelui client. Raportat, nu reparat — decizia Ancăi de mai sus a fost despre `contracts`, nu despre asta; consemnat separat în `docs/OPEN_ITEMS.md`, item 37, ca întrebare deschisă, în așteptarea răspunsului ei.
+
+`docs/OPEN_ITEMS.md`: item 37 adăugat, cu toată istoria de mai sus și excluderea `client_contacts` consemnată ca întrebare separată, nerezolvată.
+
+Commit-uri citate în această intrare: `2c37006`.
+
+---
+
 ## Lecții / capcane (de nu uitat)
 
 - **Migrare scrisă ≠ aplicată.** Tabelele apar doar după `supabase db push`.
