@@ -1308,8 +1308,9 @@ item 22's original eight), and invitations went out to all five within minutes o
 - **Outstanding invitation, not yet consumed, not expired:** Elena Bacalum and Viorel Toboșaru —
   each holds one unconsumed token from 2026-09-08, well inside the 24h window (item 32).
 - **Invitation lapsed, never signed in:** Luiza Mirt — her one token on file is from 2026-09-04,
-  four days stale under any expiry setting this project has used. Needs a fresh resend; not sent
-  here without asking first, since this item's own scope was the five new accounts, not Luiza.
+  four days stale under any expiry setting this project has used. Not resent: this same item lists
+  her as "possible return," not confirmed active — her return is conditional per Anca, so a fresh
+  invitation link may be premature ahead of that confirmation, not just outside today's scope.
 - **Raluca Popa** shows a sign-in today, 2026-09-08, but that timestamp is this session's own RLS
   verification script re-authenticating her account for a `contracts` capability test (item 37) —
   not new independent activity by her. Her genuine sign-in is the one already on record from
@@ -1928,6 +1929,20 @@ the stored column requires a batched read against `auth.users` (a `SECURITY DEFI
 taking an array of ids, matching the existing `app.is_platform_owner()` convention, or a
 service-role `listUsers()` join) — that batching belongs with that screen's next rework, not ahead
 of it. `/profile`'s single-row case is trivial either way and isn't the blocker.
+
+**2026-09-08 — a caveat the decision didn't anticipate, not a reversal.** `last_sign_in_at` holds
+only the most recent value, and it updates on any real authentication against that account —
+including this project's own verification scripts, when they authenticate as a real person rather
+than a fixture. It happened today: an RLS verification script (item 37) generated a magic link and
+called `verifyOtp` for Raluca Popa's real account to test a `contracts` write-policy change, and her
+`last_sign_in_at` now reads today's date. Her genuine sign-in from 2026-09-03 is no longer visible —
+the column keeps no history, only the latest value. The decision above still stands: the column
+still answers "has this person ever signed in at all" correctly, the only thing either display site
+needs. But once a real person's status is derived from it, whatever a verification script does to
+that column becomes visible on the admin screen as if it were the person's own activity. Prefer test
+fixtures (the `wow-lab-test-b` seeded accounts) over real accounts for this kind of verification
+work going forward; when a real account genuinely has to be used, note it plainly, the way this
+entry now does.
 
 **Lives in:** `supabase/migrations/202607130004_add_auth_support_functions.sql`
 (`handle_new_auth_user`); `app/(app)/admin/users/actions.ts` (`enableAccess`, `disableAccess`);
