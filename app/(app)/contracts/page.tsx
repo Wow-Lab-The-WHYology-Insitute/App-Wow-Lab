@@ -29,14 +29,16 @@ type LegalEntityLookupRow = { id: string; name: string };
 type ClientOptionRow = { id: string; name: string; organization_id: string };
 type LegalEntityOptionRow = { id: string; name: string; organization_id: string };
 
-// Mirrors the exact branching in the contracts RLS policy
-// (202608100003): contract_administrator (contracts.* without either
-// finance capability) or an organization_owner/platform_owner (via
+// Mirrors the contracts RLS policy (202609080001): contract_administrator
+// (contracts.*) or an organization_owner/platform_owner (via
 // has_capability's own is_platform_owner() bypass + org.settings.manage
-// for the owner) can write. finance_admin_reporting shares the identical
-// contracts.* key but is deliberately excluded here, same as in the
-// policy — this is a UI convenience, not the real gate, so it has to
-// agree with the policy or the button lies about what will happen.
+// for the owner) can write. Until 2026-09-08 this also excluded anyone
+// holding finance.reporting.* or finance.operations.* -- Anca's decision,
+// 2026-09-06: contract_administrator holders write contracts regardless
+// of any finance role also held (OPEN_ITEMS.md item 37). The exclusion
+// blocked Laura and Anka from the contract-administration half of their
+// own assigned roles; see 202609080001's own header for the full history
+// of why it was there and what replaced it.
 //
 // Gates "+ New Contract" (createOrgId). Routed through the shared
 // checkCapability() helper (lib/capabilities.ts, retry-once + logged-on-
@@ -51,13 +53,11 @@ async function canManageContracts(
   supabase: Awaited<ReturnType<typeof createClient>>,
   org: string,
 ) {
-  const [isOwner, hasContractsStar, isFinanceReporting, isFinanceOps] = await Promise.all([
+  const [isOwner, hasContractsStar] = await Promise.all([
     checkCapability(supabase, "org.settings.manage", org),
     checkCapability(supabase, "contracts.*", org),
-    checkCapability(supabase, "finance.reporting.*", org),
-    checkCapability(supabase, "finance.operations.*", org),
   ]);
-  return isOwner || (hasContractsStar && !isFinanceReporting && !isFinanceOps);
+  return isOwner || hasContractsStar;
 }
 
 // Mirrors the exact non-finance branch of the contracts SELECT policy

@@ -49,7 +49,9 @@ wrong, not the surname) with a new forward-looking note (Cătălina's
 future surname change); item 31 got Anka's actual substantive reason
 (covering Laura's maternity leave); item 34's 14-unaccounted-for names
 were closed by Anca (former collaborators, possible reactivation); and
-item 36 was added (permanent-group count, pending one confirmation).
+item 36 was added (permanent-group count, pending one confirmation). Item 37 was added the same
+date: the contracts write-side finance exclusion, investigated then removed on Anca's explicit
+decision, verified live as the real users afterward.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -1381,6 +1383,68 @@ way.
 
 **Lives in:** Anca's confirmation, 2026-09-08 (not yet in this repo in any structured form); the
 eventual `groups`/allocation schema, whenever a "permanent vs. rotating" distinction gets modeled.
+
+---
+
+### 37. Contracts write-side finance exclusion removed — RESOLVED by Anca's decision, 2026-09-08
+
+The INSERT/UPDATE policies on `contracts` (`202608100003`) and its DELETE policy (`202608280001`)
+excluded anyone holding `finance.reporting.*` or `finance.operations.*` from writing a contract,
+even when they also held `contract_administrator`'s `contracts.*` capability — an unconditional
+lock on write, with no alternate branch the way the SELECT policies give finance roles their own
+client-type-scoped read instead. This blocked two real people, Laura and Anka, from administering
+contracts — part of the `contract_administrator` role both hold
+(`WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md` line 120 describes Laura's own responsibilities as
+including "contractele școli private").
+
+Investigated before any change (chat report, 2026-09-06), then fixed on Anca's explicit
+instruction. The two halves of the exclusion had different histories:
+
+- **The `finance.reporting.*` half had a real, narrow reason.** It stopped
+  `finance_admin_reporting` from passing the write check through the *same* `contracts.*`
+  capability key that also gates read — the two roles share that key, and without the exclusion a
+  read-only finance role would have silently gained write access too.
+- **The `finance.operations.*` half had no recorded reason.** Nothing in `202608100003`'s own
+  comment, in the SAD, or in git history justifies it independently — it blocked a role
+  combination (`contract_administrator` + `finance.operations.*`, Laura's actual role set) that
+  did not exist in the org when the exclusion was written.
+
+**Anca's decision, accepted as her own tradeoff, not a neutral default:** contract_administrator
+holders write contracts regardless of any finance role also held. She is accepting that the same
+person who writes a contract's terms may also be the one who invoices on them, rather than keeping
+those as two separate people's jobs.
+
+**What changed:** `supabase/migrations/202609080001_remove_contracts_write_finance_exclusion.sql`
+drops and recreates the three write policies (INSERT, UPDATE, DELETE on `contracts`) without the
+two `NOT has_capability(...)` branches. `canManageContracts()` in `app/(app)/contracts/page.tsx`
+and its duplicate in `app/(app)/contracts/[id]/page.tsx`, and the delete check in
+`app/(app)/contracts/actions.ts`, were simplified to match — each now just
+`isOwner || hasContractsStar`. Rollback at
+`supabase/rollbacks/202609080001_remove_contracts_write_finance_exclusion_rollback.sql` restores
+the original predicate if this decision is ever reversed.
+
+**Deliberately left untouched:** the SELECT policies on `contracts`, `clients`, and
+`client_contacts`. There, the same-looking exclusion is not a lockout — it routes finance-role
+holders to their own client-type-scoped read branch, which is the read segregation the SAD does
+specify and Anca did not change.
+
+**Verified live, as the real users, not service role:** Laura and Anka can each insert, update,
+and delete a contract; a trainer's insert is rejected by RLS; Laura's read still returns only the
+private-school contract in a mixed fixture, not the corporate one. Browser-verified end to end as
+Laura against a live dev server: "+ New contract" visible, a contract created, opened, edited
+(entry number saved), and marked signed. Fixture rows removed afterward — `contracts` and
+`clients` confirmed back to `0` in `wow-lab`.
+
+**Not extended:** `client_contacts`'s INSERT/UPDATE policies (`202608100003`) carry the identical
+write exclusion and would block the same two people from managing a client's contacts — a task
+that same migration's own comment describes as belonging to whoever administers that client's
+contract. Reported, not fixed: Anca's decision above was about `contracts` specifically, and
+this is a separate question pending her own answer.
+
+**Lives in:** `supabase/migrations/202609080001_remove_contracts_write_finance_exclusion.sql` (its
+own header quotes the two superseded comments in full and traces this decision);
+`supabase/rollbacks/202609080001_remove_contracts_write_finance_exclusion_rollback.sql`;
+`app/(app)/contracts/page.tsx`, `app/(app)/contracts/[id]/page.tsx`, `app/(app)/contracts/actions.ts`.
 
 ---
 

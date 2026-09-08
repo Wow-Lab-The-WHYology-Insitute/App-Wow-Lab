@@ -318,14 +318,17 @@ export async function deleteContract(
     };
   }
 
-  const [isOwner, hasContractsStar, isFinanceReporting, isFinanceOps] =
-    await Promise.all([
-      checkCapability(supabase, "org.settings.manage", contract.organization_id),
-      checkCapability(supabase, "contracts.*", contract.organization_id),
-      checkCapability(supabase, "finance.reporting.*", contract.organization_id),
-      checkCapability(supabase, "finance.operations.*", contract.organization_id),
-    ]);
-  const canDelete = isOwner || (hasContractsStar && !isFinanceReporting && !isFinanceOps);
+  // Until 2026-09-08 this also excluded anyone holding finance.reporting.*
+  // or finance.operations.* -- Anca's decision, 2026-09-06:
+  // contract_administrator holders write contracts regardless of any
+  // finance role also held. See 202609080001's own header (supabase/
+  // migrations/) for the full history of why the exclusion existed and
+  // what replaced it; OPEN_ITEMS.md item 37.
+  const [isOwner, hasContractsStar] = await Promise.all([
+    checkCapability(supabase, "org.settings.manage", contract.organization_id),
+    checkCapability(supabase, "contracts.*", contract.organization_id),
+  ]);
+  const canDelete = isOwner || hasContractsStar;
 
   if (!canDelete) {
     return {

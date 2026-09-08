@@ -31,18 +31,22 @@ type LegalEntityOptionRow = { id: string; name: string };
 // codebase's existing convention (the has_capability-loop pattern is
 // duplicated per-file throughout, e.g. layout.tsx / admin/users/page.tsx
 // / profile/page.tsx (né whoami) all carry their own copy).
+//
+// Until 2026-09-08 this also excluded anyone holding finance.reporting.*
+// or finance.operations.* -- Anca's decision, 2026-09-06:
+// contract_administrator holders write contracts regardless of any
+// finance role also held. See 202609080001's own header (supabase/
+// migrations/) for the full history of why the exclusion existed and
+// what replaced it; OPEN_ITEMS.md item 37.
 async function canManageContracts(
   supabase: Awaited<ReturnType<typeof createClient>>,
   org: string,
 ) {
-  const [isOwner, hasContractsStar, isFinanceReporting, isFinanceOps] =
-    await Promise.all([
-      checkCapability(supabase, "org.settings.manage", org),
-      checkCapability(supabase, "contracts.*", org),
-      checkCapability(supabase, "finance.reporting.*", org),
-      checkCapability(supabase, "finance.operations.*", org),
-    ]);
-  return isOwner || (hasContractsStar && !isFinanceReporting && !isFinanceOps);
+  const [isOwner, hasContractsStar] = await Promise.all([
+    checkCapability(supabase, "org.settings.manage", org),
+    checkCapability(supabase, "contracts.*", org),
+  ]);
+  return isOwner || hasContractsStar;
 }
 
 export default async function ContractDetailPage({
