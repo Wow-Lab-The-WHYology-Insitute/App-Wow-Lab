@@ -48,6 +48,10 @@ export const suppliersDict: Dictionary = {
   create_supplier: { en: "Create supplier", ro: "Creează furnizorul" },
   save: { en: "Save", ro: "Salvează" },
   cancel: { en: "Cancel", ro: "Anulează" },
+  network_error: {
+    en: "The change was not saved. Check your connection and try again.",
+    ro: "Modificarea nu a fost salvată. Verifică conexiunea și încearcă din nou.",
+  },
 
   // supplier-header.tsx (page.tsx's own markup -- missed in the earlier
   // [id]-page pass; the RO walk caught both the back-link and the raw

@@ -53,9 +53,13 @@ export function ProfileSection({
     setError(null);
     setSaved(false);
     startTransition(async () => {
-      const result = await updateOwnProfile(firstName, lastName, phone);
-      if (!result.ok) setError(result.error);
-      else setSaved(true);
+      try {
+        const result = await updateOwnProfile(firstName, lastName, phone);
+        if (!result.ok) setError(result.error);
+        else setSaved(true);
+      } catch {
+        setError(t("network_error"));
+      }
     });
   }
 
@@ -81,12 +85,18 @@ export function ProfileSection({
     const formData = new FormData();
     formData.append("avatar", file);
     startUploadTransition(async () => {
-      const result = await uploadOwnAvatar(formData);
-      if (!result.ok) {
-        setAvatarError(result.error);
+      try {
+        const result = await uploadOwnAvatar(formData);
+        if (!result.ok) {
+          setAvatarError(result.error);
+          setAvatarPreview(null);
+        }
+      } catch {
+        setAvatarError(t("network_error"));
         setAvatarPreview(null);
+      } finally {
+        e.target.value = "";
       }
-      e.target.value = "";
     });
   }
 

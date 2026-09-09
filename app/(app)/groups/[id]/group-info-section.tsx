@@ -155,9 +155,13 @@ function GroupEditForm({
   function doSave() {
     setError(null);
     startTransition(async () => {
-      const result = await updateGroup(groupId, notesValue, contractIdValue);
-      if (!result.ok) setError(result.error);
-      else onSaved();
+      try {
+        const result = await updateGroup(groupId, notesValue, contractIdValue);
+        if (!result.ok) setError(result.error);
+        else onSaved();
+      } catch {
+        setError(t("network_error"));
+      }
     });
   }
 

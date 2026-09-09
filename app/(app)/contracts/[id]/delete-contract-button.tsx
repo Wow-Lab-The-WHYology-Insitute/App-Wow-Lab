@@ -51,11 +51,15 @@ export function DeleteContractButton({
         onClick={() => {
           setError(null);
           startTransition(async () => {
-            const result = await deleteContract(contractId);
-            if (!result.ok) {
-              setError(result.error);
-            } else {
-              router.push("/contracts");
+            try {
+              const result = await deleteContract(contractId);
+              if (!result.ok) {
+                setError(result.error);
+              } else {
+                router.push("/contracts");
+              }
+            } catch {
+              setError(t("network_error"));
             }
           });
         }}

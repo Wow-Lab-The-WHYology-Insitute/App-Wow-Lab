@@ -50,8 +50,12 @@ export function ClientContactsClient({
   function handleDelete(contactId: string) {
     setError(null);
     startTransition(async () => {
-      const result = await deleteClientContact(contactId);
-      if (!result.ok) setError(result.error);
+      try {
+        const result = await deleteClientContact(contactId);
+        if (!result.ok) setError(result.error);
+      } catch {
+        setError(t("network_error"));
+      }
       setConfirmingDeleteId(null);
     });
   }
@@ -87,19 +91,23 @@ export function ClientContactsClient({
             onSubmit={(fullName, role, email, phone, purpose, isPrimary, isBilling) => {
               setError(null);
               startTransition(async () => {
-                const result = await addClientContact(
-                  organizationId,
-                  clientId,
-                  fullName,
-                  role,
-                  email,
-                  phone,
-                  purpose,
-                  isPrimary,
-                  isBilling,
-                );
-                if (!result.ok) setError(result.error);
-                else setIsFormOpen(false);
+                try {
+                  const result = await addClientContact(
+                    organizationId,
+                    clientId,
+                    fullName,
+                    role,
+                    email,
+                    phone,
+                    purpose,
+                    isPrimary,
+                    isBilling,
+                  );
+                  if (!result.ok) setError(result.error);
+                  else setIsFormOpen(false);
+                } catch {
+                  setError(t("network_error"));
+                }
               });
             }}
           />
@@ -121,20 +129,24 @@ export function ClientContactsClient({
                   onSubmit={(fullName, role, email, phone, purpose, isPrimary, isBilling) => {
                     setError(null);
                     startTransition(async () => {
-                      const result = await updateClientContact(
-                        clientId,
-                        c.id,
-                        fullName,
-                        role,
-                        email,
-                        phone,
-                        purpose,
-                        isPrimary,
-                        isBilling,
-                      );
-                      if (!result.ok) setError(result.error);
+                      try {
+                        const result = await updateClientContact(
+                          clientId,
+                          c.id,
+                          fullName,
+                          role,
+                          email,
+                          phone,
+                          purpose,
+                          isPrimary,
+                          isBilling,
+                        );
+                        if (!result.ok) setError(result.error);
+                        else setEditingId(null);
+                      } catch {
+                        setError(t("network_error"));
+                      }
                     });
-                    setEditingId(null);
                   }}
                 />
               </li>

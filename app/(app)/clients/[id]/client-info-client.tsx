@@ -115,18 +115,22 @@ function ClientEditForm({
   function doSave() {
     setError(null);
     startTransition(async () => {
-      const result = await updateClient(
-        client.id,
-        name,
-        clientType,
-        businessLine,
-        legalName,
-        cui,
-        notes,
-        externalCrmRef,
-      );
-      if (!result.ok) setError(result.error);
-      else onSaved();
+      try {
+        const result = await updateClient(
+          client.id,
+          name,
+          clientType,
+          businessLine,
+          legalName,
+          cui,
+          notes,
+          externalCrmRef,
+        );
+        if (!result.ok) setError(result.error);
+        else onSaved();
+      } catch {
+        setError(t("network_error"));
+      }
     });
   }
 

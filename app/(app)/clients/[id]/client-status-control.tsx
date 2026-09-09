@@ -40,8 +40,12 @@ export function ClientStatusControl({
           onClick={() => {
             setError(null);
             startTransition(async () => {
-              const result = await changeClientStatus(clientId, next);
-              if (!result.ok) setError(result.error);
+              try {
+                const result = await changeClientStatus(clientId, next);
+                if (!result.ok) setError(result.error);
+              } catch {
+                setError(t("network_error"));
+              }
             });
           }}
           className="font-body rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-3 py-1 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"

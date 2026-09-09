@@ -94,10 +94,14 @@ export function GroupDetailClient({
     const principal = principalDraft[s.id] ?? s.trainer_principal_id ?? "";
     const secundar = secundarDraft[s.id] ?? s.trainer_secundar_id ?? "";
     startTransition(async () => {
-      const result = await updateSessionAllocation(groupId, s.id, principal, secundar);
-      if (!result.ok) setError(result.error);
+      try {
+        const result = await updateSessionAllocation(groupId, s.id, principal, secundar);
+        if (!result.ok) setError(result.error);
+        else setEditingSessionId(null);
+      } catch {
+        setError(t("network_error"));
+      }
     });
-    setEditingSessionId(null);
   }
 
   return (
@@ -126,20 +130,24 @@ export function GroupDetailClient({
               onSubmit={(date, principalId, secundarId, status, attendance, experiment, duration, experimentDriveLink) => {
                 setError(null);
                 startTransition(async () => {
-                  const result = await addSession(
-                    organizationId,
-                    groupId,
-                    date,
-                    principalId,
-                    secundarId,
-                    status,
-                    attendance,
-                    experiment,
-                    duration,
-                    experimentDriveLink,
-                  );
-                  if (!result.ok) setError(result.error);
-                  else setIsFormOpen(false);
+                  try {
+                    const result = await addSession(
+                      organizationId,
+                      groupId,
+                      date,
+                      principalId,
+                      secundarId,
+                      status,
+                      attendance,
+                      experiment,
+                      duration,
+                      experimentDriveLink,
+                    );
+                    if (!result.ok) setError(result.error);
+                    else setIsFormOpen(false);
+                  } catch {
+                    setError(t("network_error"));
+                  }
                 });
               }}
             />

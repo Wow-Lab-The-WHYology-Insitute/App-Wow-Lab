@@ -469,19 +469,23 @@ export function GroupsClient({
               ) => {
                 setError(null);
                 startTransition(async () => {
-                  const result = await addGroup(
-                    createOrgId,
-                    clientId,
-                    module,
-                    deliveryFormat,
-                    schedulePattern,
-                    status,
-                    ageRange,
-                    schoolYearCalendarLink,
-                    contractId,
-                  );
-                  if (!result.ok) setError(result.error);
-                  else setIsFormOpen(false);
+                  try {
+                    const result = await addGroup(
+                      createOrgId,
+                      clientId,
+                      module,
+                      deliveryFormat,
+                      schedulePattern,
+                      status,
+                      ageRange,
+                      schoolYearCalendarLink,
+                      contractId,
+                    );
+                    if (!result.ok) setError(result.error);
+                    else setIsFormOpen(false);
+                  } catch {
+                    setError(t("network_error"));
+                  }
                 });
               }}
             />

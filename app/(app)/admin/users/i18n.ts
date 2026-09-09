@@ -64,6 +64,10 @@ export const adminUsersDict: Dictionary = {
   badge_test: { en: "Test", ro: "Test" },
   save: { en: "Save", ro: "Salvează" },
   cancel: { en: "Cancel", ro: "Anulează" },
+  network_error: {
+    en: "The change was not saved. Check your connection and try again.",
+    ro: "Modificarea nu a fost salvată. Verifică conexiunea și încearcă din nou.",
+  },
   no_roles: { en: "(no roles)", ro: "(fără roluri)" },
   // Lowercase inline row action, distinct from edit_roles_button's
   // capitalized mobile-card button -- same distinction as

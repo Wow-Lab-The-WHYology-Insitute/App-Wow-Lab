@@ -33,6 +33,10 @@ export const profileDict: Dictionary = {
   phone_placeholder: { en: "Phone", ro: "Telefon" },
   save: { en: "Save", ro: "Salvează" },
   saved: { en: "Saved.", ro: "Salvat." },
+  network_error: {
+    en: "The change was not saved. Check your connection and try again.",
+    ro: "Modificarea nu a fost salvată. Verifică conexiunea și încearcă din nou.",
+  },
 
   hide_technical_details: { en: "Hide technical details", ro: "Ascunde detaliile tehnice" },
   show_technical_details: { en: "Show technical details", ro: "Arată detaliile tehnice" },

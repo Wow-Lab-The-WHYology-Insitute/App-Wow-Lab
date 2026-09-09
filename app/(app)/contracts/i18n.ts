@@ -90,6 +90,10 @@ export const contractsDict: Dictionary = {
   delete_confirm_suffix: { en: "? This cannot be undone.", ro: "? Nu poate fi anulat." },
   confirm_delete: { en: "Confirm delete", ro: "Confirmă ștergerea" },
   cancel: { en: "Cancel", ro: "Anulează" },
+  network_error: {
+    en: "The change was not saved. Check your connection and try again.",
+    ro: "Modificarea nu a fost salvată. Verifică conexiunea și încearcă din nou.",
+  },
 
   new_contract_form_title: { en: "New contract", ro: "Contract nou" },
   select_client: { en: "Select client…", ro: "Alege clientul…" },

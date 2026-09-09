@@ -194,23 +194,27 @@ function ContractEditForm({
   function doSave() {
     setError(null);
     startTransition(async () => {
-      const result = await updateContract(
-        contract.id,
-        clientId,
-        legalEntityId,
-        contractType,
-        periodStart,
-        periodEnd,
-        entryNumber,
-        exitNumber,
-        driveRef,
-        notes,
-        offerStructure,
-        acLink,
-        financeVisible ? { billingRule, estimatedValue, previousYearValue } : null,
-      );
-      if (!result.ok) setError(result.error);
-      else onSaved();
+      try {
+        const result = await updateContract(
+          contract.id,
+          clientId,
+          legalEntityId,
+          contractType,
+          periodStart,
+          periodEnd,
+          entryNumber,
+          exitNumber,
+          driveRef,
+          notes,
+          offerStructure,
+          acLink,
+          financeVisible ? { billingRule, estimatedValue, previousYearValue } : null,
+        );
+        if (!result.ok) setError(result.error);
+        else onSaved();
+      } catch {
+        setError(t("network_error"));
+      }
     });
   }
 

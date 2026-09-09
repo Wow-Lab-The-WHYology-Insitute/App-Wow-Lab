@@ -528,21 +528,25 @@ export function ContractsClient({
               ) => {
                 setError(null);
                 startTransition(async () => {
-                  const result = await addContract(
-                    createOrgId,
-                    clientId,
-                    legalEntityId,
-                    entryNumber,
-                    exitNumber,
-                    type,
-                    start,
-                    end,
-                    rule,
-                    estimatedValue,
-                    previousYearValue,
-                  );
-                  if (!result.ok) setError(result.error);
-                  else setIsFormOpen(false);
+                  try {
+                    const result = await addContract(
+                      createOrgId,
+                      clientId,
+                      legalEntityId,
+                      entryNumber,
+                      exitNumber,
+                      type,
+                      start,
+                      end,
+                      rule,
+                      estimatedValue,
+                      previousYearValue,
+                    );
+                    if (!result.ok) setError(result.error);
+                    else setIsFormOpen(false);
+                  } catch {
+                    setError(t("network_error"));
+                  }
                 });
               }}
             />

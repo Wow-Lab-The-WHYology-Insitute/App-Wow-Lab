@@ -84,6 +84,10 @@ export const clientsDict: Dictionary = {
   },
   save: { en: "Save", ro: "Salvează" },
   cancel: { en: "Cancel", ro: "Anulează" },
+  network_error: {
+    en: "The change was not saved. Check your connection and try again.",
+    ro: "Modificarea nu a fost salvată. Verifică conexiunea și încearcă din nou.",
+  },
 
   // client-contacts-client.tsx
   contacts_heading: { en: "Contacts ({{count}})", ro: "Contacte ({{count}})" },

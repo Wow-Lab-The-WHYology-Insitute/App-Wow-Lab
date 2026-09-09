@@ -335,9 +335,13 @@ export function ClientsClient({
               onSubmit={(name, clientType, businessLine, legalName, cui) => {
                 setError(null);
                 startTransition(async () => {
-                  const result = await addClient(createOrgId, name, clientType, businessLine, legalName, cui);
-                  if (!result.ok) setError(result.error);
-                  else setIsFormOpen(false);
+                  try {
+                    const result = await addClient(createOrgId, name, clientType, businessLine, legalName, cui);
+                    if (!result.ok) setError(result.error);
+                    else setIsFormOpen(false);
+                  } catch {
+                    setError(t("network_error"));
+                  }
                 });
               }}
             />

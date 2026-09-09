@@ -61,9 +61,13 @@ export function MarkSignedButton({ contractId }: { contractId: string }) {
         onClick={() => {
           setError(null);
           startTransition(async () => {
-            const result = await markContractSigned(contractId, signedDate);
-            if (!result.ok) setError(result.error);
-            else setConfirming(false);
+            try {
+              const result = await markContractSigned(contractId, signedDate);
+              if (!result.ok) setError(result.error);
+              else setConfirming(false);
+            } catch {
+              setError(t("network_error"));
+            }
           });
         }}
         className="font-body rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-3 py-1 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"

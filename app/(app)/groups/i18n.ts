@@ -114,6 +114,10 @@ export const groupsDict: Dictionary = {
 
   save: { en: "Save", ro: "Salvează" },
   cancel: { en: "Cancel", ro: "Anulează" },
+  network_error: {
+    en: "The change was not saved. Check your connection and try again.",
+    ro: "Modificarea nu a fost salvată. Verifică conexiunea și încearcă din nou.",
+  },
   // Lowercase inline row action, distinct from reallocate_button's
   // capitalized full-width mobile button.
   reallocate_action: { en: "reallocate", ro: "realocă" },

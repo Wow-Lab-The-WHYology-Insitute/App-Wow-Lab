@@ -150,9 +150,13 @@ export function SuppliersClient({
               onSubmit={(name, legalName, cui, serviceType, notes) => {
                 setError(null);
                 startTransition(async () => {
-                  const result = await addSupplier(createOrgId, name, legalName, cui, serviceType, notes);
-                  if (!result.ok) setError(result.error);
-                  else setIsFormOpen(false);
+                  try {
+                    const result = await addSupplier(createOrgId, name, legalName, cui, serviceType, notes);
+                    if (!result.ok) setError(result.error);
+                    else setIsFormOpen(false);
+                  } catch {
+                    setError(t("network_error"));
+                  }
                 });
               }}
             />

@@ -110,28 +110,40 @@ export function AdminUsersClient({
     const roleIds = selectedRolesFor(member);
     setError(null);
     startTransition(async () => {
-      const result = await editRoles(orgId, member.userId, roleIds);
-      if (!result.ok) setError(result.error);
+      try {
+        const result = await editRoles(orgId, member.userId, roleIds);
+        if (!result.ok) setError(result.error);
+        else setEditingUserId(null);
+      } catch {
+        setError(t("network_error"));
+      }
     });
-    setEditingUserId(null);
   }
 
   function toggleAccess(member: Member) {
     setError(null);
     startTransition(async () => {
-      const result =
-        member.status === "disabled"
-          ? await enableAccess(orgId, member.userId)
-          : await disableAccess(orgId, member.userId);
-      if (!result.ok) setError(result.error);
+      try {
+        const result =
+          member.status === "disabled"
+            ? await enableAccess(orgId, member.userId)
+            : await disableAccess(orgId, member.userId);
+        if (!result.ok) setError(result.error);
+      } catch {
+        setError(t("network_error"));
+      }
     });
   }
 
   function resendMemberInvitation(member: Member) {
     setError(null);
     startTransition(async () => {
-      const result = await resendInvitation(orgId, member.userId);
-      if (!result.ok) setError(result.error);
+      try {
+        const result = await resendInvitation(orgId, member.userId);
+        if (!result.ok) setError(result.error);
+      } catch {
+        setError(t("network_error"));
+      }
     });
   }
 
@@ -171,8 +183,12 @@ export function AdminUsersClient({
         onSubmit={(email, roleIds, firstName, lastName, phone, isTestAccount) => {
           setError(null);
           startTransition(async () => {
-            const result = await inviteUser(orgId, email, roleIds, firstName, lastName, phone, isTestAccount);
-            if (!result.ok) setError(result.error);
+            try {
+              const result = await inviteUser(orgId, email, roleIds, firstName, lastName, phone, isTestAccount);
+              if (!result.ok) setError(result.error);
+            } catch {
+              setError(t("network_error"));
+            }
           });
         }}
       />
