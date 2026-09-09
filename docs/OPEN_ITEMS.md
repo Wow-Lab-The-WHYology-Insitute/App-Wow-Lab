@@ -73,6 +73,39 @@ date, also RESOLVED: the operator procedure this fix made half-wrong had never l
 checkable (an Asana message), so it moved into `docs/` with a manifest table and
 `scripts/check_operator_guide.ts` — whose first real run caught one genuine mismatch in the
 freshly-rewritten guide (`create_contract`'s button text), fixed before it reached Anca.
+Item 41's own "data-entry gap" framing for `Asociatia STEMplicity` was itself corrected 2026-09-10:
+item 42 was added the same date, RESOLVED — Anca confirmed names are written without diacritics in
+this system by convention, on her own name specifically, making the STEMplicity spelling correct as
+recorded, not a typo; the second time a plausible-looking fix would have broken correct data, after
+item 35's "Laura Moale." The diacritics audit that surfaced that question also produced a real,
+separate fix the same date: five search boxes' `.toLowerCase().includes()` matching, which does not
+fold diacritics and missed matches in both directions, now goes through one shared
+`lib/search.ts` helper on both sides of every comparison, verified against ten cases (`ș`/`ț`
+specifically) and live in the browser with two throwaway fixtures, cleaned up after. Items 43 and 44
+were added the same date, recorded with no action taken: `localeCompare()` with no locale in three
+sort call sites (cosmetic), and `contracts.exit_number`'s uniqueness constraint being byte-exact
+with no Unicode normalization anywhere in the app (narrow, real, unmitigated). Item 45 was added
+2026-09-10: the trainer end-of-session screen Anca described, mapped across five parts before any
+of it is built — two ready to build (trainer-written `attendance_count`/`experiment_delivered`;
+`children_confirmed` now unconditional on `delivery_format`, per Anca), two blocked on work this
+session didn't scope (an experiment-level catalog; whether OD-7 covers peer trainer feedback, Anca's
+call), and the load-bearing one underneath all of them: nothing in the database records that a
+specific trainer delivered a specific session, which is the fact §12's pay model actually counts.
+Part 5's shape was decided the same date, not built: two nullable timestamp columns,
+`trainer_principal_confirmed_at`/`trainer_secundar_confirmed_at`, matching the two allocation slots
+that already exist — a `sessions.status` transition and a separate confirmation table were both
+argued against and rejected, on this codebase's own precedent (item 8's second-write-path warning;
+the sessions migration's own high bar for a new entity). `sessions.status` stays Operations'
+scheduling field; the pay count reads the confirmation timestamps directly, never `status`. Left
+open with Anca: correction rights, and whether a month's confirmations freeze — flagged against
+AD-10's frozen-statements commitment, which this session could not find documented anywhere in
+this repo. Found the following session, 2026-09-10: `WOW_LAB_OS_Solution_Architecture_Document.md`
+(`~/Downloads`, never in the repo) is where AD-10 and fourteen siblings actually live, status DRAFT,
+never approved. Copied verbatim into `docs/`, with a separate reconciliation file
+(`WOW_LAB_OS_AD_Reconciliation.md`) checking all fifteen against the real schema, and item 46 added
+recording the cost of the gap: AD-3 contradicted by what was built, AD-11/AD-15 the same decision
+made twice, and AD-4 independently re-argued from scratch one day before this discovery, reaching
+the same conclusion item 45 part 5 had just reached a month later.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -1721,14 +1754,273 @@ leaving it implied.
 **Not covered even in principle:** the guide names three legal entities by their display text
 (`Experimente Wow SRL`, `Brandine Advertising SRL`, `Asociația STEMplicity`) — live data, not an
 i18n string, so no key exists to check it against. Confirmed live while building this item's fix:
-the actual stored value is `Asociatia STEMplicity`, without diacritics — the guide's spelling is the
-correctly-accented Romanian form, not what the database holds. Left as-is in the guide (correct
-Romanian spelling is more useful to a reader than reproducing a data-entry gap), but recorded here
-since neither the manifest nor the script would ever catch this class of drift.
+the actual stored value is `Asociatia STEMplicity`, without diacritics.
+
+**Correction, 2026-09-10 — this was called "a data-entry gap" above; it is not.** See item 42 below:
+Anca confirmed her own name is deliberately written without diacritics in this system, which makes
+`Asociatia`'s spelling the same convention, not a typo. The guide's accented spelling
+(`Asociația`) is the thing that's actually inconsistent with how this system's names are written —
+left as-is here rather than "corrected" a second time without asking, per item 42's own point.
+Recorded originally as a manifest/script blind spot (live data has no i18n key to check it against)
+— that part still stands; the "gap" framing does not.
 
 **Lives in:** `docs/WOWLAB_GHID_Operare_Clienti_Contracte_Grupe.md`;
 `scripts/check_operator_guide.ts`; item 40 above (the code-side defect this procedure was written
 to warn about, now fixed at the source instead of by warning).
+
+---
+
+### 42. Names are written without diacritics by convention — confirmed by Anca, 2026-09-10
+
+`Asociatia STEMplicity` (`legal_entities`, flagged in item 41 above as a possible data-entry gap)
+is not a typo. Anca confirmed the same day that her own name is deliberately written without
+diacritics in this system — which makes `Asociatia`'s spelling consistent with an existing
+convention, not an error sitting next to a correctly-spelled majority. `lib/format.ts`'s
+`ENTITY_SHORT_CODES` map already hardcodes the same undiacritized spelling
+(`"Asociatia STEMplicity": "STEM"`) independently, which is corroborating evidence this was never
+a one-off slip — the rest of the codebase was already written assuming this spelling, not fighting
+it.
+
+**This is the second time in this project a plausible-looking "fix" would have corrected data that
+was actually right.** The first was item 35, `"Laura Moale"` — a surname hypothesis built on a
+month-old memory turned out to be the thing that was wrong, not the database. Same shape both
+times: a spelling that looks like a mistake from pattern-matching against "correct" Romanian is
+actually the recorded convention, and the person who could tell the difference is Anca, not a
+diacritic checker.
+
+**Do not "correct" `Asociatia STEMplicity`, or any other undiacritized name, without asking her
+first.** This is a real, live naming convention now, not an open question.
+
+**Not the same finding as item 43/44 below**, which are about code that mishandles diacritics
+in *user input* (search, sorting, uniqueness) — this item is about how names already in the
+database are spelled, on purpose, by a human decision. The search fix (`lib/search.ts`, this same
+session) is a real, confirmed defect that got fixed; this item is the opposite case, a correct
+spelling that almost got "fixed" into something wrong.
+
+**Lives in:** `supabase/migrations/*` (`legal_entities.name` seed values); `lib/format.ts`
+(`ENTITY_SHORT_CODES`); item 35 above (the first near-miss); item 41 above (where this was
+originally, incorrectly, called a gap).
+
+---
+
+### 43. `localeCompare()` with no locale argument — three places, cosmetic
+
+Confirmed live: `app/(app)/clients/clients-client.tsx:47`, `app/(app)/groups/groups-client.tsx:62`,
+and `app/(app)/groups/[id]/page.tsx:220` all sort Romanian names via
+`String(a).localeCompare(String(b))` with no locale passed — so the sort order follows whatever
+locale the Node runtime defaults to, not Romanian collation rules specifically. Nothing crashes and
+nothing goes missing from a list; two similarly-accented names could, in principle, sort in an
+order a Romanian speaker wouldn't expect. No action taken — recorded for completeness while
+auditing diacritic handling across the app this session (the same audit that produced item 44 and
+the `lib/search.ts` fix).
+
+**Re-verify when:** anyone notices actual out-of-order names on screen, or a Romanian-locale sort
+becomes worth the small code change (`localeCompare(b, "ro")`) — not urgent on its own.
+**Lives in:** the three call sites above.
+
+---
+
+### 44. `contracts.exit_number` uniqueness is byte-exact, with no Unicode normalization anywhere
+
+Confirmed: the `contracts_unique_organization_exit_number` constraint (`202608180002`) is a plain
+`unique (organization_id, exit_number)` on an uncollated `text` column, and `addContract` only
+calls `.trim()` before insert — no case-folding, no `.normalize()`. Confirmed live (grep) that
+`.normalize(` does not appear anywhere in `app/` or `lib/` before this session's `lib/search.ts`
+introduced it for search only.
+
+Postgres `=` compares bytes. Unicode allows the same visible accented character to be encoded two
+different ways (a precomposed codepoint vs. a base letter plus a separate combining mark),
+depending on the OS/keyboard/input method that produced it. Two exit numbers that render
+identically on screen could be stored as different byte sequences and both insert — the uniqueness
+constraint would not fire, which is the opposite failure from the one it exists to prevent, and
+nothing would surface an error to say so.
+
+**Narrow, real, unmitigated, no action taken.** This needs two different input methods producing
+different normalization for what looks like the same exit number — not something one person typing
+on one machine is likely to hit, but a real gap, not a hypothetical one, and the same "guarantee
+the code doesn't actually provide" shape as items 21 and 40 above.
+
+**Re-verify when:** exit numbers start coming from more than one input source (a copy-paste from
+an external system, an import, a second office) rather than one person typing them by hand.
+**Lives in:** `supabase/migrations/202608180002_replace_contract_number_with_entry_exit.sql`;
+`app/(app)/contracts/actions.ts` (`addContract`); items 21, 40 above (the other instances of this
+shape).
+
+---
+
+### 45. Trainer end-of-session screen — the map, before any of it gets built piecemeal
+
+Anca described one screen (attendance confirmation, photos, attendance count, experiment logging,
+peer feedback) that is much larger than the single question that prompted it. Investigated each of
+the five parts against the current schema, RLS, actions, and the two relevant SAD documents before
+any of it is built. Recorded as one entry, not five, so the scope is visible as a whole before
+anyone decides what's one piece of work and what's four.
+
+**1. Ready to build: `attendance_count`/`experiment_delivered` written by the assigned trainer.**
+Both are writable today in exactly one place — `addSession`, at creation, gated on `sessions.create`
+(Operations Manager + Master). `updateSessionAllocation` is the only post-creation write action on
+`sessions` and is deliberately scoped to `trainer_principal_id`/`trainer_secundar_id` only — no
+trainer can write anything to `sessions` today (`mywork.*` reaches the SELECT policy alone). Needs:
+a new capability distinct from `sessions.create` (which also grants creating sessions and
+reassigning trainers — too broad for "the assigned trainer logs what happened"), a new RLS UPDATE
+branch matched on `trainer_principal_id = auth.uid() OR trainer_secundar_id = auth.uid()`, and a
+narrow action exposing only `attendance_count`/`experiment_delivered` — RLS restricts rows, not
+columns, so the column boundary belongs in the action, the same pattern `updateSessionAllocation`
+already uses to narrow Ops's broader grant down to two columns.
+
+**2. Ready to build: `children_confirmed` writable by `contracts.*` holders.** Anca removed the
+`delivery_format` gating that item 39 (finding 5) had recorded as an open question — both count
+fields now apply to every group regardless of format, with a blank value meaning "no count was
+agreed," which the existing nullable `int` (no CHECK constraint, `202608130001`) already expresses
+natively. Nothing to remove — the read-only display in `group-info-section.tsx` was never
+format-gated either. What remains is exactly item 39 finding 3: Laura/Anka hold `contracts.*`, not
+`groups.create`, the only capability the current `groups` UPDATE policy checks. That RLS gap is
+the entire remaining scope for this part.
+
+**3. Blocked, needs a domain of its own: pre-filling the experiment from a planner.** No
+experiment-level catalog exists. `public.modules` (`202608160004`) holds 13 rows, one per
+curriculum *module* (`GAGA`, `Green Energy`, …) — one layer too coarse to be "the specific
+experiment run today." The real planner — Lesson Plans / Presentation Library, ~300 real plans —
+exists only in the mockup as static demo data and, underneath that, in the trainers' own tracking
+spreadsheet; it has never been modeled as a table in this platform. `sessions.experiment_delivered`
+is free text specifically *because* nothing exists to pick from (its own column comment: "no FK to
+a lesson-plans table, since none exists yet as a real table in this app"). Trainers type the
+experiment by hand until that catalog is built — a separate, larger piece of work, not a field on
+this screen.
+
+**4. Blocked, needs Anca: peer feedback between two trainers on a shared session.** No evaluation
+module exists at all — confirmed by grep, and independently by `docs/progress.md`'s own note that
+"ferestre de evaluare" was searched for everywhere, including the mockup, and doesn't exist.
+`org_settings.evaluations_confidential` (OD-7) is a real, seeded boolean, read by zero application
+code — "a column waiting for its consumer." Whether it should apply to trainer-to-trainer session
+feedback is genuinely unclear, not just unanswered: OD-7's own documented shape
+(`docs/ws-d-plan.md`) is that the evaluated person does **not** see their own evaluation — a
+hidden-from-subject model built for a coordinator judging a trainer. Whether Anca wants two
+co-trainers' feedback about each other hidden the same way, or visible to both since it's about
+coordinating the class rather than judging one of them, is the same open fork item 23 already
+recorded for the Happy Face matrix, unresolved there too. Not assumed here either.
+
+**5. The largest, and not a screen feature: nothing in the database records that a specific person
+delivered a specific session.** `sessions.trainer_principal_id`/`trainer_secundar_id` is assignment;
+`sessions.status` is a free-choice enum set by Operations at creation, before the session happens,
+with no connection to whether the trainer showed up, and nothing ever transitions it afterward.
+`WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §12.2's grade formula and §12.1's pay formula both count
+**delivered sessions per trainer** — the exact fact this schema does not capture. Payment execution
+is explicitly out of V1 scope (§12.10), but the more basic problem sits underneath that: even if
+payment execution were built today, there is no fact in the database for it to read. Parts 1-4
+above are all real, buildable pieces; this one is the precondition every count in §12 depends on.
+
+**Decided, 2026-09-10 — not built yet.** Trainer delivery confirmation will be two nullable
+timestamp columns on `sessions`, `trainer_principal_confirmed_at` and
+`trainer_secundar_confirmed_at`, matching the two allocation slots that already exist
+(`trainer_principal_id`/`trainer_secundar_id`). Per-trainer by construction, which is what the pay
+model requires — §12.2 counts sessions per trainer, and a two-trainer session can be delivered for
+one and not the other (a no-show secundar, an unreflected last-minute swap).
+
+**Rejected, and why.** A transition on `sessions.status`: rejected because status is session-level
+and cannot express a per-trainer fact, and because a trainer-driven transition would give `status`
+a second write path alongside `addSession`'s own — the exact shape item 8 already flagged as the
+trigger to reconsider `contracts.status`'s design, applied here before it got built rather than
+after. A separate confirmation table, one row per trainer per session: rejected on this schema's
+own precedent, not on the idea's merits — allocation here is two fixed named slots, never
+generalized to N, and the sessions migration's own comment already declined a similarly-shaped
+table for per-child attendance for the same stated reason (the bar for a new entity in this domain
+is deliberately high). If the two-slot ceiling on trainer allocation itself ever changes, this
+decision would need revisiting alongside it — not a new risk, the same one `trainer_principal_id`/
+`trainer_secundar_id` already carries.
+
+**The fork is decided.** `sessions.status` stays Operations' scheduling field, set at creation as
+today. Nothing derives "delivered by this trainer" from it, and nothing built against these two new
+columns should read `status` as if it meant that. The pay count, and anything else asking whether a
+specific trainer actually delivered a specific session, reads the two confirmation timestamps
+directly. Two fields, two meanings, no overlap — the alternative this session's own item 21/40/44
+pattern already argues against: one field two different callers can each believe they own.
+
+**Still open, with Anca — not decided here:**
+- Whether pay follows each trainer's own confirmation directly, or something else mediates it.
+- Who may correct a wrong or missing confirmation, and how.
+- Whether a month's confirmations freeze after some deadline. This one has a real deadline behind
+  it, not just a hygiene question: **AD-10** commits to frozen monthly financial statements — a
+  confirmation arriving after that month's close would reopen a closed month. **Update, 2026-09-10:
+  AD-10 was found** — `docs/WOW_LAB_OS_Solution_Architecture_Document.md` (copied into `docs/` the
+  same date, see item 46) — real and well-formed, but a proposal never approved, not a standing
+  decision. Still a real dependency for this question; just not the settled fact it looked like
+  when this bullet was first written.
+- **The confirmation-timestamp fork AD-14 makes real, not decided here.** A server-received
+  timestamp answers "when did the sync land"; a client-captured one answers "when did the trainer
+  actually confirm." They only diverge once an offline queue exists to let time pass between the
+  two — which is exactly what AD-14 requires. Today there's no queue, so the question is latent,
+  not yet load-bearing; it becomes load-bearing the moment AD-14 gets built. This is a question for
+  Anca, not an engineering default: does pay need the trainer's real moment of confirmation, or is
+  the moment the confirmation reached the system good enough? Whichever she picks changes what the
+  two confirmation columns from part 5's own decision actually store.
+
+**Lives in:** `supabase/migrations/202608130001_create_groups_sessions_domain_tables.sql`,
+`202608130003_add_groups_sessions_rls_policies.sql`, `202608160004_groups_sessions_field_additions.sql`;
+`app/(app)/groups/actions.ts` (`addSession`, `updateSessionAllocation`); `public.file_refs`
+(`202607080003`, zero application code references it — relevant background for part 1's photos
+question, investigated the same session, not repeated here); `docs/WOWLAB_SAD_Contracte_Trainer_
+Furnizor.md` §12; `docs/WOWLAB_SAD_Field_Masking.md` §2.4/§2.5; `docs/ws-d-plan.md`; item 23 above
+(the Happy Face precedent for part 4's open question); item 39 above (findings 2, 3, 5 — part 4's
+"trainers write directly" answer and part 2's format-gating removal both resolve open questions
+recorded there); item 8 above (`contracts.status`'s second-write-path warning, the reason a
+trainer-driven `sessions.status` transition was rejected for part 5); items 21, 40, 44 above (the
+one-field-two-owners shape part 5's decision was written to avoid repeating).
+
+---
+
+### 46. Fifteen architecture decisions existed in a document that was never in the repo
+
+`docs/WOW_LAB_OS_Solution_Architecture_Document.md` (June 2026, Version 1.0, Status "DRAFT —
+pending stakeholder approval") defines AD-1 through AD-14, each a resolved ambiguity in the PRD with
+its own Problem/Risk/Decision. It lived only in `~/Downloads` until this session — never copied
+into `docs/`, never linked from anything, never checked before a decision in its scope got made
+again from scratch. AD-15 doesn't appear in it at all; it was coined later, directly inside
+`docs/WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md`, continuing the same numbering.
+
+**Confirmed by grep, not sampled: five of the fifteen are referenced anywhere in this repo — AD-1,
+2, 6, 7, 15.** The other ten sat completely unreferenced until this item. Full status of all
+fifteen, checked against the real schema/RLS/actions, not the proposal's own confidence: see
+`docs/WOW_LAB_OS_AD_Reconciliation.md`, added the same session. Three findings from it matter enough
+to restate here:
+
+- **AD-3 is contradicted by what actually got built.** No `programs` table exists;
+  `sessions.group_id` is `NOT NULL`, the opposite of what AD-3 specifies. A different, simpler
+  design (`delivery_format` on `groups`) solved the same named risk instead.
+- **AD-11 and AD-15 are the same decision, made twice, under two different numbers.** The
+  ActiveCampaign/platform system boundary was proposed once in the undiscovered document (AD-11,
+  never approved, never referenced) and proposed again, independently, inside
+  `WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md` — where it *was* found, confirmed, and approved,
+  under the label AD-15. Nobody checked the first document before writing the second decision.
+- **AD-4 was independently re-argued from scratch, one session before this one, reaching the
+  identical conclusion a month later.** Item 45 part 5's decision — `sessions.status` must not
+  double as a trainer's confirmation, because a status two callers can each set stops reliably
+  meaning either thing — is word-for-word AD-4's own argument, built the same way from this
+  codebase's own `contracts.status` precedent (item 8), with zero knowledge AD-4 already existed.
+  The two didn't contradict each other, but they could have: a different, incompatible resolution
+  argued with equal confidence from the same codebase would have shipped silently over a decision
+  already made a month earlier, and nothing anywhere would have flagged the collision.
+
+**AD-10 is the sharpest instance, not the only one.** Recorded in item 45 part 5 from memory, as
+established fact, before this session located it. It turned out to be real and well-formed — but a
+proposal awaiting approval, not a confirmed decision, by the source document's own stated status.
+That specific gap — mistaking "proposed once" for "decided" — is what this whole item is about; AD-4
+and AD-11/AD-15 show it happening in the other direction too: real decisions, sitting unreferenced,
+either re-litigated at cost or narrowly avoided being overwritten by contradiction, because nothing
+connected them to the code they governed.
+
+**The cost was never that the decisions were wrong.** Every one checked against reality in the
+reconciliation was either correct, superseded by something better, or simply never built. The cost
+is that at least one got paid for twice (AD-4/item 45), one almost went uncaught as a duplicate
+(AD-11/AD-15), and the whole batch sat where no decision ever gets re-checked before code that
+depends on it gets written — which is the one thing a decision record exists to prevent.
+
+**Lives in:** `docs/WOW_LAB_OS_Solution_Architecture_Document.md` (verbatim source, copied in this
+session, not edited); `docs/WOW_LAB_OS_AD_Reconciliation.md` (status of all fifteen, checked against
+the repo); item 45 above (AD-4's independent re-derivation, AD-10's unconfirmed status, AD-14's
+offline requirement); item 8 above (the `contracts.status` precedent both AD-4 and item 45 used
+independently); `docs/WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md` §1/§9 (AD-15, the confirmed twin
+of AD-11).
 
 ---
 
