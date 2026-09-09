@@ -94,6 +94,7 @@ export const contractsDict: Dictionary = {
   new_contract_form_title: { en: "New contract", ro: "Contract nou" },
   select_client: { en: "Select client…", ro: "Alege clientul…" },
   select_entity: { en: "Select legal entity…", ro: "Alege entitatea juridică…" },
+  select_contract_type: { en: "Select contract type…", ro: "Alege tipul de contract…" },
   entry_number_placeholder: { en: "Entry number (optional)", ro: "Număr intrare (opțional)" },
   exit_number_placeholder: { en: "Exit number (optional)", ro: "Număr ieșire (opțional)" },
   start_date: { en: "Start Date", ro: "Data început" },

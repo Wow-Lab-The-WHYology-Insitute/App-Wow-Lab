@@ -78,6 +78,8 @@ export const groupsDict: Dictionary = {
   new_group_form_title: { en: "New group", ro: "Grupă nouă" },
   select_client: { en: "Select client…", ro: "Alege clientul…" },
   select_contract: { en: "No contract yet", ro: "Fără contract deocamdată" },
+  select_module: { en: "Select module…", ro: "Alege modulul…" },
+  select_format: { en: "Select delivery format…", ro: "Alege formatul de livrare…" },
   contract_option_no_exit: { en: "(no exit number yet)", ro: "(fără număr de ieșire încă)" },
   status_label: { en: "Status", ro: "Status" },
   age_range_placeholder: { en: "Age range (e.g. 6-9 ani — optional)", ro: "Interval de vârstă (ex. 6-9 ani — opțional)" },

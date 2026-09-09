@@ -12,6 +12,7 @@ export const clientsDict: Dictionary = {
   filter_type_all: { en: "All types", ro: "Toate tipurile" },
   filter_status_all: { en: "All statuses", ro: "Toate statusurile" },
   new_client: { en: "+ New client", ro: "+ Client nou" },
+  select_client_type: { en: "Select client type…", ro: "Alege tipul de client…" },
   columns: { en: "Columns", ro: "Coloane" },
   clear_all: { en: "Clear all", ro: "Șterge tot" },
   showing_count: { en: "Showing {{shown}} of {{total}} clients", ro: "Afișare {{shown}} din {{total}} clienți" },

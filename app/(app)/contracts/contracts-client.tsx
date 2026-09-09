@@ -801,11 +801,11 @@ function NewContractForm({
     previousYearValue: string,
   ) => void;
 }) {
-  const [clientId, setClientId] = useState(clientOptions[0]?.id ?? "");
-  const [legalEntityId, setLegalEntityId] = useState(legalEntityOptions[0]?.id ?? "");
+  const [clientId, setClientId] = useState("");
+  const [legalEntityId, setLegalEntityId] = useState("");
   const [entryNumber, setEntryNumber] = useState("");
   const [exitNumber, setExitNumber] = useState("");
-  const [type, setType] = useState(CONTRACT_TYPES[0]);
+  const [type, setType] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [rule, setRule] = useState("");
@@ -823,7 +823,9 @@ function NewContractForm({
           onChange={(e) => setClientId(e.target.value)}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         >
-          <option value="">{t("select_client")}</option>
+          <option value="" disabled>
+            {t("select_client")}
+          </option>
           {clientOptions.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -835,7 +837,9 @@ function NewContractForm({
           onChange={(e) => setLegalEntityId(e.target.value)}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         >
-          <option value="">{t("select_entity")}</option>
+          <option value="" disabled>
+            {t("select_entity")}
+          </option>
           {legalEntityOptions.map((e) => (
             <option key={e.id} value={e.id}>
               {e.name}
@@ -861,6 +865,9 @@ function NewContractForm({
           onChange={(e) => setType(e.target.value)}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         >
+          <option value="" disabled>
+            {t("select_contract_type")}
+          </option>
           {CONTRACT_TYPES.map((ty) => (
             <option key={ty} value={ty}>
               {t(`contract_type_${ty}`)}
@@ -911,7 +918,7 @@ function NewContractForm({
       </div>
       <button
         type="button"
-        disabled={isPending || !clientId || !legalEntityId}
+        disabled={isPending || !clientId || !legalEntityId || !type}
         onClick={() =>
           onSubmit(
             clientId,

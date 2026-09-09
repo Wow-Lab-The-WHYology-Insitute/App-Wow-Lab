@@ -672,9 +672,9 @@ function NewGroupForm({
     contractId: string,
   ) => void;
 }) {
-  const [clientId, setClientId] = useState(clientOptions[0]?.id ?? "");
-  const [module, setModule] = useState(MODULE_KEYS[0]);
-  const [deliveryFormat, setDeliveryFormat] = useState(FORMAT_KEYS[0]);
+  const [clientId, setClientId] = useState("");
+  const [module, setModule] = useState("");
+  const [deliveryFormat, setDeliveryFormat] = useState("");
   const [status, setStatus] = useState("active");
   const [ageRange, setAgeRange] = useState("");
   const [calendarLink, setCalendarLink] = useState("");
@@ -720,7 +720,9 @@ function NewGroupForm({
           onChange={(e) => handleClientChange(e.target.value)}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         >
-          <option value="">{t("select_client")}</option>
+          <option value="" disabled>
+            {t("select_client")}
+          </option>
           {clientOptions.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -745,6 +747,9 @@ function NewGroupForm({
           onChange={(e) => setModule(e.target.value)}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         >
+          <option value="" disabled>
+            {t("select_module")}
+          </option>
           {MODULE_KEYS.map((value) => (
             <option key={value} value={value}>
               {t(`module_${value}`)}
@@ -756,6 +761,9 @@ function NewGroupForm({
           onChange={(e) => setDeliveryFormat(e.target.value)}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         >
+          <option value="" disabled>
+            {t("select_format")}
+          </option>
           {FORMAT_KEYS.map((value) => (
             <option key={value} value={value}>
               {t(`format_${value}`)}

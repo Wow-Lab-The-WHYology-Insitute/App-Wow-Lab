@@ -510,7 +510,7 @@ function NewClientForm({
   onSubmit: (name: string, clientType: string, businessLine: string, legalName: string, cui: string) => void;
 }) {
   const [name, setName] = useState("");
-  const [clientType, setClientType] = useState(CLIENT_TYPES[0]);
+  const [clientType, setClientType] = useState("");
   const [businessLine, setBusinessLine] = useState("");
   const [legalName, setLegalName] = useState("");
   const [cui, setCui] = useState("");
@@ -533,6 +533,9 @@ function NewClientForm({
           onChange={(e) => setClientType(e.target.value)}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2"
         >
+          <option value="" disabled>
+            {t("select_client_type")}
+          </option>
           {CLIENT_TYPES.map((ty) => (
             <option key={ty} value={ty}>
               {t(`client_type_${ty}`)}
@@ -562,7 +565,7 @@ function NewClientForm({
         />
         <button
           type="button"
-          disabled={isPending || !name.trim()}
+          disabled={isPending || !name.trim() || !clientType}
           onClick={() => onSubmit(name, clientType, businessLine, legalName, cui)}
           className="font-body focus-visible:ring-brand-pink w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
         >
