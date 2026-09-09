@@ -105,7 +105,12 @@ never approved. Copied verbatim into `docs/`, with a separate reconciliation fil
 (`WOW_LAB_OS_AD_Reconciliation.md`) checking all fifteen against the real schema, and item 46 added
 recording the cost of the gap: AD-3 contradicted by what was built, AD-11/AD-15 the same decision
 made twice, and AD-4 independently re-argued from scratch one day before this discovery, reaching
-the same conclusion item 45 part 5 had just reached a month later.
+the same conclusion item 45 part 5 had just reached a month later. Item 47 was added and resolved
+the same date: the fifty unpushed commits themselves, published through `develop` (Preview verified
+first) then `main` (Production verified directly against `app.wowlab.ro`, by eye, not inferred),
+with the two causes named plainly — commit and push treated as one act when they aren't, and nine
+days of `localhost`-only verification that proved the code worked without ever proving it reached
+anyone.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -2021,6 +2026,54 @@ the repo); item 45 above (AD-4's independent re-derivation, AD-10's unconfirmed 
 offline requirement); item 8 above (the `contracts.status` precedent both AD-4 and item 45 used
 independently); `docs/WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md` §1/§9 (AD-15, the confirmed twin
 of AD-11).
+
+---
+
+### 47. Fifty commits sat unpushed for nine days — RESOLVED 2026-09-10, cause recorded so it doesn't repeat
+
+Between 2026-09-01 and 2026-09-10, fifty commits accumulated on local `main` and never reached
+`origin`. Ten migrations were applied to the live database with `db push` whose files existed on
+only one machine (item 46's investigation, before this was fixed). Seven of their rollback files
+were in the identical position — the recovery path for a change that had already shipped to
+production existed nowhere a second person, or a second machine, could reach it. `origin/main`
+spent those nine days actively describing `contracts` write policies that Anca had already
+replaced with her own decision on 2026-09-06 — not silent on the change, wrong about it. Nothing
+was lost. Nothing was recoverable either, for as long as that was true — the two are different
+claims, and this item is about the second one.
+
+**Two causes, both real, both worth naming so neither repeats:**
+
+- **Commit and push were treated as one act. They are not.** Every session that touched this
+  codebase ended with an instruction to commit; none ended with an instruction to push. A commit is
+  durable on the machine that made it. It is not durable, not shared, not deployable, and not
+  recoverable by anyone else until it reaches a remote — `git commit` and `git push` are two
+  separate verbs for a reason, and this project's own history spent nine days proving why.
+- **Every browser verification for nine days ran against `localhost`.** Each one was real evidence
+  — the code executed, the database write happened, the screenshot showed the correct behavior.
+  None of it was evidence about production, because none of it touched production. Local
+  verification proves the change works. Deployment verification proves the change reached someone.
+  A screenshot of `localhost:3000` answers "did I build this correctly"; it does not answer "can
+  Anca see this yet" — and this session's own prior report (the placeholder-select fix, verified
+  repeatedly against `localhost` before anyone checked whether it had shipped) is the concrete case
+  that made the distinction impossible to ignore any further.
+
+**The rule, stated plainly, going forward:** work touching the live database or the deployed app is
+not done until it is on `origin` and verified on `app.wowlab.ro`. Not committed — pushed. Not
+working on a local server — working for whoever the change was for. A migration applied with
+`db push` and a fix confirmed on `localhost` are both real progress and neither is finished by
+itself.
+
+**Resolved this session:** all fifty commits (plus three more made resolving items 42-46) reached
+`origin/develop` then `origin/main` via a fast-forward merge (`develop` had zero commits of its own,
+confirmed before merging, so the fast-forward was exact, not a reconciliation) — Preview verified
+first (`/clients`' placeholder select, live, before Production ever saw it), then Production
+verified separately and directly against `app.wowlab.ro` on a real session: the same placeholder
+fix, the `/groups` contract field, `/login`'s RO/EN switch and localization, and diacritic-insensitive
+search all confirmed by eye, not inferred from the commit contents.
+
+**Lives in:** item 46 above (what was found undocumented while this was still unpushed); this
+session's own commit/push/deploy sequence (`9922eed`, `3b180b7`, `2913d8b`, and the `develop`/`main`
+fast-forward that carried them and the prior forty-seven commits to `origin`).
 
 ---
 
