@@ -68,7 +68,11 @@ than guessed. Item 40 was added 2026-09-09, RESOLVED the same date: the three cr
 disabled-submit guards over `clientId`/`legalEntityId`/`module`/`deliveryFormat`/`clientType` either
 existed and could never fire, or (client type) never existed at all, because every one of those
 selects was pre-filled from `options[0]` with no empty value reachable in the UI — found and fixed
-the same session, alongside adding the missing `clientType`/`type` gates.
+the same session, alongside adding the missing `clientType`/`type` gates. Item 41 was added the same
+date, also RESOLVED: the operator procedure this fix made half-wrong had never lived anywhere
+checkable (an Asana message), so it moved into `docs/` with a manifest table and
+`scripts/check_operator_guide.ts` — whose first real run caught one genuine mismatch in the
+freshly-rewritten guide (`create_contract`'s button text), fixed before it reached Anca.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -1680,6 +1684,51 @@ wrong value.
 `app/(app)/contracts/contracts-client.tsx`, `app/(app)/contracts/i18n.ts`;
 `app/(app)/groups/groups-client.tsx`, `app/(app)/groups/i18n.ts`; item 21 above (the other instance
 of this shape).
+
+---
+
+### 41. The client/contract/group create-form procedure lived only in an Asana message — RESOLVED 2026-09-09
+
+The operator-facing instructions for "how to add a school" — the exact procedure item 40's fix was
+written against — existed only as a message in Asana. It went stale within a day of being written
+(item 40's fix changed six of its "this select comes pre-filled with X" warnings from true to false)
+and nothing signalled that: no reference from any doc in `docs/`, no connection to the code it
+described, nobody re-reading it on a schedule. A human was following instructions with no mechanism
+that could ever tell her they'd drifted.
+
+**Moved into `docs/WOWLAB_GHID_Operare_Clienti_Contracte_Grupe.md`,** next to the two domain SADs it
+operationalizes (`WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md`,
+`WOWLAB_SAD_Domeniul_Operational_Groups_Sessions.md`). Two things make it checkable instead of
+memory-based going forward:
+
+- **A manifest table** at the top of the guide: every button label, option text, and default value
+  the procedure asserts, each paired with the i18n key and file it's supposed to come from — so a
+  claim is a lookup, not a re-read of the screen.
+- **`scripts/check_operator_guide.ts`**, run by hand (deliberately not wired into any CI — none
+  exists in this repo, and building one for this alone was out of scope): parses the manifest table
+  and diffs each row's claimed Romanian text against the live dictionary entry. First run against
+  the rewritten guide caught one real mismatch immediately — `create_contract`'s button text is
+  "Creează contractul," the draft said "Creează contract" — fixed the same session, in both the
+  manifest and the procedure text, then re-verified clean (30/30).
+
+**Scope, stated plainly:** the manifest and script only cover claims that are literal i18n-dictionary
+strings. Behavioral claims in the guide (lists start empty, the signed-date field defaults to today,
+"cele 13 module") are code facts, not dictionary entries, and are not mechanically checked by this
+script — those still rely on whoever edits the underlying form also re-reading the guide, which is
+exactly why the guide's own top section states the maintenance obligation directly rather than
+leaving it implied.
+
+**Not covered even in principle:** the guide names three legal entities by their display text
+(`Experimente Wow SRL`, `Brandine Advertising SRL`, `Asociația STEMplicity`) — live data, not an
+i18n string, so no key exists to check it against. Confirmed live while building this item's fix:
+the actual stored value is `Asociatia STEMplicity`, without diacritics — the guide's spelling is the
+correctly-accented Romanian form, not what the database holds. Left as-is in the guide (correct
+Romanian spelling is more useful to a reader than reproducing a data-entry gap), but recorded here
+since neither the manifest nor the script would ever catch this class of drift.
+
+**Lives in:** `docs/WOWLAB_GHID_Operare_Clienti_Contracte_Grupe.md`;
+`scripts/check_operator_guide.ts`; item 40 above (the code-side defect this procedure was written
+to warn about, now fixed at the source instead of by warning).
 
 ---
 
