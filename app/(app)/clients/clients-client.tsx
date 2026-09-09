@@ -8,6 +8,7 @@ import { LocaleSwitcher } from "@/components/ui/locale-switcher";
 import { clientsDict } from "./i18n";
 import { ClientDetailPanel } from "./client-detail-panel";
 import { entityShortCode, formatDate } from "@/lib/format";
+import { normalizeForSearch } from "@/lib/search";
 import {
   DataTable,
   DataTableToolbar,
@@ -207,13 +208,13 @@ export function ClientsClient({
   // for a client (a school's legal entity name/registration number),
   // same reasoning /contracts' search widened to entry/exit number.
   const filteredClients = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = normalizeForSearch(searchQuery.trim());
     return clients.filter((client) => {
       if (
         q &&
-        !client.name.toLowerCase().includes(q) &&
-        !(client.legal_name ?? "").toLowerCase().includes(q) &&
-        !(client.cui ?? "").toLowerCase().includes(q)
+        !normalizeForSearch(client.name).includes(q) &&
+        !normalizeForSearch(client.legal_name ?? "").includes(q) &&
+        !normalizeForSearch(client.cui ?? "").includes(q)
       ) {
         return false;
       }

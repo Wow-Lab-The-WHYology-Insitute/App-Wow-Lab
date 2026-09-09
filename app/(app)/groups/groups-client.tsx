@@ -7,6 +7,7 @@ import { useTranslations, LOCALE_SWITCHER_ENABLED } from "@/lib/i18n";
 import { LocaleSwitcher } from "@/components/ui/locale-switcher";
 import { groupsDict } from "./i18n";
 import { GroupDetailPanel } from "./group-detail-panel";
+import { normalizeForSearch } from "@/lib/search";
 import {
   DataTable,
   DataTableToolbar,
@@ -276,13 +277,13 @@ export function GroupsClient({
   const formatOptions = useMemo(() => [...new Set(groups.map((g) => g.delivery_format))].sort(), [groups]);
 
   const filteredGroups = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = normalizeForSearch(searchQuery.trim());
     return groups.filter((g) => {
       if (q) {
-        const matchesClient = g.clientName.toLowerCase().includes(q);
+        const matchesClient = normalizeForSearch(g.clientName).includes(q);
         const matchesTrainer =
-          (g.trainerPrincipalName?.toLowerCase().includes(q) ?? false) ||
-          (g.trainerSecundarName?.toLowerCase().includes(q) ?? false);
+          (g.trainerPrincipalName ? normalizeForSearch(g.trainerPrincipalName).includes(q) : false) ||
+          (g.trainerSecundarName ? normalizeForSearch(g.trainerSecundarName).includes(q) : false);
         if (!matchesClient && !matchesTrainer) return false;
       }
       if (moduleFilter !== "all" && g.module !== moduleFilter) return false;

@@ -10,6 +10,7 @@ import {
 } from "./actions";
 import { useTranslations } from "@/lib/i18n";
 import { adminUsersDict } from "./i18n";
+import { normalizeForSearch } from "@/lib/search";
 
 // Real values this app ever writes to users.status (no DB CHECK constraint
 // — 'invited' is the trigger-set default on auth signup, 'active'/
@@ -140,11 +141,11 @@ export function AdminUsersClient({
   // aware: a member filters in if the selected role is ANY ONE of the
   // roles they hold, not an exact single-role match.
   const filteredMembers = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = normalizeForSearch(searchQuery.trim());
     return members.filter((member) => {
       if (q) {
-        const name = displayName(member).toLowerCase();
-        const email = member.email.toLowerCase();
+        const name = normalizeForSearch(displayName(member));
+        const email = normalizeForSearch(member.email);
         if (!email.includes(q) && !name.includes(q)) return false;
       }
       if (roleFilter !== "all" && !member.roleIds.includes(roleFilter)) return false;

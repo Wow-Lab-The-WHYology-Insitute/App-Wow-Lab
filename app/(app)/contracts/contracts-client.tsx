@@ -9,6 +9,7 @@ import { contractsDict } from "./i18n";
 import { TermBar, getTermStatus } from "./term-bar";
 import { ContractDetailPanel } from "./contract-detail-panel";
 import { formatMoney, formatDate, entityShortCode, isDemoRecord } from "./format";
+import { normalizeForSearch } from "@/lib/search";
 import {
   DataTable,
   DataTableToolbar,
@@ -279,13 +280,13 @@ export function ContractsClient({
   }, [contracts, bannerEligible, now]);
 
   const filteredContracts = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = normalizeForSearch(searchQuery.trim());
     return contracts.filter((c) => {
       if (
         q &&
-        !c.clientName.toLowerCase().includes(q) &&
-        !(c.exit_number ?? "").toLowerCase().includes(q) &&
-        !(c.entry_number ?? "").toLowerCase().includes(q)
+        !normalizeForSearch(c.clientName).includes(q) &&
+        !normalizeForSearch(c.exit_number ?? "").includes(q) &&
+        !normalizeForSearch(c.entry_number ?? "").includes(q)
       ) {
         return false;
       }

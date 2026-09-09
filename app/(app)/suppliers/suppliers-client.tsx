@@ -6,6 +6,7 @@ import { addSupplier } from "./actions";
 import { useTranslations, LOCALE_SWITCHER_ENABLED } from "@/lib/i18n";
 import { LocaleSwitcher } from "@/components/ui/locale-switcher";
 import { suppliersDict } from "./i18n";
+import { normalizeForSearch } from "@/lib/search";
 import {
   DataTable,
   DataTableToolbar,
@@ -58,13 +59,13 @@ export function SuppliersClient({
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const filteredSuppliers = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = normalizeForSearch(searchQuery.trim());
     return suppliers.filter((s) => {
       if (
         q &&
-        !s.name.toLowerCase().includes(q) &&
-        !(s.legal_name ?? "").toLowerCase().includes(q) &&
-        !(s.cui ?? "").toLowerCase().includes(q)
+        !normalizeForSearch(s.name).includes(q) &&
+        !normalizeForSearch(s.legal_name ?? "").includes(q) &&
+        !normalizeForSearch(s.cui ?? "").includes(q)
       ) {
         return false;
       }
