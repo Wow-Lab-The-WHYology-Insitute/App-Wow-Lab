@@ -64,7 +64,11 @@ date with the full decision record: `children_billed` decided derived-not-stored
 nobody can currently record session attendance, trainers included, on any layer; the masking rule
 written into `WOWLAB_SAD_Field_Masking.md` §2.7 as a constraint on the not-yet-built billing
 generator; and `delivery_format` gating confirmed for four formats, with `custom` left open rather
-than guessed.
+than guessed. Item 40 was added 2026-09-09, RESOLVED the same date: the three create forms'
+disabled-submit guards over `clientId`/`legalEntityId`/`module`/`deliveryFormat`/`clientType` either
+existed and could never fire, or (client type) never existed at all, because every one of those
+selects was pre-filled from `options[0]` with no empty value reachable in the UI — found and fixed
+the same session, alongside adding the missing `clientType`/`type` gates.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -1631,6 +1635,54 @@ scope confirmed before a form is written for it; finding 5's `custom` case needs
 
 ---
 
+### 40. Create-form disabled-submit guards existed but could never fire — RESOLVED 2026-09-09
+
+Found while auditing every select across the three create forms for silent wrong-default risk
+(client type; contract client/legal-entity/type; group client/module/delivery-format). Fixing the
+selects surfaced a second, independent defect underneath: the guards meant to gate submission on
+those same fields were already written, and already looked correct, but could not have caught
+anything as they stood.
+
+**`groups-client.tsx`'s `NewGroupForm`:** `disabled={isPending || !clientId || !module ||
+!deliveryFormat}` — all three checks were already there, before today's fix. None could ever
+evaluate true: `clientId` initialized to `clientOptions[0]?.id ?? ""`, and `module`/`deliveryFormat`
+initialized to `MODULE_KEYS[0]`/`FORMAT_KEYS[0]` — both non-empty constants, with no `<option
+value="">` in either select's JSX for a user to even select an empty value through. The guard read
+as protection and provided none; nothing in the UI could ever produce the state it was checking for.
+
+**`contracts-client.tsx`'s `NewContractForm`:** `disabled={isPending || !clientId ||
+!legalEntityId}` — same shape, one layer more deceptive: both selects *did* render an `<option
+value="">{t("select_client")}</option>` / `select_entity` placeholder, but `clientId`/`legalEntityId`
+state initialized to `clientOptions[0]?.id ?? ""` / `legalEntityOptions[0]?.id ?? ""` — the
+placeholder option existed in markup and was still unreachable, because the controlled value never
+held `""` for the user to be looking at it. `contract_type` had no gate entry at all — not dead, just
+absent, for the identical reason (`CONTRACT_TYPES[0]`, no empty option).
+
+**`clients-client.tsx`'s `NewClientForm`:** `disabled={isPending || !name.trim()}` — `clientType` was
+never in the gate; same absence as contract type, same cause (`CLIENT_TYPES[0]`, no empty option).
+
+**Same shape as item 21's `users.status`, a different mechanism.** Item 21 is a database column
+nothing reads; this is a client-side boolean nothing could ever make true. Both are code that reads
+as a guarantee — "this can't be submitted/considered active until X" — without actually being wired
+to anything capable of making X false. Worth checking for elsewhere: a `disabled`/gate condition on
+a field that always carries a truthy default is the same failure pattern regardless of which layer
+it's written in.
+
+**Fixed the same session:** all three creates now start their required selects on a real empty
+string, via a disabled, empty-valued placeholder `<option>` (selected by default, not re-selectable)
+— so `!clientId`/`!legalEntityId`/`!module`/`!deliveryFormat` now actually evaluate true until a real
+choice is made, and `!clientType`/`!type` were added to their respective gates for the first time.
+Group status was deliberately left alone (defaults to `"active"`, no placeholder) — a new group
+being active is a reasonable default, unlike the others, where any guess is a real, substantively
+wrong value.
+
+**Lives in:** `app/(app)/clients/clients-client.tsx`, `app/(app)/clients/i18n.ts`;
+`app/(app)/contracts/contracts-client.tsx`, `app/(app)/contracts/i18n.ts`;
+`app/(app)/groups/groups-client.tsx`, `app/(app)/groups/i18n.ts`; item 21 above (the other instance
+of this shape).
+
+---
+
 ## Masking rollout, remaining
 
 These three are already tracked in `docs/WOWLAB_SAD_Field_Masking.md` §2.5,
@@ -2117,7 +2169,9 @@ entry now does.
 
 **Lives in:** `supabase/migrations/202607130004_add_auth_support_functions.sql`
 (`handle_new_auth_user`); `app/(app)/admin/users/actions.ts` (`enableAccess`, `disableAccess`);
-`app/(app)/admin/users/page.tsx`; `app/(app)/profile/page.tsx`.
+`app/(app)/admin/users/page.tsx`; `app/(app)/profile/page.tsx`. See also item 40 below — the same
+shape of defect (code asserting a guarantee it did not provide), a client-side gate instead of a
+DB column.
 
 ---
 
