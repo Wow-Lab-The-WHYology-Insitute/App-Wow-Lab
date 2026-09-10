@@ -124,7 +124,10 @@ already-closed decision against hard-delete on `clients`. Item 50 was added and 
 date: the actual cause of the three test-data purges was no reachable route into `wow-lab-test-b`
 (Mihai's account single-org, no switcher, zero `legal_entities` there) — fixed, not just recorded,
 by seeding two fictional legal entities and inviting a second, single-org account for him into the
-test org, then verifying the full client → contract → group flow end to end under it.
+test org, then verifying the full client → contract → group flow end to end under it. Item 51 was
+added 2026-09-11: the `client_contacts` half of item 37's fix, left open on purpose pending Anca's
+own answer, arrived — the same write-side finance exclusion removed the same way, verified live and
+browser-tested end to end in `wow-lab-test-b` using item 50's own newly-unblocked path.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -1520,16 +1523,18 @@ Laura against a live dev server: "+ New contract" visible, a contract created, o
 (entry number saved), and marked signed. Fixture rows removed afterward — `contracts` and
 `clients` confirmed back to `0` in `wow-lab`.
 
-**Not extended:** `client_contacts`'s INSERT/UPDATE policies (`202608100003`) carry the identical
-write exclusion and would block the same two people from managing a client's contacts — a task
-that same migration's own comment describes as belonging to whoever administers that client's
-contract. Reported, not fixed: Anca's decision above was about `contracts` specifically, and
-this is a separate question pending her own answer.
+**Not extended, at the time this item was written:** `client_contacts`'s INSERT/UPDATE policies
+(`202608100003`) carried the identical write exclusion and would block the same two people from
+managing a client's contacts — a task that same migration's own comment describes as belonging to
+whoever administers that client's contract. Reported, not fixed, in this item: Anca's decision
+above was about `contracts` specifically, and this was a separate question pending her own answer.
+**Resolved 2026-09-11 — see item 51 below**, which is that second answer.
 
 **Lives in:** `supabase/migrations/202609080001_remove_contracts_write_finance_exclusion.sql` (its
 own header quotes the two superseded comments in full and traces this decision);
 `supabase/rollbacks/202609080001_remove_contracts_write_finance_exclusion_rollback.sql`;
-`app/(app)/contracts/page.tsx`, `app/(app)/contracts/[id]/page.tsx`, `app/(app)/contracts/actions.ts`.
+`app/(app)/contracts/page.tsx`, `app/(app)/contracts/[id]/page.tsx`, `app/(app)/contracts/actions.ts`;
+item 51 below (the `client_contacts` extension of this same decision).
 
 ---
 
@@ -2244,6 +2249,86 @@ now a real, reachable option — not aspirational the way it was for the ten day
 `supabase/rollbacks/202609100002_seed_test_org_b_legal_entities_rollback.sql`; item 26 above (the
 org-switcher gap this works around, not fixes); item 49 above (the request that surfaced this);
 commits `071ac51`, `4cf5738` (the two purges this closes the loop on).
+
+---
+
+### 51. `client_contacts` write-side finance exclusion removed — the same exclusion, the same
+decision, extended — RESOLVED by Anca's decision, 2026-09-11
+
+Item 37 above fixed this exact exclusion on `contracts` on 2026-09-06, and named
+`client_contacts` explicitly as carrying the identical block — deliberately not touched in that
+item, because Anca's decision was scoped to `contracts` and widening it without asking was exactly
+what was flagged against doing. This item is that second answer, asked for and given five days
+later.
+
+**What carried the exclusion:** `client_contacts`'s three WRITE policies — INSERT/UPDATE
+(`202608100003`) and DELETE (`202608270001`, whose own comment describes its predicate as
+"deliberately IDENTICAL" to INSERT/UPDATE's). All three excluded anyone holding
+`finance.reporting.*` or `finance.operations.*`, even when they also held `contract_administrator`'s
+`contracts.*` capability — blocking Laura and Anka from managing a client's contacts, the same two
+people and the same role combination item 37 found blocked on contracts itself.
+
+**One difference from the contracts case, worth recording precisely:** the contracts exclusion was
+called load-bearing in its own comment ("not decorative"). `client_contacts`'s was not — its
+original comment (202608100003) called it an "inferred default (flagged in the final report)" for a
+table the SAD never specified action-level rules for at all. This exclusion was weaker on its own
+terms than the one already removed from `contracts` before Anca was ever asked to decide on it.
+
+**Anca's decision, 2026-09-11 — the same tradeoff as contracts, extended:** contract_administrator
+holders manage a client's contacts regardless of any finance role also held.
+
+**What changed:** `supabase/migrations/202609110001_remove_client_contacts_write_finance_exclusion.sql`
+drops and recreates the three write policies without the two `NOT has_capability(...)` branches —
+its own header quotes 202608100003's original comment in full. `canManageContacts()` in
+`app/(app)/clients/[id]/page.tsx` and the `canDelete` check in `deleteClientContact`
+(`app/(app)/clients/actions.ts`) were simplified to match, each now just
+`isOwner || hasClientsCreate || hasContractsStar`. Rollback at
+`supabase/rollbacks/202609110001_remove_client_contacts_write_finance_exclusion_rollback.sql`.
+
+**Deliberately left untouched, same reasoning as item 37:** the SELECT policy and the
+`is_billing_contact` row-level masking inside it. There, finance roles read through their own
+client-type-scoped branch instead, which is the read segregation the SAD specifies and Anca did not
+change.
+
+**Verified live, as the real users, not service role:** Laura and Anka can each insert, update, and
+delete a client contact; a trainer's insert is rejected by RLS; Laura's read still returns only the
+private-school client's contact in a mixed fixture, not the corporate one — all seven assertions
+confirmed both as a dry run before applying and again live against the applied policy.
+
+**A real gap surfaced by browser-verifying this, worth recording on its own:** the DB fix and the
+app-code mirror were committed together, but the app-code fix was not yet deployed when first
+browser-tested — the deployed frontend still ran the old `canManageContacts()` logic, so the "+ New
+contact" button stayed hidden even though the underlying RLS would already have allowed the write.
+This is the exact failure mode this task's own instructions warned against ("one without the other
+gives a visible button that fails, or a hidden screen that would have worked") — caught here because
+verification ran against the actual deployed app, not just the local diff, and re-ran clean once the
+deploy completed.
+
+**Browser-verified end to end, in `wow-lab-test-b`, not production** (Anka is working in
+`wow-lab` — see item 50): a new fixture account, `test+ui-contract-admin-b@wowlab.dev`
+(`contract_administrator` + `finance_operations`, matching Laura's exact role set, `is_test_account`
+true), invited through the real `/admin/users` UI into the test org. No client existed there to
+attach a contact to, so one was created first (as the test org's owner, since Contract
+Administrator + Finance Operations correctly does not hold `clients.create` — the same account
+correctly saw no "+ New Client" button, confirming the read/write boundary is exactly right, not
+just the finance exclusion). A contact was then added, edited, and deleted as the fixture account —
+all three actions succeeded on the deployed app. One false alarm during this pass: the delete's own
+screen still showed the deleted contact a moment after confirming, which looked like a failure until
+checked directly against the database (already gone) — the same dead-zone rendering delay this
+session investigated and reported on separately for creates, now observed on a delete too. Fixture
+rows removed afterward — `clients`, `contracts`, `groups`, and `client_contacts` all confirmed back
+to `0` in `wow-lab-test-b`. The fixture account itself was left in place, as a reusable test-org
+counterpart to Laura's real role set.
+
+**Lives in:**
+`supabase/migrations/202609110001_remove_client_contacts_write_finance_exclusion.sql` (its own
+header quotes 202608100003's original comment in full);
+`supabase/rollbacks/202609110001_remove_client_contacts_write_finance_exclusion_rollback.sql`;
+`scripts/verify_remove_client_contacts_write_finance_exclusion.sql`;
+`app/(app)/clients/[id]/page.tsx`, `app/(app)/clients/actions.ts`; item 37 above (the contracts
+fix this extends, and the reasoning this item repeats rather than re-derives); item 50 above (why
+verification ran in `wow-lab-test-b` at all, and the fixture account this item's own browser pass
+reused that org for).
 
 ---
 
