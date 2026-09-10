@@ -17,6 +17,11 @@ export const contractsDict: Dictionary = {
   columns: { en: "Columns", ro: "Coloane" },
   clear_all: { en: "Clear all", ro: "Șterge tot" },
   showing_count: { en: "Showing {{shown}} of {{total}} contracts", ro: "Afișare {{shown}} din {{total}} contracte" },
+  // Covers the gap between the create form closing and the new row
+  // actually appearing -- isPending ends before that, by construction
+  // (Next resolves the action's return value before applying the
+  // refreshed tree). Cleared when the row is detected, not on a timer.
+  saving_row: { en: "Saving the contract for {{name}}…", ro: "Se salvează contractul pentru {{name}}…" },
   empty_no_contracts: { en: "No contracts visible for your role.", ro: "Niciun contract vizibil pentru rolul tău." },
   empty_no_match: { en: "No contracts match your search or filters.", ro: "Niciun contract nu corespunde căutării sau filtrelor." },
 

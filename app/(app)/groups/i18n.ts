@@ -21,6 +21,11 @@ export const groupsDict: Dictionary = {
   columns: { en: "Columns", ro: "Coloane" },
   clear_all: { en: "Clear all", ro: "Șterge tot" },
   showing_count: { en: "Showing {{shown}} of {{total}} groups", ro: "Afișare {{shown}} din {{total}} grupe" },
+  // Covers the gap between the create form closing and the new row
+  // actually appearing -- isPending ends before that, by construction
+  // (Next resolves the action's return value before applying the
+  // refreshed tree). Cleared when the row is detected, not on a timer.
+  saving_row: { en: "Saving the group for {{name}}…", ro: "Se salvează grupa pentru {{name}}…" },
   empty_no_groups: { en: "No groups visible for your role.", ro: "Nicio grupă vizibilă pentru rolul tău." },
   empty_no_groups_trainer: { en: "You have no allocated groups yet.", ro: "Nu ai încă nicio grupă alocată." },
   empty_no_match: { en: "No groups match your search or filters.", ro: "Nicio grupă nu corespunde căutării sau filtrelor." },

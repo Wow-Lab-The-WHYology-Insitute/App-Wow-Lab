@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { addClient } from "./actions";
 import { useLocale, useTranslations, LOCALE_SWITCHER_ENABLED } from "@/lib/i18n";
@@ -206,6 +206,23 @@ export function ClientsClient({
   const [statusFilter, setStatusFilter] = useState("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [extraColumns, setExtraColumns] = usePersistedColumns("clients", []);
+  const [pendingCreate, setPendingCreate] = useState<{ id: string; label: string } | null>(null);
+
+  // Clears the moment the server-refreshed `clients` prop actually
+  // contains the new row -- not on isPending, which ends when the
+  // action's own promise resolves, before Next applies the refreshed
+  // tree (the dead-zone gap this exists to cover). The 15s ceiling is a
+  // safety net, not the real signal -- a banner that never clears would
+  // become its own dishonest "still working" claim.
+  useEffect(() => {
+    if (!pendingCreate) return;
+    if (clients.some((c) => c.id === pendingCreate.id)) {
+      setPendingCreate(null);
+      return;
+    }
+    const timeout = setTimeout(() => setPendingCreate(null), 15000);
+    return () => clearTimeout(timeout);
+  }, [clients, pendingCreate]);
 
   function onSort(key: SortKey) {
     if (key === sortKey) {
@@ -350,7 +367,10 @@ export function ClientsClient({
                   try {
                     const result = await addClient(createOrgId, name, clientType, businessLine, legalName, cui);
                     if (!result.ok) setError(result.error);
-                    else setIsFormOpen(false);
+                    else {
+                      setPendingCreate({ id: result.id, label: name.trim() });
+                      setIsFormOpen(false);
+                    }
                   } catch {
                     setError(t("network_error"));
                   }
@@ -362,6 +382,11 @@ export function ClientsClient({
       )}
 
       <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+        {pendingCreate && (
+          <p className="font-body text-muted bg-ink/5 mb-4 rounded-lg px-4 py-3 text-sm">
+            {t("saving_row", { name: pendingCreate.label })}
+          </p>
+        )}
         {clients.length === 0 ? (
           <p className="font-body text-muted text-sm">{t("empty_no_clients")}</p>
         ) : (

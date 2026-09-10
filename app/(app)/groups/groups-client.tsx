@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { addGroup } from "./actions";
 import { useTranslations, LOCALE_SWITCHER_ENABLED } from "@/lib/i18n";
@@ -259,6 +259,21 @@ export function GroupsClient({
   const [statusFilter, setStatusFilter] = useState("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [extraColumns, setExtraColumns] = usePersistedColumns("groups", []);
+  const [pendingCreate, setPendingCreate] = useState<{ id: string; label: string } | null>(null);
+
+  // Clears the moment the server-refreshed `groups` prop actually
+  // contains the new row -- not on isPending, which ends before Next
+  // applies the refreshed tree (the dead-zone gap this exists to cover).
+  // The 15s ceiling is a safety net, not the real signal.
+  useEffect(() => {
+    if (!pendingCreate) return;
+    if (groups.some((g) => g.id === pendingCreate.id)) {
+      setPendingCreate(null);
+      return;
+    }
+    const timeout = setTimeout(() => setPendingCreate(null), 15000);
+    return () => clearTimeout(timeout);
+  }, [groups, pendingCreate]);
 
   function onSort(key: SortKey) {
     if (key === sortKey) {
@@ -482,7 +497,12 @@ export function GroupsClient({
                       contractId,
                     );
                     if (!result.ok) setError(result.error);
-                    else setIsFormOpen(false);
+                    else {
+                      const clientName =
+                        clientOptions.find((o) => o.id === clientId)?.name ?? "";
+                      setPendingCreate({ id: result.id, label: clientName });
+                      setIsFormOpen(false);
+                    }
                   } catch {
                     setError(t("network_error"));
                   }
@@ -494,6 +514,11 @@ export function GroupsClient({
       )}
 
       <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+        {pendingCreate && (
+          <p className="font-body text-muted bg-ink/5 mb-4 rounded-lg px-4 py-3 text-sm">
+            {t("saving_row", { name: pendingCreate.label })}
+          </p>
+        )}
         {groups.length === 0 ? (
           <p className="font-body text-muted text-sm">
             {isTrainerView ? t("empty_no_groups_trainer") : t("empty_no_groups")}

@@ -16,6 +16,11 @@ export const clientsDict: Dictionary = {
   columns: { en: "Columns", ro: "Coloane" },
   clear_all: { en: "Clear all", ro: "Șterge tot" },
   showing_count: { en: "Showing {{shown}} of {{total}} clients", ro: "Afișare {{shown}} din {{total}} clienți" },
+  // Covers the gap between the create form closing and the new row
+  // actually appearing -- isPending ends before that, by construction
+  // (Next resolves the action's return value before applying the
+  // refreshed tree). Cleared when the row is detected, not on a timer.
+  saving_row: { en: "Saving {{name}}…", ro: "Se salvează {{name}}…" },
   empty_no_clients: { en: "No clients visible for your role.", ro: "Niciun client vizibil pentru rolul tău." },
   empty_no_match: { en: "No clients match your search or filters.", ro: "Niciun client nu corespunde căutării sau filtrelor." },
 
