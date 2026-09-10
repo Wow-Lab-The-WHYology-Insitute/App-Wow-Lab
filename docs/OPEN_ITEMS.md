@@ -127,7 +127,12 @@ by seeding two fictional legal entities and inviting a second, single-org accoun
 test org, then verifying the full client → contract → group flow end to end under it. Item 51 was
 added 2026-09-11: the `client_contacts` half of item 37's fix, left open on purpose pending Anca's
 own answer, arrived — the same write-side finance exclusion removed the same way, verified live and
-browser-tested end to end in `wow-lab-test-b` using item 50's own newly-unblocked path.
+browser-tested end to end in `wow-lab-test-b` using item 50's own newly-unblocked path. Item 52 was
+added the same date: Anca's planning-fields spec, principal/secondary PDF, and feedback-form
+questions describe a one-off workshop as a first-class thing this schema doesn't model — it models
+recurring clubs instead — mapped field by field against the live schema, recorded as a domain
+question for Anca, not a column list, with no document found anywhere stating one-off-vs-recurring
+volume to help judge which shape is the exception.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -2329,6 +2334,84 @@ header quotes 202608100003's original comment in full);
 fix this extends, and the reasoning this item repeats rather than re-derives); item 50 above (why
 verification ran in `wow-lab-test-b` at all, and the fixture account this item's own browser pass
 reused that org for).
+
+---
+
+### 52. Anca's planning-fields spec describes a workshop; the schema models a group — a domain question, not missing columns
+
+Three real documents from Anca — a 26-field planning spec, a PDF on principal/secondary/reserve
+trainer responsibilities, and a post-workshop feedback form's question list — describe a **workshop**
+as a first-class thing: client, legal entity, type, description, date, time range, hours, allocated
+trainers with a principal flag plus a reserve, an on-site contact person and phone, address, and up
+to four experiments each with its own trainer.
+
+**Checked against the live schema, not assumed. Roughly half the spec has no home at all.**
+
+**Absent entirely** — no column, no table, nothing to point at:
+- Address (confirmed live: zero columns named anything like "address" anywhere in the schema).
+- Time range (`sessions` has `session_date` and `duration_minutes`, no start/end clock time).
+- A third, reserve trainer slot (`sessions` has exactly two: `trainer_principal_id`,
+  `trainer_secundar_id`).
+- A principal flag per allocation. Today "principal" isn't a stored fact — it's *implied* by which
+  of the two fixed columns a trainer's id sits in, not a flag that could mark any one of three
+  people. Adding a third column wouldn't fix this half of the gap even if it fixed the slot count.
+- Per-experiment attribution. `sessions.experiment_delivered` is one free-text column for the whole
+  session — it can hold "what was delivered," never "who delivered which experiment," which is a
+  different shape, not a smaller version of the same one. Confirmed the columns exist as described,
+  live.
+- A workshop-level description field distinct from `notes`.
+- A workshop-level on-site contact. `client_contacts` has the person and phone (and even a
+  `contact_purpose = 'trainer_facing'` value already), but scoped to the **client**, with no link to
+  a specific workshop/session at all.
+
+**Present, but at the wrong grain:** `children_confirmed`, `age_range`, and `business_line` all sit
+on `groups` or `clients` — once per group or per client, not once per workshop. Fine for a group
+with a single session; wrong the moment a group has more than one, or a client runs workshops of
+different kinds.
+
+**Present, but structurally unreachable:** legal entity. Only `contracts.legal_entity_id` carries
+it, and `groups.contract_id` is nullable — a workshop belonging to a group with no linked contract
+has no path to a legal entity at all, not even an empty one to fill in.
+
+**The underlying cause, recorded as the actual question, not as seven missing columns:** this
+schema models *recurring clubs* — one group, many sessions, most workshop-level facts (client,
+format, age range, confirmed-count) properly living once on the group because they're stable across
+every session in it. Anca's documents describe *one-off workshops*, where the workshop itself is the
+unit that carries the client relationship, the venue, the on-site contact, and the team for that one
+occasion — nothing above it is stable enough to hoist those facts onto. Both shapes are real. Only
+one is modeled. Bolting the missing fields onto `sessions` would make a one-off workshop *look like*
+a session of a recurring group by giving it the same container, not resolve which of the two shapes
+a one-off workshop actually is.
+
+**A second, separate duplication surfaced by the same documents:** the post-workshop feedback form
+asks the trainer how many children attended. `docs/OPEN_ITEMS.md` item 45 part 1 already targets
+`sessions.attendance_count` for the same fact, trainer-written, once built. Two systems that don't
+talk to each other, asking the same person the same question twice, with no reconciliation and no
+way to tell which is right if they ever diverge.
+
+**Checked, not built:** whether any existing document states workshop volume — how many one-off
+workshops Wow Lab runs in a year against how many recurring groups — since that ratio decides
+whether the domain gap above is the exception or the actual shape of most of the business. Searched
+this repo (`docs/`, `progress.md`), the already-known Drive feedback spreadsheet, the AD document
+(mentions the one-off/recurring split conceptually — P3's "Program → Groups (recurring) or direct
+sessions (one-off)" — with no figures attached), and two real operational spreadsheets in
+`~/Downloads` — `New Wow Lab Trainer Calculations Table.xlsx` ("Pontaj si Norma," ~11,876 rows,
+one row per trainer/workshop-date/school occurrence back to 2024) and `Tabel Costuri Agregate Total
+HR WOW Lab.xlsx` (a monthly per-trainer cost rollup). **No document anywhere states the ratio.**
+The raw transactional data in the first spreadsheet could support computing it — school name, date,
+and duration per row, back to 2024 — but nothing does that computation or states its result today,
+and doing so wasn't asked for here.
+
+**No migration, no table, no code — reported as a domain question for Anca to answer, not a set of
+fields to add.**
+
+**Lives in:** `docs/OPEN_ITEMS.md` item 45 (the attendance-count duplication's other half); the
+three source documents themselves, once placed in `docs/` (`WOWLAB_Spec_Planificare_Ateliere`,
+`WOWLAB_Spec_Trainer_Principal_Secundar`, `WOWLAB_Spec_Formular_Feedback_Post_Atelier` — not yet
+copied in as of this entry); `supabase/migrations/202608130001_create_groups_sessions_domain_tables.sql`,
+`202608160004_groups_sessions_field_additions.sql` (the live `sessions`/`groups` schema this was
+checked against); `docs/WOW_LAB_OS_Solution_Architecture_Document.md` line 49 (the one place the
+one-off/recurring split is named, without a volume figure).
 
 ---
 
