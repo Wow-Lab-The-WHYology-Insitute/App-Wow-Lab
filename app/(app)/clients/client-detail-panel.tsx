@@ -33,7 +33,9 @@ export function ClientDetailPanel({
         className="grid gap-x-6 gap-y-3"
         style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}
       >
-        <DetailField label={t("detail_business_line")}>{client.business_line || "—"}</DetailField>
+        <DetailField label={t("detail_business_line")}>
+          {client.business_line ? t(`business_line_${client.business_line}`) : "—"}
+        </DetailField>
         <DetailField label={t("detail_legal_name")}>{client.legal_name || "—"}</DetailField>
         <DetailField label={t("detail_cui")} mono>
           {client.cui || "—"}

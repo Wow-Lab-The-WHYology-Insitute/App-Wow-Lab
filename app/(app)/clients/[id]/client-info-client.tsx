@@ -14,6 +14,15 @@ const CLIENT_TYPE_KEYS: Record<string, string> = {
 };
 const CLIENT_TYPES = Object.keys(CLIENT_TYPE_KEYS);
 
+// Matches the clients.business_line CHECK constraint (202609100001)
+// exactly — see clients-client.tsx's own BUSINESS_LINES for the source.
+const BUSINESS_LINE_KEYS: Record<string, string> = {
+  recurring_private_schools: "business_line_recurring_private_schools",
+  state_schools: "business_line_state_schools",
+  corporate_events: "business_line_corporate_events",
+};
+const BUSINESS_LINES = Object.keys(BUSINESS_LINE_KEYS);
+
 function looksLikeUrl(value: string) {
   return value.startsWith("http://") || value.startsWith("https://");
 }
@@ -69,7 +78,10 @@ export function ClientInfoClient({
         )
       }
     >
-      <Kv label={t("detail_business_line")} value={client.business_line || "—"} />
+      <Kv
+        label={t("detail_business_line")}
+        value={client.business_line ? t(`business_line_${client.business_line}`) : "—"}
+      />
       <Kv
         label={t("detail_external_crm_ref")}
         value={client.external_crm_ref || "—"}
@@ -160,13 +172,18 @@ function ClientEditForm({
             </option>
           ))}
         </select>
-        <input
-          type="text"
+        <select
           value={businessLine}
           onChange={(e) => setBusinessLine(e.target.value)}
-          placeholder={t("business_line_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
-        />
+        >
+          <option value="">{t("select_business_line")}</option>
+          {BUSINESS_LINES.map((bl) => (
+            <option key={bl} value={bl}>
+              {t(BUSINESS_LINE_KEYS[bl])}
+            </option>
+          ))}
+        </select>
         <input
           type="text"
           value={legalName}

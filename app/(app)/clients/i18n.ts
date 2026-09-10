@@ -30,6 +30,23 @@ export const clientsDict: Dictionary = {
   client_type_parent_b2c: { en: "Parent B2C", ro: "Părinte B2C" },
   client_type_special_project: { en: "Special project", ro: "Proiect special" },
 
+  // Company-level service category (wow_lab_master_analysis.md §9, "Three
+  // Business Lines", 2026-05-27; confirmed by Anca 2026-09-10 — see
+  // docs/OPEN_ITEMS.md item 48). RO wording is Anca's own, verbatim.
+  select_business_line: { en: "Select business line…", ro: "Alege linia de business…" },
+  business_line_recurring_private_schools: {
+    en: "Recurring clubs in private schools",
+    ro: "Cluburi recurente în școli private",
+  },
+  business_line_state_schools: {
+    en: "State schools (Școala Altfel / Săptămâna Verde)",
+    ro: "Școli de stat (Școala Altfel / Săptămâna Verde)",
+  },
+  business_line_corporate_events: {
+    en: "Corporate and events",
+    ro: "Corporate și evenimente",
+  },
+
   status_prospect: { en: "Prospect", ro: "Prospect" },
   status_active: { en: "Active", ro: "Activ" },
   status_paused: { en: "Paused", ro: "Suspendat" },
@@ -56,7 +73,6 @@ export const clientsDict: Dictionary = {
 
   new_client_form_title: { en: "New client", ro: "Client nou" },
   name_placeholder: { en: "Client name", ro: "Numele clientului" },
-  business_line_placeholder: { en: "Business line (optional)", ro: "Linie de business (opțional)" },
   legal_name_placeholder: { en: "Legal name (optional)", ro: "Denumire legală (opțional)" },
   cui_placeholder: { en: "CUI (optional)", ro: "CUI (opțional)" },
   create_client: { en: "Create client", ro: "Creează clientul" },

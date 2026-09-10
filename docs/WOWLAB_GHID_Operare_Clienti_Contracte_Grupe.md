@@ -17,7 +17,7 @@ npx tsx scripts/check_operator_guide.ts
 
 Acest ghid **nu** este verificat automat în CI — în acest proiect nu există CI, și nu îl adăugăm pentru asta. Scriptul se rulează de o persoană, la nevoie.
 
-**Ultima rulare:** 2026-09-09 — 30/30. Prima rulare a găsit o nepotrivire reală (`create_contract`: textul butonului e „Creează contractul", nu „Creează contract" cum scria draftul) — corectată în același commit, în manifest și în Pasul 2 mai jos.
+**Ultima rulare:** 2026-09-10 — 34/34 (4 rânduri noi, pentru linia de business). Prima rulare a găsit o nepotrivire reală (`create_contract`: textul butonului e „Creează contractul", nu „Creează contract" cum scria draftul) — corectată în același commit, în manifest și în Pasul 2 mai jos.
 
 ---
 
@@ -37,6 +37,10 @@ Nu conține afirmațiile de comportament (ex. „listele pornesc goale", „data
 | `client_type_corporate` | `clientsDict` | `app/(app)/clients/i18n.ts` | Corporate |
 | `client_type_parent_b2c` | `clientsDict` | `app/(app)/clients/i18n.ts` | Părinte B2C |
 | `client_type_special_project` | `clientsDict` | `app/(app)/clients/i18n.ts` | Proiect special |
+| `select_business_line` | `clientsDict` | `app/(app)/clients/i18n.ts` | Alege linia de business… |
+| `business_line_recurring_private_schools` | `clientsDict` | `app/(app)/clients/i18n.ts` | Cluburi recurente în școli private |
+| `business_line_state_schools` | `clientsDict` | `app/(app)/clients/i18n.ts` | Școli de stat (Școala Altfel / Săptămâna Verde) |
+| `business_line_corporate_events` | `clientsDict` | `app/(app)/clients/i18n.ts` | Corporate și evenimente |
 | `create_client` | `clientsDict` | `app/(app)/clients/i18n.ts` | Creează clientul |
 | `page_title` | `contractsDict` | `app/(app)/contracts/i18n.ts` | Contracte |
 | `new_contract` | `contractsDict` | `app/(app)/contracts/i18n.ts` | + Contract nou |
@@ -74,7 +78,9 @@ Toate listele derulante pornesc goale și te obligă să alegi — butonul de cr
 
 - Numele clientului
 - Tipul clientului — Școală privată, Școală de stat, Corporate, Părinte B2C, Proiect special
-- Linie de business, Denumire legală, CUI — opționale
+- Linia de business — cluburi recurente în școli private, școli de stat (Școala Altfel /
+  Săptămâna Verde), corporate și evenimente. Opțională — poți lăsa neclasificat.
+- Denumire legală, CUI — opționale
 
 Apeși „Creează clientul".
 

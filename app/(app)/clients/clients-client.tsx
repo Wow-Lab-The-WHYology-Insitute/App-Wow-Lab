@@ -33,6 +33,13 @@ type Client = {
 
 const CLIENT_TYPES = ["private_school", "state_school", "corporate", "parent_b2c", "special_project"];
 
+// Matches the clients.business_line CHECK constraint (202609100001)
+// exactly — the confirmed three-value taxonomy from
+// wow_lab_master_analysis.md §9 (2026-05-27), see docs/OPEN_ITEMS.md
+// item 48. Nullable in the schema — no "no business line yet" value
+// belongs in this list; the placeholder option is what represents that.
+const BUSINESS_LINES = ["recurring_private_schools", "state_schools", "corporate_events"];
+
 // Matches the clients.status check constraint (202608100001) exactly —
 // keep in sync if that constraint ever changes.
 const CLIENT_STATUSES = ["prospect", "active", "paused", "churned"];
@@ -134,7 +141,12 @@ function buildExtraColumns(
         />
       ),
       width: 160,
-      render: (c) => <TruncatedText value={c.business_line || "—"} className="text-ink text-sm" />,
+      render: (c) => (
+        <TruncatedText
+          value={c.business_line ? t(`business_line_${c.business_line}`) : "—"}
+          className="text-ink text-sm"
+        />
+      ),
     },
     {
       key: "legal_name",
@@ -547,13 +559,20 @@ function NewClientForm({
             </option>
           ))}
         </select>
-        <input
-          type="text"
+        <select
           value={businessLine}
           onChange={(e) => setBusinessLine(e.target.value)}
-          placeholder={t("business_line_placeholder")}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2 md:flex-1"
-        />
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2"
+        >
+          <option value="" disabled>
+            {t("select_business_line")}
+          </option>
+          {BUSINESS_LINES.map((bl) => (
+            <option key={bl} value={bl}>
+              {t(`business_line_${bl}`)}
+            </option>
+          ))}
+        </select>
         <input
           type="text"
           value={legalName}
