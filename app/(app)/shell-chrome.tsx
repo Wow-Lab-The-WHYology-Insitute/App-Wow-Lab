@@ -19,12 +19,16 @@ type NavGroup = { labelKey?: string; items: NavItem[] };
 export function ShellChrome({
   navGroups,
   userEmail,
+  orgLabel,
+  isTestOrg,
   roleLabel,
   avatarUrl,
   children,
 }: {
   navGroups: NavGroup[];
   userEmail: string;
+  orgLabel: string;
+  isTestOrg: boolean;
   roleLabel: string;
   avatarUrl: string | null;
   children: React.ReactNode;
@@ -115,6 +119,16 @@ export function ShellChrome({
             <TopbarAvatar url={avatarUrl} label={userEmail} />
             <div className="font-body min-w-0 truncate text-sm">
               <span className="text-ink font-semibold">{userEmail}</span>
+              {orgLabel && (
+                <span className="text-muted ml-2">
+                  · {orgLabel}
+                  {isTestOrg && (
+                    <span className="ml-1.5 align-middle">
+                      <Badge tone="outline">{t("badge_test")}</Badge>
+                    </span>
+                  )}
+                </span>
+              )}
               {roleLabel && <span className="text-muted ml-2">· {roleLabel}</span>}
             </div>
           </div>
@@ -148,6 +162,32 @@ function TopbarAvatar({ url, label }: { url: string | null; label: string }) {
       className="bg-ink/10 text-ink flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
     >
       {initials}
+    </span>
+  );
+}
+
+// Same shape as admin-users-client.tsx's own Badge — a second copy, not a
+// shared component. One prior call site is nowhere near item 29's own
+// stated threshold for extracting a small duplicated helper ("the next
+// time a sixth call site needs it"); this is the second.
+function Badge({
+  children,
+  tone = "neutral",
+}: {
+  children: React.ReactNode;
+  tone?: "neutral" | "pink" | "outline";
+}) {
+  return (
+    <span
+      className={`font-body inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+        tone === "pink"
+          ? "bg-brand-pink/10 text-brand-pink"
+          : tone === "outline"
+            ? "text-muted border border-black/15"
+            : "bg-ink/5 text-ink"
+      }`}
+    >
+      {children}
     </span>
   );
 }

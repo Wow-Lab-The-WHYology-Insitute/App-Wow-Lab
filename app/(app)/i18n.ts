@@ -33,4 +33,8 @@ export const chromeDict: Dictionary = {
   aria_close_menu: { en: "Close menu", ro: "Închide meniul" },
   sign_out: { en: "Sign out", ro: "Ieșire" },
   signing_out: { en: "Signing out…", ro: "Se iese…" },
+  // Duplicate of admin/users/i18n.ts's own badge_test, not a shared key —
+  // same one-dictionary-per-screen convention as clientsDict.page_title
+  // above being re-exposed under nav_clients rather than imported raw.
+  badge_test: { en: "Test", ro: "Test" },
 };

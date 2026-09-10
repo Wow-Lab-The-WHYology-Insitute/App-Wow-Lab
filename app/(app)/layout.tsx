@@ -7,6 +7,7 @@ import { checkCapability } from "@/lib/capabilities";
 type MembershipRow = {
   organization_id: string;
   roles: { display_name: string } | null;
+  organizations: { name: string; is_test: boolean } | null;
 };
 
 // S3 brand shell for every authenticated page. Nav items are additive by
@@ -31,7 +32,7 @@ export default async function AppLayout({
 
   const { data: memberships } = await supabase
     .from("user_org_roles")
-    .select("organization_id, roles(display_name)")
+    .select("organization_id, roles(display_name), organizations(name, is_test)")
     .eq("user_id", user.id)
     .returns<MembershipRow[]>();
 
@@ -55,6 +56,15 @@ export default async function AppLayout({
   const roleLabel = [
     ...new Set((memberships ?? []).map((m) => m.roles?.display_name).filter(Boolean)),
   ].join(", ");
+
+  // Same shape as roleLabel above: dedupe + join, since a session with
+  // memberships in more than one org is unexercised (item 26) but not
+  // impossible -- this doesn't assume single-org, it just hasn't been
+  // tested against more than one.
+  const orgLabel = [
+    ...new Set((memberships ?? []).map((m) => m.organizations?.name).filter(Boolean)),
+  ].join(", ");
+  const isTestOrg = (memberships ?? []).some((m) => m.organizations?.is_test);
 
   // Same has_capability RPC loop app/(app)/admin/users/page.tsx uses to
   // decide access server-side — reused here (not hardcoded) purely to
@@ -192,6 +202,8 @@ export default async function AppLayout({
       <ShellChrome
         navGroups={navGroups}
         userEmail={user.email ?? ""}
+        orgLabel={orgLabel}
+        isTestOrg={isTestOrg}
         roleLabel={roleLabel}
         avatarUrl={avatarUrl}
       >
