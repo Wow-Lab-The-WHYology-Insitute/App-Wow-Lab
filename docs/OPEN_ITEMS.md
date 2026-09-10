@@ -110,7 +110,11 @@ the same date: the fifty unpushed commits themselves, published through `develop
 first) then `main` (Production verified directly against `app.wowlab.ro`, by eye, not inferred),
 with the two causes named plainly — commit and push treated as one act when they aren't, and nine
 days of `localhost`-only verification that proved the code worked without ever proving it reached
-anyone.
+anyone. Item 48 was added the same date: "business_line is Anca's own term" was wrong — checked, and
+the phrase traces to Mihai's own 2026-05-27 analysis and a 2026-07-15 mockup card, two weeks before
+her feedback repeated it into a column the source file itself labels a summary, not a quote. Recorded
+alongside item 35 and item 46 as the third instance this week of a sourced-sounding detail that
+wasn't, all three caught only by checking.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -1429,7 +1433,9 @@ watching for.
 **Lives in:** `docs/mockup/wow_lab_os_mockup.html`; `docs/OPEN_ITEMS.md` item 22 (the account this
 surname belongs to, and the Raluca Margean parallel); `docs/progress.md` entries 25 and 68;
 `scripts/create_eight_real_wow_lab_accounts.ts`; `public.users` and `auth.users.raw_user_meta_data`
-(live data, `lauraflorentinaa220@gmail.com` and `catalina_moale@yahoo.com`).
+(live data, `lauraflorentinaa220@gmail.com` and `catalina_moale@yahoo.com`). See also item 48 below
+— the second and third instances of this same failure shape (AD-10, `business_line`), both caught
+the same way this one eventually was: by checking, not by noticing.
 
 ---
 
@@ -2025,7 +2031,8 @@ session, not edited); `docs/WOW_LAB_OS_AD_Reconciliation.md` (status of all fift
 the repo); item 45 above (AD-4's independent re-derivation, AD-10's unconfirmed status, AD-14's
 offline requirement); item 8 above (the `contracts.status` precedent both AD-4 and item 45 used
 independently); `docs/WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md` §1/§9 (AD-15, the confirmed twin
-of AD-11).
+of AD-11); item 35 above and item 48 below (the other two instances of "asserted as sourced, wrong,
+caught only by checking").
 
 ---
 
@@ -2074,6 +2081,47 @@ search all confirmed by eye, not inferred from the commit contents.
 **Lives in:** item 46 above (what was found undocumented while this was still unpushed); this
 session's own commit/push/deploy sequence (`9922eed`, `3b180b7`, `2913d8b`, and the `develop`/`main`
 fast-forward that carried them and the prior forty-seven commits to `origin`).
+
+---
+
+### 48. `clients.business_line` — "Anca's own term" was wrong; the paper trail runs the other way
+
+Mihai told Anca `business_line` was her own term, concluded from two rows attributed to her in an
+August feedback table. Checked, not assumed — the table is dated 2026-07-30, not August, and the
+term does not originate with her.
+
+**The actual chain, in date order:**
+- **2026-05-27** — `wow_lab_master_analysis.md` §9, "Three Business Lines": a defined three-value
+  company taxonomy — recurring private schools, state schools (Școala Altfel / Săptămâna Verde),
+  corporate and private events. Mihai's own analysis document, over two months before any feedback
+  from Anca.
+- **2026-07-15** — a mockup dashboard card, *"Venit pe linie de business"* ("Revenue by business
+  line"), already showing the phrase on screen.
+- **2026-07-30** — Anca's feedback (`wowlab_feedback_analiza`, Google Drive) repeats the phrase,
+  twice, both about dashboard/forecast screens. The column holding it is labeled by the file itself:
+  **"Rezumat cerere"** — summary of the request, not a quote. Elsewhere in the same table, an actual
+  quote from her is marked with quotation marks; these two rows aren't. She was giving feedback on a
+  screen that had been showing her this exact term for two weeks.
+- **2026-08-10** — `business_line` becomes a real column on `clients` — free text, no comment, no
+  enum, no definition. The three-value company category from May 27 was not carried forward into it;
+  only the name was.
+
+**The undocumented decision was never the phrase.** It's turning a fixed, company-level service
+category into an open per-client text box — a grain change nobody decided, made in the same
+migration that dropped the definition.
+
+**The pattern, worth recording on its own:** this is the third time in one week a plausible,
+specific-sounding detail was asserted as sourced and turned out not to be — the "Laura Moale"
+surname (item 35), AD-10 stated as an established decision (item 46's origin), and now this. All
+three were caught by checking the actual source, not by noticing something felt off — none of the
+three raised any flag before someone went and looked. The check is the only thing that has worked,
+three for three; noticing has not caught any of them.
+
+**Lives in:** `wow_lab_master_analysis.md` §9 (`~/Downloads`, not in this repo); the mockup dashboard
+card (`docs/mockup/wow_lab_os_mockup.html` and its dated `~/Downloads` predecessors); Google Drive
+`wowlab_feedback_analiza` (rows 37, 45, column "Rezumat cerere"); `docs/WOWLAB_SAD_Domeniul_Clients_
+Contracts_CRM.md` §4 and `supabase/migrations/202608100001` (where the definition was dropped); item
+35 above and item 46 above (the other two instances of this same pattern).
 
 ---
 
