@@ -1,0 +1,79 @@
+{
+  "purpose": "Full-column backup of the Mirakids client, its contract, and its group, taken before deleting them as a confirmed test entry -- Mihai's second test entry today, after Maxdigital (scripts/purge_backup_2026-09-10.json). Recovery path if this needs to be undone; does not depend on row_history or any trigger.",
+  "generated_at": "2026-09-10T12:31:38.165109+00:00",
+  "source": "live linked Supabase project, queried via `supabase db query --linked`",
+  "organization": {
+    "slug": "wow-lab",
+    "id": "8e0dcc53-062f-4664-907d-826b9f45bec0"
+  },
+  "confirmed_by": "Mihai, 2026-09-10 -- Mirakids client/contract/group is his own test entry, same as Maxdigital before it",
+  "client_contacts_check": "Checked live before writing this script (not discovered via FK failure, unlike the Maxdigital purge): zero client_contacts rows reference this client. No client_contacts step needed.",
+  "total_rows": 3,
+  "delete_order": [
+    { "step": 1, "table": "groups", "count": 1, "note": "Mirakids' group ('lights') -- must precede the contract (groups.contract_id FK) and the client (groups.client_id FK)" },
+    { "step": 2, "table": "contracts", "count": 1, "note": "Mirakids' contract -- status is 'draft', so the app's own draft-only DELETE policy is satisfiable; not a bypass. Deleted via service-role anyway for one consistent path with the client/group deletes, which have no DELETE policy at all." },
+    { "step": 3, "table": "clients", "count": 1, "note": "Mirakids -- no DELETE policy exists for this table at all" }
+  ],
+  "rows": {
+    "groups": [
+      {
+        "id": "769b2963-6ce7-4753-ab9c-984d19c34d31",
+        "organization_id": "8e0dcc53-062f-4664-907d-826b9f45bec0",
+        "client_id": "6ea14c3f-1dfa-488a-88d9-2f0fbc079be5",
+        "contract_id": "03aede9d-4b66-4d7d-8fd3-8e3cef722157",
+        "module": "lights",
+        "delivery_format": "recurring",
+        "schedule_pattern": "Monday 15:00",
+        "children_confirmed": null,
+        "children_billed": null,
+        "status": "active",
+        "notes": null,
+        "age_range": "6-10",
+        "school_year_calendar_link": null,
+        "created_at": "2026-09-10T09:50:30.168916+00:00",
+        "updated_at": "2026-09-10T09:50:30.168916+00:00"
+      }
+    ],
+    "contracts": [
+      {
+        "id": "03aede9d-4b66-4d7d-8fd3-8e3cef722157",
+        "organization_id": "8e0dcc53-062f-4664-907d-826b9f45bec0",
+        "client_id": "6ea14c3f-1dfa-488a-88d9-2f0fbc079be5",
+        "legal_entity_id": "b684d1a5-6cba-4a10-94fe-5eab9318dc60",
+        "contract_type": "one_off_event",
+        "period_start": "2026-09-17",
+        "period_end": "2026-09-30",
+        "status": "draft",
+        "renewal_of": null,
+        "billing_rule": "100 lei per copil",
+        "drive_ref": null,
+        "notes": null,
+        "created_at": "2026-09-10T09:48:32.096949+00:00",
+        "updated_at": "2026-09-10T09:48:32.096949+00:00",
+        "signed_date": null,
+        "estimated_value": 10000,
+        "previous_year_value": 5000,
+        "offer_structure": null,
+        "ac_link": null,
+        "entry_number": "110",
+        "exit_number": "120"
+      }
+    ],
+    "clients": [
+      {
+        "id": "6ea14c3f-1dfa-488a-88d9-2f0fbc079be5",
+        "organization_id": "8e0dcc53-062f-4664-907d-826b9f45bec0",
+        "name": "Mirakids",
+        "client_type": "corporate",
+        "business_line": "corporate_events",
+        "status": "prospect",
+        "external_crm_ref": null,
+        "notes": null,
+        "created_at": "2026-09-10T09:47:31.183953+00:00",
+        "updated_at": "2026-09-10T09:47:31.183953+00:00",
+        "legal_name": "Mirakids Distribution SRL",
+        "cui": "123456789"
+      }
+    ]
+  }
+}
