@@ -114,7 +114,17 @@ anyone. Item 48 was added the same date: "business_line is Anca's own term" was 
 the phrase traces to Mihai's own 2026-05-27 analysis and a 2026-07-15 mockup card, two weeks before
 her feedback repeated it into a column the source file itself labels a summary, not a quote. Recorded
 alongside item 35 and item 46 as the third instance this week of a sourced-sounding detail that
-wasn't, all three caught only by checking.
+wasn't, all three caught only by checking. Item 49 was added the same date: a remembered
+"delete-anything, restricted to Anca, typed-DELETE confirmation" requirement — the fourth instance
+this week, checked against every doc, the full git history, every mockup variant, and the analysis
+PDFs, found nowhere. Alongside it: Anca's actual permission state corrected (platform_owner and
+sales_manager, not organization_owner; `is_platform_owner` false), the real scope of "any entry"
+(30 tables, 2 with a delete policy, all 55 foreign keys NO ACTION), and a direct conflict with the
+already-closed decision against hard-delete on `clients`. Item 50 was added and resolved the same
+date: the actual cause of the three test-data purges was no reachable route into `wow-lab-test-b`
+(Mihai's account single-org, no switcher, zero `legal_entities` there) — fixed, not just recorded,
+by seeding two fictional legal entities and inviting a second, single-org account for him into the
+test org, then verifying the full client → contract → group flow end to end under it.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -2122,6 +2132,118 @@ card (`docs/mockup/wow_lab_os_mockup.html` and its dated `~/Downloads` predecess
 `wowlab_feedback_analiza` (rows 37, 45, column "Rezumat cerere"); `docs/WOWLAB_SAD_Domeniul_Clients_
 Contracts_CRM.md` §4 and `supabase/migrations/202608100001` (where the definition was dropped); item
 35 above and item 46 above (the other two instances of this same pattern).
+
+---
+
+### 49. A delete-anything feature — the requirement wasn't found, and the scope it would have is not one feature
+
+Four findings, recorded together because they came from the same request.
+
+**1. The requirement itself was not found — recorded as a request made 2026-09-10, not as
+something recovered.** Mihai described an explicit prior requirement: "Add/Edit/Delete on any
+database entry from the app, restricted to Anca Tanasescu, with a double confirmation requiring the
+word DELETE typed on screen." Checked exhaustively: every file under `docs/`, the full git log,
+every mockup variant in `~/Downloads` (about ten HTML files), and four analysis PDFs including the
+182-page `WOW LAB OS PRD for Claude Code.pdf` and `wow_lab_master_analysis.md.pdf`. It appears
+nowhere — not verbatim, not in pieces assembled from several places. The closest matches are not
+it: a role-table line ("Master | Anca Tănăsescu | Everything + global settings, role management")
+with no mention of delete or confirmation, and an "Admin/Master: can add/delete" line scoped
+narrowly to lesson-plan PPT files, naming the Admin role generally (also held by Laura Moale and
+Anka Orban), not Anca specifically. Fourth instance this week of a detail remembered as recorded
+that wasn't — after the "Laura Moale" surname (item 35), AD-10 (item 46), and `business_line`
+(item 48). This entry treats the request as new, dated today, not as a requirement being restored.
+
+**2. Anca's actual permission state — described wrongly more than once, corrected here against
+the live row.** Her `user_org_roles` in `wow-lab` are `platform_owner` and `sales_manager` — not
+`organization_owner`, which she does not hold at all. Her `users.is_platform_owner` column — the
+actual cross-org superuser flag, read by `app.is_platform_owner()` with no organization parameter
+at all — is `false`. The role named "Platform Owner" and the boolean flag of the same name are two
+separate mechanisms; she holds only the former. The `roles` table's own description for that row
+says as much: cross-org access runs through `users.is_platform_owner`, and the role row "exists for
+capability completeness and UI" — decorative for the power in question. Her account `status` is
+still `'invited'`, not active. Any future design for elevated permissions for her should start from
+this state, not from the organization_owner/platform_owner pairing originally assumed.
+
+**3. The scope of "any entry" is not one feature.** 30 tables in `public`; exactly 2
+(`contracts`, `client_contacts`) have a DELETE policy today. All 55 foreign keys in the schema are
+`NO ACTION` — confirmed directly against `pg_constraint`, zero exceptions, so the "implicit
+RESTRICT" convention noted elsewhere for `contracts_renewal_of_fkey` (item 8) is schema-wide, not a
+special case. Only 4 tables are FK-leaves (`client_contacts`, `sessions`, `suppliers`,
+`user_org_roles`), and two of those four still have no delete mechanism wired up. `clients` has 3
+dependent tables, `users` has 12, `organizations` is referenced by 24 of the 30. Building
+"delete anything" means per-table dependency-clearing logic — nothing cascades in this schema, by
+convention — plus a new RLS DELETE policy for 28 of 30 tables.
+
+**4. Direct conflict with an already-closed decision.** `docs/DATABASE_CONVENTIONS.md` §12 and
+`docs/WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md` §8 both already close hard-delete on `clients`,
+in writing, because `status = 'churned'` already answers "this relationship is over" — a delete
+feature there would be a second, contradictory answer to a question already settled, "closed, not
+deferred." A literal delete-anything feature that includes `clients` would reopen that decision,
+not build alongside it.
+
+**The need underneath, reported separately, not acted on:** the same investigation found that the
+actual pressure behind this request is that `wow-lab-test-b` — the designated safe org for exactly
+this kind of testing — can't yet carry a full client → contract → group walkthrough (it has zero
+`legal_entities` rows, so the contract form's required select can never be filled there). Reported
+in full below this item's neighbors, not designed here.
+
+**Lives in:** the two-agent investigation this session (delete requirement search, capability/FK
+scoping); `docs/DATABASE_CONVENTIONS.md` §12; `docs/WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md`
+§8; `app/(app)/contracts/actions.ts` (`deleteContract`), `app/(app)/clients/actions.ts`
+(`deleteClientContact`) — the two delete paths that exist; item 35, item 46, item 48 above (the
+other three "remembered as recorded, wasn't" instances).
+
+---
+
+### 50. Why test data kept reaching production, and the fix — RESOLVED 2026-09-10
+
+Test data reached `wow-lab` production three times in ten days: the seed rows purged 2026-09-01
+(24 rows, item "Seed data cannot be reliably distinguished from real data" above), a second
+"Maxdigital" client/contract/group purged 2026-09-10 (commit `071ac51`), and "Mirakids"
+client/contract/group purged the same date (commit `4cf5738`). The cause was not carelessness.
+
+**There was no reachable route into the test organization.** Three things were true at once:
+- Mihai's only account, `maxdigitalro@gmail.com`, held membership in `wow-lab` alone — confirmed
+  live against `user_org_roles`, zero rows in `wow-lab-test-b`.
+- There is no org switcher anywhere in the app (item 26, "No current-organization concept" —
+  `platform.org_switcher.use` is seeded as a capability but has no UI behind it; even a second
+  membership would have merged both orgs' rows into one list with no per-row indicator, per that
+  item's own finding).
+- The only path anyone used, all session, to reach `wow-lab-test-b` at all was a service-role
+  script minting a one-time magic link for a separate identity (`test+user-b@wowlab.dev`) — not
+  something reachable from a normal login.
+
+On top of that, `wow-lab-test-b` had zero `legal_entities` rows, so even a session that did reach
+it could not exercise the contract form even once — confirmed live during this session's timing
+measurement (blank-page investigation, part d), which had to report contract-create timing as
+unmeasured for exactly this reason.
+
+**Fixed, not just reported:**
+- `supabase/migrations/202609100002_seed_test_org_b_legal_entities.sql` seeds two fictional
+  `legal_entities` rows into `wow-lab-test-b` — "Test Entity SRL" and "Test Association," names
+  that share no word with any of `wow-lab`'s three real entities. Rollback at
+  `supabase/rollbacks/202609100002_seed_test_org_b_legal_entities_rollback.sql`. Verified live
+  after applying: `wow-lab`'s three real entities untouched, same ids as before.
+- `maxdigitalro+testorg@gmail.com` invited into `wow-lab-test-b` as `organization_owner`,
+  `is_test_account = true`, through the app's own `inviteUser` action (driven live via the actual
+  `/admin/users` UI, not a script bypassing it) — a real Supabase Auth invite, his to activate
+  himself. Verified live: this account holds zero membership in `wow-lab`; `maxdigitalro@gmail.com`
+  still holds zero membership in `wow-lab-test-b`. The two identities do not cross — deliberately
+  not the same account with two memberships, per item 26's own warning about what that would do to
+  list views.
+- Walked the full client → contract → group flow end to end, logged in as the new account on
+  `app.wowlab.ro`, all three steps confirmed by direct query, not just UI appearance: a client, a
+  contract against the newly seeded "Test Association" entity, and a group against that contract.
+  No remaining blocker found. Verification rows deleted afterward, by exact id, so the account's
+  first real session starts from an empty organization.
+
+**The rule that follows:** any verification that creates rows happens in `wow-lab-test-b`. That is
+now a real, reachable option — not aspirational the way it was for the ten days this item covers.
+
+**Lives in:** `supabase/migrations/202609100002_seed_test_org_b_legal_entities.sql`;
+`supabase/rollbacks/202609100002_seed_test_org_b_legal_entities_rollback.sql`; item 26 above (the
+org-switcher gap this works around, not fixes); item 49 above (the request that surfaced this);
+commits `071ac51`, `4cf5738` (the two purges this closes the loop on).
 
 ---
 
