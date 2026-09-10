@@ -140,7 +140,13 @@ error, corrected against item 23 (the seventh instance this week of something as
 that wasn't); and "ten of eleven trainers never signed in" was checked against `auth.users`, not
 recorded as given — 8 of the 10 show a real sign-in timestamp, only 2 show none, though which of the
 8 are genuine trainer logins versus this session's own testing cannot be fully separated with the
-audit data this project retains.
+audit data this project retains. Item 21 got a 2026-09-11 addendum recording that limit precisely
+where the derive-from-`last_sign_in_at` decision itself lives: `auth.audit_log_entries` is empty
+project-wide, not just for one account, so the column still answers "has this account ever
+authenticated" correctly but cannot answer "has this person used the app" — the decision stands,
+the limit is now written down beside it. Item 54 was added the same date: the ten trainers'
+invitations are all expired, left that way on purpose since nothing trainer-facing exists yet for a
+resend to lead anywhere — resend when that screen ships, not before.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -2501,6 +2507,27 @@ progress.md` #47 (the other Happy Face mechanism); `public.audit_log` (`user.acc
 
 ---
 
+### 54. The ten trainers' invitations have expired — deliberately not resent
+
+Confirmed 2026-09-11 (item 53's own investigation): every one of the 10 real trainer invitations
+(`user.invitation_resent`, `public.audit_log`) is expired — the freshest is three days old, the
+oldest eight, both well past any real link's lifetime.
+
+**Decision: do not resend yet.** There is nothing for a trainer to do in the app once they're in —
+confirmed the same date, `sessions` holds zero rows org-wide, and item 53 found no trainer-facing
+screen of any kind exists. Resending ten invitations into an app with no trainer-facing destination
+would reproduce exactly the pattern item 53 already found once: activity that looks like engagement
+but isn't backed by anything real underneath it.
+
+**Trigger for resending: when a trainer-facing screen actually exists**, not before. Whoever builds
+that screen should resend as part of shipping it, not treat the resend as a separate, earlier step.
+
+**Lives in:** item 53 above (the investigation this decision follows from); `app/(app)/admin/users/
+actions.ts` (`resendInvitation` — the mechanism, already built and already proven to work: 8 of the
+10 prior resends produced a real sign-in, per item 21's 2026-09-11 caveat above).
+
+---
+
 ## Masking rollout, remaining
 
 These three are already tracked in `docs/WOWLAB_SAD_Field_Masking.md` §2.5,
@@ -2985,9 +3012,26 @@ fixtures (the `wow-lab-test-b` seeded accounts) over real accounts for this kind
 work going forward; when a real account genuinely has to be used, note it plainly, the way this
 entry now does.
 
+**2026-09-11 — the limit the 09-08 caveat named for one account turns out to have no ceiling on it
+at all.** `auth.audit_log_entries` — the table that would carry IP/user-agent and let a genuine
+sign-in be told apart from this project's own verification activity — is **completely empty**,
+project-wide, for every user, not just Raluca Popa's. `last_sign_in_at` answers "has this account
+ever authenticated," not "has this person ever used the app," and with that table empty there is no
+way to recover the difference after the fact, for anyone. Confirmed against the 10 real trainer
+accounts investigated the same date (item 53): 8 of 10 show a `last_sign_in_at` timestamp; how many
+of those 8 are the trainer's own click versus this session's own testing cannot be established with
+the evidence this project retains.
+
+**This does not overturn the 2026-09-02 decision.** The column still answers its narrow question —
+"has this account ever authenticated" — better than the unmaintained `status` field does, and
+remains the right thing to derive the admin display from. The limit is what it can be read to mean
+beyond that narrow question: a timestamp here is not evidence a specific person has actually been in
+the app, and should not be read as such by anyone looking at this data later.
+
 **Lives in:** `supabase/migrations/202607130004_add_auth_support_functions.sql`
 (`handle_new_auth_user`); `app/(app)/admin/users/actions.ts` (`enableAccess`, `disableAccess`);
-`app/(app)/admin/users/page.tsx`; `app/(app)/profile/page.tsx`. See also item 40 below — the same
+`app/(app)/admin/users/page.tsx`; `app/(app)/profile/page.tsx`; item 53 above (the 10 real trainer
+accounts this caveat was confirmed against). See also item 40 below — the same
 shape of defect (code asserting a guarantee it did not provide), a client-side gate instead of a
 DB column.
 
