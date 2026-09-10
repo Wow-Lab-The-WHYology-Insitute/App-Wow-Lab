@@ -57,8 +57,8 @@ export type VoidActionResult = { ok: true } | { ok: false; error: string };
 
 // Same relationship as addClient: runs through the caller's own session
 // client, so the client_contacts RLS INSERT/UPDATE policies
-// (202608100003 — org/platform owner, clients.create, or contracts.*
-// excluding either finance role) are the real authority. The
+// (202609110001 — org/platform owner, clients.create, or contracts.*,
+// regardless of any finance role also held) are the real authority. The
 // canManageContacts()-gated form in clients/[id]/page.tsx is a
 // convenience; a request that reaches here without the right capability
 // gets rejected by RLS, not by app code.
@@ -146,15 +146,15 @@ export async function updateClientContact(
   return { ok: true };
 }
 
-// DELETE policy on client_contacts (202608270001) is deliberately IDENTICAL
-// to the existing INSERT/UPDATE predicate (202608100003) -- org/platform
-// owner, clients.create, or contracts.* excluding either finance role. No
-// status condition: a contact is a person's details, not a transaction
-// record, so a wrong one vanishes outright regardless of primary/billing
-// flags. This also serves GDPR erasure -- the 36-month retention
-// anonymization job never covered a person asking to be removed now; this
-// is that path (see the migration's own comment, and DATABASE_CONVENTIONS
-// Sec9/Sec12).
+// DELETE policy on client_contacts (202609110001, replacing 202608270001's
+// finance exclusion per Anca's 2026-09-11 decision -- see that migration's
+// own header) -- org/platform owner, clients.create, or contracts.*,
+// regardless of any finance role also held. No status condition: a
+// contact is a person's details, not a transaction record, so a wrong one
+// vanishes outright regardless of primary/billing flags. This also serves
+// GDPR erasure -- the 36-month retention anonymization job never covered
+// a person asking to be removed now; this is that path (see the
+// migration's own comment, and DATABASE_CONVENTIONS Sec9/Sec12).
 //
 // Unlike updateClientContact above, this explicitly re-checks the
 // predicate via checkCapability before attempting the write, rather than
@@ -181,16 +181,12 @@ export async function deleteClientContact(
     };
   }
 
-  const [isOwner, hasClientsCreate, hasContractsStar, isFinanceReporting, isFinanceOps] =
-    await Promise.all([
-      checkCapability(supabase, "org.settings.manage", contact.organization_id),
-      checkCapability(supabase, "clients.create", contact.organization_id),
-      checkCapability(supabase, "contracts.*", contact.organization_id),
-      checkCapability(supabase, "finance.reporting.*", contact.organization_id),
-      checkCapability(supabase, "finance.operations.*", contact.organization_id),
-    ]);
-  const canDelete =
-    isOwner || hasClientsCreate || (hasContractsStar && !isFinanceReporting && !isFinanceOps);
+  const [isOwner, hasClientsCreate, hasContractsStar] = await Promise.all([
+    checkCapability(supabase, "org.settings.manage", contact.organization_id),
+    checkCapability(supabase, "clients.create", contact.organization_id),
+    checkCapability(supabase, "contracts.*", contact.organization_id),
+  ]);
+  const canDelete = isOwner || hasClientsCreate || hasContractsStar;
 
   if (!canDelete) {
     return { ok: false, error: "Not permitted." };

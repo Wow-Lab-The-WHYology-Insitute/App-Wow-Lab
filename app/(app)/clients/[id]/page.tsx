@@ -40,30 +40,25 @@ type ContractRow = {
 };
 type LegalEntityLookupRow = { id: string; name: string };
 
-// client_contacts INSERT/UPDATE policy (202608100003): org/platform owner,
-// clients.create (sales_manager), or contracts.* excluding either finance
-// role (contract_administrator) -- a THIRD alternative (clients.create)
-// beyond contracts/[id]/page.tsx's own narrower canManageContracts, so
-// this can't reuse that function; kept as its own local copy per this
-// codebase's established convention of duplicating the has_capability-loop
-// pattern per file rather than sharing it.
+// client_contacts INSERT/UPDATE/DELETE policy (202609110001, replacing
+// 202608100003/202608270001's finance exclusion per Anca's 2026-09-11
+// decision -- see that migration's own header): org/platform owner,
+// clients.create (sales_manager), or contracts.* (contract_administrator),
+// regardless of any finance role also held -- a THIRD alternative
+// (clients.create) beyond contracts/[id]/page.tsx's own narrower
+// canManageContracts, so this can't reuse that function; kept as its own
+// local copy per this codebase's established convention of duplicating
+// the has_capability-loop pattern per file rather than sharing it.
 async function canManageContacts(
   supabase: Awaited<ReturnType<typeof createClient>>,
   org: string,
 ) {
-  const [isOwner, hasClientsCreate, hasContractsStar, isFinanceReporting, isFinanceOps] =
-    await Promise.all([
-      checkCapability(supabase, "org.settings.manage", org),
-      checkCapability(supabase, "clients.create", org),
-      checkCapability(supabase, "contracts.*", org),
-      checkCapability(supabase, "finance.reporting.*", org),
-      checkCapability(supabase, "finance.operations.*", org),
-    ]);
-  return (
-    isOwner ||
-    hasClientsCreate ||
-    (hasContractsStar && !isFinanceReporting && !isFinanceOps)
-  );
+  const [isOwner, hasClientsCreate, hasContractsStar] = await Promise.all([
+    checkCapability(supabase, "org.settings.manage", org),
+    checkCapability(supabase, "clients.create", org),
+    checkCapability(supabase, "contracts.*", org),
+  ]);
+  return isOwner || hasClientsCreate || hasContractsStar;
 }
 
 export default async function ClientDetailPage({
