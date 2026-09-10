@@ -128,6 +128,16 @@ export const groupsDict: Dictionary = {
   reallocate_action: { en: "reallocate", ro: "realocă" },
   reallocate_button: { en: "Reallocate", ro: "Realocă" },
 
+  // Same pairing, for the assigned trainer's own attendance_count/
+  // experiment_delivered edit (Anca's 2026-09-11 decision) -- a
+  // separate action from reallocate_action, shown to a different
+  // audience (the assigned trainer, not Operations), sometimes on the
+  // same row. attendance_placeholder/experiment_placeholder below
+  // (NewSessionForm's own, at session creation) are reused here rather
+  // than duplicated -- same fields, same wording fits both contexts.
+  record_attendance_action: { en: "record attendance", ro: "înregistrează prezența" },
+  record_attendance_button: { en: "Record attendance", ro: "Înregistrează prezența" },
+
   mobile_principal_prefix: { en: "Principal: ", ro: "Principal: " },
   mobile_secundar_prefix: { en: "Secundar: ", ro: "Secundar: " },
   mobile_duration_prefix: { en: "Duration: ", ro: "Durată: " },

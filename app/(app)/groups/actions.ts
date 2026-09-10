@@ -247,3 +247,51 @@ export async function updateSessionAllocation(
   revalidatePath(`/groups/${groupId}`);
   return { ok: true };
 }
+
+// The assigned trainer recording their own session (Anca's decision,
+// 2026-09-11): attendance_count and experiment_delivered, on a session
+// where the caller is trainer_principal_id or trainer_secundar_id.
+// Row-matched via RLS alone (202609110003) -- no capability check here,
+// matching updateSessionAllocation's own reasoning: the real gate is
+// the row match, this action's job is narrowing the columns a matched
+// caller can reach, not re-checking who they are a second time. Scoped
+// to exactly these two fields -- not trainer_principal_id/
+// trainer_secundar_id, not status. RLS's WITH CHECK would technically
+// still allow a matched trainer to touch other columns on their own row
+// via a raw request; this action is what actually stops it, the same
+// division of labor as every other capability-gated action in this
+// codebase (RLS restricts rows, the action restricts columns).
+//
+// experiment_delivered stays free text -- the experiment catalogue does
+// not exist (docs/OPEN_ITEMS.md item 45 part 3, item 52) and this is not
+// building toward one; a trainer types what they ran, same as Operations
+// already could at session creation.
+export async function updateSessionAttendance(
+  groupId: string,
+  sessionId: string,
+  attendanceCount: string,
+  experimentDelivered: string,
+): Promise<VoidActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("sessions")
+    .update({
+      attendance_count: attendanceCount.trim() ? Number(attendanceCount) : null,
+      experiment_delivered: experimentDelivered.trim() || null,
+    })
+    .eq("id", sessionId)
+    .select("id");
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return {
+      ok: false,
+      error: "Not permitted (requires being the assigned trainer for this session).",
+    };
+  }
+
+  revalidatePath(`/groups/${groupId}`);
+  return { ok: true };
+}

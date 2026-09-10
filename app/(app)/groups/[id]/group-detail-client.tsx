@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useTranslations, useLocale } from "@/lib/i18n";
 import { groupsDict } from "../i18n";
-import { addSession, updateSessionAllocation } from "../actions";
+import { addSession, updateSessionAllocation, updateSessionAttendance } from "../actions";
 
 type Session = {
   id: string;
@@ -62,12 +62,14 @@ export function GroupDetailClient({
   sessions,
   canManageSessions,
   trainerOptions,
+  viewerId,
 }: {
   groupId: string;
   organizationId: string;
   sessions: Session[];
   canManageSessions: boolean;
   trainerOptions: TrainerOption[];
+  viewerId: string;
 }) {
   const t = useTranslations(groupsDict);
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +78,14 @@ export function GroupDetailClient({
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [principalDraft, setPrincipalDraft] = useState<Record<string, string>>({});
   const [secundarDraft, setSecundarDraft] = useState<Record<string, string>>({});
+  // Separate edit mode from the reallocate one above -- different
+  // audience (the assigned trainer, not Operations), different fields,
+  // different RLS branch (202609110003, a row match, not a capability).
+  // A row could theoretically be in both edit modes for the rare person
+  // who is both Operations and the assigned trainer on the same session.
+  const [editingAttendanceId, setEditingAttendanceId] = useState<string | null>(null);
+  const [attendanceDraft, setAttendanceDraft] = useState<Record<string, string>>({});
+  const [experimentDraft, setExperimentDraft] = useState<Record<string, string>>({});
 
   function startEditing(s: Session) {
     setPrincipalDraft((prev) => ({ ...prev, [s.id]: s.trainer_principal_id ?? "" }));
@@ -98,6 +108,33 @@ export function GroupDetailClient({
         const result = await updateSessionAllocation(groupId, s.id, principal, secundar);
         if (!result.ok) setError(result.error);
         else setEditingSessionId(null);
+      } catch {
+        setError(t("network_error"));
+      }
+    });
+  }
+
+  function startEditingAttendance(s: Session) {
+    setAttendanceDraft((prev) => ({ ...prev, [s.id]: s.attendance_count?.toString() ?? "" }));
+    setExperimentDraft((prev) => ({ ...prev, [s.id]: s.experiment_delivered ?? "" }));
+    setEditingAttendanceId(s.id);
+  }
+
+  function cancelEditingAttendance(s: Session) {
+    setAttendanceDraft((prev) => ({ ...prev, [s.id]: s.attendance_count?.toString() ?? "" }));
+    setExperimentDraft((prev) => ({ ...prev, [s.id]: s.experiment_delivered ?? "" }));
+    setEditingAttendanceId(null);
+  }
+
+  function saveEditingAttendance(s: Session) {
+    setError(null);
+    const attendance = attendanceDraft[s.id] ?? s.attendance_count?.toString() ?? "";
+    const experiment = experimentDraft[s.id] ?? s.experiment_delivered ?? "";
+    startTransition(async () => {
+      try {
+        const result = await updateSessionAttendance(groupId, s.id, attendance, experiment);
+        if (!result.ok) setError(result.error);
+        else setEditingAttendanceId(null);
       } catch {
         setError(t("network_error"));
       }
@@ -193,15 +230,24 @@ export function GroupDetailClient({
                     session={s}
                     editing={editingSessionId === s.id}
                     canManageSessions={canManageSessions}
+                    canEditAttendance={s.trainer_principal_id === viewerId || s.trainer_secundar_id === viewerId}
+                    editingAttendance={editingAttendanceId === s.id}
                     isPending={isPending}
                     trainerOptions={trainerOptions}
                     principalValue={principalDraft[s.id] ?? s.trainer_principal_id ?? ""}
                     secundarValue={secundarDraft[s.id] ?? s.trainer_secundar_id ?? ""}
+                    attendanceValue={attendanceDraft[s.id] ?? s.attendance_count?.toString() ?? ""}
+                    experimentValue={experimentDraft[s.id] ?? s.experiment_delivered ?? ""}
                     onChangePrincipal={(v) => setPrincipalDraft((prev) => ({ ...prev, [s.id]: v }))}
                     onChangeSecundar={(v) => setSecundarDraft((prev) => ({ ...prev, [s.id]: v }))}
+                    onChangeAttendance={(v) => setAttendanceDraft((prev) => ({ ...prev, [s.id]: v }))}
+                    onChangeExperiment={(v) => setExperimentDraft((prev) => ({ ...prev, [s.id]: v }))}
                     onStartEditing={() => startEditing(s)}
                     onCancelEditing={() => cancelEditing(s)}
                     onSave={() => saveEditing(s)}
+                    onStartEditingAttendance={() => startEditingAttendance(s)}
+                    onCancelEditingAttendance={() => cancelEditingAttendance(s)}
+                    onSaveAttendance={() => saveEditingAttendance(s)}
                   />
                 ))}
               </tbody>
@@ -214,15 +260,24 @@ export function GroupDetailClient({
                   session={s}
                   editing={editingSessionId === s.id}
                   canManageSessions={canManageSessions}
+                  canEditAttendance={s.trainer_principal_id === viewerId || s.trainer_secundar_id === viewerId}
+                  editingAttendance={editingAttendanceId === s.id}
                   isPending={isPending}
                   trainerOptions={trainerOptions}
                   principalValue={principalDraft[s.id] ?? s.trainer_principal_id ?? ""}
                   secundarValue={secundarDraft[s.id] ?? s.trainer_secundar_id ?? ""}
+                  attendanceValue={attendanceDraft[s.id] ?? s.attendance_count?.toString() ?? ""}
+                  experimentValue={experimentDraft[s.id] ?? s.experiment_delivered ?? ""}
                   onChangePrincipal={(v) => setPrincipalDraft((prev) => ({ ...prev, [s.id]: v }))}
                   onChangeSecundar={(v) => setSecundarDraft((prev) => ({ ...prev, [s.id]: v }))}
+                  onChangeAttendance={(v) => setAttendanceDraft((prev) => ({ ...prev, [s.id]: v }))}
+                  onChangeExperiment={(v) => setExperimentDraft((prev) => ({ ...prev, [s.id]: v }))}
                   onStartEditing={() => startEditing(s)}
                   onCancelEditing={() => cancelEditing(s)}
                   onSave={() => saveEditing(s)}
+                  onStartEditingAttendance={() => startEditingAttendance(s)}
+                  onCancelEditingAttendance={() => cancelEditingAttendance(s)}
+                  onSaveAttendance={() => saveEditingAttendance(s)}
                 />
               ))}
             </div>
@@ -237,15 +292,24 @@ type SessionRowProps = {
   session: Session;
   editing: boolean;
   canManageSessions: boolean;
+  canEditAttendance: boolean;
+  editingAttendance: boolean;
   isPending: boolean;
   trainerOptions: TrainerOption[];
   principalValue: string;
   secundarValue: string;
+  attendanceValue: string;
+  experimentValue: string;
   onChangePrincipal: (v: string) => void;
   onChangeSecundar: (v: string) => void;
+  onChangeAttendance: (v: string) => void;
+  onChangeExperiment: (v: string) => void;
   onStartEditing: () => void;
   onCancelEditing: () => void;
   onSave: () => void;
+  onStartEditingAttendance: () => void;
+  onCancelEditingAttendance: () => void;
+  onSaveAttendance: () => void;
 };
 
 // Inline reallocate — the "rotation" case (task spec): only
@@ -257,15 +321,24 @@ function SessionTableRow({
   session,
   editing,
   canManageSessions,
+  canEditAttendance,
+  editingAttendance,
   isPending,
   trainerOptions,
   principalValue,
   secundarValue,
+  attendanceValue,
+  experimentValue,
   onChangePrincipal,
   onChangeSecundar,
+  onChangeAttendance,
+  onChangeExperiment,
   onStartEditing,
   onCancelEditing,
   onSave,
+  onStartEditingAttendance,
+  onCancelEditingAttendance,
+  onSaveAttendance,
 }: SessionRowProps) {
   const t = useTranslations(groupsDict);
   const { locale } = useLocale();
@@ -303,50 +376,103 @@ function SessionTableRow({
       <td className="text-muted py-3 pr-4">
         {session.duration_minutes ? `${session.duration_minutes} min` : "—"}
       </td>
-      <td className="text-muted py-3 pr-4">{session.attendance_count ?? "—"}</td>
+      <td className="text-muted py-3 pr-4">
+        {editingAttendance ? (
+          <input
+            type="number"
+            min="0"
+            value={attendanceValue}
+            onChange={(e) => onChangeAttendance(e.target.value)}
+            placeholder={t("attendance_placeholder")}
+            className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 w-20 rounded-lg border border-gray-300 px-2 py-1 text-sm outline-none focus:ring-2"
+          />
+        ) : (
+          (session.attendance_count ?? "—")
+        )}
+      </td>
       <td className="text-muted py-3">
         <div className="flex items-center justify-between gap-3">
-          <span>
-            {session.experiment_delivered || "—"}
-            {session.experiment_drive_link && (
-              <a
-                href={session.experiment_drive_link}
-                target="_blank"
-                rel="noreferrer"
-                className="text-brand-pink ml-2 text-xs font-semibold hover:underline"
-              >
-                {t("open_action")}
-              </a>
-            )}
+          {editingAttendance ? (
+            <input
+              type="text"
+              value={experimentValue}
+              onChange={(e) => onChangeExperiment(e.target.value)}
+              placeholder={t("experiment_placeholder")}
+              className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 w-full rounded-lg border border-gray-300 px-2 py-1 text-sm outline-none focus:ring-2"
+            />
+          ) : (
+            <span>
+              {session.experiment_delivered || "—"}
+              {session.experiment_drive_link && (
+                <a
+                  href={session.experiment_drive_link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-brand-pink ml-2 text-xs font-semibold hover:underline"
+                >
+                  {t("open_action")}
+                </a>
+              )}
+            </span>
+          )}
+          <span className="flex shrink-0 gap-2">
+            {canManageSessions &&
+              (editing ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={onSave}
+                    className="rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-3 py-1 text-xs font-bold text-white uppercase"
+                  >
+                    {t("save")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onCancelEditing}
+                    className="text-muted rounded-full border border-black/10 px-3 py-1 text-xs font-semibold uppercase"
+                  >
+                    {t("cancel")}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onStartEditing}
+                  className="text-brand-pink shrink-0 text-xs font-semibold underline"
+                >
+                  {t("reallocate_action")}
+                </button>
+              ))}
+            {canEditAttendance &&
+              (editingAttendance ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={onSaveAttendance}
+                    className="rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-3 py-1 text-xs font-bold text-white uppercase"
+                  >
+                    {t("save")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onCancelEditingAttendance}
+                    className="text-muted rounded-full border border-black/10 px-3 py-1 text-xs font-semibold uppercase"
+                  >
+                    {t("cancel")}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onStartEditingAttendance}
+                  className="text-brand-pink shrink-0 text-xs font-semibold underline"
+                >
+                  {t("record_attendance_action")}
+                </button>
+              ))}
           </span>
-          {canManageSessions &&
-            (editing ? (
-              <span className="flex shrink-0 gap-2">
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={onSave}
-                  className="rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-3 py-1 text-xs font-bold text-white uppercase"
-                >
-                  {t("save")}
-                </button>
-                <button
-                  type="button"
-                  onClick={onCancelEditing}
-                  className="text-muted rounded-full border border-black/10 px-3 py-1 text-xs font-semibold uppercase"
-                >
-                  {t("cancel")}
-                </button>
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={onStartEditing}
-                className="text-brand-pink shrink-0 text-xs font-semibold underline"
-              >
-                {t("reallocate_action")}
-              </button>
-            ))}
         </div>
       </td>
     </tr>
@@ -357,15 +483,24 @@ function SessionCard({
   session,
   editing,
   canManageSessions,
+  canEditAttendance,
+  editingAttendance,
   isPending,
   trainerOptions,
   principalValue,
   secundarValue,
+  attendanceValue,
+  experimentValue,
   onChangePrincipal,
   onChangeSecundar,
+  onChangeAttendance,
+  onChangeExperiment,
   onStartEditing,
   onCancelEditing,
   onSave,
+  onStartEditingAttendance,
+  onCancelEditingAttendance,
+  onSaveAttendance,
 }: SessionRowProps) {
   const t = useTranslations(groupsDict);
   const { locale } = useLocale();
@@ -408,6 +543,47 @@ function SessionCard({
             </button>
           </div>
         </div>
+      ) : editingAttendance ? (
+        <div className="mt-3 flex flex-col gap-2">
+          <label className="font-body text-muted flex flex-col gap-1 text-xs">
+            {t("col_present")}
+            <input
+              type="number"
+              min="0"
+              value={attendanceValue}
+              onChange={(e) => onChangeAttendance(e.target.value)}
+              placeholder={t("attendance_placeholder")}
+              className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-2 py-1.5 text-xs outline-none focus:ring-2"
+            />
+          </label>
+          <label className="font-body text-muted flex flex-col gap-1 text-xs">
+            {t("col_experiment_delivered")}
+            <input
+              type="text"
+              value={experimentValue}
+              onChange={(e) => onChangeExperiment(e.target.value)}
+              placeholder={t("experiment_placeholder")}
+              className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-2 py-1.5 text-xs outline-none focus:ring-2"
+            />
+          </label>
+          <div className="mt-1 flex gap-2">
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={onSaveAttendance}
+              className="flex-1 rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-3 py-2 text-xs font-bold text-white uppercase disabled:opacity-50"
+            >
+              {t("save")}
+            </button>
+            <button
+              type="button"
+              onClick={onCancelEditingAttendance}
+              className="text-muted flex-1 rounded-full border border-black/10 px-3 py-2 text-xs font-semibold uppercase"
+            >
+              {t("cancel")}
+            </button>
+          </div>
+        </div>
       ) : (
         <>
           <p className="font-body text-muted mt-2 text-xs">
@@ -437,15 +613,26 @@ function SessionCard({
               )}
             </p>
           )}
-          {canManageSessions && (
-            <button
-              type="button"
-              onClick={onStartEditing}
-              className="text-brand-pink mt-3 w-full rounded-full border border-black/10 px-3 py-2 text-xs font-semibold uppercase"
-            >
-              {t("reallocate_button")}
-            </button>
-          )}
+          <div className="mt-3 flex flex-col gap-2">
+            {canManageSessions && (
+              <button
+                type="button"
+                onClick={onStartEditing}
+                className="text-brand-pink w-full rounded-full border border-black/10 px-3 py-2 text-xs font-semibold uppercase"
+              >
+                {t("reallocate_button")}
+              </button>
+            )}
+            {canEditAttendance && (
+              <button
+                type="button"
+                onClick={onStartEditingAttendance}
+                className="text-brand-pink w-full rounded-full border border-black/10 px-3 py-2 text-xs font-semibold uppercase"
+              >
+                {t("record_attendance_button")}
+              </button>
+            )}
+          </div>
         </>
       )}
     </div>

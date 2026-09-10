@@ -265,6 +265,7 @@ export default async function GroupDetailPage({
         sessions={sessionRows}
         canManageSessions={Boolean(canManageSessions)}
         trainerOptions={trainerOptions}
+        viewerId={user.id}
       />
     </div>
   );
