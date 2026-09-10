@@ -171,6 +171,14 @@ export default async function GroupDetailPage({
   // canManageContracts has to contracts' UPDATE policy.
   const canManage = await checkCapability(supabase, "groups.create", group.organization_id);
 
+  // contracts.* capability (matches the groups UPDATE policy's new
+  // 202609110002 branch) — gates writing children_confirmed only, per
+  // Anca's 2026-09-11 decision. Deliberately separate from canManage:
+  // Cătălina (operations_manager, canManage) sees the count but does not
+  // fill it; Laura and Anka (contract_administrator, contracts.*) fill
+  // it and nothing else on this record. Someone could hold both.
+  const canWriteChildrenConfirmed = await checkCapability(supabase, "contracts.*", group.organization_id);
+
   // contractOptions: every contract in this group's org, only fetched when
   // the edit form will actually render -- same "only fetch what the
   // button needs" discipline as trainerOptions just above. GroupEditForm
@@ -247,6 +255,7 @@ export default async function GroupDetailPage({
         contractExitNumber={linkedContract?.exit_number ?? null}
         contractVisible={group.contract_id ? linkedContract !== null : true}
         canManage={Boolean(canManage)}
+        canWriteChildrenConfirmed={Boolean(canWriteChildrenConfirmed)}
         contractOptions={contractOptions}
       />
 

@@ -27,6 +27,7 @@ export function GroupInfoSection({
   contractExitNumber,
   contractVisible,
   canManage,
+  canWriteChildrenConfirmed,
   contractOptions,
 }: {
   groupId: string;
@@ -44,6 +45,7 @@ export function GroupInfoSection({
   contractExitNumber: string | null;
   contractVisible: boolean;
   canManage: boolean;
+  canWriteChildrenConfirmed: boolean;
   contractOptions: ContractOption[];
 }) {
   const t = useTranslations(groupsDict);
@@ -56,6 +58,9 @@ export function GroupInfoSection({
         clientId={clientId}
         notes={notes}
         contractId={contractId}
+        childrenConfirmed={childrenConfirmed}
+        canManage={canManage}
+        canWriteChildrenConfirmed={canWriteChildrenConfirmed}
         contractOptions={contractOptions}
         onCancel={() => setIsEditing(false)}
         onSaved={() => setIsEditing(false)}
@@ -67,7 +72,7 @@ export function GroupInfoSection({
     <Section
       title={t("section_group_info_title")}
       action={
-        canManage && (
+        (canManage || canWriteChildrenConfirmed) && (
           <button
             type="button"
             onClick={() => setIsEditing(true)}
@@ -106,15 +111,16 @@ export function GroupInfoSection({
           Two different attendance concepts already existed as separate
           fields -- only the labeling changed here, no new column.
 
-          Deliberately read-only, along with children_billed below, even
-          though notes and contract_id right above are now editable
-          through the same section. WOWLAB_SAD_Domeniul_Operational_
-          Groups_Sessions.md §4 flagged children_billed as possibly
-          needing masking for Operations ("de decis la construcție") --
-          that question was never actually answered, only deferred, and
-          is recorded as its own open item (OPEN_ITEMS.md) rather than
-          settled here by giving it a plain, unmasked edit form. Pending
-          Anca, not forgotten. */}
+          Editable as of Anca's 2026-09-11 decision (canWriteChildren
+          Confirmed, contracts.* holders only) -- this read-view Kv still
+          renders for everyone who can see the group at all; only the
+          edit form below is gated. children_billed stays read-only:
+          WOWLAB_SAD_Domeniul_Operational_Groups_Sessions.md §4 flagged it
+          as possibly needing masking for Operations ("de decis la
+          construcție") -- that question was never actually answered,
+          only deferred, and is recorded as its own open item
+          (OPEN_ITEMS.md) rather than settled here by giving it a plain,
+          unmasked edit form. Pending Anca, not forgotten. */}
       <Kv label={t("kv_children_confirmed")} value={childrenConfirmed?.toString() ?? "—"} />
       <Kv label={t("kv_children_billed")} value={childrenBilled?.toString() ?? "—"} />
       <Kv label={t("kv_notes")} value={notes || "—"} />
@@ -127,6 +133,9 @@ function GroupEditForm({
   clientId,
   notes,
   contractId,
+  childrenConfirmed,
+  canManage,
+  canWriteChildrenConfirmed,
   contractOptions,
   onCancel,
   onSaved,
@@ -135,6 +144,9 @@ function GroupEditForm({
   clientId: string;
   notes: string | null;
   contractId: string | null;
+  childrenConfirmed: number | null;
+  canManage: boolean;
+  canWriteChildrenConfirmed: boolean;
   contractOptions: ContractOption[];
   onCancel: () => void;
   onSaved: () => void;
@@ -150,13 +162,16 @@ function GroupEditForm({
   // itself editable here), so unlike NewGroupForm there is no "client
   // changed under me" case to guard against.
   const [contractIdValue, setContractIdValue] = useState(contractId ?? "");
+  const [childrenConfirmedValue, setChildrenConfirmedValue] = useState(
+    childrenConfirmed?.toString() ?? "",
+  );
   const contractsForClient = contractOptions.filter((c) => c.client_id === clientId);
 
   function doSave() {
     setError(null);
     startTransition(async () => {
       try {
-        const result = await updateGroup(groupId, notesValue, contractIdValue);
+        const result = await updateGroup(groupId, notesValue, contractIdValue, childrenConfirmedValue);
         if (!result.ok) setError(result.error);
         else onSaved();
       } catch {
@@ -173,25 +188,39 @@ function GroupEditForm({
         </p>
       )}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <select
-          value={contractIdValue}
-          onChange={(e) => setContractIdValue(e.target.value)}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
-        >
-          <option value="">{t("select_contract")}</option>
-          {contractsForClient.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.exit_number || t("contract_option_no_exit")}
-            </option>
-          ))}
-        </select>
-        <textarea
-          value={notesValue}
-          onChange={(e) => setNotesValue(e.target.value)}
-          placeholder={t("notes_placeholder")}
-          rows={2}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
-        />
+        {canManage && (
+          <>
+            <select
+              value={contractIdValue}
+              onChange={(e) => setContractIdValue(e.target.value)}
+              className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
+            >
+              <option value="">{t("select_contract")}</option>
+              {contractsForClient.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.exit_number || t("contract_option_no_exit")}
+                </option>
+              ))}
+            </select>
+            <textarea
+              value={notesValue}
+              onChange={(e) => setNotesValue(e.target.value)}
+              placeholder={t("notes_placeholder")}
+              rows={2}
+              className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
+            />
+          </>
+        )}
+        {canWriteChildrenConfirmed && (
+          <input
+            type="number"
+            min="0"
+            value={childrenConfirmedValue}
+            onChange={(e) => setChildrenConfirmedValue(e.target.value)}
+            placeholder={t("children_confirmed_placeholder")}
+            className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
+          />
+        )}
       </div>
 
       <div className="mt-3 flex gap-2">

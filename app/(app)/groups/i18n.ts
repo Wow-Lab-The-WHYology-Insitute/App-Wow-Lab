@@ -156,6 +156,13 @@ export const groupsDict: Dictionary = {
   kv_calendar: { en: "School-year calendar", ro: "Calendar an școlar" },
   open_link: { en: "Open link", ro: "Deschide link" },
   kv_children_confirmed: { en: "Children confirmed (per contract)", ro: "Copii confirmați (per contract)" },
+  // GroupEditForm's input, contracts.* holders only (Anca's 2026-09-11
+  // decision) -- distinct from kv_children_confirmed above, which labels
+  // the read-only display everyone with group access sees.
+  children_confirmed_placeholder: {
+    en: "Children confirmed (per contract)",
+    ro: "Copii confirmați (per contract)",
+  },
   kv_children_billed: { en: "Children billed", ro: "Copii facturați" },
   kv_notes: { en: "Notes", ro: "Note" },
   kv_contract: { en: "Contract", ro: "Contract" },

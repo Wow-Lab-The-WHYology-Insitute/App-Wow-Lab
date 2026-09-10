@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { checkCapability } from "@/lib/capabilities";
 
 export type ActionResult =
   | { ok: true; id: string }
@@ -75,31 +76,43 @@ export async function addGroup(
 
 // Same relationship as updateContract/updateClient: runs through the
 // caller's own session client, so the "authenticated update groups" RLS
-// policy (202608130003 -- groups.create, i.e. Operations Manager + Master)
+// policy (202608130003, extended 202609110002 with a contracts.* branch)
 // is the real authority; this action's own checks are a second, explicit
 // line so the caller gets a real reason rather than a mystery no-op.
 //
-// In scope: notes and contract_id -- both plain scalars the RLS UPDATE
-// policy already covers unconditionally, same as every other field on
-// this table. Deliberately NOT in scope: children_confirmed and
-// children_billed. The SAD (WOWLAB_SAD_Domeniul_Operational_Groups_
-// Sessions.md §4) flagged children_billed as possibly needing masking for
-// Operations, "de decis la construcție" -- that decision was never made,
-// only deferred, and is now recorded as its own open question
-// (OPEN_ITEMS.md). Adding either field to this action ahead of that
-// answer would settle the question by accident, the same way ValueCell's
-// hardcoded visible=true already did on the read side. They stay
-// read-only until Anca answers.
+// notes/contract_id: in scope for groups.create holders (Operations
+// Manager + Master), unchanged. children_confirmed: in scope for
+// contracts.* holders (contract_administrator -- Laura, Anka) as of
+// Anca's 2026-09-11 decision, and for them specifically -- Cătălina
+// (operations_manager) sees the count but does not fill it. RLS
+// restricts rows, not columns, so this is the real boundary: each field
+// is only ever added to the UPDATE payload when its own capability check
+// passes, matching updateContract's pattern for its finance fields
+// (omit from the payload when the check fails, rather than sending it
+// and leaning on RLS to reject the whole row). This also protects a
+// contracts.*-only caller's notes/contract_id from being silently reset
+// to empty by a form that never shows those fields to them -- both are
+// left out of the payload entirely for that caller, not sent as blanks.
+//
+// children_billed stays out of scope, unchanged. The SAD (WOWLAB_SAD_
+// Domeniul_Operational_Groups_Sessions.md §4) flagged it as possibly
+// needing masking for Operations, "de decis la construcție" -- that
+// decision was never made, only deferred, and is recorded as its own
+// open question (OPEN_ITEMS.md). Adding it here ahead of that answer
+// would settle the question by accident, the same way ValueCell's
+// hardcoded visible=true already did on the read side. Stays read-only
+// until Anca answers that one too.
 export async function updateGroup(
   groupId: string,
   notes: string,
   contractId: string,
+  childrenConfirmed: string,
 ): Promise<ActionResult> {
   const supabase = await createClient();
 
   const { data: current } = await supabase
     .from("groups")
-    .select("id, client_id")
+    .select("id, client_id, organization_id")
     .eq("id", groupId)
     .maybeSingle();
 
@@ -118,12 +131,26 @@ export async function updateGroup(
     }
   }
 
+  const [isOwner, hasGroupsCreate, hasContractsStar] = await Promise.all([
+    checkCapability(supabase, "org.settings.manage", current.organization_id),
+    checkCapability(supabase, "groups.create", current.organization_id),
+    checkCapability(supabase, "contracts.*", current.organization_id),
+  ]);
+  const canManageGroupFields = isOwner || hasGroupsCreate;
+  const canWriteChildrenConfirmed = isOwner || hasContractsStar;
+
+  const payload: Record<string, unknown> = {};
+  if (canManageGroupFields) {
+    payload.notes = notes.trim() || null;
+    payload.contract_id = contractId || null;
+  }
+  if (canWriteChildrenConfirmed) {
+    payload.children_confirmed = childrenConfirmed.trim() ? Number(childrenConfirmed) : null;
+  }
+
   const { data, error } = await supabase
     .from("groups")
-    .update({
-      notes: notes.trim() || null,
-      contract_id: contractId || null,
-    })
+    .update(payload)
     .eq("id", groupId)
     .select("id");
 
@@ -133,7 +160,7 @@ export async function updateGroup(
   if (!data || data.length === 0) {
     return {
       ok: false,
-      error: "Not permitted (requires Operations Manager or Master).",
+      error: "Not permitted (requires Operations Manager, Master, or a contract administrator).",
     };
   }
 
