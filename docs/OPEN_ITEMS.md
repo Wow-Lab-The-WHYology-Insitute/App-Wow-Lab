@@ -132,7 +132,15 @@ added the same date: Anca's planning-fields spec, principal/secondary PDF, and f
 questions describe a one-off workshop as a first-class thing this schema doesn't model — it models
 recurring clubs instead — mapped field by field against the live schema, recorded as a domain
 question for Anca, not a column list, with no document found anywhere stating one-off-vs-recurring
-volume to help judge which shape is the exception.
+volume to help judge which shape is the exception. Item 53 was added the same date: a trainers
+screen would show almost nothing real (name, email, phone, role — nothing else); the mockup's own
+version carries eight unbacked claims, one a false statement about a named person (Cătălina does
+not hold a Trainer role); a stated premise about criteria-matrix visibility turned out to be my own
+error, corrected against item 23 (the seventh instance this week of something asserted as recorded
+that wasn't); and "ten of eleven trainers never signed in" was checked against `auth.users`, not
+recorded as given — 8 of the 10 show a real sign-in timestamp, only 2 show none, though which of the
+8 are genuine trainer logins versus this session's own testing cannot be fully separated with the
+audit data this project retains.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -2412,6 +2420,84 @@ copied in as of this entry); `supabase/migrations/202608130001_create_groups_ses
 `202608160004_groups_sessions_field_additions.sql` (the live `sessions`/`groups` schema this was
 checked against); `docs/WOW_LAB_OS_Solution_Architecture_Document.md` line 49 (the one place the
 one-off/recurring split is named, without a volume figure).
+
+---
+
+### 53. A trainers screen would show almost nothing real; the mockup's own version has eight unbacked claims, one of them about a named person
+
+Investigated before building anything: what a trainers directory could honestly show today. Answer:
+name, email, phone (null for 5 of 11), and role. Everything else is empty — zero grade assignments
+in `wow-lab`, zero sessions anywhere in the org, both rate tables globally empty, and no table at
+all for availability, module qualification, or hours worked.
+
+**The mockup's `S.trainers` screen — eight claims checked live, none backed:**
+1. "21+ active trainers" — eleven exist; one (Anka Orban) actually holds `status='active'`.
+2. "7 levels" — `WOWLAB_SAD_Contracte_Trainer_Furnizor.md` says six, "verified against all 27
+   trainers in Anca's real file."
+3. A "Zone" column — not merely unbuilt: explicitly considered and rejected in writing (same SAD,
+   §12-adjacent, only 2 of 11 trainers live outside Bucharest, no general rule confirmed for anyone
+   else).
+4. "Total hours" — sourced today from external Toggl PDFs archived on Drive, not this database.
+5. A bonus/smiley column — zero tables behind either Happy Face mechanism (see below).
+6. "Certifications" — no table exists at all, despite `certifications.define`/`certifications.
+   override` sitting seeded and unused in the capability catalog (item 49 above, part b).
+7. "Minimum 80% in-person" — appears in no document anywhere, not even as a prior proposal; unlike
+   the Zone column, this one was never even considered on record.
+
+**8. Recorded separately, as instructed — this one is not an inflated statistic, it is a false
+statement about a named real person.** The mockup states Cătălina holds a Trainer role alongside
+her admin roles. Checked live: she does not. Her actual roles are `operations_manager`,
+`curriculum_manager`, `evaluator` — no trainer role at all. Two *other* named people the mockup
+mentions in the same sentence (Alexandra Nuțu, Teodora Merișan) do genuinely hold `trainer` — so
+this isn't a category error about the sentence's shape, it's a specific fact about a specific person
+that isn't true.
+
+**Correcting my own error, not the mockup's — the seventh instance this week of something asserted
+as recorded that was not.** I stated the criteria-matrix observations are visible only to Anca and
+Cătălina. Checked against item 23 above: that's the opposite of what it says. Item 23's own text is
+"whether its visibility should be restricted... **is Anca's decision, still open**" — undecided, not
+decided narrowly. Sixth and seventh both landed this session: the AD-10/business_line pair (items
+46/48) and now this. Checking the actual source, not the memory of it, is still the only thing that
+has caught any of these — noticing has not caught one.
+
+**Two Happy Face mechanisms, never cross-referenced, neither with a table:** the three-workshops-
+as-principal rule (`docs/progress.md` #47, 2026-08-11) and the monthly criteria matrix (item 23,
+2026-09-01/04). Neither document mentions the other. Whether they're the same system described
+twice, or two genuinely different things that happen to share a name, has never been established —
+recorded here as open, not assumed either way.
+
+**The blocking fact underneath all of this — corrected against live data before being recorded,
+not taken as given.** Checked `auth.users` for the 10 non-`Anka` trainers, not just `public.users.
+status` (which reads `'invited'` for all 10 and is already known, per item 21, to be stored and
+unmaintained). The live picture is more specific than "never signed in": all 10 accounts were
+created directly (`admin.auth.admin.createUser()`, batches on 2026-09-03 and 2026-09-08, `audit_log`
+payload literally reads "Created ahead of sending invitations; no invitation email sent") and every
+one of the 10 subsequently had a real invitation sent via `resendInvitation` (`audit_log` event
+`user.invitation_resent`, one per person, Raluca Popa twice). Of those 10, **8 show a
+`last_sign_in_at` timestamp in `auth.users`** — Alexandra Nuțu, Răzvan Bălașov, Teodora Merișan,
+Sonia Ganea, Andrada Eremia, Alina Garofil, Elena Bacalum, Raluca Popa. Only **2 show none at all —
+Luiza Mirt and Viorel Toboșaru.** "Ten of eleven have never signed in" does not hold against this
+table as stated. What does hold, independent of the sign-in question: **zero rows exist in
+`sessions`, org-wide** — nobody has been allocated to a session regardless of whether they've ever
+opened the app, because nothing in this app writes a session row except Operations creating one, and
+none has been created for a real trainer yet.
+
+**One honest limit on the sign-in finding, stated plainly rather than glossed over:** `auth.
+audit_log_entries` — the table that would show IP/user-agent and let a real trainer's login be told
+apart from this session's own magic-link-driven verification touching the same accounts — is
+completely empty in this project, for every user, not just these ten. The `last_sign_in_at`
+timestamps are real Supabase Auth session events, not a stale/unmaintained column the way `users.
+status` is — but which of the 8 reflect an actual trainer clicking their own email, versus this
+session's own testing incidentally authenticating as them, cannot be fully separated with the
+evidence this project retains. Recorded as a genuine gap, not resolved by assumption either
+direction.
+
+**Lives in:** `docs/mockup/wow_lab_os_mockup.html` lines 1050-1082 (`S.team`/`S.trainers`);
+`docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` (the six-grade and rejected-Zone-column findings);
+`docs/OPEN_ITEMS.md` item 21 (`users.status`, unmaintained), item 23 (the criteria matrix's real,
+still-open visibility question), item 49 above (`certifications.*`, seeded and unused); `docs/
+progress.md` #47 (the other Happy Face mechanism); `public.audit_log` (`user.account_created`,
+`user.invitation_resent` events for all 10); `auth.users` (`last_sign_in_at` per person).
 
 ---
 
