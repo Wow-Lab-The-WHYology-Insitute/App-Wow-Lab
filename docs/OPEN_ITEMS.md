@@ -2528,6 +2528,57 @@ actions.ts` (`resendInvitation` — the mechanism, already built and already pro
 
 ---
 
+### 55. Four more mockup screens claim per-trainer filtering they don't perform — same shape as item 53, found investigating the trainer's own screen instead of the management directory
+
+Item 53 checked `S.trainers`, the management-facing directory. A separate pass checked every
+screen a `trainer`/`senior_trainer` role can reach in the mockup — there is no dedicated "My
+Work" screen; the trainer experience is threaded through 11 shared screens via a `mine`/`trainer`
+boolean. Two of those (`S.groups`, `S.pay`) genuinely filter. **Four do not, despite claiming to
+in their own banner copy:**
+
+1. **`S.attendance`** (`docs/mockup/wow_lab_os_mockup.html:1095`) — no `mine`/`trainer` branch
+   exists in the function at all. The same 3 static rows (Lycée Cl.2 · 12.05 → 11/12; IBSB
+   Preschool · 14.05 → 9 anonymous; Cambridge · 11.05 → 8/8) render for every role, despite
+   `attendance` being on the trainer nav specifically (line 297).
+2. **`S.delivered`** (line 1096) — same shape: no filtering branch, same 3 static "delivered"
+   rows (Baking-soda volcano · Lycée; Water rocket · IBSB; DNA from strawberries · Cambridge) for
+   every role.
+3. **`S.inv_reuse`** (lines 920-936) — the banner explicitly claims "You only see what's in your
+   custody" (line 932), but the underlying 5-item table (Volcano kit, Microscopes, Kids' lab
+   coats, Water rocket kit, Magnet sets) is not filtered by viewer identity anywhere in the
+   function — same custody list shown regardless of role.
+4. **`S.plans`** (lines 866-888) — not unfiltered, **mislabeled**. The `mine` branch (line 871:
+   `if(mine) rows=rows.filter(p=>p[2]===tt('Elementary','Primar'));`) filters by curriculum
+   *level* ("Elementary"), not by which trainer is viewing. The banner (line 883) claims
+   "Filtered to your groups: Elementary" — a level filter wearing a per-trainer-groups label.
+
+Same discipline as item 53: checked the function bodies directly, not inferred from banner text
+or nav placement. A screen's own copy claiming personalization is not evidence that it is
+personalized — three of these four are copy claims with zero backing code, the fourth is a real
+filter mislabeled as a different one.
+
+**Lives in:** `docs/mockup/wow_lab_os_mockup.html` (all four screens, line numbers above); item 53
+above (the same pattern, found on the management directory screen first).
+
+---
+
+### 56. Five of the trainer's six real capabilities have no route behind them
+
+`trainer`/`senior_trainer` hold six capabilities (`supabase/seed.sql:176-187`, confirmed live via
+`role_capabilities`): `mywork.*`, `curriculum.read`, `community.read`, `finance.own.read`,
+`materials.custody`, `presentations.own`. Only `mywork.*` reaches an actual screen —
+`/groups` and `/groups/[id]` (`app/(app)/layout.tsx`'s `canReadGroups` OR-branch). Confirmed live
+by `find`: no `curriculum`, `community`, `presentations`, or `materials` route/directory exists
+anywhere under `app/`, and `finance.own.read` has no consuming route either — grepped, zero hits
+outside `supabase/seed.sql` itself. Five capabilities granted, five unreachable; a trainer's real
+access surface today is exactly one screen, regardless of what their capability set implies.
+
+**Lives in:** `supabase/seed.sql:87-187` (the six grants); `app/(app)/layout.tsx` (the only nav
+gate that reads any of them); item 53 above (the same directory-vs-reality gap, on capabilities
+instead of a screen).
+
+---
+
 ## Masking rollout, remaining
 
 These three are already tracked in `docs/WOWLAB_SAD_Field_Masking.md` §2.5,
