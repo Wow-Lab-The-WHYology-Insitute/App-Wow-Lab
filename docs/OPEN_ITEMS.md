@@ -2579,6 +2579,58 @@ instead of a screen).
 
 ---
 
+### 57. A row match is not a capability — the sessions attendance-write policy shipped without one, and its own assertions didn't catch it
+
+`sessions`' trainer UPDATE branch shipped 2026-09-10 (migration `202609110003`) as a bare row
+match: `trainer_principal_id = auth.uid() OR trainer_secundar_id = auth.uid()`, no capability
+check. The migration's own comment reasoned this was deliberate — no capability narrower than
+`mywork.*` exists for "may this person touch this specific session," and inventing one
+(`sessions.write_own` or similar) is too much ceremony for a two-column edit. Both true. The
+conclusion drawn from them was not: the choice was never "a new narrow capability, or nothing."
+`mywork.*` already exists, is already held by `trainer`/`senior_trainer`, and is already paired
+with this exact row match on this same table's SELECT policy (`202608130003`). Dropping the
+capability half of that existing pair wasn't supported by the stated reasoning, which was about a
+*different, narrower* capability that was never on the table.
+
+**The general form, not just this one instance.** A row match answers "is this their row." A
+capability answers "are they still allowed to do this at all." The two questions are independent,
+and RLS needs both when a row's identity can outlive a person's standing to act on it — which it
+does here: nothing on `sessions` ever clears `trainer_principal_id`/`trainer_secundar_id` when a
+person's role changes. A user whose role — and `mywork.*` with it — had been revoked, but whose id
+was still sitting in one of those columns on an existing row, would have retained write access to
+`attendance_count`/`experiment_delivered` on it indefinitely, through the row match alone.
+Dropping a capability check because no *narrower* key exists leaves the *existing, coarser* one
+undropped only by accident — and without it, permission that should expire with the role never
+does. Worth checking for the same shape anywhere else a row match stands alone in this schema.
+
+**Corrected by migration `202609110004`**, pairing the row match with
+`app.has_capability('mywork.*', organization_id)`, exactly matching the SELECT branch. Verified
+live against both `wow-lab` (no regression for the four real people already exercising this path)
+and `wow-lab-test-b` (all six trainer fixtures, plus the specific case that proves the fix: a
+row-matched account holding no `mywork.*` — `contract_administrator` + `finance_operations` only —
+is denied, which would have succeeded under `202609110003` alone).
+
+**How this was found, worth recording on its own: not by the feature's own verification.**
+`202609110003` shipped with a dry-run script (`verify_sessions_trainer_attendance_write.sql`) that
+passed 5/5 assertions, and the commit itself was described as "verified live, as the real users."
+Every assertion in it tests an *allowed* case correctly — principal writes, secundar writes,
+Operations retains write, an *unallocated* trainer is denied. None of them construct the
+*revoked-role* case: a real row match with the underlying capability absent. A green test suite
+answered every question it was written to ask and none of the one it wasn't. This was caught only
+by re-reading the shipped policy text against the sibling SELECT policy it was supposed to mirror
+— the same "check the actual source, don't trust the assertion count" pattern items 46/48/53
+already record, applied here to a policy that had already shipped and already passed.
+
+**Lives in:** `supabase/migrations/202609110003_add_sessions_update_trainer_branch.sql` (the
+original, still on disk, comment intact — not rewritten to hide the reasoning that produced the
+gap); `supabase/migrations/202609110004_require_mywork_capability_on_sessions_trainer_branch.sql`
+(the correction); `scripts/verify_sessions_trainer_attendance_write_test_org_b.sql` (assertion 3
+specifically — the one that isolates the gap by row-matching an account with no `mywork.*`);
+`supabase/migrations/202608130003_add_groups_sessions_rls_policies.sql` (the SELECT policy this
+was supposed to mirror from the start).
+
+---
+
 ## Masking rollout, remaining
 
 These three are already tracked in `docs/WOWLAB_SAD_Field_Masking.md` §2.5,
