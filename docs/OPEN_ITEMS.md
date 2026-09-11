@@ -2631,6 +2631,57 @@ was supposed to mirror from the start).
 
 ---
 
+### 58. Three dependency advisories, none currently reachable — a property of what this app's code does, not of which versions it runs
+
+`npm audit` (GitHub's own Dependabot feed wasn't reachable from this session — no API
+authentication available — so this was run against the same underlying advisory database
+directly) found three vulnerable packages. `next` (the two RCE advisories, `GHSA-p293-qw3h-jr36`
+and `GHSA-2xp9-vwfh-vxw4`) is patched — `15.5.23` → `15.5.24`. `sharp` (`0.34.5`) and `postcss`
+(`8.4.31`, nested at `next/node_modules/postcss` — not the separate, already-safe top-level
+`postcss@8.5.26` that `@tailwindcss/postcss` actually uses) remain vulnerable; confirmed via the
+`package-lock.json` diff that neither moved with the `next` upgrade, and confirmed against
+`v15.5.24`'s own changelog that its fix for the AVIF advisory was disabling AVIF optimization
+outright rather than bumping `sharp` — the pin was never going to move on its own.
+
+**Why none of the three is reachable today, checked against the actual code, not assumed:**
+
+- **`sharp`** is invoked only by Next's Image Optimization API, and that pipeline is only ever
+  fed one input in this app: `/logo-wowlab.png`, a static bundled file, via the two `next/image`
+  usages that exist (`app/(app)/shell-chrome.tsx`, `app/login/login-content.tsx`). Every
+  user-controlled image — specifically the profile avatar upload
+  (`app/(app)/profile/profile-section.tsx`) — deliberately uses a plain `<img>` tag instead, with
+  an existing code comment explaining why (a dynamic, short-lived signed URL, not something
+  `next/image` can usefully optimize). `next.config.ts` sets no `images.remotePatterns`, so the
+  Image Optimization endpoint can't be pointed at an external URL either.
+- **`sharp`'s advisories are about parsing attacker-controlled image bytes** (libvips/libheif
+  memory-corruption issues) — there is no code path in this app where such bytes reach it.
+- **`postcss`** (the vulnerable, Next-bundled copy) only ever runs at build time, over this
+  repo's own first-party `.css`/Tailwind source (`postcss.config.mjs` → `@tailwindcss/postcss`
+  only). Its advisories require it to parse attacker-controlled CSS text; nothing in this app
+  accepts CSS as input at any point, build or runtime.
+- **`next` itself** is now patched regardless, since it's the framework serving every request —
+  but its two advisories were also not reachable before patching, for hosting-specific reasons:
+  the RCE requires a Windows-hosted server (this app runs on Vercel's Linux-based Fluid Compute),
+  and the AVIF RCE requires attacker-controlled AVIF bytes reaching the same Image Optimization
+  pipeline `sharp`'s advisories require — closed by the same one-static-logo fact above.
+
+**This is a property of current code, not of the versions.** Nothing about `sharp`'s or
+`postcss`'s pinned versions makes them safe — they remain genuinely vulnerable libraries at rest.
+What closes the gap is that this app never gives either one attacker-controlled input to parse.
+**Both close at once if either changes:** adding an `images.remotePatterns` entry, or routing the
+avatar upload (or any other user-supplied image) through `next/image` instead of a plain `<img>`,
+would open the `sharp` path immediately — and since `sharp`'s and `next`'s own image-pipeline code
+share the same entry point, either change should be treated as re-opening this whole item, not
+evaluated as if the dependency were unrelated to it.
+
+**Lives in:** `next.config.ts` (no `images` config); `app/(app)/shell-chrome.tsx`,
+`app/login/login-content.tsx` (the only two `next/image` usages, both `/logo-wowlab.png`);
+`app/(app)/profile/profile-section.tsx` (the avatar upload, deliberately a plain `<img>`);
+`postcss.config.mjs` (build-time only, first-party source only); `package.json`/
+`package-lock.json` (the `next` 15.5.23 → 15.5.24 bump, `sharp`/`postcss` unchanged).
+
+---
+
 ## Masking rollout, remaining
 
 These three are already tracked in `docs/WOWLAB_SAD_Field_Masking.md` §2.5,
