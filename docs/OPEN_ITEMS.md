@@ -146,7 +146,26 @@ project-wide, not just for one account, so the column still answers "has this ac
 authenticated" correctly but cannot answer "has this person used the app" — the decision stands,
 the limit is now written down beside it. Item 54 was added the same date: the ten trainers'
 invitations are all expired, left that way on purpose since nothing trainer-facing exists yet for a
-resend to lead anywhere — resend when that screen ships, not before.
+resend to lead anywhere — resend when that screen ships, not before. Items 55-56 were added
+2026-09-11: four more mockup screens claiming per-trainer filtering they don't perform, found while
+investigating the trainer's own screen rather than the management directory, and five of the
+trainer's six real capabilities with no route behind them at all. Item 57 was added and resolved the
+same date: the sessions trainer-write policy this session itself shipped a day earlier
+(`202609110003`) was a bare row match with no capability check — correct reasoning about a
+*narrower* capability not existing was used to justify dropping the *existing, coarser* one
+(`mywork.*`) that the sibling SELECT policy already paired with the same row match, leaving a
+revoked trainer's write access to a session outstanding indefinitely. Found by re-reading the
+shipped policy against its own sibling, not by the feature's own 5/5-passing assertion suite, which
+tested every allowed case and none of the revoked-role one. Corrected by `202609110004`. Item 58 was
+added the same date: three dependency advisories (`next`, `sharp`, `postcss`) found by `npm audit`,
+`next`'s two RCE advisories patched (`15.5.23` → `15.5.24`, `develop` only as of that date — not yet
+on `main`), the other two confirmed unreachable by this app's own code paths rather than left
+unaddressed. Item 59 was added 2026-09-12: the first real create-a-group attempt on that `develop`
+build, 22 hours after the upgrade, hit a platform-level 504 — confirmed live (zero rows) before
+anything was retried, cause later identified as a cold function, unrelated to the upgrade. Recorded
+for the failure shape, not the cold start: a raw "Gateway Timeout" in this app's own error banner is
+never this app's own text, and its presence is itself the signal that a platform-level failure
+reached the browser above this app's error handling entirely.
 
 This register does not replace the SAD documents — several items below are
 already tracked there in more depth, and this entry says so and points at the
@@ -2679,6 +2698,40 @@ evaluated as if the dependency were unrelated to it.
 `app/(app)/profile/profile-section.tsx` (the avatar upload, deliberately a plain `<img>`);
 `postcss.config.mjs` (build-time only, first-party source only); `package.json`/
 `package-lock.json` (the `next` 15.5.23 → 15.5.24 bump, `sharp`/`postcss` unchanged).
+
+---
+
+### 59. A platform-level 504 reaches the browser above the app's own error handling — and the raw text is the tell
+
+Mihai created a client in `wow-lab-test-b` on the `develop` Preview build (first real traffic
+against it in 22 hours, right after the `next` 15.5.24 upgrade — item 58), then tried to create a
+group and got "Gateway Timeout" rendered in the error banner. Investigated before anything was
+retried: confirmed live, zero rows in `groups` for that org — nothing was written. Cause identified
+afterward: a cold function, not the upgrade — the retry created normally, exactly one row, and all
+three checks below passed clean on both Preview and production.
+
+**What's worth recording is the shape of the failure, not the cold start itself.** Every error path
+this app's own code controls renders a translated string from an i18n dictionary —
+`network_error`("The change was not saved...") or a specific `result.error` message. Neither is ever
+the literal words "Gateway Timeout." That phrase reaching the banner at all means Vercel's own
+platform-level 504 arrived at the browser above this app's `try`/`catch`, not through it — the
+Server Action's own response never came back for the client-side handler to catch and translate.
+**This app cannot catch this class of failure — there is no code path between the platform and the
+browser for it to intercept.**
+
+**The diagnostic value, worth keeping for the next time this happens:** any error text appearing in
+one of this app's own banners that is not one of its own i18n strings did not come from this app's
+code. That's a fast, reliable first check — before assuming a bug in `addGroup`/`addClient`/etc.,
+check whether the displayed text exists anywhere in that screen's dictionary. If it doesn't, the
+failure is upstream of the application, and the right next step is exactly what this item's own
+investigation did: query the table directly to confirm whether the write landed, not retry the
+action while that's still unknown.
+
+**Lives in:** every server-action-calling form's own `catch { setError(t("network_error")) }` block
+(`app/(app)/clients/clients-client.tsx`, `app/(app)/contracts/contracts-client.tsx`,
+`app/(app)/groups/groups-client.tsx`, and the equivalent edit forms) — the complete set of error text
+this app can ever produce on its own; item 58 above (the `next` 15.5.24 upgrade this incident's
+timing coincided with, confirmed unrelated to the cause).
 
 ---
 
