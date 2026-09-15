@@ -138,6 +138,20 @@ export const groupsDict: Dictionary = {
   record_attendance_action: { en: "record attendance", ro: "înregistrează prezența" },
   record_attendance_button: { en: "Record attendance", ro: "Înregistrează prezența" },
 
+  // The trainer's own confirmation checkbox (Anca's 2026-09-12 decision)
+  // -- distinct from detail_confirmed above, which labels the group-level
+  // children_confirmed count, a different field entirely.
+  session_confirmed_status: { en: "Confirmed", ro: "Confirmat" },
+  session_not_confirmed_status: { en: "Not confirmed", ro: "Neconfirmat" },
+  confirmation_month_closed_error: {
+    en: "This month is closed. You can no longer change your confirmation.",
+    ro: "Luna este închisă. Nu îți mai poți modifica confirmarea.",
+  },
+  confirmation_not_assigned_error: {
+    en: "Not permitted (requires being the assigned trainer for this session).",
+    ro: "Nepermis (necesită să fii trainerul alocat acestei sesiuni).",
+  },
+
   mobile_principal_prefix: { en: "Principal: ", ro: "Principal: " },
   mobile_secundar_prefix: { en: "Secundar: ", ro: "Secundar: " },
   mobile_duration_prefix: { en: "Duration: ", ro: "Durată: " },

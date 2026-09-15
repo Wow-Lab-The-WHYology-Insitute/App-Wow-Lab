@@ -39,6 +39,10 @@ const accessDeniedDict: Dictionary = {
     en: "You don't have finance.operations.* or finance.reporting.* in any organization.",
     ro: "Nu deții finance.operations.* sau finance.reporting.* în nicio organizație.",
   },
+  access_denied_no_payroll_capability: {
+    en: "You don't have finance.operations.* in any organization.",
+    ro: "Nu deții finance.operations.* în nicio organizație.",
+  },
 };
 
 export function AccessDenied({ reasonKey }: { reasonKey: string }) {

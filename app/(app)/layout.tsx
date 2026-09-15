@@ -144,6 +144,25 @@ export default async function AppLayout({
     }
   }
 
+  // Payroll (item 45 part 5): finance.operations.* alone, not also
+  // finance.reporting.* -- closing a month is an operational trainer-pay
+  // act (payment-config's own broader predicate), not the read-oriented
+  // company-wide reporting finance.reporting.* covers. org.settings.manage
+  // is ORed in explicitly, matching closePayrollPeriod's own gate
+  // (app/(app)/payroll/actions.ts) -- has_capability already covers
+  // platform owner internally for finance.operations.*, but never implies
+  // org.settings.manage.
+  let canManagePayroll = false;
+  for (const m of memberships ?? []) {
+    if (
+      (await checkCapability(supabase, "finance.operations.*", m.organization_id)) ||
+      (await checkCapability(supabase, "org.settings.manage", m.organization_id))
+    ) {
+      canManagePayroll = true;
+      break;
+    }
+  }
+
   // labelKey, not label: these render inside ShellChrome, a client
   // component that resolves them through useTranslations(chromeDict) — this
   // server component has no locale (that's a client-only, localStorage-
@@ -180,7 +199,7 @@ export default async function AppLayout({
           },
         ]
       : []),
-    ...(canReadSuppliers || canManagePaymentConfig
+    ...(canReadSuppliers || canManagePaymentConfig || canManagePayroll
       ? [
           {
             labelKey: "nav_group_finance",
@@ -190,6 +209,9 @@ export default async function AppLayout({
                 : []),
               ...(canManagePaymentConfig
                 ? [{ href: "/payment-config", labelKey: "nav_payment_config" }]
+                : []),
+              ...(canManagePayroll
+                ? [{ href: "/payroll", labelKey: "nav_payroll" }]
                 : []),
             ],
           },

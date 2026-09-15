@@ -33,6 +33,8 @@ type SessionRow = {
   experiment_delivered: string | null;
   duration_minutes: number | null;
   experiment_drive_link: string | null;
+  trainer_principal_confirmed_at: string | null;
+  trainer_secundar_confirmed_at: string | null;
 };
 type UserLookupRow = {
   id: string;
@@ -117,7 +119,7 @@ export default async function GroupDetailPage({
   const { data: sessions } = await supabase
     .from("sessions")
     .select(
-      "id, session_date, trainer_principal_id, trainer_secundar_id, status, attendance_count, experiment_delivered, duration_minutes, experiment_drive_link",
+      "id, session_date, trainer_principal_id, trainer_secundar_id, status, attendance_count, experiment_delivered, duration_minutes, experiment_drive_link, trainer_principal_confirmed_at, trainer_secundar_confirmed_at",
     )
     .eq("group_id", id)
     .order("session_date", { ascending: false })

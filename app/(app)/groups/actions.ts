@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
+import {
+  SESSION_CONFIRMATION_MONTH_CLOSED_ERROR,
+  SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR,
+} from "./session-confirmation-errors";
 
 export type ActionResult =
   | { ok: true; id: string }
@@ -290,6 +294,158 @@ export async function updateSessionAttendance(
       ok: false,
       error: "Not permitted (requires being the assigned trainer for this session).",
     };
+  }
+
+  revalidatePath(`/groups/${groupId}`);
+  return { ok: true };
+}
+
+// The trainer's own confirmation (Anca's decision, 2026-09-12): pay
+// follows this timestamp, not attendance_count or status. Row-matched
+// via RLS (202609150002's trainer branch), which now also requires the
+// session's own month to be open -- "a trainer cannot modify anything
+// afterwards" is unqualified, so the same branch attendance_count/
+// experiment_delivered already go through was extended, not copied.
+//
+// Column narrowing: RLS's row match admits BOTH trainer_principal_id and
+// trainer_secundar_id equally -- a principal and a secundar on the same
+// session match the identical branch, and neither USING nor WITH CHECK
+// can tell which of the two columns a raw UPDATE touches (confirmed live,
+// scripts/verify_sessions_confirmation_write.sql assertion 2). This
+// action is what actually stops a principal from writing the secundar's
+// timestamp and vice versa: it reads the session first, compares the
+// caller's own id against both slots, and includes exactly one of the
+// two column keys in the UPDATE payload -- never both, never the wrong
+// one.
+//
+// The same pre-read is also why this can return a real error instead of
+// RLS's identical silent zero-rows for two different causes: "not your
+// session" (checked here, before ever attempting the write) and "your
+// month is closed" (checked via payroll_periods, which mywork.* holders
+// can read for exactly this reason -- 202609150001).
+export async function confirmSessionAttendance(
+  groupId: string,
+  sessionId: string,
+  confirmed: boolean,
+): Promise<VoidActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "Not signed in." };
+  }
+
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("organization_id, session_date, trainer_principal_id, trainer_secundar_id")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  if (!session) {
+    return { ok: false, error: "Session not found, or not visible to your role." };
+  }
+
+  const isPrincipal = session.trainer_principal_id === user.id;
+  const isSecundar = session.trainer_secundar_id === user.id;
+  if (!isPrincipal && !isSecundar) {
+    return { ok: false, error: SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR };
+  }
+
+  const period = `${session.session_date.slice(0, 7)}-01`;
+  const { data: closedPeriod } = await supabase
+    .from("payroll_periods")
+    .select("id")
+    .eq("organization_id", session.organization_id)
+    .eq("period", period)
+    .not("closed_at", "is", null)
+    .maybeSingle();
+
+  if (closedPeriod) {
+    return { ok: false, error: SESSION_CONFIRMATION_MONTH_CLOSED_ERROR };
+  }
+
+  const column = isPrincipal ? "trainer_principal_confirmed_at" : "trainer_secundar_confirmed_at";
+  const { data, error } = await supabase
+    .from("sessions")
+    .update({ [column]: confirmed ? new Date().toISOString() : null })
+    .eq("id", sessionId)
+    .select("id");
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  if (!data || data.length === 0) {
+    // The pre-checks above passed, so 0 rows here means the month closed
+    // in the gap between them and this write (a race, not the common
+    // case) -- still the most accurate message available.
+    return { ok: false, error: SESSION_CONFIRMATION_MONTH_CLOSED_ERROR };
+  }
+
+  revalidatePath(`/groups/${groupId}`);
+  return { ok: true };
+}
+
+// Anka's correction path (Anca's decision, 2026-09-12): either
+// timestamp, before or after close. Gated explicitly on
+// finance.operations.* here, checked in this action rather than left to
+// RLS's unconditional finance.operations.* branch (202609150002) alone
+// -- this action's whole point is to be the deliberate, capability-
+// gated correction path, not a row-matched one, so it should say "not
+// permitted" for the right reason rather than rely on a silent
+// zero-rows-affected it never even attempts to explain.
+//
+// finance.operations.* is the same capability identified for
+// payroll_periods (app/(app)/payroll/actions.ts) -- "the person who
+// closes payroll" and "the person who corrects a trainer's
+// confirmation" are the same role by Anca's own framing ("Corrections
+// are normally Laura's role, currently covered by Anka"), not
+// contracts.*, which both happen to hold too for an unrelated reason.
+//
+// Writes both columns every call, to whatever state the caller passes
+// for each -- there is no row match to fall back on here, so unlike
+// confirmSessionAttendance this is not scoped to "one slot only."
+export async function correctSessionConfirmation(
+  groupId: string,
+  sessionId: string,
+  principalConfirmed: boolean,
+  secundarConfirmed: boolean,
+): Promise<VoidActionResult> {
+  const supabase = await createClient();
+
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("organization_id")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  if (!session) {
+    return { ok: false, error: "Session not found, or not visible to your role." };
+  }
+
+  const [isOwner, hasFinanceOperations] = await Promise.all([
+    checkCapability(supabase, "org.settings.manage", session.organization_id),
+    checkCapability(supabase, "finance.operations.*", session.organization_id),
+  ]);
+
+  if (!isOwner && !hasFinanceOperations) {
+    return { ok: false, error: "Not permitted (requires finance.operations.*)." };
+  }
+
+  const { data, error } = await supabase
+    .from("sessions")
+    .update({
+      trainer_principal_confirmed_at: principalConfirmed ? new Date().toISOString() : null,
+      trainer_secundar_confirmed_at: secundarConfirmed ? new Date().toISOString() : null,
+    })
+    .eq("id", sessionId)
+    .select("id");
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "Not permitted (requires finance.operations.*)." };
   }
 
   revalidatePath(`/groups/${groupId}`);
