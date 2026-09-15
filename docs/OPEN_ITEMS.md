@@ -2831,6 +2831,43 @@ against `auth.users` (checked live, not assumed, before writing this entry).
 
 ---
 
+### 61. A clean `config push` is a claim about the write, not about what is live
+
+The same two email templates (`supabase/templates/magic_link.html`, `invite.html`), the same
+`config push`, produced two different headers depending only on how long after the push the email
+was sent: the old white-panel-in-gradient-band header at 17:54:55, the reworked white-header
+version at 18:29:50 — 2026-09-15, both real sends, both confirmed via `auth.one_time_tokens.
+created_at`, both looked at directly in Gmail, not inferred. The push in between reported no diff
+either time.
+
+**Confirmed directly, not from a delay number found anywhere in Supabase's own docs:** on a hosted
+project, an accepted config write does not mean the service composing outgoing mail is using it
+yet. Roughly 35 minutes after the push, it was. Roughly one second after, it was not. No third
+send was needed to bound the window tighter than that, and none was made.
+
+**The general form, since this is the same shape this register keeps finding elsewhere (item 59's
+platform 504, item 45's confirmation-vs-reality gaps): a tool reporting success describes what the
+tool did, not what the system downstream is now doing.** `config push` finishing clean means the
+write was accepted — it says nothing about whether the process that actually sends the next email
+has picked it up yet. Verifying a template change means sending an email after a real wait and
+looking at what arrives; reading `push`'s own "up to date" output is not that, no matter how many
+times it's re-run.
+
+**`config push` is also write-only, confirmed while investigating this, not assumed:** `supabase
+config --help` lists exactly one subcommand, `push` — no `get`, `pull`, or `diff`. The public
+`/auth/v1/settings` endpoint exposes provider and signup flags only, no template content field at
+all. There is no read-only way to ask "what is actually live right now" — sending a real email and
+looking at it is the only channel that answers that question, for this specific piece of config.
+
+**Lives in:** `supabase/templates/magic_link.html`, `invite.html` (the two templates this was
+found on); `auth.one_time_tokens`, `auth.users.updated_at` (the only source of the two exact send
+timestamps, since Resend's own send log was not reachable — no `RESEND_API_KEY` in this
+environment — and `auth.audit_log_entries` is already confirmed empty, item 21's addendum); item
+59 above (the same "a report of success is not a report of downstream reality" shape, on a
+different layer of the stack).
+
+---
+
 ## Masking rollout, remaining
 
 These three are already tracked in `docs/WOWLAB_SAD_Field_Masking.md` §2.5,
