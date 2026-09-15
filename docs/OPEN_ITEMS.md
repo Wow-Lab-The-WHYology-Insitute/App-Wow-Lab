@@ -2046,9 +2046,35 @@ Column narrowing (only the confirmation columns, nothing else on the row) and th
 error in place of RLS's silent zero-rows rejection both stay in the action layer, as everywhere
 else this session (`updateGroup`, `updateSessionAttendance`).
 
+**Built and verified live, 2026-09-15**, per Anca's three 2026-09-12 answers: month close is Anka's
+deliberate act (a button on a new `/payroll` screen, not a date), Anka may correct either
+confirmation timestamp before or after close, a trainer may correct their own only until close. The
+capability is `finance.operations.*`, not `contracts.*` — Anka and Laura both happen to hold
+`contracts.*` too, for an unrelated reason, the same coincidence-of-role gate `202608300001`
+(suppliers) already rejected for this identical pair. `finance.operations.*`'s own catalogue
+description, "Trainer pay, reimbursements, private-school invoicing, attendance billing," names
+payroll close by description, not by coincidence.
+
+**Anka's after-close correction right means "closed" means closed to the trainer, not frozen —
+recorded as what was chosen, not as a problem.** AD-10 specifies a frozen snapshot: once issued, a
+statement never changes again, and a correction is a new adjustment line on the *next* period, with
+reason and approver. Anca's answer does something else — the record itself stays open to Laura and
+Anka indefinitely; only the trainer loses write access at close. The invoice, per her own
+description, is issued from a month that can still change after that invoice goes out, if a
+correction happens after the fact. This is a real, deliberate difference from AD-10's model, not an
+implementation gap — she was not asked to approve AD-10 and did not; she answered a concrete
+question about who can touch what, and this is what her answer implies once followed through. If
+the invoice-already-issued case matters to her (a correction after the invoice is out, not just
+after the month closes), that is a new, more specific question than the one asked — this item does
+not resolve it, only names it.
+
 **Lives in:** `supabase/migrations/202608130001_create_groups_sessions_domain_tables.sql`,
-`202608130003_add_groups_sessions_rls_policies.sql`, `202608160004_groups_sessions_field_additions.sql`;
-`app/(app)/groups/actions.ts` (`addSession`, `updateSessionAllocation`); `public.file_refs`
+`202608130003_add_groups_sessions_rls_policies.sql`, `202608160004_groups_sessions_field_additions.sql`,
+`202609150001_create_payroll_periods.sql`, `202609150002_add_sessions_confirmation_columns_and_rls.sql`;
+`app/(app)/groups/actions.ts` (`addSession`, `updateSessionAllocation`, `confirmSessionAttendance`,
+`correctSessionConfirmation`); `app/(app)/payroll/` (`actions.ts`, `page.tsx`, `payroll-client.tsx`);
+`scripts/verify_payroll_periods_close.sql`, `scripts/verify_sessions_confirmation_write.sql`;
+`public.file_refs`
 (`202607080003`, zero application code references it — relevant background for part 1's photos
 question, investigated the same session, not repeated here); `docs/WOWLAB_SAD_Contracte_Trainer_
 Furnizor.md` §12; `docs/WOWLAB_SAD_Field_Masking.md` §2.4/§2.5; `docs/ws-d-plan.md`; item 23 above
