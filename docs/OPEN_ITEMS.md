@@ -2901,6 +2901,45 @@ a real migration, its own item).
 
 ---
 
+### 63. The email logo no longer depends on a site this project does not control
+
+Both auth email templates pointed at `wowlab.ro/wp-content/uploads/.../Logo_WOWlab_cuSlogan.png` —
+a WordPress media library administered by nobody on this project. A reorganisation, a plugin
+change, or a migration there would have broken every future email's header silently, with no error
+anywhere this app could see, and retroactively broken the header in every email already sitting in
+an inbox, since a `<img src>` is fetched fresh each time the message is opened, not cached into the
+message itself.
+
+**Moved onto infrastructure this platform controls, not a third one picked by default.** Confirmed
+first, not assumed: `public/` files are served by this app directly, unauthenticated —
+`middleware.ts`'s own matcher excludes every `.png`/`.jpg`/`.svg`/etc. path outright, so a request
+for one never reaches the auth gate — and never through `/_next/image` (that path is only ever
+invoked by the `next/image` component itself; a direct `<img src>` or a plain HTTP request to a
+literal path never touches it, confirmed against `next.config.ts` too — no rewrite or redirect
+touches this file). A public Supabase Storage bucket was the documented fallback if this hadn't
+held; it wasn't needed.
+
+The file itself: `public/wowlab-logo-email.png`, fetched fresh from wowlab.ro and MD5-diffed
+against the copy already embedded in both templates before being committed — byte-identical.
+Confirmed reachable at the exact literal URL both templates now reference,
+`app.wowlab.ro/wowlab-logo-email.png`, on Preview first, then on production, before either
+template was pointed at it — never a window where the config could point at a URL that wasn't
+live yet. Same dimensions, same alt text, same layout as before this item — a hosting change, not
+a visual one.
+
+**Verified per item 61's own finding, not around it.** Pushed the config, then waited before
+sending anything — the actual gap between the push (`21:00:14` local, 2026-09-15) and the one real
+test send (`auth.one_time_tokens.created_at`, `22:20:23` UTC / `01:20:23` local, 2026-09-16) was
+well over an hour, comfortably past the ten-minute floor item 61 established. One send, to
+`maxdigitalro+testorg@gmail.com`, confirmed account, no column touched to make it possible.
+
+**Lives in:** `public/wowlab-logo-email.png`; `supabase/templates/magic_link.html`, `invite.html`
+(both templates' header comment, updated in place, records this same history); `middleware.ts`,
+`next.config.ts` (what was actually checked, not assumed, before relying on `public/`); item 61
+above (the push-then-wait discipline this verification followed).
+
+---
+
 ## Masking rollout, remaining
 
 These three are already tracked in `docs/WOWLAB_SAD_Field_Masking.md` §2.5,
