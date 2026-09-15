@@ -10,11 +10,28 @@
 <tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;">
 
-<!-- Header band -->
+<!-- Header, reworked per Mihai's direction: the white panel sitting
+     inside the gradient band read as a box-in-a-box. White header now,
+     logo directly on it, a thin gradient rule marking where the header
+     ends and the body starts. Top corners need no new markup -- the
+     outer table's own border-radius:16px + overflow:hidden (above) has
+     always been what rounds whatever sits at the top of it; this only
+     changes the header's fill color, not the mechanism.
+
+     Box size (320x84, not 300x77) and the alt text's font-size (15px,
+     not 18px) both moved for the same reason: Gmail deletes alt text
+     entirely, not just shrinks it, the moment it no longer fits inside
+     the img's own declared width/height box -- confirmed via caniemail
+     and independent email-dev sources while building this. The prior
+     sizing was close enough to that edge to be a real risk for exactly
+     the audience this exists for; this one leaves margin. -->
 <tr>
-<td align="center" style="background-color:#EC008C;background-image:linear-gradient(135deg,#EC008C 0%,#FAA21B 100%);padding:36px 24px;">
-<span style="font-size:26px;font-weight:700;color:#ffffff;letter-spacing:1px;">WOW LAB</span>
+<td align="center" style="background-color:#ffffff;padding:36px 24px 28px;">
+<img src="https://wowlab.ro/wp-content/uploads/2024/05/Logo_WOWlab_cuSlogan.png" width="320" height="84" alt="WOW LAB — The WHY-ology Institute" style="display:block;width:320px;height:84px;border:0;outline:none;color:#EC008C;font-size:15px;line-height:1.3;font-weight:700;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
 </td>
+</tr>
+<tr>
+<td height="5" bgcolor="#EC008C" style="height:5px;line-height:5px;font-size:0;background-color:#EC008C;background-image:linear-gradient(90deg,#EC008C 0%,#FAA21B 100%);">&nbsp;</td>
 </tr>
 
 <!-- Body -->
