@@ -3,6 +3,7 @@ import { checkCapability } from "@/lib/capabilities";
 import { GroupDetailClient } from "./group-detail-client";
 import { GroupHeader } from "./group-header";
 import { GroupInfoSection } from "./group-info-section";
+import { TrainerResourcesSection } from "./trainer-resources-section";
 import { AccessDenied } from "@/components/ui/access-denied";
 
 type GroupRow = {
@@ -181,6 +182,14 @@ export default async function GroupDetailPage({
   // it and nothing else on this record. Someone could hold both.
   const canWriteChildrenConfirmed = await checkCapability(supabase, "contracts.*", group.organization_id);
 
+  // mywork.* (Trainer/Senior Trainer) -- gates the resources section
+  // (trainer-resources-section.tsx). Anyone who can even load this page
+  // as a trainer already has an allocated session in it (the groups
+  // SELECT policy's mywork.* branch requires that row match), so this
+  // check alone is enough to keep the section away from Operations/
+  // Finance viewers without also needing a per-session check.
+  const hasMywork = await checkCapability(supabase, "mywork.*", group.organization_id);
+
   // contractOptions: every contract in this group's org, only fetched when
   // the edit form will actually render -- same "only fetch what the
   // button needs" discipline as trainerOptions just above. GroupEditForm
@@ -269,6 +278,8 @@ export default async function GroupDetailPage({
         trainerOptions={trainerOptions}
         viewerId={user.id}
       />
+
+      {hasMywork && <TrainerResourcesSection deliveryFormat={group.delivery_format} />}
     </div>
   );
 }

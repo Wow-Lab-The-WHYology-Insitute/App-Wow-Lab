@@ -202,4 +202,32 @@ export const groupsDict: Dictionary = {
   edit: { en: "Edit", ro: "Editează" },
   edit_group_title: { en: "Edit group", ro: "Editează grupa" },
   notes_placeholder: { en: "Notes (optional)", ro: "Note (opțional)" },
+
+  // trainer-resources-section.tsx -- Anca's two links (2026-09). Own
+  // labels, not the documents' own titles: this app translates its own
+  // UI copy everywhere else, and these describe what's linked rather
+  // than quote it -- the Google Form/Doc behind each link is untouched,
+  // in whatever language it already is.
+  resources_heading: { en: "Resources", ro: "Resurse" },
+  resources_feedback_form_label: {
+    en: "Post-workshop feedback form",
+    ro: "Formular de feedback post-atelier",
+  },
+  resources_feedback_form_required: {
+    en: "Required for this workshop.",
+    ro: "Obligatoriu pentru acest atelier.",
+  },
+  resources_feedback_form_optional: {
+    en: "Only required for one-off workshops (Școala Altfel, Săptămâna Verde, corporate, parties) — optional for recurring groups.",
+    ro: "Obligatoriu doar pentru atelierele unice (Școala Altfel, Săptămâna Verde, corporate, petreceri) — opțional pentru grupele recurente.",
+  },
+  resources_responsibilities_label: {
+    en: "Trainer responsibilities: principal vs secundar",
+    ro: "Responsabilități trainer: principal vs secundar",
+  },
+  resources_responsibilities_caption: {
+    en: "What the principal and secundar trainer are each responsible for.",
+    ro: "Ce răspunde trainerul principal și ce răspunde trainerul secundar.",
+  },
+  resources_open_action: { en: "Open", ro: "Deschide" },
 };
