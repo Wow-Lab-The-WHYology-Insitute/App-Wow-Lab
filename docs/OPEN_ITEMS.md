@@ -2788,6 +2788,49 @@ timing coincided with, confirmed unrelated to the cause).
 
 ---
 
+### 60. Verifying a precondition on a real account took the direct-SQL route §6.4 warns against
+
+Testing the magic-link email template (2026-09-15) needed a *confirmed* `auth.users` row — this
+app's own service-role `signInWithOtp` bypass (the identical mechanism `resendInvitation`,
+`app/(app)/admin/users/actions.ts`, already uses in production) refuses an unconfirmed user.
+`hello@maxdigital.ro` had just been invited and was correctly unconfirmed, since the invite sitting
+in that inbox hadn't been opened yet. Rather than wait for that, `email_confirmed_at` was set
+directly via `supabase db query --linked` — a real, ad-hoc SQL write against a live production
+account, to manufacture a precondition instead of letting the normal path produce it.
+
+**The same category §6.4 of `docs/WOWLAB_SAD_Field_Masking.md` already warns against, not a new
+kind of mistake.** §6.4's stated reason is that a direct `db query` connection carries no
+`auth.uid()`, so a write through it lands in `row_history` unattributed. Checked precisely for this
+instance, not assumed identical: `auth.users` carries no `row_history` trigger at all — only
+`on_auth_user_created`/`on_auth_user_deleted` exist on it (confirmed live against `pg_trigger`) — so
+no unattributed row landed anywhere. That's incidental to *this* table, the same way item 45's
+`COMMENT ON TABLE` case turned out to leave no row either: had the write instead touched a
+`public.*` table that *is* row-history-tracked, the identical detour would have produced exactly the
+unattributed row §6.4 describes. The underlying problem holds regardless of which table: a real
+account's own state was changed by a route that records nothing about who did it or why, other than
+this conversation — and `auth.audit_log_entries` is already confirmed empty project-wide (item 21's
+addendum), so there is no independent trail to fall back on either.
+
+**Caught and reverted the same session, before it was used for anything further.**
+`email_confirmed_at` was set back to `null`; `confirmed_at` (a generated column) followed
+automatically. Re-queried after: both null again, `invited_at` and `last_sign_in_at` unchanged from
+right after the real invite send — the account sits exactly where the normal path left it, waiting
+for Mihai to open the invite already in his inbox.
+
+**Recorded as the same class of finding as item 6.4's own origin, not as an error report on the
+disclosure.** The disclosure — stating plainly what was done, in the same message it was done in —
+was the right call and is not what this item is about. The action underneath it was the actual
+finding: a verification step that needed a precondition took the direct route to create one,
+instead of treating "the precondition isn't met yet" as information and waiting.
+
+**Lives in:** `docs/WOWLAB_SAD_Field_Masking.md` §6.4; item 21 above (`auth.users.last_sign_in_at`
+as the real confirmation signal, `public.users.status` never moving in response to it — the same
+mechanics this instance's revert relied on); item 45 (the `COMMENT ON TABLE` precedent for a
+direct-SQL write landing on a table with no row_history trigger to leave a row in); `pg_trigger`
+against `auth.users` (checked live, not assumed, before writing this entry).
+
+---
+
 ## Masking rollout, remaining
 
 These three are already tracked in `docs/WOWLAB_SAD_Field_Masking.md` §2.5,
