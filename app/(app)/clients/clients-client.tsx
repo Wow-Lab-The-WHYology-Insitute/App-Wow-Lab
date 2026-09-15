@@ -6,6 +6,7 @@ import { addClient } from "./actions";
 import { useLocale, useTranslations, LOCALE_SWITCHER_ENABLED } from "@/lib/i18n";
 import { LocaleSwitcher } from "@/components/ui/locale-switcher";
 import { clientsDict } from "./i18n";
+import { DUPLICATE_CUI_ERROR } from "./duplicate-cui-error";
 import { ClientDetailPanel } from "./client-detail-panel";
 import { entityShortCode, formatDate } from "@/lib/format";
 import { normalizeForSearch } from "@/lib/search";
@@ -378,8 +379,9 @@ export function ClientsClient({
                       notes,
                       externalCrmRef,
                     );
-                    if (!result.ok) setError(result.error);
-                    else {
+                    if (!result.ok) {
+                      setError(result.error === DUPLICATE_CUI_ERROR ? t("duplicate_cui_error") : result.error);
+                    } else {
                       setPendingCreate({ id: result.id, label: name.trim() });
                       setIsFormOpen(false);
                     }

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useTranslations } from "@/lib/i18n";
 import { clientsDict } from "../i18n";
 import { updateClient } from "../actions";
+import { DUPLICATE_CUI_ERROR } from "../duplicate-cui-error";
 
 const CLIENT_TYPE_KEYS: Record<string, string> = {
   private_school: "client_type_private_school",
@@ -138,7 +139,9 @@ function ClientEditForm({
           notes,
           externalCrmRef,
         );
-        if (!result.ok) setError(result.error);
+        if (!result.ok) {
+          setError(result.error === DUPLICATE_CUI_ERROR ? t("duplicate_cui_error") : result.error);
+        }
         else onSaved();
       } catch {
         setError(t("network_error"));

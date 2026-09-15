@@ -109,6 +109,13 @@ export const clientsDict: Dictionary = {
     en: "The change was not saved. Check your connection and try again.",
     ro: "Modificarea nu a fost salvată. Verifică conexiunea și încearcă din nou.",
   },
+  // Matches DUPLICATE_CUI_ERROR (duplicate-cui-error.ts) -- addClient/
+  // updateClient's 23505 handling, clients_unique_organization_cui
+  // (202609150003).
+  duplicate_cui_error: {
+    en: "A client with this CUI already exists.",
+    ro: "Există deja un client cu acest CUI.",
+  },
 
   // client-contacts-client.tsx
   contacts_heading: { en: "Contacts ({{count}})", ro: "Contacte ({{count}})" },

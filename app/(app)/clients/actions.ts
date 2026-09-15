@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import { CLIENT_STATUS_TRANSITIONS } from "./status";
+import { DUPLICATE_CUI_ERROR } from "./duplicate-cui-error";
 
 export type ActionResult =
   | { ok: true; id: string }
@@ -68,6 +69,17 @@ export async function addClient(
     .single();
 
   if (error || !data) {
+    // 23505 = unique_violation. Same assumption addContract already
+    // makes for exit_number's own collision, checked to still be valid
+    // here rather than carried over blindly: clients_unique_organization_
+    // cui (202609150003) is the only unique constraint on this table
+    // (confirmed live against pg_constraint before writing this) -- an
+    // insert into `clients` cannot hit any other one. Re-check the day a
+    // second unique constraint is ever added here; a bare error.code
+    // check can no longer tell them apart at that point.
+    if (error?.code === "23505") {
+      return { ok: false, error: DUPLICATE_CUI_ERROR };
+    }
     return { ok: false, error: error?.message ?? "Could not create client." };
   }
 
@@ -389,6 +401,15 @@ export async function updateClient(
     .select("id");
 
   if (error) {
+    // Previously unhandled -- this update could collide on
+    // clients_unique_organization_cui (202609150003) same as addClient's
+    // insert can, and returned the raw Postgres message with no
+    // translation until now. Same single-constraint assumption as
+    // addClient's own comment: valid today, re-check the day a second
+    // unique constraint exists on this table.
+    if (error.code === "23505") {
+      return { ok: false, error: DUPLICATE_CUI_ERROR };
+    }
     return { ok: false, error: error.message };
   }
   if (!data || data.length === 0) {
