@@ -51,6 +51,15 @@ export default async function ClientsPage() {
     }
   }
 
+  // Same crm_link.* check updateClient runs before writing
+  // external_crm_ref -- gates the same field on the create form now that
+  // it has one. Only checked when createOrgId is known, same "only
+  // fetch/check what the button needs" discipline as the rest of this
+  // file.
+  const canWriteCrmLink = createOrgId
+    ? await checkCapability(supabase, "crm_link.*", createOrgId)
+    : false;
+
   const { data: clients } = await supabase
     .from("clients")
     .select("id, name, client_type, status, business_line, legal_name, cui, created_at")
@@ -101,7 +110,7 @@ export default async function ClientsPage() {
 
   return (
     <div className="flex w-full flex-col gap-6">
-      <ClientsClient clients={rows} createOrgId={createOrgId} />
+      <ClientsClient clients={rows} createOrgId={createOrgId} canWriteCrmLink={canWriteCrmLink} />
     </div>
   );
 }

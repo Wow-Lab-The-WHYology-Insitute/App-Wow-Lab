@@ -190,9 +190,11 @@ function buildExtraColumns(
 export function ClientsClient({
   clients,
   createOrgId,
+  canWriteCrmLink,
 }: {
   clients: Client[];
   createOrgId: string | null;
+  canWriteCrmLink: boolean;
 }) {
   const t = useTranslations(clientsDict);
   const { locale } = useLocale();
@@ -359,13 +361,23 @@ export function ClientsClient({
           </button>
           {isFormOpen && (
             <NewClientForm
+              canWriteCrmLink={canWriteCrmLink}
               isPending={isPending}
               t={t}
-              onSubmit={(name, clientType, businessLine, legalName, cui) => {
+              onSubmit={(name, clientType, businessLine, legalName, cui, notes, externalCrmRef) => {
                 setError(null);
                 startTransition(async () => {
                   try {
-                    const result = await addClient(createOrgId, name, clientType, businessLine, legalName, cui);
+                    const result = await addClient(
+                      createOrgId,
+                      name,
+                      clientType,
+                      businessLine,
+                      legalName,
+                      cui,
+                      notes,
+                      externalCrmRef,
+                    );
                     if (!result.ok) setError(result.error);
                     else {
                       setPendingCreate({ id: result.id, label: name.trim() });
@@ -542,33 +554,52 @@ function ClientCard({
   );
 }
 
+// Layout matches [id]/client-info-client.tsx's edit form now (task
+// requirement) -- a narrow grid-cols-1/md:grid-cols-2 card instead of
+// the single wide flex-wrap row this used before. notes/externalCrmRef
+// are real columns the create form simply never exposed (see addClient's
+// own comment); externalCrmRef is omitted entirely rather than shown
+// locked when canWriteCrmLink is false -- unlike edit, there is no
+// existing value to show read-only on a record that doesn't exist yet.
 function NewClientForm({
+  canWriteCrmLink,
   isPending,
   onSubmit,
   t,
 }: {
+  canWriteCrmLink: boolean;
   isPending: boolean;
   t: (key: string, vars?: Record<string, string | number>) => string;
-  onSubmit: (name: string, clientType: string, businessLine: string, legalName: string, cui: string) => void;
+  onSubmit: (
+    name: string,
+    clientType: string,
+    businessLine: string,
+    legalName: string,
+    cui: string,
+    notes: string,
+    externalCrmRef: string,
+  ) => void;
 }) {
   const [name, setName] = useState("");
   const [clientType, setClientType] = useState("");
   const [businessLine, setBusinessLine] = useState("");
   const [legalName, setLegalName] = useState("");
   const [cui, setCui] = useState("");
+  const [notes, setNotes] = useState("");
+  const [externalCrmRef, setExternalCrmRef] = useState("");
 
   return (
-    <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+    <section className="mx-auto w-full max-w-4xl rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
       <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
         {t("new_client_form_title")}
       </h2>
-      <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={t("name_placeholder")}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2 md:flex-1"
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2"
         />
         <select
           value={clientType}
@@ -603,24 +634,40 @@ function NewClientForm({
           value={legalName}
           onChange={(e) => setLegalName(e.target.value)}
           placeholder={t("legal_name_placeholder")}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2 md:flex-1"
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2"
         />
         <input
           type="text"
           value={cui}
           onChange={(e) => setCui(e.target.value)}
           placeholder={t("cui_placeholder")}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2 md:w-40"
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2"
         />
-        <button
-          type="button"
-          disabled={isPending || !name.trim() || !clientType}
-          onClick={() => onSubmit(name, clientType, businessLine, legalName, cui)}
-          className="font-body focus-visible:ring-brand-pink w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-        >
-          {t("create_client")}
-        </button>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder={t("notes_placeholder")}
+          rows={2}
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2 md:col-span-2"
+        />
+        {canWriteCrmLink && (
+          <input
+            type="text"
+            value={externalCrmRef}
+            onChange={(e) => setExternalCrmRef(e.target.value)}
+            placeholder={t("external_crm_ref_placeholder")}
+            className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2 md:col-span-2"
+          />
+        )}
       </div>
+      <button
+        type="button"
+        disabled={isPending || !name.trim() || !clientType}
+        onClick={() => onSubmit(name, clientType, businessLine, legalName, cui, notes, externalCrmRef)}
+        className="font-body focus-visible:ring-brand-pink mt-3 w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+      >
+        {t("create_client")}
+      </button>
     </section>
   );
 }

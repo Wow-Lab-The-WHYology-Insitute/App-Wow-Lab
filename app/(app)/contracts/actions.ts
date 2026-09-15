@@ -18,18 +18,45 @@ export type VoidActionResult = { ok: true } | { ok: false; error: string };
 // buttons in contracts-client.tsx / [id]/contract-detail-client.tsx are a
 // convenience; a request that reaches here without the right capability
 // gets rejected by RLS, not by app code.
+//
+// driveRef/notes/offerStructure/acLink: real columns since day one
+// (drive_ref/notes, 202608100001) or since 202608160002
+// (offer_structure/ac_link) that the create form simply never exposed --
+// checked both migrations' own comments and found no stated reason to
+// keep them create-only-absent, so this isn't undoing a decision, it's
+// finishing one that was never made. None of the four is financially
+// sensitive (contracts_field_masking's own column list, 202608190001,
+// treats them as plain passthrough) -- no capability check needed for
+// them, unlike the three financial fields below.
+//
+// financials: gated the same way updateContract gates them --
+// finance.operations.* OR finance.reporting.* OR clients.create, checked
+// here explicitly rather than trusted from the form. Contract
+// Administrator alone (contracts.*, clients.read -- confirmed live,
+// holds none of the three) could otherwise set a real financial value on
+// a brand-new contract despite never being able to see or edit that same
+// value on the exact same row five minutes later via updateContract --
+// this was a real, if not yet triggered, gap (every contracts.* holder in
+// production today also happens to hold one of the three), not a
+// hypothetical.
 export async function addContract(
   orgId: string,
   clientId: string,
   legalEntityId: string,
-  entryNumber: string,
-  exitNumber: string,
   contractType: string,
   periodStart: string,
   periodEnd: string,
-  billingRule: string,
-  estimatedValue: string,
-  previousYearValue: string,
+  entryNumber: string,
+  exitNumber: string,
+  driveRef: string,
+  notes: string,
+  offerStructure: string,
+  acLink: string,
+  financials: {
+    billingRule: string;
+    estimatedValue: string;
+    previousYearValue: string;
+  } | null,
 ): Promise<ActionResult> {
   if (!clientId || !legalEntityId || !contractType) {
     return {
@@ -39,28 +66,47 @@ export async function addContract(
   }
 
   const supabase = await createClient();
+
+  const financeVisible =
+    (await checkCapability(supabase, "finance.operations.*", orgId)) ||
+    (await checkCapability(supabase, "finance.reporting.*", orgId)) ||
+    (await checkCapability(supabase, "clients.create", orgId));
+
+  const payload: Record<string, unknown> = {
+    organization_id: orgId,
+    client_id: clientId,
+    legal_entity_id: legalEntityId,
+    entry_number: entryNumber.trim() || null,
+    exit_number: exitNumber.trim() || null,
+    contract_type: contractType,
+    period_start: periodStart || null,
+    period_end: periodEnd || null,
+    drive_ref: driveRef.trim() || null,
+    notes: notes.trim() || null,
+    offer_structure: offerStructure || null,
+    ac_link: acLink.trim() || null,
+    // No signed_date here, deliberately -- status is hardcoded to
+    // 'draft' immediately below, and there is no legitimate value this
+    // field could hold on a contract that has just been created and
+    // not yet marked signed. markContractSigned is the only path that
+    // ever sets signed_date (see contracts_signed_date_status_check,
+    // 202609020003).
+    status: "draft",
+  };
+
+  if (financeVisible && financials) {
+    payload.billing_rule = financials.billingRule.trim() || null;
+    payload.estimated_value = financials.estimatedValue.trim()
+      ? Number(financials.estimatedValue)
+      : null;
+    payload.previous_year_value = financials.previousYearValue.trim()
+      ? Number(financials.previousYearValue)
+      : null;
+  }
+
   const { data, error } = await supabase
     .from("contracts")
-    .insert({
-      organization_id: orgId,
-      client_id: clientId,
-      legal_entity_id: legalEntityId,
-      entry_number: entryNumber.trim() || null,
-      exit_number: exitNumber.trim() || null,
-      contract_type: contractType,
-      period_start: periodStart || null,
-      period_end: periodEnd || null,
-      billing_rule: billingRule.trim() || null,
-      // No signed_date here, deliberately -- status is hardcoded to
-      // 'draft' immediately below, and there is no legitimate value this
-      // field could hold on a contract that has just been created and
-      // not yet marked signed. markContractSigned is the only path that
-      // ever sets signed_date (see contracts_signed_date_status_check,
-      // 202609020003).
-      estimated_value: estimatedValue.trim() ? Number(estimatedValue) : null,
-      previous_year_value: previousYearValue.trim() ? Number(previousYearValue) : null,
-      status: "draft",
-    })
+    .insert(payload)
     .select("id")
     .single();
 

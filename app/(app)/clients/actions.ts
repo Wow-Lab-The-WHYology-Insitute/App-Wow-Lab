@@ -18,6 +18,16 @@ export type ActionResult =
 // grant match on WITH CHECK) and Postgres/PostgREST surface that as an
 // error here — the UI-level capability check that hides the "+ New
 // Client" button is a convenience, not the enforcement.
+// notes: a plain column since day one (202608100001), never exposed on
+// create -- no comment anywhere says why, so this fills a gap rather
+// than reverses a decision. externalCrmRef: gated the same way
+// updateClient gates it -- crm_link.*, checked here explicitly rather
+// than trusted from the form, and left OUT of the payload entirely when
+// the check fails, same reasoning as updateClient's own comment. Today
+// non-discriminating (crm_link.* is held by the identical three roles as
+// clients.create), same honesty as that comment already states -- this
+// gate starts doing something the day that stops being true, on create
+// as much as on edit.
 export async function addClient(
   orgId: string,
   name: string,
@@ -25,23 +35,35 @@ export async function addClient(
   businessLine: string,
   legalName: string,
   cui: string,
+  notes: string,
+  externalCrmRef: string,
 ): Promise<ActionResult> {
   if (!name.trim() || !clientType) {
     return { ok: false, error: "Name and client type are required." };
   }
 
   const supabase = await createClient();
+
+  const canEditCrmLink = await checkCapability(supabase, "crm_link.*", orgId);
+
+  const payload: Record<string, unknown> = {
+    organization_id: orgId,
+    name: name.trim(),
+    client_type: clientType,
+    business_line: businessLine.trim() || null,
+    legal_name: legalName.trim() || null,
+    cui: cui.trim() || null,
+    notes: notes.trim() || null,
+    status: "prospect",
+  };
+
+  if (canEditCrmLink) {
+    payload.external_crm_ref = externalCrmRef.trim() || null;
+  }
+
   const { data, error } = await supabase
     .from("clients")
-    .insert({
-      organization_id: orgId,
-      name: name.trim(),
-      client_type: clientType,
-      business_line: businessLine.trim() || null,
-      legal_name: legalName.trim() || null,
-      cui: cui.trim() || null,
-      status: "prospect",
-    })
+    .insert(payload)
     .select("id")
     .single();
 

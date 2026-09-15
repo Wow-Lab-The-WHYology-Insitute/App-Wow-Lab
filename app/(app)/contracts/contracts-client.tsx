@@ -50,6 +50,15 @@ const CONTRACT_TYPES = ["recurring_annual", "one_off_event", "framework"];
 // keep in sync if that constraint ever changes.
 const CONTRACT_STATUSES = ["draft", "sent", "signed", "expired", "renewed"];
 
+// Matches the contracts.offer_structure check constraint (202608160002)
+// exactly — same list as [id]/contract-detail-client.tsx's own copy.
+const OFFER_STRUCTURE_KEYS: Record<string, string> = {
+  fixed_price_group_workshop: "offer_structure_fixed_price_group_workshop",
+  price_per_child_present: "offer_structure_price_per_child_present",
+  price_per_child_enrolled: "offer_structure_price_per_child_enrolled",
+  price_per_contract: "offer_structure_price_per_contract",
+};
+
 const STATUS_TONE: Record<string, string> = {
   draft: "bg-ink/5 text-ink",
   sent: "bg-brand-orange/15 text-brand-orange",
@@ -527,19 +536,22 @@ export function ContractsClient({
             <NewContractForm
               clientOptions={clientOptions}
               legalEntityOptions={legalEntityOptions}
+              financeVisible={financeVisible}
               isPending={isPending}
               t={t}
               onSubmit={(
                 clientId,
                 legalEntityId,
-                entryNumber,
-                exitNumber,
                 type,
                 start,
                 end,
-                rule,
-                estimatedValue,
-                previousYearValue,
+                entryNumber,
+                exitNumber,
+                driveRef,
+                notes,
+                offerStructure,
+                acLink,
+                financials,
               ) => {
                 setError(null);
                 startTransition(async () => {
@@ -548,14 +560,16 @@ export function ContractsClient({
                       createOrgId,
                       clientId,
                       legalEntityId,
-                      entryNumber,
-                      exitNumber,
                       type,
                       start,
                       end,
-                      rule,
-                      estimatedValue,
-                      previousYearValue,
+                      entryNumber,
+                      exitNumber,
+                      driveRef,
+                      notes,
+                      offerStructure,
+                      acLink,
+                      financials,
                     );
                     if (!result.ok) setError(result.error);
                     else {
@@ -807,43 +821,57 @@ function ContractCard({
   );
 }
 
+// Field set and order now match [id]/contract-detail-client.tsx's edit
+// form exactly (task requirement) -- entry/exit number, drive_ref,
+// notes, offer_structure, ac_link were real columns the create form
+// simply never exposed (see addContract's own comment), and the
+// financial group is now gated on the identical financeVisible check
+// updateContract already uses, rather than shown unconditionally.
 function NewContractForm({
   clientOptions,
   legalEntityOptions,
+  financeVisible,
   isPending,
   onSubmit,
   t,
 }: {
   clientOptions: Option[];
   legalEntityOptions: Option[];
+  financeVisible: boolean;
   isPending: boolean;
   t: (key: string, vars?: Record<string, string | number>) => string;
   onSubmit: (
     clientId: string,
     legalEntityId: string,
-    entryNumber: string,
-    exitNumber: string,
     type: string,
     start: string,
     end: string,
-    rule: string,
-    estimatedValue: string,
-    previousYearValue: string,
+    entryNumber: string,
+    exitNumber: string,
+    driveRef: string,
+    notes: string,
+    offerStructure: string,
+    acLink: string,
+    financials: { billingRule: string; estimatedValue: string; previousYearValue: string } | null,
   ) => void;
 }) {
   const [clientId, setClientId] = useState("");
   const [legalEntityId, setLegalEntityId] = useState("");
-  const [entryNumber, setEntryNumber] = useState("");
-  const [exitNumber, setExitNumber] = useState("");
   const [type, setType] = useState("");
+  const [offerStructure, setOfferStructure] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
+  const [entryNumber, setEntryNumber] = useState("");
+  const [exitNumber, setExitNumber] = useState("");
+  const [driveRef, setDriveRef] = useState("");
+  const [acLink, setAcLink] = useState("");
+  const [notes, setNotes] = useState("");
   const [rule, setRule] = useState("");
   const [estimatedValue, setEstimatedValue] = useState("");
   const [previousYearValue, setPreviousYearValue] = useState("");
 
   return (
-    <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+    <section className="mx-auto w-full max-w-3xl rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
       <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
         {t("new_contract_form_title")}
       </h2>
@@ -876,20 +904,6 @@ function NewContractForm({
             </option>
           ))}
         </select>
-        <input
-          type="text"
-          value={entryNumber}
-          onChange={(e) => setEntryNumber(e.target.value)}
-          placeholder={t("entry_number_placeholder")}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
-        />
-        <input
-          type="text"
-          value={exitNumber}
-          onChange={(e) => setExitNumber(e.target.value)}
-          placeholder={t("exit_number_placeholder")}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
-        />
         <select
           value={type}
           onChange={(e) => setType(e.target.value)}
@@ -901,6 +915,18 @@ function NewContractForm({
           {CONTRACT_TYPES.map((ty) => (
             <option key={ty} value={ty}>
               {t(`contract_type_${ty}`)}
+            </option>
+          ))}
+        </select>
+        <select
+          value={offerStructure}
+          onChange={(e) => setOfferStructure(e.target.value)}
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
+        >
+          <option value="">{t("offer_structure_placeholder")}</option>
+          {Object.entries(OFFER_STRUCTURE_KEYS).map(([value, key]) => (
+            <option key={value} value={value}>
+              {t(key)}
             </option>
           ))}
         </select>
@@ -924,27 +950,67 @@ function NewContractForm({
         </label>
         <input
           type="text"
-          value={rule}
-          onChange={(e) => setRule(e.target.value)}
-          placeholder={t("billing_rule_placeholder")}
+          value={entryNumber}
+          onChange={(e) => setEntryNumber(e.target.value)}
+          placeholder={t("entry_number_placeholder")}
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
+        />
+        <input
+          type="text"
+          value={exitNumber}
+          onChange={(e) => setExitNumber(e.target.value)}
+          placeholder={t("exit_number_placeholder")}
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
+        />
+        <input
+          type="url"
+          value={driveRef}
+          onChange={(e) => setDriveRef(e.target.value)}
+          placeholder={t("drive_ref_placeholder")}
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
+        />
+        <input
+          type="url"
+          value={acLink}
+          onChange={(e) => setAcLink(e.target.value)}
+          placeholder={t("ac_link_placeholder")}
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
+        />
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder={t("notes_placeholder")}
+          rows={2}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
         />
-        <input
-          type="number"
-          step="0.01"
-          value={estimatedValue}
-          onChange={(e) => setEstimatedValue(e.target.value)}
-          placeholder={t("estimated_value_placeholder")}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
-        />
-        <input
-          type="number"
-          step="0.01"
-          value={previousYearValue}
-          onChange={(e) => setPreviousYearValue(e.target.value)}
-          placeholder={t("previous_year_value_placeholder")}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
-        />
+
+        {financeVisible && (
+          <>
+            <input
+              type="text"
+              value={rule}
+              onChange={(e) => setRule(e.target.value)}
+              placeholder={t("billing_rule_placeholder")}
+              className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
+            />
+            <input
+              type="number"
+              step="0.01"
+              value={estimatedValue}
+              onChange={(e) => setEstimatedValue(e.target.value)}
+              placeholder={t("estimated_value_placeholder")}
+              className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
+            />
+            <input
+              type="number"
+              step="0.01"
+              value={previousYearValue}
+              onChange={(e) => setPreviousYearValue(e.target.value)}
+              placeholder={t("previous_year_value_placeholder")}
+              className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
+            />
+          </>
+        )}
       </div>
       <button
         type="button"
@@ -953,14 +1019,16 @@ function NewContractForm({
           onSubmit(
             clientId,
             legalEntityId,
-            entryNumber,
-            exitNumber,
             type,
             start,
             end,
-            rule,
-            estimatedValue,
-            previousYearValue,
+            entryNumber,
+            exitNumber,
+            driveRef,
+            notes,
+            offerStructure,
+            acLink,
+            financeVisible ? { billingRule: rule, estimatedValue, previousYearValue } : null,
           )
         }
         className="font-body focus-visible:ring-brand-pink mt-3 w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
