@@ -24,10 +24,20 @@
      the img's own declared width/height box -- confirmed via caniemail
      and independent email-dev sources while building this. The prior
      sizing was close enough to that edge to be a real risk for exactly
-     the audience this exists for; this one leaves margin. -->
+     the audience this exists for; this one leaves margin.
+
+     The image itself moved off wowlab.ro onto public/wowlab-logo-email.png
+     in this repo (2026-09-15) -- served by this app at
+     app.wowlab.ro/wowlab-logo-email.png, confirmed reachable without a
+     session and confirmed NOT routed through /_next/image (middleware.ts's
+     matcher excludes .png outright). Byte-identical file, same dimensions,
+     same alt text -- a hosting change, not a visual one. wowlab.ro was a
+     WordPress media library nobody on this project administers; a
+     reorganisation there would have broken every email's header silently,
+     including ones already sitting in inboxes. -->
 <tr>
 <td align="center" style="background-color:#ffffff;padding:36px 24px 28px;">
-<img src="https://wowlab.ro/wp-content/uploads/2024/05/Logo_WOWlab_cuSlogan.png" width="320" height="84" alt="WOW LAB — The WHY-ology Institute" style="display:block;width:320px;height:84px;border:0;outline:none;color:#EC008C;font-size:15px;line-height:1.3;font-weight:700;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<img src="https://app.wowlab.ro/wowlab-logo-email.png" width="320" height="84" alt="WOW LAB — The WHY-ology Institute" style="display:block;width:320px;height:84px;border:0;outline:none;color:#EC008C;font-size:15px;line-height:1.3;font-weight:700;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
 </td>
 </tr>
 <tr>
