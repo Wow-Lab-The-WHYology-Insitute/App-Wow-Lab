@@ -2868,6 +2868,39 @@ different layer of the stack).
 
 ---
 
+### 62. A recommendation deferred once was remembered as delivered — the CUI constraint that wasn't there
+
+A unique `(organization_id, cui)` constraint on `clients` was recommended in a report delivered
+2026-09-09 — *"the one worth acting on"*, its own words, with a ready migration shape already
+specified. Mihai was told it was done. Anca was told it was done. **Neither was true.** It surfaced
+only because an unrelated field-parity investigation happened to read `pg_constraint` on `clients`
+and found nothing there at all — confirmed by grep across every migration, every commit, and this
+project's own session records: no file, no commit message, no doc entry, anywhere, ever proposes or
+applies it. Built now — `202609150003` — 2026-09-15, six days after the report that called it
+ready.
+
+**Recorded as its own kind of gap, not folded into the other three this register already tracks.**
+Item 39/45's pattern is a *document* describing a state that changed underneath it — something
+true once, written down, then quietly false. This is different in kind: nothing here ever
+described the constraint as existing in writing that then went stale. The report deferred it — "the
+one worth acting on," stated, then not acted on — and *that deferral itself* is what later got
+misremembered as a completion, told to two people as fact. A "not now" that is never followed by a
+"now" produces no artifact contradicting anything: no comment claims the constraint exists, no test
+asserts it, no line of code depends on it being there. There is nothing standing that is false —
+only an absence with no reason recorded for the absence, and someone's memory of the recommendation
+rounding up to "done." Nothing here would ever fail, drift, or get caught by a schema check; the
+only way it surfaces at all is a second pair of eyes independently checking the live constraint
+list for an unrelated reason, which is exactly how this one did.
+
+**Lives in:** `supabase/migrations/202609150003_add_clients_unique_organization_cui.sql`,
+`supabase/rollbacks/202609150003_add_clients_unique_organization_cui_rollback.sql`; `app/(app)/
+clients/actions.ts` (`addClient`, `updateClient`), `app/(app)/clients/duplicate-cui-error.ts`;
+`scripts/verify_clients_unique_cui.sql`; item 48 above (the sibling question from the same
+2026-09-09 report — `business_line` — which *was* carried all the way through: Anca's confirmation,
+a real migration, its own item).
+
+---
+
 ## Masking rollout, remaining
 
 These three are already tracked in `docs/WOWLAB_SAD_Field_Masking.md` §2.5,
