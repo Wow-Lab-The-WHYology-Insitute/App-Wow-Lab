@@ -87,8 +87,19 @@ begin
     report := report || E'\n3. FAIL - the secundar''s confirmation did not stick';
   end if;
 
-  -- ---- 4. Close this month (as finance.operations.*) ----
+  -- ---- 3b. Anka/Laura (finance.operations.*) can ALSO correct BEFORE close, not only after ----
   perform set_config('request.jwt.claims', json_build_object('sub', v_finance::text, 'role', 'authenticated')::text, true);
+  update public.sessions set trainer_secundar_confirmed_at = null where id = v_session_open;
+  get diagnostics v_row_count = row_count;
+  select trainer_secundar_confirmed_at into v_secundar_confirmed from public.sessions where id = v_session_open;
+  if v_row_count = 1 and v_secundar_confirmed is null then
+    report := report || E'\n3b. PASS - finance.operations.* (Test Contract Admin B, standing in for Anka/Laura) can correct the secundar''s confirmation BEFORE close too -- "before or after close" holds both ways, not just after';
+  else
+    report := report || E'\n3b. FAIL - the finance.operations.* correction branch did not admit the row before close';
+  end if;
+  update public.sessions set trainer_secundar_confirmed_at = now() where id = v_session_open; -- restore, so assertion 3''s state matches what the rest of the script expects
+
+  -- ---- 4. Close this month (as finance.operations.*) ----
   insert into public.payroll_periods (organization_id, period, closed_at, closed_by)
   values (v_org, v_this_month, now(), v_finance);
   report := report || E'\n4. INFO - this month closed by Test Contract Admin B (finance.operations.*)';
