@@ -99,10 +99,15 @@ The `sessions` UPDATE RLS policy (`202608130003`) checks only capability, never 
 says should never be allowed. Zero repo references to `AD-9`.
 
 ### AD-10 — Frozen monthly statements/billing periods
-**Proposal, never approved.** Reported in full last session: this document's own status is "DRAFT —
-pending stakeholder approval," Anca is the named audience, not the author, and nothing anywhere
-records her having reviewed AD-10 specifically. Zero repo references existed before this session's
-`OPEN_ITEMS.md` item 45, written from memory alone.
+**Partially and independently corroborated, not approved.** This document's own status is still
+"DRAFT — pending stakeholder approval," and Anca has never seen AD-10's text. But on 2026-09-11 she
+answered a concrete question about trainer payroll (`OPEN_ITEMS.md` item 45 part 5) and, without
+knowing AD-10 existed, reached its core principle for one of its two halves: trainer statements
+close and a trainer can't touch them afterwards. The mechanism doesn't match, though — she
+describes Laura/Anka holding direct edit rights up to close, not AD-10's own "explicit adjustment
+lines on the next period, with reason and approver." The other half, client billing periods, she
+has never addressed at all; that half is exactly where it was. Independent corroboration of a
+principle is not the same as approving the document, and isn't recorded as such.
 
 ### AD-11 — Thin CRM boundary; AC integration manual/CSV first
 **The same decision as AD-15, made twice, under two different numbers.**

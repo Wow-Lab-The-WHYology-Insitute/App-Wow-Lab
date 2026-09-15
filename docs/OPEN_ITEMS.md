@@ -2000,16 +2000,24 @@ specific trainer actually delivered a specific session, reads the two confirmati
 directly. Two fields, two meanings, no overlap — the alternative this session's own item 21/40/44
 pattern already argues against: one field two different callers can each believe they own.
 
-**Still open, with Anca — not decided here:**
-- Whether pay follows each trainer's own confirmation directly, or something else mediates it.
-- Who may correct a wrong or missing confirmation, and how.
-- Whether a month's confirmations freeze after some deadline. This one has a real deadline behind
-  it, not just a hygiene question: **AD-10** commits to frozen monthly financial statements — a
-  confirmation arriving after that month's close would reopen a closed month. **Update, 2026-09-10:
-  AD-10 was found** — `docs/WOW_LAB_OS_Solution_Architecture_Document.md` (copied into `docs/` the
-  same date, see item 46) — real and well-formed, but a proposal never approved, not a standing
-  decision. Still a real dependency for this question; just not the settled fact it looked like
-  when this bullet was first written.
+**Anca's answers, 2026-09-11 — three of the four open questions close, one concept the schema
+doesn't have arrives with them:**
+- **Pay follows each trainer's own confirmation.** A trainer who did not deliver is not paid for
+  that session. Confirmed 2026-09-11.
+- **The timesheet closes at month end and the invoice is issued from it. A trainer cannot modify
+  anything afterwards.** Confirmed.
+- **Corrections are normally Laura's role, currently covered by Anka.** Anca is willing for the
+  trainer to edit their own confirmation up to close, or for edit rights to stay with Laura and
+  Anka only if that is simpler. **Mihai's choice: trainer may correct their own until close.**
+
+**Still open, blocking the build — both produce different software, neither is an engineering
+default:**
+- Whether the month closes automatically on a date, or by a deliberate act. "The last day of the
+  month" is compatible with either reading; a scheduled job and a button are different software,
+  and they behave differently at 9am on the 1st and again if an invoice is delayed.
+- Whether Laura and Anka retain correction rights after close, or whether close removes even
+  theirs. Anca's answer only says the *trainer* can't change anything afterwards — it doesn't say
+  either way for Laura/Anka.
 - **The confirmation-timestamp fork AD-14 makes real, not decided here.** A server-received
   timestamp answers "when did the sync land"; a client-captured one answers "when did the trainer
   actually confirm." They only diverge once an offline queue exists to let time pass between the
@@ -2018,6 +2026,25 @@ pattern already argues against: one field two different callers can each believe
   Anca, not an engineering default: does pay need the trainer's real moment of confirmation, or is
   the moment the confirmation reached the system good enough? Whichever she picks changes what the
   two confirmation columns from part 5's own decision actually store.
+
+**Design decided, 2026-09-11 — not built yet:** a `payroll_periods`-shaped table, one row per
+organization per month, not a column on `organizations`. A frontier column (e.g.
+`organizations.payroll_closed_through`) can only ever represent the *current* boundary — it loses
+which months closed, when, and by whom, the moment a later month closes over it. That is the exact
+audit-trail concern AD-10 itself names ("reason and approver," frozen snapshots trusted precisely
+because they're traceable). A row per period keeps that history, and sits directly underneath
+where AD-10's own proposed `monthly_statements` shape is already headed. The two nullable
+confirmation timestamps from this part's own earlier decision still hold as the stored value —
+nothing about pay-follows-confirmation or corrections-before-close changes that shape. What sits
+on top of them is new: a check, on write, of whether the session's month is closed.
+
+That time condition belongs in RLS, not a `CHECK` — a `CHECK` must be immutable and "is this
+month closed" is not, the identical reasoning already recorded for the future-date question on
+`signed_date` (item 10), just pointing the other way: `CHECK` can't express a `now()`-relative
+condition, RLS can, because RLS re-evaluates per query instead of freezing at row-creation time.
+Column narrowing (only the confirmation columns, nothing else on the row) and the human-readable
+error in place of RLS's silent zero-rows rejection both stay in the action layer, as everywhere
+else this session (`updateGroup`, `updateSessionAttendance`).
 
 **Lives in:** `supabase/migrations/202608130001_create_groups_sessions_domain_tables.sql`,
 `202608130003_add_groups_sessions_rls_policies.sql`, `202608160004_groups_sessions_field_additions.sql`;
