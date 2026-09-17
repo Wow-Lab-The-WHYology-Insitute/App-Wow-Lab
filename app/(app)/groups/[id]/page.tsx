@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
+import { displayName } from "@/lib/display-name";
 import { GroupDetailClient } from "./group-detail-client";
 import { GroupHeader } from "./group-header";
 import { GroupInfoSection } from "./group-info-section";
@@ -45,22 +46,6 @@ type UserLookupRow = {
 };
 type RoleIdRow = { id: string };
 type UserOrgRoleRow = { user_id: string };
-
-// Same rule as groups/page.tsx's copy: never falls back to email (not even
-// selected below anymore). full_name is NOT NULL but can itself be a raw
-// email (handle_new_auth_user default) -- skipped, not trusted just for
-// being non-null. "" (not null) signals "nothing safe to show" -- module/
-// format/status labels now route through GroupHeader/GroupInfoSection's
-// own useTranslations() (group-header.tsx, group-info-section.tsx), but
-// this trainer-name fallback stays a plain "Unnamed" literal, unlike
-// groups/page.tsx's callers (groups-client.tsx, group-detail-panel.tsx),
-// which do translate it -- displayName() itself has no i18n wiring here.
-function displayName(u: Pick<UserLookupRow, "full_name" | "first_name" | "last_name">) {
-  const full = [u.first_name, u.last_name].filter(Boolean).join(" ");
-  if (full) return full;
-  if (u.full_name && !u.full_name.includes("@")) return u.full_name;
-  return "";
-}
 
 export default async function GroupDetailPage({
   params,

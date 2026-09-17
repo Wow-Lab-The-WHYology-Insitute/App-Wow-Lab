@@ -1550,25 +1550,45 @@ invite.html`; `app/login/page.tsx` (the banner, from `8d00681`).
 
 ---
 
-### 29. `displayName()` — the same rule, duplicated in five files, no shared module
+### 29. `displayName()` — RESOLVED 2026-09-17, extracted to `lib/display-name.ts` once the trigger actually fired
 
-Confirmed live: `admin/users/admin-users-client.tsx`, `groups/page.tsx`, `groups/[id]/page.tsx`,
-`payment-config/page.tsx`, and now `profile/page.tsx` (this session, item e's fix) each carry their
-own local `displayName()`/equivalent. One rule, five independent copies: prefer
-`first_name`+`last_name`, fall back to `full_name`, skip the fallback if it looks like an email.
-The first four are byte-identical. The fifth necessarily differs in shape — it isn't producing one
-display string for read-only rendering, it's deriving two separate initial values for an editable
-form, and it feeds an unsplit `full_name` into the first-name field rather than a combined string
-into a label. Same rule, not the same function signature.
+Was five copies of one rule (`admin/users/admin-users-client.tsx`, `groups/page.tsx`,
+`groups/[id]/page.tsx`, `payment-config/page.tsx`, `profile/page.tsx`'s differently-shaped variant)
+with an explicit, deliberately-not-yet condition: extract the next time the rule changes, or the
+next time a sixth call site needs it — whichever comes first, not on a timer.
 
-**Not a defect, not urgent, not to be fixed under time pressure.** Recording as a refactor with an
-explicit trigger, not an open-ended someday: extract to one shared module the next time this rule
-changes, or the next time a sixth call site needs it — whichever comes first. Until then, five
-copies (four identical, one a variant) is the known, accepted state, not an oversight to clean up
-opportunistically.
+**Checked before doing anything, not assumed from this item's own last update: the trigger had
+already fired.** `payroll/page.tsx` gained its own byte-identical copy of `displayName()` in the
+payroll walkthrough fixes (item 67, `f74d14b`, the round immediately before this one) -- a sixth
+call site, landed in the repo before this task started. This item's own text still said "neither
+has happened" because nobody had come back to update it after that round. Confirmed live via grep
+across `app/` before concluding, not inferred from the commit message alone.
 
-**Lives in:** `app/(app)/admin/users/admin-users-client.tsx`, `app/(app)/groups/page.tsx`,
-`app/(app)/groups/[id]/page.tsx`, `app/(app)/payment-config/page.tsx`, `app/(app)/profile/page.tsx`.
+**Extracted (`lib/display-name.ts`), same "promote once the trigger fires" precedent as
+`lib/format.ts` (its own header comment says the same thing about its own promotion history).**
+Two exports: `displayName()` (the read-only rule, now the single implementation behind
+`admin-users-client.tsx`, `groups/page.tsx`, `groups/[id]/page.tsx`, `payment-config/page.tsx`,
+`payroll/page.tsx`) and `editableNameFields()` (`profile/page.tsx`'s variant, kept as its own
+function producing `{ firstName, lastName }` rather than flattened into the single-string rule --
+same distinction this item always drew). `admin-users-client.tsx`'s `Member` type is camelCase, not
+the `public.users` column names the other five/shared module use -- kept as a three-line local
+adapter (`displayName(member)` calling the shared function with mapped field names) rather than
+changing `Member`'s shape or teaching the shared function two input shapes.
+
+**Verified, not just type-checked:** `tsc --noEmit` and a full `next build` clean; then, live in
+Test Org B via a real signed-in session (`test+user-b@wowlab.dev`, the org owner fixture, broad
+enough to reach all six pages) fetched over HTTP -- `/admin/users` still shows "Test Trainer B1"
+(the shared function through the camelCase adapter), and `/profile`'s rendered HTML confirms the
+edit-form variant still puts an unsplit `full_name` ("Test Org B Owner", both structured columns
+null on that fixture) into the first-name input's `value` attribute with the last-name input empty
+-- the exact `editableNameFields` behavior, unchanged from before extraction
+(`scripts/verify_display_name_refactor_test_org_b.ts`). No i18n changes -- pure refactor, no new
+user-facing strings.
+
+**Lives in:** `lib/display-name.ts`; `app/(app)/admin/users/admin-users-client.tsx`,
+`app/(app)/groups/page.tsx`, `app/(app)/groups/[id]/page.tsx`,
+`app/(app)/payment-config/page.tsx`, `app/(app)/payroll/page.tsx`, `app/(app)/profile/page.tsx`;
+`scripts/verify_display_name_refactor_test_org_b.ts`.
 
 ---
 
