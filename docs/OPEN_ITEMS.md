@@ -806,6 +806,77 @@ and deliberately deferred, not folded into finding 4).
 
 ---
 
+### 68. An RLS branch that queries another RLS-gated table inherits that table's restrictions — the general form behind `202609160002`
+
+The specific bug (finding 4 in item 67 above): `202609160001`'s `finance.operations.*` branch on
+`public.users` read `public.user_org_roles` directly inside its `USING` expression --
+`exists (select 1 from public.user_org_roles target_uor join public.roles ... where
+target_uor.user_id = users.id and ... and app.has_capability('finance.operations.*', ...))`. That
+`select` is not exempt from `user_org_roles`' own SELECT policy just because it sits inside a
+different table's policy -- it runs as whatever role is executing the outer query, subject to
+every RLS policy that role is subject to, everywhere. `user_org_roles`' own policy is `is_platform_
+owner() OR user_id = current_user_id() OR has_capability('org.members.read', ...)` -- a
+`finance.operations.*` holder satisfies none of those three, so the inner read returned zero rows
+for that viewer regardless of what `has_capability('finance.operations.*', ...)` would separately
+say. The branch was live, syntactically valid, applied cleanly on `db push`, and evaluated to
+`false` for every caller it was written for, unconditionally.
+
+**The general form, not just this one branch:** any RLS policy that queries a second table --
+directly, not through a `SECURITY DEFINER` function -- is silently narrowed to the intersection of
+"what this branch's own logic says" and "what the querying role may see in that second table
+anyway." When the two happen to align (the same capability gates both, as in `202607100002`'s
+original `org.members.read` branch -- entering that branch already requires the capability that
+also makes the `user_org_roles` row visible), the bug never surfaces and the pattern looks safe.
+When they don't align -- a different capability, a different table, a different role -- the
+branch can be dead on arrival, and nothing distinguishes that from a branch that's merely narrow
+by design. `app.has_capability()` and `app.is_platform_owner()` already avoid this themselves by
+being `SECURITY DEFINER` (confirmed live, `pg_get_functiondef`) -- they bypass RLS on
+`user_org_roles`/`role_capabilities`/`users` deliberately, which is exactly why calling them
+directly returned the right answer in this same investigation while the raw subquery, right next
+to them in the same policy, did not.
+
+**Why the build's own signals didn't catch it:** the migration applied without error (a policy
+predicate that's always false is not a syntax or permission error, it's a semantically empty one),
+and nothing short of impersonating the exact viewer/row pair and reading the *result* -- not the
+*definition* -- distinguishes "correct and narrow" from "silently dead." `scripts/verify_users_
+trainer_name_visibility.sql` did this by impersonating both the finance viewer and the trainer via
+`set_config('request.jwt.claims', ...)` inside a rolled-back transaction and asserting on what
+came back, not on whether the migration applied. Postgres itself has no warning, lint, or planner
+notice for a `USING`/`WITH CHECK` expression that can never be satisfied by anyone -- this is
+purely a semantic property of the policy against the *other* policies it happens to reference.
+
+**Worth auditing elsewhere on the same basis, not assumed clean by analogy:** every other RLS
+policy in this schema that reads a second table inline rather than through a `SECURITY DEFINER`
+helper is a candidate for the same silent-narrowing failure, whether or not it happens to work
+today by the same "capability coincidence" `202607100002`'s original branch relied on. The general
+rule to check any of them against: a cross-table read inside a policy is exactly as visible to the
+querying role as a top-level query would be -- if that role couldn't `select` the referenced table
+directly, the branch that reads it can't either, no matter what else the branch's own logic says.
+**Lives in:** item 67 above, finding 4 (the concrete instance); `supabase/migrations/
+202609160001_add_users_trainer_name_visibility_branches.sql` (the branch that shipped dead),
+`202609160002_fix_finance_ops_trainer_visibility_uor_rls.sql` (the `SECURITY DEFINER` fix);
+`app.has_capability()`/`app.is_platform_owner()` (the existing functions whose own `SECURITY
+DEFINER` shape this fix now matches); `scripts/verify_users_trainer_name_visibility.sql` (what
+actually caught it).
+
+---
+
+### 69. Working note: `pkill -f "next dev"` is not scoped to this project
+
+Used to stop a local dev server started for this session's verification. `pkill -f` matches
+against the full command line of every process on the machine, not this project's own process --
+it killed a second, unrelated `next dev` (another of Mihai's projects, `maxdigital-dashboard`,
+running since before this session started) in the same stroke, because its command line also
+contained the literal string "next dev". Disclosed to Mihai directly when found; his own dev
+server was not restarted by this session, since it wasn't this session's to restart.
+
+**Use a port- or PID-scoped stop instead of a name/command-line match** when a background dev
+server needs to be stopped: kill the exact PID returned when the process was started (`kill
+<pid>`), or resolve by the port it's actually bound to (`lsof -ti:3001 | xargs kill`) rather than by
+matching on a command string that every same-framework project on the machine shares.
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
