@@ -1557,12 +1557,25 @@ Was five copies of one rule (`admin/users/admin-users-client.tsx`, `groups/page.
 with an explicit, deliberately-not-yet condition: extract the next time the rule changes, or the
 next time a sixth call site needs it — whichever comes first, not on a timer.
 
-**Checked before doing anything, not assumed from this item's own last update: the trigger had
-already fired.** `payroll/page.tsx` gained its own byte-identical copy of `displayName()` in the
-payroll walkthrough fixes (item 67, `f74d14b`, the round immediately before this one) -- a sixth
-call site, landed in the repo before this task started. This item's own text still said "neither
-has happened" because nobody had come back to update it after that round. Confirmed live via grep
-across `app/` before concluding, not inferred from the commit message alone.
+**The trigger had already fired before this round -- and this item didn't know it.**
+`payroll/page.tsx` gained its own byte-identical copy of `displayName()` in the payroll walkthrough
+fixes (item 67, `f74d14b`), the round immediately before this one -- a sixth call site, landed in
+the repo before this task ever started. Nobody came back to update this item after that round
+landed, so it kept stating a condition -- "neither has happened" -- that the code had already
+falsified. Confirmed live via grep across `app/` before concluding anything, not inferred from the
+commit message or trusted from this item's own prior text.
+
+**The same shape this register keeps finding, this time about itself.** Nearly every recent entry
+in this file is a version of "what was written down stopped matching the thing it describes, and
+only checking the source caught it" -- `config push` succeeding vs. which email template was
+actually live (item 61), a mockup badge claiming a protection the code behind it never built
+(`docs/progress.md` #62, not this file's own item 62), a CUI-constraint recommendation reported as
+delivered without ever being written (item 62 above), an RLS branch that reads clean on the page
+but is silently dead underneath (item 68). This item is the same failure mode one layer up: a
+written trigger condition that nothing re-checks against the code it describes will not notice
+when the code satisfies it. The register went stale, not the codebase -- and the fix is the same
+one already applied everywhere else this pattern shows up: verify against the current source
+before reporting a state, don't carry a prior write-up forward unchecked.
 
 **Extracted (`lib/display-name.ts`), same "promote once the trigger fires" precedent as
 `lib/format.ts` (its own header comment says the same thing about its own promotion history).**
