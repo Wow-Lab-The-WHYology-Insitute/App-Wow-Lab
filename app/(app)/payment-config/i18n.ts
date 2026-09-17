@@ -43,6 +43,15 @@ export const paymentConfigDict: Dictionary = {
     ro: "Versiunea nu a putut fi salvată. Verifică valorile și încearcă din nou.",
   },
 
+  // Missing-grids banner: only rendered when at least one of the five
+  // grids below has zero versions. Absent entirely once all five have a
+  // version -- not a suppressed/empty version of the same box, so it
+  // never becomes a warning someone learns to click past.
+  missing_grids_banner_line: {
+    en: "{{n}} of {{total}} grids below have no version yet:",
+    ro: "{{n}} din {{total}} grile de mai jos nu au nicio versiune încă:",
+  },
+
   // 1. trainer_grades
   section_trainer_grades_title: { en: "Trainer grades", ro: "Grade traineri" },
   section_trainer_grades_subtitle: {

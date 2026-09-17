@@ -151,6 +151,20 @@ export const groupsDict: Dictionary = {
     en: "Not permitted (requires being the assigned trainer for this session).",
     ro: "Nepermis (necesită să fii trainerul alocat acestei sesiuni).",
   },
+  // Recording attendance shares confirmation_not_assigned_error above (the
+  // wording fits both writes) but needs its own month-closed message --
+  // "your confirmation" doesn't describe attendance.
+  attendance_month_closed_error: {
+    en: "This month is closed. You can no longer change attendance for this session.",
+    ro: "Luna este închisă. Nu mai poți modifica prezența pentru această sesiune.",
+  },
+  // Dead-zone cover, same reasoning as saving_row above: isPending ends
+  // before the revalidated sessions prop actually reflects the write, so
+  // these replace the checkbox/value for that gap instead of letting it
+  // flash back to a possibly-stale state with nothing pending-looking
+  // about it.
+  saving_confirmation: { en: "Saving…", ro: "Se salvează…" },
+  saving_attendance: { en: "Saving…", ro: "Se salvează…" },
 
   mobile_principal_prefix: { en: "Principal: ", ro: "Principal: " },
   mobile_secundar_prefix: { en: "Secundar: ", ro: "Secundar: " },

@@ -5,8 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import {
   SESSION_CONFIRMATION_MONTH_CLOSED_ERROR,
+  SESSION_ATTENDANCE_MONTH_CLOSED_ERROR,
   SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR,
-} from "./session-confirmation-errors";
+} from "./session-write-errors";
 
 export type ActionResult =
   | { ok: true; id: string }
@@ -270,6 +271,13 @@ export async function updateSessionAllocation(
 // not exist (docs/OPEN_ITEMS.md item 45 part 3, item 52) and this is not
 // building toward one; a trainer types what they ran, same as Operations
 // already could at session creation.
+// Pre-checked the same way confirmSessionAttendance is (added per the
+// payroll walkthrough finding that this action's own error collapsed two
+// different causes -- "not your session" and "your month is closed" --
+// into one message that named only the first, even when the second was
+// what actually happened. RLS's row match (202609110004) can't tell them
+// apart either -- both fail as the identical silent zero-rows -- so the
+// distinction has to be made here, before the write, same as confirm's.
 export async function updateSessionAttendance(
   groupId: string,
   sessionId: string,
@@ -277,6 +285,40 @@ export async function updateSessionAttendance(
   experimentDelivered: string,
 ): Promise<VoidActionResult> {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "Not signed in." };
+  }
+
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("organization_id, session_date, trainer_principal_id, trainer_secundar_id")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  if (!session) {
+    return { ok: false, error: "Session not found, or not visible to your role." };
+  }
+
+  if (session.trainer_principal_id !== user.id && session.trainer_secundar_id !== user.id) {
+    return { ok: false, error: SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR };
+  }
+
+  const period = `${session.session_date.slice(0, 7)}-01`;
+  const { data: closedPeriod } = await supabase
+    .from("payroll_periods")
+    .select("id")
+    .eq("organization_id", session.organization_id)
+    .eq("period", period)
+    .not("closed_at", "is", null)
+    .maybeSingle();
+
+  if (closedPeriod) {
+    return { ok: false, error: SESSION_ATTENDANCE_MONTH_CLOSED_ERROR };
+  }
+
   const { data, error } = await supabase
     .from("sessions")
     .update({
@@ -290,10 +332,10 @@ export async function updateSessionAttendance(
     return { ok: false, error: error.message };
   }
   if (!data || data.length === 0) {
-    return {
-      ok: false,
-      error: "Not permitted (requires being the assigned trainer for this session).",
-    };
+    // The pre-checks above passed, so 0 rows here means the month closed
+    // in the gap between them and this write (a race, not the common
+    // case) -- still the most accurate message available.
+    return { ok: false, error: SESSION_ATTENDANCE_MONTH_CLOSED_ERROR };
   }
 
   revalidatePath(`/groups/${groupId}`);

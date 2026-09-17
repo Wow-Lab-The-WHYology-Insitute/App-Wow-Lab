@@ -1,12 +1,20 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition, useMemo } from "react";
 import { useTranslations, useLocale } from "@/lib/i18n";
 import { payrollDict } from "./i18n";
 import { closePayrollPeriod } from "./actions";
 import { PAYROLL_PERIOD_ALREADY_CLOSED_ERROR } from "./close-error";
 
 type Period = { id: string; period: string; closedByName: string };
+type SessionSlot = { name: string; confirmed: boolean };
+type Session = {
+  id: string;
+  sessionDate: string;
+  clientName: string;
+  principal: SessionSlot | null;
+  secundar: SessionSlot | null;
+};
 
 function currentMonthValue() {
   const now = new Date();
@@ -25,17 +33,65 @@ function formatPeriodLabel(period: string, locale: "en" | "ro") {
   });
 }
 
-export function PayrollClient({ orgId, periods }: { orgId: string; periods: Period[] }) {
+function formatShortDate(iso: string, locale: "en" | "ro") {
+  return new Date(iso).toLocaleDateString(locale === "ro" ? "ro-RO" : "en-GB", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+export function PayrollClient({
+  orgId,
+  periods,
+  sessions,
+}: {
+  orgId: string;
+  periods: Period[];
+  sessions: Session[];
+}) {
   const t = useTranslations(payrollDict);
   const { locale } = useLocale();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [monthValue, setMonthValue] = useState(currentMonthValue());
   const [confirming, setConfirming] = useState(false);
+  // Same pendingCreate shape the create forms use, extended here: the
+  // close action's own promise resolves (isPending ends) a microtask
+  // before Next applies the revalidated `periods` prop, so clearing on
+  // isPending alone would show the pre-close UI again for a real window
+  // while the month isn't reliably closed yet from the UI's own point of
+  // view. Cleared only once `periods` actually contains this period.
+  const [pendingClose, setPendingClose] = useState<string | null>(null);
 
   const period = `${monthValue}-01`;
   const alreadyClosed = periods.some((p) => p.period === period);
   const monthLabel = formatPeriodLabel(period, locale);
+
+  useEffect(() => {
+    if (!pendingClose) return;
+    if (periods.some((p) => p.period === pendingClose)) {
+      setPendingClose(null);
+      return;
+    }
+    const timeout = setTimeout(() => setPendingClose(null), 15000);
+    return () => clearTimeout(timeout);
+  }, [periods, pendingClose]);
+
+  // Every trainer slot for the selected month, flattened from `sessions`
+  // (fetched org-wide, once, in page.tsx) -- computed here rather than
+  // re-fetched per month change, same reasoning the month <input>'s own
+  // plain client state already relies on.
+  const monthSlots = useMemo(() => {
+    const monthSessions = sessions.filter((s) => s.sessionDate.slice(0, 7) === monthValue);
+    const slots: { session: Session; slot: SessionSlot }[] = [];
+    for (const s of monthSessions) {
+      if (s.principal) slots.push({ session: s, slot: s.principal });
+      if (s.secundar) slots.push({ session: s, slot: s.secundar });
+    }
+    return { sessionCount: monthSessions.length, slots };
+  }, [sessions, monthValue]);
+
+  const unconfirmedSlots = monthSlots.slots.filter(({ slot }) => !slot.confirmed);
 
   function handleClose() {
     setError(null);
@@ -50,6 +106,7 @@ export function PayrollClient({ orgId, periods }: { orgId: string; periods: Peri
           );
         } else {
           setConfirming(false);
+          setPendingClose(period);
         }
       } catch {
         setError(t("network_error"));
@@ -69,26 +126,72 @@ export function PayrollClient({ orgId, periods }: { orgId: string; periods: Peri
         <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
           {t("close_section_heading")}
         </h2>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="font-body text-muted flex flex-col gap-1 text-xs">
-            {t("month_label")}
-            <input
-              type="month"
-              value={monthValue}
-              onChange={(e) => {
-                setMonthValue(e.target.value);
-                setConfirming(false);
-                setError(null);
-              }}
-              className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
-            />
-          </label>
 
-          {alreadyClosed ? (
+        <label className="font-body text-muted flex w-fit flex-col gap-1 text-xs">
+          {t("month_label")}
+          <input
+            type="month"
+            value={monthValue}
+            onChange={(e) => {
+              setMonthValue(e.target.value);
+              setConfirming(false);
+              setError(null);
+            }}
+            className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+          />
+        </label>
+
+        <div className="mt-4">
+          {monthSlots.sessionCount === 0 ? (
+            <p className="font-body text-muted text-sm">{t("summary_no_sessions", { month: monthLabel })}</p>
+          ) : unconfirmedSlots.length === 0 ? (
+            <p className="font-body text-muted text-sm">
+              {t("summary_all_confirmed", { n: monthSlots.sessionCount, total: monthSlots.slots.length })}
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3 rounded-2xl border border-orange-200 bg-orange-50 px-5 py-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="font-body text-sm font-semibold text-orange-800">
+                  {t("summary_unconfirmed_heading", { n: unconfirmedSlots.length, total: monthSlots.slots.length })}
+                </span>
+                <span className="font-body text-xs text-orange-700">
+                  {t("summary_sessions_count", { n: monthSlots.sessionCount })}
+                </span>
+              </div>
+              <div className="flex flex-col gap-1.5 border-t border-orange-200/70 pt-3">
+                <span className="font-body text-xs font-bold tracking-wide text-orange-800 uppercase">
+                  {t("summary_unconfirmed_list_heading")}
+                </span>
+                <ul className="flex flex-col gap-1">
+                  {unconfirmedSlots.map(({ session, slot }, i) => (
+                    <li
+                      key={`${session.id}-${i}`}
+                      className="font-body flex flex-wrap items-baseline justify-between gap-x-3 text-xs text-orange-900"
+                    >
+                      <span className="font-semibold">{slot.name}</span>
+                      <span className="text-orange-700">
+                        {session.clientName} · {formatShortDate(session.sessionDate, locale)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          {pendingClose === period ? (
+            <p className="font-body text-muted text-sm italic">{t("closing_month", { month: monthLabel })}</p>
+          ) : alreadyClosed ? (
             <p className="font-body text-muted text-sm">{t("already_closed_notice", { month: monthLabel })}</p>
           ) : confirming ? (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-body text-ink text-sm">{t("confirm_prompt", { month: monthLabel })}</span>
+              <span className="font-body text-ink text-sm">
+                {unconfirmedSlots.length > 0
+                  ? t("confirm_prompt_with_unconfirmed", { n: unconfirmedSlots.length, month: monthLabel })
+                  : t("confirm_prompt", { month: monthLabel })}
+              </span>
               <button
                 type="button"
                 disabled={isPending}

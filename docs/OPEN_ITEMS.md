@@ -537,6 +537,275 @@ dashboard is ever built per this item, `/` should redirect there instead,
 not to `/profile`. This note and this item are the same decision from two
 directions; check both if either changes.
 
+### 64. A status screen for owners, proposed again — declined again, same precedent
+
+2026-09-16. The payroll walkthrough fixes this round surfaced two more domains that looked
+incomplete to an outside eye — payment configuration's empty grids, trainers' unrouted
+capabilities — and raised the same question this item's own August entry already answered: does
+any of this belong on a dedicated status screen for owners. Re-asked deliberately rather than
+assumed still-settled, since the two candidates are new. Answer: still no, on the same reasoning,
+plus one more piece of evidence this project already had lying around.
+
+**Second piece of evidence, independent of item 1's own investigation:** `docs/progress.md`'s
+"Snapshot status" table (lines 18-36) is exactly the artifact a status screen would become. It
+exists to summarize this project's state across domains at a glance — the same job a status
+screen would do — and its own author's note directly above it (line 8) already warns readers away
+from it: *"tabelul „Snapshot status" de mai jos (rămas ca istoric WS-B, nu mai e actualizat)"* —
+kept as WS-B history, no longer updated. Its own rows haven't caught up either: line 36 still
+marks WS-D "🔶 în curs (D0 done, D1 next)" though WS-D, all of Phase 0, and all of Phase 1 have
+long since shipped. Nobody's job was ever to keep that table current once writing it stopped being
+the active task — the exact failure mode item 1's investigated-and-rejected dashboard predicted in
+the abstract, now visible as a concrete two-month-old artifact instead of a hypothetical one.
+
+**Candidate (a), payment configuration — checked, cleared the bar, shipped.** "Five of six grids
+empty" (item 20) is real and derivable live: a plain `count(*)` per version table. Confirmed
+unchanged today, both orgs — `WOW LAB` (production) and `WOW LAB Test Org B` each hold zero rows
+across all five grids that have a section on `/payment-config` (`trainer_grade_versions`,
+`location_bonus_versions`, `language_bonus_versions`, `duration_multiplier_versions`,
+`contract_type_uplift_versions`; the sixth grid, `lesson_plan_rate_versions`, is seeded per item 20
+and has no section on this page at all, so it's outside what a page-scoped banner here could
+sensibly reference). Non-redundant: before this, noticing the state required opening all five
+sections one at a time — each already says "No version exists yet." individually (item 20), but
+nothing summarized that at a glance. Actionable: Finance/Anca can now see in one place exactly
+which grids still need real numbers, which matters now specifically because payroll math will
+depend on them once they're filled in.
+
+Shipped as a banner at the top of `/payment-config`, same shape as the overdue-contracts banner
+item 1 already produced: absent entirely when nothing is missing (not a suppressed, empty version
+of the same colored box — computed from the same `versions` arrays the five sections already
+render from, no new query), present and naming every missing grid by its own section title when at
+least one is. Confirmed live in `wow-lab-test-b` as `test+ui-contract-admin-b@wowlab.dev`
+(`finance_operations`): renders "5 of 5 grids below have no version yet" listing all five by name,
+matching the live count exactly.
+
+**Candidate (b), trainers — argued, not just accepted, and still declined.** Item 56's finding (five
+of six trainer capabilities have no consuming route) is a fact about what this codebase has and
+hasn't built, not about any data condition that changes while the app runs. Two reasons that's
+disqualifying on its own, not merely "matches my reading":
+
+1. **It only changes at deploy time.** Nothing an owner or a trainer does in the app moves this
+   number — it moves only when a developer ships a new route, which is a code event the register
+   (this file) already tracks. A screen that re-displays a fact whose only trigger is "someone
+   shipped code" is reporting on the codebase to people who read it through the codebase's own
+   commits and this file already, not a live signal for someone using the app.
+2. **No page already owns this fact.** `/contracts` owning contract health, and now
+   `/payment-config` owning its own grids' completeness, both work because the signal lives on the
+   page whose data it's actually about. There is no trainers-facing screen at all yet (item 53/54)
+   for this to attach to — building one just to show "five things aren't built yet" would be item
+   1's exact one-real-block-plus-empty-states shape, relocated from an owner's dashboard to a
+   trainer's screen instead of avoided.
+
+Stays exactly where item 56 already filed it: the register, not the app. Not built.
+
+**Survey of every other domain for a signal clearing the same bar (real, derivable live,
+non-redundant, actionable) — done deliberately without inventing one to fill the shape, since
+that was the explicit risk to avoid.** `clients` and `suppliers` were both checked against their
+own create-table migrations: neither carries a date/term field a signal could be computed from —
+only a `status` enum, no equivalent of `contracts.period_end` to be overdue against. Pending
+invites was already investigated and correctly cut for its own, different reason (item 18: the
+count is test residue, not signal) — not resurrected here. The one domain that does clear the bar
+today is `/payroll`'s own unconfirmed-sessions-before-close summary — real, live, non-redundant,
+and directly actionable (Anca can chase a confirmation before it's too late to matter) — but it
+was already required and built in this same round for its own reasons, not found by this survey,
+so it's noted here rather than claimed as a new result of it.
+
+**What shipped from this round: one banner, on the one page it belongs to.** Nothing else — the
+conclusion drawn from the survey above is that most domains still have nothing worth saying, same
+as item 1 originally found.
+
+**Lives in:** item 1 above (the precedent this revisits); item 18 (pending invites, still
+correctly cut); item 20 (payment-config grid state, re-confirmed unchanged here); item 56 (trainers'
+unrouted capabilities, the reasoning for why it stays out of the app); `docs/progress.md` lines
+6-8, 18-36 (the stale Snapshot status table and its own author's warning about it);
+`app/(app)/payment-config/payment-config-client.tsx`, `app/(app)/payment-config/i18n.ts` (the
+banner itself).
+
+---
+
+### 65. The payroll summary can show "Unknown" for a client name, for a structural reason distinct from the walkthrough's trainer-name gap — found while building, not fixed the same way, currently inert
+
+Building the pre-close payroll summary (naming each unconfirmed session, per the payroll
+walkthrough findings below) requires joining `sessions → groups → clients` to label a session by
+its client. Checked `clients`' own SELECT policy before assuming this would just work, given the
+same round's trainer-name fix (see the payroll walkthrough entry below) was exactly this shape of
+bug: `clients` splits `finance.operations.*` (sees only `private_school`/`parent_b2c`) from
+`finance.reporting.*` (sees the rest) — the same deliberate segregation already known from
+`contracts` (SAD §6, "record-level RLS segregates finance_operations... from
+finance_admin_reporting"). A `finance.operations.*`-only closer (Laura's capability set, per item
+20) would see "Unknown" for any session's client outside those two types, even though
+`sessions.read`/`org.settings.manage` already gives payroll-closing roles full org-wide session
+visibility — the same shape as the trainer-name gap, a join that outruns what the joined table's
+own RLS grants the viewer.
+
+**Deliberately not fixed the way the trainer-name gap was.** That gap was a plain oversight on
+`users` — no capability implied any name visibility at all. This one intersects a *documented,
+deliberate* business boundary: which finance role bills which client segment. Whether
+payroll-closing should see every client's name regardless of billing segment is a real policy
+question, not a bug to silently patch by grafting on another RLS branch — unlike the trainer-name
+fix, widening this one isn't obviously safe by the same "still narrower than everyone" reasoning.
+
+**Why not fixed now regardless: currently inert.** `sessions` holds zero rows in the real `WOW LAB`
+org today (confirmed live, matches item 53's own finding) — no client-type mix exists yet for this
+to bite on. The summary degrades the same way every other name-lookup miss in this app already
+does: falls back to "Unknown" per session, not an error.
+
+**Blocked on:** a decision on whether payroll-closing needs cross-segment client visibility, or
+should stay scoped to whoever already holds `finance.reporting.*` too (sidestepping the question
+by construction) -- not a technical blocker.
+**Re-verify when:** real sessions exist across more than one client-type segment and someone holding
+only `finance.operations.*` is the one closing payroll.
+**Lives in:** the payroll walkthrough fixes entry below (the trainer-name gap this parallels);
+item 20 (Laura's `finance.operations.*`-only capability set); `app/(app)/payroll/page.tsx` (the
+join); the `clients` table's own SELECT policy (its client-type segregation branch).
+
+---
+
+### 66. A trainer's own group detail page shows the raw client UUID, not the name -- found re-verifying the payroll fixes, pre-existing, not touched
+
+Re-walking the payroll fixes as a trainer fixture (`maxdigitalro+trainerb1@gmail.com`) surfaced
+this live: `/groups/[id]`'s header and its "Client" row both read
+`78e6b320-ed9e-46d2-9d84-f3fed73abfc3` instead of the client's name, for a session the trainer is
+legitimately assigned to and allowed to view. Confirmed pre-existing, not a regression from this
+round's edits -- `git diff` on `app/(app)/groups/[id]/page.tsx` shows the one line responsible,
+`const clientName = clientRow?.name ?? group.client_id;`, untouched by any of the five fixes.
+
+**Root cause, checked against `clients`' own SELECT policy (item 65 above quotes the same
+policy):** `is_platform_owner() OR org.settings.manage OR (clients.read AND not
+finance.operations.* AND not finance.reporting.*) OR (finance.operations.* AND client_type in
+(...)) OR (finance.reporting.* AND client_type not in (...))`. No branch admits `mywork.*` at all
+-- a `trainer`/`senior_trainer` viewer cannot see any row in `clients`, ever, regardless of
+whether they're allocated to a session for that client. `clientRow` comes back `null`, and the
+existing fallback silently prints the id instead of erroring or saying "Unknown."
+
+**Not fixed here -- out of the five asked for, and the same "don't graft a broad RLS branch onto a
+deliberately segregated table without a policy decision" caution as item 65 applies:** unlike the
+`users` gap (item 4 of this round, a plain oversight), this is `clients`' segregation design doing
+exactly what it was built to do, just never checked against the trainer's own screen before. A
+`mywork.*` branch scoped to "a client with a group the viewer has an allocated session in" (same
+session-scoped shape as the `users` fix's own `mywork.*` branch) is the likely correct fix, but is
+a policy addition, not a copy-paste of an existing pattern -- recorded for a deliberate decision,
+not applied unilaterally mid-round.
+**Re-verify when:** a trainer's group detail page is looked at again, or this is picked up as its
+own fix.
+**Lives in:** item 65 above (same `clients` policy, same caution); `app/(app)/groups/[id]/page.tsx`
+(`clientName`'s fallback); `app/(app)/groups/[id]/group-header.tsx`,
+`app/(app)/groups/[id]/group-info-section.tsx` (both render the same unresolved value).
+
+---
+
+### 67. The five payroll walkthrough findings, fixed and re-verified live
+
+2026-09-16/17. Follow-up to the payroll walkthrough (its own six-step live walk of the close flow,
+fixture-verified, cleaned up afterward) -- five findings, fixed in the order given, each verified
+live in `wow-lab-test-b` afterward by re-walking the same scenario (one session, one trainer
+confirmed, one not), then confirmed again on `app.wowlab.ro`.
+
+1. **`/payroll` told Anka nothing before she closed.** Added a pre-close summary on `/payroll`,
+   computed from one org-wide `sessions` fetch (`page.tsx`) already reacting to the month `<input>`'s
+   own client state: session count, trainer-slot count, and -- prominently, by name -- every
+   unconfirmed trainer/session pair. Confirmed live: renders "1 of 2 trainer slots are not
+   confirmed" with "Test Trainer B2 -- WALKTHROUGH RE-VERIFY client · 17 Sept" listed underneath.
+   The confirm step's own copy now states the pay consequence directly when any slot is
+   unconfirmed ("a trainer is not paid for a session they haven't confirmed"), not just the
+   write-access one it said before. Two real bugs caught only by looking at the rendered page, not
+   by reading the diff: both "nothing to flag" copy strings (`summary_all_confirmed`,
+   `summary_sessions_count`) referenced `{{month}}` in their template without the call site ever
+   passing it, so the page literally printed `{{month}}` until caught live and fixed twice.
+
+   **What the screen says when nothing is unconfirmed, so it doesn't become a warning people learn
+   to click past:** plain, uncolored text -- no box, no border, same weight as `history_empty`
+   elsewhere on this page -- either "No sessions in {{month}}." or "{{n}} sessions this month. All
+   {{total}} trainer slots are confirmed." Structurally different from the orange box, not a
+   suppressed copy of it: the box itself is absent from the DOM in this state, not present-but-empty.
+   Confirmed live in both states -- the has-unconfirmed box before correcting Test Trainer B2's
+   confirmation, the plain "all confirmed" line immediately after.
+
+2. **Anka had no correction UI at all.** `correctSessionConfirmation` existed and worked; no screen
+   called it. Added as a third case to `ConfirmationControl` on `/groups/[id]` -- the same screen
+   the session already lives on, not a new page -- gated on `org.settings.manage OR
+   finance.operations.*`, matching the action's own check exactly (`canCorrectConfirmation`,
+   threaded from `page.tsx`). Checked in this priority order, and it matters: the row-matched
+   trainer's own toggle (respects the month-close gate) is checked *before* the correction path
+   (which doesn't), so a viewer holding both never bypasses their own gate through the correction
+   control. Confirmed live: as the finance fixture, toggled Test Trainer B2's box from unconfirmed
+   to confirmed on the group page -- the other slot (Test Trainer B1, already confirmed) stayed
+   confirmed, not reset -- then confirmed the same correction control still worked identically after
+   the month was closed for real.
+
+3. **`updateSessionAttendance`'s closed-month error was always "not the assigned trainer," even
+   for a trainer who was.** Rewritten to pre-check the same way `confirmSessionAttendance` already
+   does: read the session, compare the caller against both trainer slots (not assigned -> reuses
+   `SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR`, correct wording for either write), then check
+   `payroll_periods` for the session's month (closed -> new `SESSION_ATTENDANCE_MONTH_CLOSED_ERROR`,
+   translated RO/EN as `attendance_month_closed_error`). Confirmed live: Test Trainer B1 (the actual
+   assigned, confirmed principal), attempting to edit attendance on a session in a month just
+   closed for real, now sees "This month is closed. You can no longer change attendance for this
+   session." -- not the old, false "requires being the assigned trainer" text.
+
+4. **Trainer names rendered as "Unknown."** Traced before fixing: `public.users`' own SELECT
+   policy had no branch for `finance.operations.*` or `mywork.*` at all -- confirmed live against
+   `role_capabilities` that neither implies `org.members.read`, the only branch that existed.
+   Two new branches added (`202609160001`, plus a same-day correctness fix, `202609160002` --
+   see below), each scoped to exactly the case that needed it, per the explicit "must not hand
+   anyone names they should not see" constraint: (a) a `finance.operations.*` holder sees the name
+   of anyone holding `trainer`/`senior_trainer` in the same org, nothing broader; (b) a `mywork.*`
+   holder sees a co-trainer's name only on a session they're both allocated to, not org-wide.
+   Verified live via direct impersonation (not just "the UI looked right"): finance sees a
+   trainer's name but not a non-trainer's; a trainer sees their co-trainer's name but not an
+   unrelated trainer's they share no session with.
+
+   **`202609160002`, a real bug in the first migration, caught by the live verification script
+   before this was reported done, not after:** the `finance.operations.*` branch read
+   `public.user_org_roles` directly inside the policy -- but that read is itself subject to
+   `user_org_roles`' own SELECT policy (`is_platform_owner() OR user_id = current_user_id() OR
+   has_capability('org.members.read', ...)`), which a `finance.operations.*` holder doesn't satisfy.
+   The branch was structurally dead for the one role it was written for, despite
+   `app.has_capability('finance.operations.*', ...)` alone returning true when called directly.
+   Fixed by moving the read inside a new `SECURITY DEFINER` helper
+   (`app.viewer_sees_trainer_via_finance_ops`), the same way `has_capability()` itself already
+   bypasses `user_org_roles`' RLS to do its own lookup. The `mywork.*` branch didn't have this bug
+   -- it reads `sessions`, and the exact row it filters for is provably already visible to the
+   viewer under `sessions`' own RLS, confirmed by the two co-trainer assertions passing on the
+   first attempt.
+
+   Two related, adjacent findings caught while building this fix, deliberately **not** patched the
+   same way -- both recorded separately (items 65, 66 above) rather than folded in here, since both
+   intersect `clients`' deliberate client-type segregation rather than being plain oversights:
+   the payroll summary can still show "Unknown" for a client name to a `finance.operations.*`-only
+   closer outside their billing segment (currently inert, zero real sessions org-wide); a trainer's
+   own group detail page shows the raw client UUID instead of a name, for the same underlying
+   reason from the opposite direction (`mywork.*` has no branch on `clients` at all).
+
+5. **The dead zone on confirm, attendance save, and payroll close never got the `pendingCreate`
+   fix the create forms did.** Extended the same shape -- a small pending-state object set only on
+   a confirmed server success, cleared by an effect that watches the real revalidated prop for the
+   expected value to actually land, 15s timeout as a safety net, not the signal -- to three more
+   spots, not a second pattern: `pendingConfirmation`/`pendingAttendance` in
+   `group-detail-client.tsx` (covers both the trainer's own toggle and Anka's correction, since
+   both wait on the same `sessions` prop), and `pendingClose` in `payroll-client.tsx`. Each renders
+   "Saving…" (translated) in place of the checkbox/value/button for exactly that window. Confirmed
+   correct by code parity with the already-proven create-form pattern and by the write itself
+   landing correctly end-to-end (the correction in finding 2 above resolved to the right final
+   state); the millisecond-scale dead-zone window itself was not caught on camera -- local dev's
+   own round trip is fast enough that reproducing the gap on screen would need artificial network
+   throttling, judged not worth building for this round.
+
+**Full RO/EN i18n**, including every string this round added: `attendance_month_closed_error`,
+`saving_confirmation`, `saving_attendance` (`groups/i18n.ts`); `summary_no_sessions`,
+`summary_all_confirmed`, `summary_sessions_count`, `summary_unconfirmed_heading`,
+`summary_unconfirmed_list_heading`, `confirm_prompt_with_unconfirmed`, `closing_month`
+(`payroll/i18n.ts`).
+
+**Lives in:** `app/(app)/payroll/page.tsx`, `payroll-client.tsx`, `i18n.ts`;
+`app/(app)/groups/[id]/group-detail-client.tsx`, `page.tsx`; `app/(app)/groups/actions.ts`,
+`i18n.ts`; `app/(app)/groups/session-write-errors.ts` (renamed from
+`session-confirmation-errors.ts`); `supabase/migrations/202609160001_add_users_trainer_name_visibility_branches.sql`,
+`202609160002_fix_finance_ops_trainer_visibility_uor_rls.sql` and their rollbacks;
+`scripts/verify_users_trainer_name_visibility.sql`; items 65, 66 above (the two related gaps found
+and deliberately deferred, not folded into finding 4).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,

@@ -190,6 +190,15 @@ export default async function GroupDetailPage({
   // Finance viewers without also needing a per-session check.
   const hasMywork = await checkCapability(supabase, "mywork.*", group.organization_id);
 
+  // Gates the confirmation-correction control on the sessions below --
+  // matches correctSessionConfirmation's own check (groups/actions.ts)
+  // exactly, org.settings.manage OR finance.operations.*, so nobody who
+  // can see the control is denied by the action underneath it, and nobody
+  // who can act is left without a way to reach it.
+  const canCorrectConfirmation =
+    (await checkCapability(supabase, "org.settings.manage", group.organization_id)) ||
+    (await checkCapability(supabase, "finance.operations.*", group.organization_id));
+
   // contractOptions: every contract in this group's org, only fetched when
   // the edit form will actually render -- same "only fetch what the
   // button needs" discipline as trainerOptions just above. GroupEditForm
@@ -275,6 +284,7 @@ export default async function GroupDetailPage({
         organizationId={group.organization_id}
         sessions={sessionRows}
         canManageSessions={Boolean(canManageSessions)}
+        canCorrectConfirmation={canCorrectConfirmation}
         trainerOptions={trainerOptions}
         viewerId={user.id}
       />

@@ -1,13 +1,20 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useTranslations, useLocale } from "@/lib/i18n";
 import { groupsDict } from "../i18n";
-import { addSession, updateSessionAllocation, updateSessionAttendance, confirmSessionAttendance } from "../actions";
+import {
+  addSession,
+  updateSessionAllocation,
+  updateSessionAttendance,
+  confirmSessionAttendance,
+  correctSessionConfirmation,
+} from "../actions";
 import {
   SESSION_CONFIRMATION_MONTH_CLOSED_ERROR,
+  SESSION_ATTENDANCE_MONTH_CLOSED_ERROR,
   SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR,
-} from "../session-confirmation-errors";
+} from "../session-write-errors";
 
 type Session = {
   id: string;
@@ -67,6 +74,7 @@ export function GroupDetailClient({
   organizationId,
   sessions,
   canManageSessions,
+  canCorrectConfirmation,
   trainerOptions,
   viewerId,
 }: {
@@ -74,6 +82,7 @@ export function GroupDetailClient({
   organizationId: string;
   sessions: Session[];
   canManageSessions: boolean;
+  canCorrectConfirmation: boolean;
   trainerOptions: TrainerOption[];
   viewerId: string;
 }) {
@@ -92,6 +101,56 @@ export function GroupDetailClient({
   const [editingAttendanceId, setEditingAttendanceId] = useState<string | null>(null);
   const [attendanceDraft, setAttendanceDraft] = useState<Record<string, string>>({});
   const [experimentDraft, setExperimentDraft] = useState<Record<string, string>>({});
+
+  // Same pendingCreate shape the create forms use (contracts-client.tsx
+  // etc.), extended to two more writes that had the identical dead-zone
+  // gap: isPending ends (the action's own promise resolves) a microtask
+  // before Next actually applies the revalidated `sessions` prop, so a
+  // naive "clear on success" leaves a window where the UI shows stale
+  // data with nothing pending-looking about it. Both effects below clear
+  // only once the specific field they're watching actually changed to
+  // the expected value, with the same 15s ceiling as a safety net, not
+  // the real signal.
+  const [pendingConfirmation, setPendingConfirmation] = useState<{
+    sessionId: string;
+    slot: "principal" | "secundar";
+    expectedConfirmed: boolean;
+  } | null>(null);
+  const [pendingAttendance, setPendingAttendance] = useState<{
+    sessionId: string;
+    expectedAttendanceCount: number | null;
+    expectedExperimentDelivered: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!pendingConfirmation) return;
+    const session = sessions.find((s) => s.id === pendingConfirmation.sessionId);
+    const confirmedAt =
+      pendingConfirmation.slot === "principal"
+        ? session?.trainer_principal_confirmed_at
+        : session?.trainer_secundar_confirmed_at;
+    if (session && Boolean(confirmedAt) === pendingConfirmation.expectedConfirmed) {
+      setPendingConfirmation(null);
+      return;
+    }
+    const timeout = setTimeout(() => setPendingConfirmation(null), 15000);
+    return () => clearTimeout(timeout);
+  }, [sessions, pendingConfirmation]);
+
+  useEffect(() => {
+    if (!pendingAttendance) return;
+    const session = sessions.find((s) => s.id === pendingAttendance.sessionId);
+    if (
+      session &&
+      session.attendance_count === pendingAttendance.expectedAttendanceCount &&
+      session.experiment_delivered === pendingAttendance.expectedExperimentDelivered
+    ) {
+      setPendingAttendance(null);
+      return;
+    }
+    const timeout = setTimeout(() => setPendingAttendance(null), 15000);
+    return () => clearTimeout(timeout);
+  }, [sessions, pendingAttendance]);
 
   function startEditing(s: Session) {
     setPrincipalDraft((prev) => ({ ...prev, [s.id]: s.trainer_principal_id ?? "" }));
@@ -139,8 +198,22 @@ export function GroupDetailClient({
     startTransition(async () => {
       try {
         const result = await updateSessionAttendance(groupId, s.id, attendance, experiment);
-        if (!result.ok) setError(result.error);
-        else setEditingAttendanceId(null);
+        if (!result.ok) {
+          if (result.error === SESSION_ATTENDANCE_MONTH_CLOSED_ERROR) {
+            setError(t("attendance_month_closed_error"));
+          } else if (result.error === SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR) {
+            setError(t("confirmation_not_assigned_error"));
+          } else {
+            setError(result.error);
+          }
+        } else {
+          setEditingAttendanceId(null);
+          setPendingAttendance({
+            sessionId: s.id,
+            expectedAttendanceCount: attendance.trim() ? Number(attendance) : null,
+            expectedExperimentDelivered: experiment.trim() || null,
+          });
+        }
       } catch {
         setError(t("network_error"));
       }
@@ -154,7 +227,7 @@ export function GroupDetailClient({
   // resolved to the translated (RO/EN) text -- any other string this
   // action could theoretically return falls back to the raw text, same
   // as every other error in this file.
-  function toggleConfirmation(s: Session, confirmed: boolean) {
+  function toggleConfirmation(s: Session, slot: "principal" | "secundar", confirmed: boolean) {
     setError(null);
     startTransition(async () => {
       try {
@@ -167,7 +240,31 @@ export function GroupDetailClient({
           } else {
             setError(result.error);
           }
+        } else {
+          setPendingConfirmation({ sessionId: s.id, slot, expectedConfirmed: confirmed });
         }
+      } catch {
+        setError(t("network_error"));
+      }
+    });
+  }
+
+  // Anka's correction path (correctSessionConfirmation) -- unlike
+  // toggleConfirmation above, the server can't infer which slot from the
+  // caller's own identity (Anka isn't the trainer on the row), so this
+  // passes both booleans every call: the slot being corrected gets the
+  // new value, the other slot is re-sent unchanged from its current
+  // state, matching the action's own "writes both columns every call"
+  // contract (groups/actions.ts).
+  function toggleCorrection(s: Session, slot: "principal" | "secundar", confirmed: boolean) {
+    setError(null);
+    const principalConfirmed = slot === "principal" ? confirmed : Boolean(s.trainer_principal_confirmed_at);
+    const secundarConfirmed = slot === "secundar" ? confirmed : Boolean(s.trainer_secundar_confirmed_at);
+    startTransition(async () => {
+      try {
+        const result = await correctSessionConfirmation(groupId, s.id, principalConfirmed, secundarConfirmed);
+        if (!result.ok) setError(result.error);
+        else setPendingConfirmation({ sessionId: s.id, slot, expectedConfirmed: confirmed });
       } catch {
         setError(t("network_error"));
       }
@@ -263,9 +360,12 @@ export function GroupDetailClient({
                     session={s}
                     editing={editingSessionId === s.id}
                     canManageSessions={canManageSessions}
+                    canCorrectConfirmation={canCorrectConfirmation}
                     canEditAttendance={s.trainer_principal_id === viewerId || s.trainer_secundar_id === viewerId}
                     editingAttendance={editingAttendanceId === s.id}
                     isPending={isPending}
+                    isSavingAttendance={pendingAttendance?.sessionId === s.id}
+                    savingConfirmationSlot={pendingConfirmation?.sessionId === s.id ? pendingConfirmation.slot : null}
                     trainerOptions={trainerOptions}
                     viewerId={viewerId}
                     principalValue={principalDraft[s.id] ?? s.trainer_principal_id ?? ""}
@@ -282,7 +382,8 @@ export function GroupDetailClient({
                     onStartEditingAttendance={() => startEditingAttendance(s)}
                     onCancelEditingAttendance={() => cancelEditingAttendance(s)}
                     onSaveAttendance={() => saveEditingAttendance(s)}
-                    onToggleConfirmation={(checked) => toggleConfirmation(s, checked)}
+                    onToggleConfirmation={(slot, checked) => toggleConfirmation(s, slot, checked)}
+                    onCorrectConfirmation={(slot, checked) => toggleCorrection(s, slot, checked)}
                   />
                 ))}
               </tbody>
@@ -295,9 +396,12 @@ export function GroupDetailClient({
                   session={s}
                   editing={editingSessionId === s.id}
                   canManageSessions={canManageSessions}
+                  canCorrectConfirmation={canCorrectConfirmation}
                   canEditAttendance={s.trainer_principal_id === viewerId || s.trainer_secundar_id === viewerId}
                   editingAttendance={editingAttendanceId === s.id}
                   isPending={isPending}
+                  isSavingAttendance={pendingAttendance?.sessionId === s.id}
+                  savingConfirmationSlot={pendingConfirmation?.sessionId === s.id ? pendingConfirmation.slot : null}
                   trainerOptions={trainerOptions}
                   viewerId={viewerId}
                   principalValue={principalDraft[s.id] ?? s.trainer_principal_id ?? ""}
@@ -314,7 +418,8 @@ export function GroupDetailClient({
                   onStartEditingAttendance={() => startEditingAttendance(s)}
                   onCancelEditingAttendance={() => cancelEditingAttendance(s)}
                   onSaveAttendance={() => saveEditingAttendance(s)}
-                  onToggleConfirmation={(checked) => toggleConfirmation(s, checked)}
+                  onToggleConfirmation={(slot, checked) => toggleConfirmation(s, slot, checked)}
+                  onCorrectConfirmation={(slot, checked) => toggleCorrection(s, slot, checked)}
                 />
               ))}
             </div>
@@ -329,9 +434,12 @@ type SessionRowProps = {
   session: Session;
   editing: boolean;
   canManageSessions: boolean;
+  canCorrectConfirmation: boolean;
   canEditAttendance: boolean;
   editingAttendance: boolean;
   isPending: boolean;
+  isSavingAttendance: boolean;
+  savingConfirmationSlot: "principal" | "secundar" | null;
   trainerOptions: TrainerOption[];
   viewerId: string;
   principalValue: string;
@@ -348,33 +456,54 @@ type SessionRowProps = {
   onStartEditingAttendance: () => void;
   onCancelEditingAttendance: () => void;
   onSaveAttendance: () => void;
-  onToggleConfirmation: (checked: boolean) => void;
+  onToggleConfirmation: (slot: "principal" | "secundar", checked: boolean) => void;
+  onCorrectConfirmation: (slot: "principal" | "secundar", checked: boolean) => void;
 };
 
-// Beside each trainer's own name -- the row-matched trainer for that
-// specific slot gets a live checkbox; anyone else who can see the row
-// gets a read-only status word. Confirmation is deliberately its own
-// instant toggle, not folded into the attendance edit/save cycle beside
-// it -- same row, same section, but a different action with different
-// RLS reasoning (202609150002), not one save button doing two things.
+// Beside each trainer's own name -- three cases, checked in this order:
+// (1) the row-matched trainer for that specific slot gets a live
+// checkbox (confirmSessionAttendance, respects the month-close gate); (2)
+// failing that, a finance.operations.*/org.settings.manage viewer gets
+// a live checkbox too, but through correctSessionConfirmation, which
+// does NOT respect the close gate -- that's the whole point of a
+// correction path. Order matters here, not just for readability: a
+// viewer who happens to be both the assigned trainer AND finance-capable
+// on the same session must hit case 1 first, or they could bypass their
+// own close-gate restriction through their own correction capability.
+// (3) anyone else who can see the row gets a read-only status word.
+//
+// isSaving covers the dead-zone gap for both live-checkbox cases: once
+// the action resolves, isPending ends before the revalidated `sessions`
+// prop actually lands, so the checkbox would otherwise flash back to
+// interactive with the OLD value for a real, multi-second window.
+// "Saving…" replaces the label (not just a disabled attribute) so that
+// window never reads as "confirmed" or "not confirmed" when it might
+// already be neither.
 function ConfirmationControl({
   confirmedAt,
   isOwnSlot,
+  canCorrect,
   isPending,
+  isSaving,
   onToggle,
+  onCorrect,
 }: {
   confirmedAt: string | null;
   isOwnSlot: boolean;
+  canCorrect: boolean;
   isPending: boolean;
+  isSaving: boolean;
   onToggle: (checked: boolean) => void;
+  onCorrect: (checked: boolean) => void;
 }) {
   const t = useTranslations(groupsDict);
-  if (!isOwnSlot) {
-    return (
-      <span className="font-body text-muted block text-[11px]">
-        {confirmedAt ? t("session_confirmed_status") : t("session_not_confirmed_status")}
-      </span>
-    );
+  const statusLabel = confirmedAt ? t("session_confirmed_status") : t("session_not_confirmed_status");
+
+  if (!isOwnSlot && !canCorrect) {
+    return <span className="font-body text-muted block text-[11px]">{statusLabel}</span>;
+  }
+  if (isSaving) {
+    return <span className="font-body text-muted mt-0.5 block text-[11px] italic">{t("saving_confirmation")}</span>;
   }
   return (
     <label className="font-body text-muted mt-0.5 flex items-center gap-1.5 text-[11px]">
@@ -382,10 +511,10 @@ function ConfirmationControl({
         type="checkbox"
         checked={Boolean(confirmedAt)}
         disabled={isPending}
-        onChange={(e) => onToggle(e.target.checked)}
+        onChange={(e) => (isOwnSlot ? onToggle : onCorrect)(e.target.checked)}
         className="accent-brand-pink"
       />
-      {confirmedAt ? t("session_confirmed_status") : t("session_not_confirmed_status")}
+      {statusLabel}
     </label>
   );
 }
@@ -399,9 +528,12 @@ function SessionTableRow({
   session,
   editing,
   canManageSessions,
+  canCorrectConfirmation,
   canEditAttendance,
   editingAttendance,
   isPending,
+  isSavingAttendance,
+  savingConfirmationSlot,
   trainerOptions,
   viewerId,
   principalValue,
@@ -419,6 +551,7 @@ function SessionTableRow({
   onCancelEditingAttendance,
   onSaveAttendance,
   onToggleConfirmation,
+  onCorrectConfirmation,
 }: SessionRowProps) {
   const t = useTranslations(groupsDict);
   const { locale } = useLocale();
@@ -450,8 +583,11 @@ function SessionTableRow({
               <ConfirmationControl
                 confirmedAt={session.trainer_principal_confirmed_at}
                 isOwnSlot={session.trainer_principal_id === viewerId}
+                canCorrect={canCorrectConfirmation}
                 isPending={isPending}
-                onToggle={onToggleConfirmation}
+                isSaving={savingConfirmationSlot === "principal"}
+                onToggle={(checked) => onToggleConfirmation("principal", checked)}
+                onCorrect={(checked) => onCorrectConfirmation("principal", checked)}
               />
             )}
           </td>
@@ -461,8 +597,11 @@ function SessionTableRow({
               <ConfirmationControl
                 confirmedAt={session.trainer_secundar_confirmed_at}
                 isOwnSlot={session.trainer_secundar_id === viewerId}
+                canCorrect={canCorrectConfirmation}
                 isPending={isPending}
-                onToggle={onToggleConfirmation}
+                isSaving={savingConfirmationSlot === "secundar"}
+                onToggle={(checked) => onToggleConfirmation("secundar", checked)}
+                onCorrect={(checked) => onCorrectConfirmation("secundar", checked)}
               />
             )}
           </td>
@@ -486,6 +625,8 @@ function SessionTableRow({
             placeholder={t("attendance_placeholder")}
             className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 w-20 rounded-lg border border-gray-300 px-2 py-1 text-sm outline-none focus:ring-2"
           />
+        ) : isSavingAttendance ? (
+          <span className="italic">{t("saving_attendance")}</span>
         ) : (
           (session.attendance_count ?? "—")
         )}
@@ -500,6 +641,8 @@ function SessionTableRow({
               placeholder={t("experiment_placeholder")}
               className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 w-full rounded-lg border border-gray-300 px-2 py-1 text-sm outline-none focus:ring-2"
             />
+          ) : isSavingAttendance ? (
+            <span className="italic">{t("saving_attendance")}</span>
           ) : (
             <span>
               {session.experiment_delivered || "—"}
@@ -545,6 +688,7 @@ function SessionTableRow({
                 </button>
               ))}
             {canEditAttendance &&
+              !isSavingAttendance &&
               (editingAttendance ? (
                 <>
                   <button
@@ -583,9 +727,12 @@ function SessionCard({
   session,
   editing,
   canManageSessions,
+  canCorrectConfirmation,
   canEditAttendance,
   editingAttendance,
   isPending,
+  isSavingAttendance,
+  savingConfirmationSlot,
   trainerOptions,
   viewerId,
   principalValue,
@@ -603,6 +750,7 @@ function SessionCard({
   onCancelEditingAttendance,
   onSaveAttendance,
   onToggleConfirmation,
+  onCorrectConfirmation,
 }: SessionRowProps) {
   const t = useTranslations(groupsDict);
   const { locale } = useLocale();
@@ -695,8 +843,11 @@ function SessionCard({
             <ConfirmationControl
               confirmedAt={session.trainer_principal_confirmed_at}
               isOwnSlot={session.trainer_principal_id === viewerId}
+              canCorrect={canCorrectConfirmation}
               isPending={isPending}
-              onToggle={onToggleConfirmation}
+              isSaving={savingConfirmationSlot === "principal"}
+              onToggle={(checked) => onToggleConfirmation("principal", checked)}
+              onCorrect={(checked) => onCorrectConfirmation("principal", checked)}
             />
           )}
           <p className="font-body text-muted mt-1 text-xs">
@@ -706,30 +857,39 @@ function SessionCard({
             <ConfirmationControl
               confirmedAt={session.trainer_secundar_confirmed_at}
               isOwnSlot={session.trainer_secundar_id === viewerId}
+              canCorrect={canCorrectConfirmation}
               isPending={isPending}
-              onToggle={onToggleConfirmation}
+              isSaving={savingConfirmationSlot === "secundar"}
+              onToggle={(checked) => onToggleConfirmation("secundar", checked)}
+              onCorrect={(checked) => onCorrectConfirmation("secundar", checked)}
             />
           )}
           <p className="font-body text-muted mt-1 text-xs">
             {t("mobile_duration_prefix")}{session.duration_minutes ? `${session.duration_minutes} min` : "—"}
           </p>
-          <p className="font-body text-muted mt-1 text-xs">
-            {t("mobile_present_prefix")}{session.attendance_count ?? "—"}
-          </p>
-          {session.experiment_delivered && (
-            <p className="font-body text-muted mt-1 text-xs">
-              {t("mobile_experiment_prefix")}{session.experiment_delivered}
-              {session.experiment_drive_link && (
-                <a
-                  href={session.experiment_drive_link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-brand-pink ml-2 font-semibold hover:underline"
-                >
-                  {t("open_action")}
-                </a>
+          {isSavingAttendance ? (
+            <p className="font-body text-muted mt-1 text-xs italic">{t("saving_attendance")}</p>
+          ) : (
+            <>
+              <p className="font-body text-muted mt-1 text-xs">
+                {t("mobile_present_prefix")}{session.attendance_count ?? "—"}
+              </p>
+              {session.experiment_delivered && (
+                <p className="font-body text-muted mt-1 text-xs">
+                  {t("mobile_experiment_prefix")}{session.experiment_delivered}
+                  {session.experiment_drive_link && (
+                    <a
+                      href={session.experiment_drive_link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-brand-pink ml-2 font-semibold hover:underline"
+                    >
+                      {t("open_action")}
+                    </a>
+                  )}
+                </p>
               )}
-            </p>
+            </>
           )}
           <div className="mt-3 flex flex-col gap-2">
             {canManageSessions && (
@@ -741,7 +901,7 @@ function SessionCard({
                 {t("reallocate_button")}
               </button>
             )}
-            {canEditAttendance && (
+            {canEditAttendance && !isSavingAttendance && (
               <button
                 type="button"
                 onClick={onStartEditingAttendance}

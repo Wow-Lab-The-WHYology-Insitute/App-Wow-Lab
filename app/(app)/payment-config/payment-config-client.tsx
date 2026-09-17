@@ -54,12 +54,34 @@ export function PaymentConfigClient({
 }) {
   const t = useTranslations(paymentConfigDict);
 
+  const grids = [
+    { key: "trainer_grades", label: t("section_trainer_grades_title"), empty: trainerGrades.versions.length === 0 },
+    { key: "location_bonuses", label: t("section_location_bonuses_title"), empty: locationBonuses.versions.length === 0 },
+    { key: "language_bonuses", label: t("section_language_bonuses_title"), empty: languageBonuses.versions.length === 0 },
+    { key: "duration_multipliers", label: t("section_duration_multipliers_title"), empty: durationMultipliers.versions.length === 0 },
+    { key: "contract_type_uplifts", label: t("section_contract_type_uplifts_title"), empty: contractTypeUplifts.versions.length === 0 },
+  ];
+  const missingGrids = grids.filter((g) => g.empty);
+
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="font-display text-2xl text-brand-pink">{t("page_title")}</h1>
         <p className="font-body text-muted mt-1 text-sm">{t("page_subtitle")}</p>
       </div>
+
+      {missingGrids.length > 0 && (
+        <div className="flex flex-col gap-1 rounded-2xl border border-orange-200 bg-orange-50 px-5 py-4">
+          <span className="font-body text-sm font-medium text-orange-800">
+            {t("missing_grids_banner_line", { n: missingGrids.length, total: grids.length })}
+          </span>
+          <ul className="font-body list-disc pl-4 text-xs text-orange-700">
+            {missingGrids.map((g) => (
+              <li key={g.key}>{g.label}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <TrainerGradesSection orgId={orgId} creatorNameById={creatorNameById} {...trainerGrades} />
       <LocationBonusesSection orgId={orgId} creatorNameById={creatorNameById} {...locationBonuses} />
