@@ -723,10 +723,15 @@ element text content (it still legitimately appears once, in the hydration paylo
 `GroupInfoSection`'s own `clientId` prop -- used by the edit form's contract filtering, not
 displayed). (4) since `WOW LAB` (the real org, not Test Org B) holds zero `sessions` rows today
 (confirmed live, same finding as item 65) -- nothing in production exercises this branch yet --
-the identical branch was independently re-verified against `WOW LAB`'s own organization id and a
-real fixture trainer (`test+trainer-a@wowlab.dev`) via pure SQL impersonation, insert-then-rollback,
-no Auth API call and no `last_sign_in_at` touch
-(`scripts/verify_clients_mywork_visibility_wowlab_prod_org.sql`): PASS.
+the identical branch was independently re-verified against `WOW LAB`'s own organization id via pure
+SQL impersonation, insert-then-rollback, no Auth API call and no `last_sign_in_at` touch
+(`scripts/verify_clients_mywork_visibility_wowlab_prod_org.sql`): PASS. (5) after deploy, the same
+real-rendered-page check from (3) was re-run directly against `https://app.wowlab.ro`, real WOW LAB
+org, using `maxdigitalro+trainer@gmail.com` (a fixture account, not a named teammate --
+`test+trainer-a@wowlab.dev` was tried first and has no `auth.users` row at all, the same gap
+Cătălina/`test+user-b@wowlab.dev` had per item 22/DATABASE_CONVENTIONS.md §11, noted below as item
+70, not fixed here): 3/3, identical result to Test Org B. Fixture rows created and deleted by the
+script; `WOW LAB`'s own group/session/client counts confirmed unchanged (2/0/3) before and after.
 
 **Full RO/EN i18n:** `client_hidden` added to `groups/i18n.ts`.
 
@@ -922,6 +927,24 @@ server was not restarted by this session, since it wasn't this session's to rest
 server needs to be stopped: kill the exact PID returned when the process was started (`kill
 <pid>`), or resolve by the port it's actually bound to (`lsof -ti:3001 | xargs kill`) rather than by
 matching on a command string that every same-framework project on the machine shares.
+
+---
+
+### 70. Working note: `test+trainer-a@wowlab.dev` and `test+trainer-b@wowlab.dev` (WOW LAB) have no `auth.users` row
+
+Found verifying item 66's fix against the real `WOW LAB` org: `generateLink` for
+`test+trainer-a@wowlab.dev` failed with an empty error object. Checked live, not assumed: both
+`test+trainer-a@wowlab.dev` and `test+trainer-b@wowlab.dev` have a `public.users` row but no
+matching `auth.users` row -- the same gap `test+catalina@wowlab.dev`/`test+user-b@wowlab.dev` had
+(item 22, fixed per DATABASE_CONVENTIONS.md §11's `admin.auth.admin.createUser({id, ...})`
+procedure), just never hit before because nothing needed to sign in as either fixture until now.
+
+**Not fixed here** -- out of scope for the task that found it, and neither account was blocking
+anything: `maxdigitalro+trainer@gmail.com` (a real WOW LAB trainer fixture that does have an auth
+identity) was used instead for that verification. Same §11 procedure would fix these two if a
+future task needs to sign in as either.
+**Lives in:** item 22 (the same historical gap, other accounts); `DATABASE_CONVENTIONS.md` §11 (the
+fix procedure).
 
 ---
 

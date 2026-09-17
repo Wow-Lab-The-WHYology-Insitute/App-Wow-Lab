@@ -6,35 +6,41 @@
  * scripts/verify_clients_mywork_visibility.sql).
  *
  * No headless browser is available in this environment. Equivalent
- * verification: sign in as the real fixture trainer
- * (maxdigitalro+trainerb1@gmail.com, WOW LAB Test Org B) via a real
- * magiclink verifyOtp (same mechanism /auth/callback uses), carry the
- * resulting @supabase/ssr session cookie into a plain HTTP GET of the
- * actual page against a local `next dev` server, and read the initial
- * server-rendered HTML -- GroupHeader/GroupInfoSection are "use client"
- * but Next.js still SSRs them on first load, so the real rendered text is
- * present in this response, not just in a post-hydration DOM a screenshot
- * would show.
+ * verification: sign in as a real fixture trainer via a real magiclink
+ * verifyOtp (same mechanism /auth/callback uses), carry the resulting
+ * @supabase/ssr session cookie into a plain HTTP GET of the actual page,
+ * and read the initial server-rendered HTML -- GroupHeader/
+ * GroupInfoSection are "use client" but Next.js still SSRs them on first
+ * load, so the real rendered text is present in this response, not just
+ * in a post-hydration DOM a screenshot would show.
+ *
+ * Parameterized (env vars, defaults below match the original Test Org B
+ * run) so the identical check can also be pointed at the real WOW LAB org
+ * and https://app.wowlab.ro after deploy, using a `test+` fixture account
+ * there (test+trainer-a@wowlab.dev) rather than any real named teammate.
  *
  * Creates one client + one group + one session, all prefixed DRYRUN-VERIFY,
- * tied to Test Trainer B1 as trainer_principal_id. Deletes all three after.
- * Touches trainerb1's auth.users.last_sign_in_at (a fixture account used
- * for exactly this kind of scripted verification already, per
- * docs/progress.md item 67/70) -- not a real person, not a contamination
- * concern the way impersonating a real teammate's account would be.
+ * tied to the trainer as trainer_principal_id. Deletes all three after.
+ * Touches the trainer's auth.users.last_sign_in_at -- fine for a `test+`/
+ * fixture account used for exactly this kind of scripted verification
+ * already (docs/progress.md item 67/70), not a contamination concern the
+ * way impersonating a real teammate's account would be.
  *
- * Run:
+ * Run (Test Org B, local dev -- the original invocation):
  *   npx tsx --env-file=.env.local scripts/verify_group_detail_client_name_render_test_org_b.ts
  *
- * Prerequisite: a local `next dev` server already running on
- * NEXT_PUBLIC_SITE_URL (http://localhost:3000).
+ * Run (real WOW LAB org, production, after deploy):
+ *   VERIFY_ORG_NAME="WOW LAB" VERIFY_TRAINER_EMAIL="test+trainer-a@wowlab.dev" \
+ *   VERIFY_SITE_URL="https://app.wowlab.ro" \
+ *   npx tsx --env-file=.env.local scripts/verify_group_detail_client_name_render_test_org_b.ts
  */
 
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 
-const TRAINER_EMAIL = "maxdigitalro+trainerb1@gmail.com";
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const ORG_NAME = process.env.VERIFY_ORG_NAME ?? "WOW LAB Test Org B";
+const TRAINER_EMAIL = process.env.VERIFY_TRAINER_EMAIL ?? "maxdigitalro+trainerb1@gmail.com";
+const SITE_URL = process.env.VERIFY_SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 function admin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -49,7 +55,7 @@ async function main() {
   const { data: org, error: orgErr } = await a
     .from("organizations")
     .select("id")
-    .eq("name", "WOW LAB Test Org B")
+    .eq("name", ORG_NAME)
     .single();
   if (orgErr || !org) throw new Error(`Org lookup failed: ${orgErr?.message}`);
 
