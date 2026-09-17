@@ -209,6 +209,11 @@ export const groupsDict: Dictionary = {
     en: "Linked (not visible to your role)",
     ro: "Legat (nevizibil pentru rolul tău)",
   },
+  // Same shape as contract_hidden above -- a client is always linked
+  // (groups.client_id is not null), the id just isn't resolvable under
+  // the viewer's own RLS. Never falls back to the raw id (OPEN_ITEMS.md
+  // item 66).
+  client_hidden: { en: "Not visible to your role", ro: "Nevizibil pentru rolul tău" },
 
   // group-info-section.tsx's edit form (updateGroup) -- mirrors
   // clients/i18n.ts and contracts/i18n.ts's own edit/save/cancel/notes

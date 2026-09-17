@@ -32,7 +32,7 @@ export function GroupInfoSection({
 }: {
   groupId: string;
   clientId: string;
-  clientName: string;
+  clientName: string | null;
   module: string;
   deliveryFormat: string;
   schedulePattern: string | null;
@@ -83,7 +83,7 @@ export function GroupInfoSection({
         )
       }
     >
-      <Kv label={t("col_client")} value={clientName} />
+      <Kv label={t("col_client")} value={clientName ?? t("client_hidden")} />
       <Kv label={t("col_module")} value={t(`module_${module}`)} />
       <Kv label={t("kv_delivery_format")} value={t(`format_${deliveryFormat}`)} />
       <Kv label={t("col_schedule")} value={schedulePattern || "—"} />

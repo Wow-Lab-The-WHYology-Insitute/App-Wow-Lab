@@ -660,36 +660,84 @@ join); the `clients` table's own SELECT policy (its client-type segregation bran
 
 ---
 
-### 66. A trainer's own group detail page shows the raw client UUID, not the name -- found re-verifying the payroll fixes, pre-existing, not touched
+### 66. A trainer's own group detail page showed the raw client UUID, not the name — RESOLVED 2026-09-17, a scoped `mywork.*` branch added to `clients`
 
 Re-walking the payroll fixes as a trainer fixture (`maxdigitalro+trainerb1@gmail.com`) surfaced
 this live: `/groups/[id]`'s header and its "Client" row both read
 `78e6b320-ed9e-46d2-9d84-f3fed73abfc3` instead of the client's name, for a session the trainer is
-legitimately assigned to and allowed to view. Confirmed pre-existing, not a regression from this
-round's edits -- `git diff` on `app/(app)/groups/[id]/page.tsx` shows the one line responsible,
+legitimately assigned to and allowed to view. Confirmed pre-existing, not a regression from that
+round's edits -- `git diff` on `app/(app)/groups/[id]/page.tsx` showed the one line responsible,
 `const clientName = clientRow?.name ?? group.client_id;`, untouched by any of the five fixes.
 
 **Root cause, checked against `clients`' own SELECT policy (item 65 above quotes the same
 policy):** `is_platform_owner() OR org.settings.manage OR (clients.read AND not
 finance.operations.* AND not finance.reporting.*) OR (finance.operations.* AND client_type in
-(...)) OR (finance.reporting.* AND client_type not in (...))`. No branch admits `mywork.*` at all
--- a `trainer`/`senior_trainer` viewer cannot see any row in `clients`, ever, regardless of
-whether they're allocated to a session for that client. `clientRow` comes back `null`, and the
-existing fallback silently prints the id instead of erroring or saying "Unknown."
+(...)) OR (finance.reporting.* AND client_type not in (...))`. No branch admitted `mywork.*` at all
+-- a `trainer`/`senior_trainer` viewer could not see any row in `clients`, ever, regardless of
+whether they were allocated to a session for that client. `clientRow` came back `null`, and the
+existing fallback silently printed the id instead of erroring or saying "Unknown." This was RLS
+correctly refusing, not a display bug on its own -- `clients`' finance segregation was doing
+exactly what it was built to do; it had just never been asked to cover the trainer's own screen.
+The display code compounded it by treating a null lookup as "print the id," which is the part that
+was a bug regardless of the access answer.
 
-**Not fixed here -- out of the five asked for, and the same "don't graft a broad RLS branch onto a
-deliberately segregated table without a policy decision" caution as item 65 applies:** unlike the
-`users` gap (item 4 of this round, a plain oversight), this is `clients`' segregation design doing
-exactly what it was built to do, just never checked against the trainer's own screen before. A
-`mywork.*` branch scoped to "a client with a group the viewer has an allocated session in" (same
-session-scoped shape as the `users` fix's own `mywork.*` branch) is the likely correct fix, but is
-a policy addition, not a copy-paste of an existing pattern -- recorded for a deliberate decision,
-not applied unilaterally mid-round.
-**Re-verify when:** a trainer's group detail page is looked at again, or this is picked up as its
-own fix.
-**Lives in:** item 65 above (same `clients` policy, same caution); `app/(app)/groups/[id]/page.tsx`
-(`clientName`'s fallback); `app/(app)/groups/[id]/group-header.tsx`,
-`app/(app)/groups/[id]/group-info-section.tsx` (both render the same unresolved value).
+**Decision, argued, not just accepted: a trainer should see the name.** A trainer delivering a
+session already knows which client (school/venue) they're at -- withholding the name protects
+nothing they don't already have. Checked for a hidden cost before agreeing: `clients` carries no
+financial columns (`billing_rule` and friends live on `contracts`, already separately masked);
+its other columns (`client_type`, `business_line`, `status`, `external_crm_ref`, `notes`) are
+internal CRM bookkeeping already exposed row-wide to every other non-finance internal role via the
+existing `clients.read` branch -- nothing new rides along with the name. Against that, a raw UUID
+protects nothing either; it just reads as broken.
+
+**Fix, as an RLS branch, not a lookup workaround (`202609170001`):** a `mywork.*` branch on
+`clients`' SELECT policy, scoped to "a client with a group the viewer has an allocated session
+in" -- exactly the shape flagged as likely-correct when this item was first opened. Structurally
+mirrors `groups`' own existing `mywork.*` branch (nested nothing new), which matters per item 68's
+lesson directly above: the nested reads on `public.groups`/`public.sessions` use the identical
+condition those tables' own `mywork.*` branches already use for this exact viewer/capability pair,
+so nothing here can be silently narrowed to false the way `202609160001`'s `finance.operations.*`
+branch was -- confirmed, not just reasoned, per the dry run below.
+
+**A UUID must never render as a name, independent of the RLS answer.** `page.tsx`'s `clientName`
+now falls back to `null`, never to `group.client_id`. `GroupHeader`/`GroupInfoSection` (both `"use
+client"`, but still SSR'd on first load) render a translated placeholder --
+`t("client_hidden")`, "Not visible to your role" / "Nevizibil pentru rolul tău" -- the same
+`contract_hidden` shape this file already used for a masked contract link. Checked which roles
+could still hit the placeholder today: every role holding `groups.read` (`operations_manager`,
+`finance_operations`, `finance_admin_reporting`) also holds `clients.read` or a finance branch
+(confirmed against `seed.sql`'s grants), so nothing reachable today actually shows it -- it exists
+for correctness, not because a live gap remains.
+
+**Verified, in order:** (1) a transaction-scoped dry run
+(`scripts/verify_clients_mywork_visibility.sql`) applying the exact policy DDL then asserting,
+rolled back -- 4/4: principal sees the client, secundar sees the same client, an unrelated trainer
+(no session on the group) does not, the principal does not see a second, unrelated client. (2) the
+real migration pushed live (`db push --linked`). (3) the actual rendered page, not just the
+policy: a real `verifyOtp` sign-in as `maxdigitalro+trainerb1@gmail.com` in WOW LAB Test Org B,
+carried as an `@supabase/ssr` cookie into a plain HTTP GET of `/groups/[id]` against a local `next
+dev` server (no headless browser available in this environment) --
+`scripts/verify_group_detail_client_name_render_test_org_b.ts` confirms the real client name is
+the visible text in both the `<h1>` and the "Client" row, and that the raw id never appears as
+element text content (it still legitimately appears once, in the hydration payload, as
+`GroupInfoSection`'s own `clientId` prop -- used by the edit form's contract filtering, not
+displayed). (4) since `WOW LAB` (the real org, not Test Org B) holds zero `sessions` rows today
+(confirmed live, same finding as item 65) -- nothing in production exercises this branch yet --
+the identical branch was independently re-verified against `WOW LAB`'s own organization id and a
+real fixture trainer (`test+trainer-a@wowlab.dev`) via pure SQL impersonation, insert-then-rollback,
+no Auth API call and no `last_sign_in_at` touch
+(`scripts/verify_clients_mywork_visibility_wowlab_prod_org.sql`): PASS.
+
+**Full RO/EN i18n:** `client_hidden` added to `groups/i18n.ts`.
+
+**Lives in:** `supabase/migrations/202609170001_add_clients_mywork_visibility_branch.sql` and its
+rollback; `scripts/verify_clients_mywork_visibility.sql`,
+`scripts/verify_clients_mywork_visibility_wowlab_prod_org.sql`,
+`scripts/verify_group_detail_client_name_render_test_org_b.ts`; `app/(app)/groups/[id]/page.tsx`
+(`clientName`'s new `null` fallback), `group-header.tsx`, `group-info-section.tsx` (the translated
+placeholder), `groups/i18n.ts` (`client_hidden`); item 65 above (payroll's parallel, separate gap,
+still open, still inert); item 68 above (the general lesson this fix was checked against before
+being written).
 
 ---
 

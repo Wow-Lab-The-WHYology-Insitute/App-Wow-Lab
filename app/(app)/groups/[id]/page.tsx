@@ -248,7 +248,13 @@ export default async function GroupDetailPage({
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  const clientName = clientRow?.name ?? group.client_id;
+  // null, never group.client_id -- a raw id is not a display fallback
+  // (OPEN_ITEMS.md item 66: RLS legitimately filtering the client row is
+  // not the same fact as "no client", and must never render as an
+  // identifier). GroupHeader/GroupInfoSection translate null to a
+  // "not visible to your role" placeholder, same shape as contractVisible
+  // below.
+  const clientName = clientRow?.name ?? null;
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6">
