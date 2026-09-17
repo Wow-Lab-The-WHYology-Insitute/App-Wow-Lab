@@ -22,8 +22,13 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 
-const OWNER_EMAIL = "test+user-b@wowlab.dev";
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+// Parameterized (env vars, defaults match the original Test Org B run) so
+// the identical check can also be pointed at the real WOW LAB org and
+// https://app.wowlab.ro after deploy, using a `test+`/fixture owner
+// account there rather than any real named teammate.
+const OWNER_EMAIL = process.env.VERIFY_OWNER_EMAIL ?? "test+user-b@wowlab.dev";
+const SITE_URL = process.env.VERIFY_SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const EXPECT_NAME_ON_ADMIN_USERS = process.env.VERIFY_EXPECT_NAME ?? "Test Trainer B1";
 
 function admin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -63,7 +68,7 @@ async function main() {
   // own run) -- used here as the known-good name string to look for wherever
   // a page would plausibly surface it.
   const pages: { path: string; expectSubstring?: string }[] = [
-    { path: "/admin/users", expectSubstring: "Test Trainer B1" },
+    { path: "/admin/users", expectSubstring: EXPECT_NAME_ON_ADMIN_USERS },
     { path: "/groups" },
     { path: "/payment-config" },
     { path: "/payroll" },

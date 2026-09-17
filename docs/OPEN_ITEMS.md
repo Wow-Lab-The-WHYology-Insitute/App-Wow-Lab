@@ -1582,8 +1582,11 @@ enough to reach all six pages) fetched over HTTP -- `/admin/users` still shows "
 edit-form variant still puts an unsplit `full_name` ("Test Org B Owner", both structured columns
 null on that fixture) into the first-name input's `value` attribute with the last-name input empty
 -- the exact `editableNameFields` behavior, unchanged from before extraction
-(`scripts/verify_display_name_refactor_test_org_b.ts`). No i18n changes -- pure refactor, no new
-user-facing strings.
+(`scripts/verify_display_name_refactor_test_org_b.ts`). Deployed, then the identical check re-run
+live against `https://app.wowlab.ro`, real `WOW LAB` org, using `test+ui-owner@wowlab.dev` (a
+fixture, not a named teammate): all five pages 200, `/admin/users` correctly shows "QA Trainer"
+(a real trainer fixture's `full_name`, resolved through the shared function). No i18n changes --
+pure refactor, no new user-facing strings.
 
 **Lives in:** `lib/display-name.ts`; `app/(app)/admin/users/admin-users-client.tsx`,
 `app/(app)/groups/page.tsx`, `app/(app)/groups/[id]/page.tsx`,
