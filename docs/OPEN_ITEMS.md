@@ -948,7 +948,7 @@ fix procedure).
 
 ---
 
-### 71. A cleared blocker leaves no trace when the item describing it isn't revisited — the general form behind items 19, 39, and 45's corrections above
+### 71. A cleared blocker leaves no trace when the item describing it isn't revisited — the general form behind items 19, 39, and 45's corrections below
 
 2026-09-18. Three items above went stale the same way, within days of being written: item 19 said a
 migration hadn't been applied after it had; item 39 (findings 2, 3) and item 45 (part 1) said a
@@ -1101,10 +1101,138 @@ side. `ws-d-plan.md` is left unedited — the same standing choice this repo alr
 a false live claim was corrected by a new entry rather than by rewriting the original.
 
 **Lives in:** `docs/ws-d-plan.md` (lines 3, 100 — unedited); `docs/phase1-development-plan.md` §4,
-row 15 (the closure, unedited); item 57 above (the row-match-without-capability instance); item 68
+row 15 (the closure, unedited); item 57 below (the row-match-without-capability instance); item 68
 above (the silently-dead-branch instance); `phase1-development-plan.md`'s own broader staleness,
 addressed separately below — this closure's isolation from the rest of this register is one
 symptom of it, not the whole of it.
+
+---
+
+### 73. Costuri Admin (admin overhead cost tracking) — a real gap `phase1-development-plan.md` was the only place tracking, folded in from its row 6
+
+**What it is:** an admin-overhead cost-tracking module for Anka/Laura/Raluca, named in
+`docs/phase1-development-plan.md` row 6. Per that document (last touched 2026-08-10, its status now
+superseded — see item 75 below): rates were confirmed by Anca and applied to the mockup
+(`progress.md` #42-43, including a correction to Anka's own figures), with the row's own note
+reading *"Rămâne: construcție reală în Phase 1, confirmare că task-ul Asana chiar există."*
+("Remaining: real construction in Phase 1, confirm the Asana task actually exists.") Never built.
+
+**Checked live, not assumed from the old doc's status:** no table anywhere in `public` matches
+`%cost%` — `information_schema.tables` returns zero rows for any name resembling an admin-costs
+schema. Nothing exists for this today, not even a skeleton.
+
+**Not simply buildable, and not simply blocked on Anca either — a staleness question first.** The
+rates this row cites as "confirmed" were confirmed against the mockup-era cost model, over five
+weeks before the real Phase 1 domain rebuild (Clients & Contracts, Groups & Sessions, payment-config,
+payroll) replaced almost everything else that document described. Whether those specific figures,
+or the shape they'd have been entered in, still match what Anca would say today is unconfirmed —
+this item does not assume they're still current just because a prior document once said so, the
+same caution items 35/42/48 already established for old "confirmed" claims that turned out to need
+re-checking. Re-confirm before building, not because the answer is expected to differ, but because
+nothing here has checked.
+
+**Blocked on:** a re-confirmation with Anca that the 2026-08 figures (or a fresh set) still apply,
+then ordinary construction — no design blocker beyond that.
+**Lives in:** `docs/phase1-development-plan.md` row 6 (superseded, see item 75 below);
+`docs/progress.md` #42-43 (the original rate confirmation and correction).
+
+---
+
+### 74. Recruitment → Academy → Evaluation pipeline — the recruit/onboard/academy half is untracked anywhere; the evaluation half is item 23
+
+**What it is:** `docs/phase1-development-plan.md` row 7 names a full pipeline Anca drew herself
+(with ChatGPT, two diagrams) and had applied to the mockup: a candidate portal using real stage
+names (handover Anca→Cătălina, assisting, a test lesson, final decision), an onboarding tracker
+(contract, module allocation, resource access, quiz, certification), WLab Academy (real modules —
+Chemistry for Me, Detective Science, Green Week — with four states: allocated → access → quiz →
+certified), and a trainers "needs action" panel. §2 of that document also names offboarding as a
+real, acknowledged gap inside this same flow (*"nu atinge deloc ce se întâmplă când un trainer
+renunță"* — doesn't touch what happens when a trainer quits — a procedure Anca herself called
+"in progress" at the time, later answered per that document's own 2026-08-10 update: checklist,
+exit interview, access revocation, an "on pause" state, applied to the mockup only).
+
+**Distinct from item 23, checked precisely, not assumed to overlap.** Item 23 is the *evaluation*
+domain specifically — Happy Face bonuses, the LP writers' separate criteria matrix, replacement-rate
+reconciliation — and is already tracked, already blocked on Anca. This row is everything upstream of
+that: recruiting a candidate, onboarding them, and running them through the Academy's own
+module/quiz/certification flow. The two are adjacent, not the same — item 23 assumes a trainer
+already exists; this item is about how one comes to exist on the roster at all.
+
+**Checked live: none of it is modeled as a real table.** No `candidates` table exists anywhere
+(confirmed independently by the scheduled-execution mechanism entry above, for an unrelated reason —
+it needed to know whether any personal data existed to anonymize, and found none because this
+domain was never built). `candidate` and `community_people` are seeded capabilities
+(`supabase/seed.sql`) with no route behind either, the same shape item 56 already found for five of
+the trainer's own six capabilities. Everything Anca drew exists today only as mockup screens with
+static demo data.
+
+**Blocked on Anca, with a caveat this item states plainly rather than assumes past.** The flow
+itself is substantially designed already — unlike item 52's workshop gap, this isn't starting from
+nothing — but it was drawn before the real Phase 1 domain model existed (no `users`/`user_org_roles`
+shape to onboard *into*, at the time), and applied only to the mockup, never reconciled against the
+schema that actually shipped since. Building against the 2026-08 flow unchecked risks the same
+"described a workshop, schema models a group" mismatch item 52 found elsewhere — confirm the flow
+still matches before treating it as ready-to-build.
+
+**Blocked on:** Anca, to reconfirm the flow against the real schema before construction — not a
+fresh design question, a staleness check on an old one.
+**Lives in:** `docs/phase1-development-plan.md` row 7, §2, §3 (superseded, see item 75 below);
+`docs/progress.md` #37, #42; item 23 below (the adjacent, already-tracked evaluation domain); item
+56 below (the same unrouted-capability shape, on the trainer's own six); the scheduled-execution
+entry above (independent confirmation no `candidates` table exists).
+
+---
+
+### 75. `phase1-development-plan.md` checked row by row against the live codebase — marked superseded, not annotated row by row
+
+2026-09-18. Last verified 2026-08-10 by its own header — over five weeks before the real Phase 1
+domain rebuild (Clients & Contracts, Groups & Sessions, payment-config, payroll, this whole
+register) existed. Checked every row of its status table against the current codebase, the same
+pass `WOW_LAB_OS_AD_Reconciliation.md` already applied to the fifteen architecture decisions (item
+46 below).
+
+| # | Row | Verdict |
+|---|---|---|
+| 1 | Anka's financial visibility | Superseded — the mockup version this row describes is moot; the real RLS-based mechanism (`contracts_billing_masked`, `finance.reporting.*`) replaced it with something structurally different, not just a later copy. |
+| 2 | Flat 111 lei/oră base rate, editable in Settings | Superseded by something different in shape, not the same thing built for real — the actual system is six versioned, grade-based rate grids (item 20), not one flat editable number. |
+| 3 | Sales Manager billing-rule visibility + "client ONG" | Half superseded, half unconfirmed — billing-rule visibility for `clients.create` holders is real and live (`202608100006`). "Client ONG" has no trace in the live `client_type` enum (`private_school`, `state_school`, `corporate`, `parent_b2c`, `special_project`) — `special_project` is the closest plausible fit, not a confirmed mapping. Not chased further here. |
+| 4 | Franchise / Platform Owner cross-org stats | Never started, still accurately so — `is_platform_owner()` exists as the cross-org mechanism (item 27), but no stats surface was ever built. Same substance as item 1's cost-model gap, not a separate blocker. |
+| 5 | Trainer payment table structure | Superseded — carried forward into the real, far more developed payment-config schema (item 20), not a leftover gap. |
+| 6 | Costuri Admin | Real gap, untracked until now — folded in as item 73 above. |
+| 7 | Recruitment → Academy → Evaluation | Real gap (recruit/onboard/academy half), untracked until now — folded in as item 74 above. The evaluation half is item 23, already tracked. |
+| 8 | Trainer Profile & Performance | Superseded by a later, more thorough investigation — item 53 checked this exact ground in far more depth (found the mockup's own "Zone" column explicitly rejected in writing, hours sourced externally from Toggl, no certifications table despite seeded grants) and is the current source, not this row. |
+| 9 | Lesson-plan taxonomy / "Tip Atelier" | Split — the 13-module taxonomy this row describes was carried forward for real (`public.modules`, confirmed live at exactly 13 rows). The ~300-real-plan lesson catalog this row also references was never modeled as a table and remains mockup-only — the still-open half is item 45 part 3, not a new gap. |
+| 10 | Trainer principal/secundar per group | Implemented as described, and then some — `sessions.trainer_principal_id`/`trainer_secundar_id` are live and load-bearing across items 45, 57, 67; the real per-workshop role-assignment process is now also documented (`docs/WOWLAB_Spec_Trainer_Principal_Secundar.md`). The row marked this 🔴 with no Asana task; it shipped anyway. |
+| 11 | Billing-code generator / trainer pay, separated | Split — "Plată traineri" (pay execution: confirmation, month close) is built (item 45). "Generator cod facturare" is not — still open, still correctly cited from item 39 finding 4, unaffected by this entry. |
+| 12 | S3 brand shell | Implemented as described, still standing — foundational UI work, unrelated to and untouched by anything since. |
+| 13 | Favicon | Done, contrary to this row's "⚪ unconfirmed" — `public/wow-lab-fav.png` exists and is wired into `app/layout.tsx`'s real metadata, confirmed live. |
+| 14 | `/auth/callback` anti-scanner confirmation page | Never started, still open, no longer hypothetical — item 28's own investigation later found a real, plausible instance of exactly the failure this row was hedging against (a mail client prefetching and consuming a single-use link), without proposing this row's own mitigation. Not folded into a new item — small enough to note directly against item 28 instead. |
+| 15 | Developer security review gate | Covered in full by item 72 above — not repeated here. |
+| 16 | Repo visibility, return to private | Already tracked as item 16, which didn't carry this row's own two-part reopening trigger (Vercel Pro upgrade AND a more mature app stage) — folded into item 16 directly rather than duplicated here. |
+
+**The argued verdict: mark the document superseded, don't annotate every row in place.** Fourteen of
+sixteen rows are either done (1, 2, 3's billing-rule half, 5, 9's module half, 10, 12, 13), already
+tracked under their own `OPEN_ITEMS.md` number (4's substance folds into item 1, 15 → item 72, 16 →
+item 16), or superseded by later, more thorough work in this same register (8 → item 53, 9's
+lesson-plan half → item 45 part 3, 11 → items 39/45 split). Only two rows (6, 7) named a real gap
+this register didn't already carry, and both are now items 73 and 74. Annotating all sixteen rows
+in place, inside a document whose own organizing frame (a mockup-era Phase 1 plan, pre-dating the
+domain-by-domain rebuild this register tracks) no longer matches how work here actually gets
+recorded, would mean maintaining two registers doing the same job — exactly the failure item 64
+already found in `progress.md`'s own abandoned Snapshot table, and the reason that table was left
+as marked history rather than kept current. A short superseded banner, added to the top of
+`phase1-development-plan.md` without editing anything below it (the file's own stated convention —
+*"Când se închide, se marchează ✅ și rămâne ca istoric — nu se șterge"*, close and keep as history,
+don't delete), does the same job at a fraction of the maintenance cost, and points at exactly one
+place — this file — for anyone who needs current status going forward.
+
+**Small enrichments made alongside this, not separate items:** item 16 gained row 16's own
+reopening trigger; item 28 gained a short note on row 14's proposed mitigation.
+
+**Lives in:** `docs/phase1-development-plan.md` (superseded banner, top of file); item 46 below (the
+AD reconciliation this pass mirrors); items 73, 74 above (the two rows that survived); item 16, item
+28 (the two small enrichments); item 20, item 23, item 39, item 45, item 53, item 72 (the items that
+absorbed the rest).
 
 ---
 
@@ -1503,7 +1631,7 @@ invocation (Raluca Margean, per the gap above) before moving to the next; no fai
 **Header corrected 2026-09-18 — the body was never wrong, only the title above it.** By the time
 this item's later addenda landed (2026-09-03 through 2026-09-08), all seven of the originally-named
 missing members had real accounts, and the header still read the original finding as current. This
-is a milder case than item 19's or item 39's above: nothing here asserted a false fact anywhere in
+is a milder case than item 19's above or item 39's below: nothing here asserted a false fact anywhere in
 the body — every dated addendum was accurate when written — the title alone stopped describing the
 item underneath it and nobody revisited it once the last addendum closed the gap. Retitled to say
 so plainly rather than rewritten to imply this was always resolved cleanly.
@@ -1737,8 +1865,19 @@ account, no fixture cleanup needed, per the reproduction above).
 
 **No fix proposed here** — do not act.
 
+**Noted 2026-09-18, folded in from `docs/phase1-development-plan.md` row 14 (now superseded, see
+item 75 above), not a proposal made here.** That row named a possible mitigation for exactly this
+failure shape before this item ever found a real instance of it: an interstitial confirmation page
+on `/auth/callback` (a real click required before the token is consumed, rather than consuming it
+on first load) — the standard countermeasure against exactly the link-prefetch/scanner cause named
+above. Recorded then as `⚪ neconfirmat, opțional`, with no report of it ever being built, and
+nothing since has built it either. This item's own finding gives that old, low-priority row a real
+case behind it that didn't exist when it was written — still not a proposal to build it, only a
+pointer so the two don't stay disconnected.
+
 **Lives in:** `app/auth/callback/route.ts`; `lib/supabase/middleware.ts`; `supabase/templates/
-invite.html`; `app/login/page.tsx` (the banner, from `8d00681`).
+invite.html`; `app/login/page.tsx` (the banner, from `8d00681`); `docs/phase1-development-plan.md`
+row 14 (superseded, the mitigation this note points at).
 
 ---
 
@@ -4178,6 +4317,13 @@ Hobby-plan restriction (private org repos can't auto-deploy on Hobby) — no
 Vercel CLI auth was available in this environment to re-check the current
 plan. This half is carried over from an established prior finding, not
 freshly verified here.
+
+**Reopening trigger, folded in 2026-09-18 from `docs/phase1-development-plan.md` row 16 (now
+superseded, see item 75 above) — this file's own text never carried it:** return to private when
+**both** (a) the Vercel plan upgrades past Hobby, **and** (b) the app reaches a more mature stage —
+Mihai's own stated condition, an explicit "and," not "either." Neither half checked as met here;
+recorded so the condition lives in the current register instead of only in a document marked
+superseded.
 **Lives in:** prior session record (Vercel↔GitHub integration work); GitHub
 API confirms the visibility half live.
 
