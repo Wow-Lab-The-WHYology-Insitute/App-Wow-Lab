@@ -1086,49 +1086,96 @@ closure. This item is the first place the two documents have ever been read agai
 register.** `phase1-development-plan.md` is itself last verified 2026-08-10, its own staleness
 addressed separately below — written and closed before virtually all of the domain-specific RLS
 this register now tracks existed (Clients & Contracts, Groups & Sessions, payment-config, payroll
-all shipped after it). `OPEN_ITEMS.md`
-has never mentioned this closure decision until now, despite tracking two concrete, later instances
-of exactly the failure mode `ws-d-plan.md`'s own text warns a developer review exists to catch:
-item 57 (a row match shipped without its paired capability check, passed its own 5/5 assertion
-suite, caught only by re-reading the policy against its sibling) and item 68 (a branch that
-"applied cleanly on `db push`, and evaluated to `false` for every caller it was written for,
-unconditionally," also passed its own verification script's initial read and was caught only by a
-second, more adversarial pass). Both happened after 2026-08-07. Both are the specific scenario the
-closure's own risk calculus had no evidence about yet, because neither had happened when it was
-written.
+all shipped after it).
 
-**Reported, not decided: does the 2026-08-07 reasoning still hold, or was it made about a different
-situation?** Real arguments on both sides, not resolved here —
+**Corrected 2026-09-18 — the failure mode has happened three times, not two, and the earliest of
+the three predates both items already cited here by weeks.** Checked directly, not assumed from
+memory of items 57/68 alone: `202608120002`'s avatar-read Storage policy, shipped 2026-08-12 — five
+days after the closure — read `public.user_org_roles` inline for `app.belongs_to_org()`, subject to
+that table's own RLS, and denied every non-platform-owner caller outright. Its own fix
+(`202608120003`) states the cause plainly: *"found via live testing (not assumed) immediately after
+applying it"* — a person clicking around, not the cited test suite, not any suite. This instance
+was never recorded anywhere in this register until now. Together with item 57 (a row match shipped
+without its paired capability check, 2026-09-10/11) and item 68 (a branch that "applied cleanly on
+`db push`, and evaluated to `false` for every caller it was written for, unconditionally,"
+2026-09-16/17) — three confirmed instances, spanning the full five weeks since the closure, the
+first one five days after it, none caught by the suite the closure cites, all caught by a person
+reading a specific policy by hand, once, after the fact.
 
-- **Against it still holding, as written:** the RLS surface it was evaluated against was WS-D's own
-  original scope — cross-org isolation, own-data, OD-7, finance segregation, capability wildcard
-  matching (`ws-d-plan.md`'s own five "Reguli WS-D") — a fraction of what exists today across five
-  domains and dozens of migrations. The specific risk the closure accepted ("a subtly wrong policy
-  passes all tests if the test itself is subtly wrong") is no longer hypothetical; it has now
-  happened twice, on record, in this exact register, neither time caught by an assertion suite.
-  Confidence priced in against a smaller, then-clean surface doesn't automatically transfer to a
-  larger surface with two confirmed misses on it.
-- **For it still holding:** the decision's stated alternative was never "review vs. no review" in
-  the abstract — it was "review vs. no review, because no developer exists to run one"
-  (`ws-d-plan.md`'s own parenthetical: *"nu avem developer acum"*). If that constraint is still
-  true today, the choice architecture hasn't changed regardless of how much RLS surface has grown
-  since — the comparison is still against nothing, not against an available review being skipped.
-  Whether a developer is reachable now is a fact only Mihai has, not something checkable from this
-  repo. Separately: items 57 and 68 were each caught, eventually, by exactly the kind of close
-  re-reading `ws-d-plan.md` says only a developer review can guarantee — informally, by the same
-  session rather than an independent second party, but not zero compensating control either.
+**The cited test suite, checked directly rather than trusted by name.** `db/tests/rls_ws_d_read.sql`
+and `db/tests/rls_ws_d_write.sql` are the "12/12 + 8/8" suite — their own header comments name the
+exact two July migrations they test, and counting their own assertion blocks lines up with those
+figures. Git history: one commit each, both 2026-07-10, never touched again — not once, through all
+22 migrations that have touched `CREATE POLICY`/`DROP POLICY` since the closure. They know nothing
+of `clients`, `contracts`, `groups`, `sessions`, payment-config, or payroll, none of which existed
+when they were written. `db/tests/rls_clients_contracts.sql` (created 2026-08-10/11) and
+`db/tests/rls_groups_sessions.sql` (created 2026-08-13) each got commits only during their own
+construction week and never again — six more migrations to `clients`/`contracts`/`client_contacts`
+policies and five more to `groups`/`sessions` policies have shipped since, none reflected in either
+file. `suppliers`, payment-config, and payroll have no test file in `db/tests/` at all, ever; every
+verification of `users`' own repeatedly-revised visibility policy was a one-off `scripts/verify_*.sql`,
+run once by hand. No runner exists anywhere for `db/tests/` — every file's own header says "run
+block-by-block in the SQL Editor." The suite the closure names has not run against anything built
+since, and nothing has stood in for it as a maintained, re-run mechanism.
+
+**What a real review would examine today that nothing currently does — audited, not assumed, by
+searching every `CREATE POLICY` for an inline cross-table read (the exact shape all three known
+bugs share) instead of a `SECURITY DEFINER` helper call.** Two live, currently-unverified candidates
+beyond the three already-fixed instances:
+- `contracts` and `client_contacts`'s own SELECT policies (`202608100003`, `202608250001`) each
+  have a `finance.operations.*`/`finance.reporting.*` branch reading `public.clients.client_type`
+  inline, checking `client_type in ('private_school', 'parent_b2c')`. Safe today only because that
+  exact two-value list is hand-written separately in three places — those two policies and
+  `clients`' own — with nothing keeping them in sync but discipline. A single edit to any one of the
+  three, without the other two, goes silently wrong in whichever direction the drift runs.
+- `users`' own UPDATE policy (`202607100004`, unedited since July) has an `org.members.manage`
+  branch reading `user_org_roles` inline, which itself needs `org.members.read` to return anything.
+  Safe today only because `org.members.manage` is never granted to any role except
+  `organization_owner`, who holds `org.members.read` too — via the same dynamic "all capabilities"
+  grant, not because the two are related. A future role holding `org.members.manage` alone (a
+  plausible want: "can edit membership, not browse the whole roster") would silently lose the
+  ability to edit anyone, the identical shape as the avatar bug above.
+
+One checked and ruled out: `sessions`' UPDATE policy reads `payroll_periods` inline for its
+month-close check (`202609150002`) — deliberately safe, not coincidentally. `payroll_periods`' own
+SELECT policy explicitly grants `mywork.*` read, with a comment stating exactly why. The one place
+in the schema this risk was reasoned about at write time, not discovered after.
+
+**Whether the 2026-08-07 reasoning still holds — sharper than "arguments on both sides," reported,
+not decided.** The decision was explicitly a judgment about *the state of the work* — its own text
+never mentions data timing or "revisit once real data arrives," only "pe baza a ce există deja"
+(on the basis of what already exists): the test suite's pass count and three caught bugs, offered as
+proof the real-user-testing discipline works. That framing was meant to be durable, not a stopgap —
+which is exactly what makes the finding above load-bearing: the specific evidence it cited has been
+directly contradicted on its own terms, three times, the earliest five days after the ink dried,
+none caught by the suite named as the reason. Re-run today, that suite still passes 12/12 + 8/8 —
+nothing in it changed — so in the narrowest sense the cited evidence is still true. The conclusion
+drawn from it is not: "this discipline catches what a developer review exists to catch" is the part
+three dated, real, previously-uncounted instances now contradict. Separately, and independent of
+that: the decision's other framing — "review vs. no review, because no developer exists to run one"
+(`ws-d-plan.md`'s own *"nu avem developer acum"*) — turns on a fact only Mihai has, not something
+checkable from this repo. If that constraint is unchanged, the choice architecture is unchanged
+regardless of the RLS surface's growth; if it isn't, this decision was never re-weighed against the
+option it originally had none of.
 
 **This is Mihai's decision, and possibly Anca's — not resolved by this entry.** What this entry
-fixes is that the register was silent about the contradiction existing at all; it does not pick a
-side. `ws-d-plan.md` is left unedited — the same standing choice this repo already made for
-`202608270001`'s comment on the retention job in the top entry of this file, where a document with
-a false live claim was corrected by a new entry rather than by rewriting the original.
+fixes is that the register was silent about the contradiction, and undercounted the evidence, until
+now. It does not pick a side. `ws-d-plan.md` is left unedited — the same standing choice this repo
+already made for `202608270001`'s comment on the retention job in the top entry of this file, where
+a document with a false live claim was corrected by a new entry rather than by rewriting the
+original.
 
 **Lives in:** `docs/ws-d-plan.md` (lines 3, 100 — unedited); `docs/phase1-development-plan.md` §4,
-row 15 (the closure, unedited); item 57 below (the row-match-without-capability instance); item 68
-above (the silently-dead-branch instance); `phase1-development-plan.md`'s own broader staleness,
-addressed separately below — this closure's isolation from the rest of this register is one
-symptom of it, not the whole of it.
+row 15 (the closure, unedited); `db/tests/rls_ws_d_read.sql`, `rls_ws_d_write.sql` (the cited suite,
+frozen since 2026-07-10), `rls_clients_contracts.sql`, `rls_groups_sessions.sql` (the two
+domain suites, each frozen at its own construction week); `supabase/migrations/202608120002_org_scope_avatar_read_policy.sql`,
+`202608120003_fix_avatar_read_policy_via_shares_org_helper.sql` (the third, earliest instance, newly
+recorded here); `supabase/migrations/202608100003_add_clients_contracts_rls_policies.sql`,
+`202608250001_client_contacts_row_filters_and_notes_grant.sql`, `202607100004_add_write_policies_ws_d_d1b.sql`
+(the two live unverified candidates); `202609150002_add_sessions_confirmation_columns_and_rls.sql`
+(the one checked and ruled safe); item 57 below (the second instance); item 68 above (the third
+instance); `phase1-development-plan.md`'s own broader staleness, addressed separately below — this
+closure's isolation from the rest of this register is one symptom of it, not the whole of it.
 
 ---
 
