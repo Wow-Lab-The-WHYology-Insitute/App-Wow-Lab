@@ -1024,6 +1024,90 @@ RLS narrowing — also caught only by re-deriving the investigation, not by any 
 
 ---
 
+### 72. The WS-D developer-review gate — two documents disagree on whether it's open, and neither was ever told about the other
+
+2026-09-18. Real school data entered production this month — three signed contracts, two real
+groups. Two documents make claims about what that was supposed to require, and they don't agree.
+
+**`docs/ws-d-plan.md`, quoted in full, the relevant lines:** line 3 — *"Poarta de review de
+developer e **amânată** (nu avem developer acum) → WS-D **nu** se declară „sigur" doar pe baza
+testelor; construim cu grijă și etichetăm riscul."* Line 100 — *"RLS pică **în tăcere**: o politică
+subtil greșită trece toate testele dacă și testul e subtil greșit. Fără review de developer, WS-D e
+„construit cu grijă și testat", **nu** „garantat etanș". Mergem înainte pe fazele de construcție,
+dar **înainte de a pune date reale de școli/copii în producție**, poarta asta trebuie trecută."*
+Unconditional, present tense, no date, never edited since.
+
+**`docs/phase1-development-plan.md` §4 / row 15, quoted in full — what the closure actually rested
+on:** *"Decizie finală (2026-08-07): gate-ul formal de review extern de developer NU se mai face —
+Mihai a ales conștient să meargă mai departe fără el, pe baza a ce există deja: suita de teste RLS
+(12/12 + 8/8 asertări, cu test de sabotaj funcțional), plus cele 3 descoperiri de mai sus găsite
+organic, cu dovadă live, nu ipotetic. Rândul #15 din tabelul de mai sus e închis oficial cu acest
+raționament, nu doar amânat."* The "3 descoperiri," named in full just above that sentence in the
+same document: the Members table reading empty (a PostgREST foreign-key ambiguity, never previously
+verified as an error) — fixed; every DELETE on the 4 audited tables being silently cancelled by an
+old trigger bug, meaning the "remove a role" action in `/admin/users` had never once worked
+correctly — fixed, checked twice independently, including a historical audit confirming no real
+user had ever actually been affected by it; invited-but-unconfirmed users being structurally unable
+to sign in through the public form (`disable_signup`, not rate-limiting) — fixed by direct
+reinvitation. Plus a separate end-to-end pass across all 7 real accounts at the time (role, nav,
+capabilities, RPC spot-checks, 7/7, confirmed manually by Mihai).
+
+**The timeline, checked precisely, not assumed close.** The closure is dated 2026-08-07. The
+earliest real client in production today, Lycée Français, is dated 2026-09-10 — roughly five weeks
+later. The decision was made *before* the condition `ws-d-plan.md` names, not in response to it.
+`ws-d-plan.md` itself carries no date anywhere in the file and was never edited to reference the
+closure. This item is the first place the two documents have ever been read against each other.
+
+**Neither document was ever told about the other, and neither is referenced anywhere else in this
+register.** `phase1-development-plan.md` is itself last verified 2026-08-10, its own staleness
+addressed separately below — written and closed before virtually all of the domain-specific RLS
+this register now tracks existed (Clients & Contracts, Groups & Sessions, payment-config, payroll
+all shipped after it). `OPEN_ITEMS.md`
+has never mentioned this closure decision until now, despite tracking two concrete, later instances
+of exactly the failure mode `ws-d-plan.md`'s own text warns a developer review exists to catch:
+item 57 (a row match shipped without its paired capability check, passed its own 5/5 assertion
+suite, caught only by re-reading the policy against its sibling) and item 68 (a branch that
+"applied cleanly on `db push`, and evaluated to `false` for every caller it was written for,
+unconditionally," also passed its own verification script's initial read and was caught only by a
+second, more adversarial pass). Both happened after 2026-08-07. Both are the specific scenario the
+closure's own risk calculus had no evidence about yet, because neither had happened when it was
+written.
+
+**Reported, not decided: does the 2026-08-07 reasoning still hold, or was it made about a different
+situation?** Real arguments on both sides, not resolved here —
+
+- **Against it still holding, as written:** the RLS surface it was evaluated against was WS-D's own
+  original scope — cross-org isolation, own-data, OD-7, finance segregation, capability wildcard
+  matching (`ws-d-plan.md`'s own five "Reguli WS-D") — a fraction of what exists today across five
+  domains and dozens of migrations. The specific risk the closure accepted ("a subtly wrong policy
+  passes all tests if the test itself is subtly wrong") is no longer hypothetical; it has now
+  happened twice, on record, in this exact register, neither time caught by an assertion suite.
+  Confidence priced in against a smaller, then-clean surface doesn't automatically transfer to a
+  larger surface with two confirmed misses on it.
+- **For it still holding:** the decision's stated alternative was never "review vs. no review" in
+  the abstract — it was "review vs. no review, because no developer exists to run one"
+  (`ws-d-plan.md`'s own parenthetical: *"nu avem developer acum"*). If that constraint is still
+  true today, the choice architecture hasn't changed regardless of how much RLS surface has grown
+  since — the comparison is still against nothing, not against an available review being skipped.
+  Whether a developer is reachable now is a fact only Mihai has, not something checkable from this
+  repo. Separately: items 57 and 68 were each caught, eventually, by exactly the kind of close
+  re-reading `ws-d-plan.md` says only a developer review can guarantee — informally, by the same
+  session rather than an independent second party, but not zero compensating control either.
+
+**This is Mihai's decision, and possibly Anca's — not resolved by this entry.** What this entry
+fixes is that the register was silent about the contradiction existing at all; it does not pick a
+side. `ws-d-plan.md` is left unedited — the same standing choice this repo already made for
+`202608270001`'s comment on the retention job in the top entry of this file, where a document with
+a false live claim was corrected by a new entry rather than by rewriting the original.
+
+**Lives in:** `docs/ws-d-plan.md` (lines 3, 100 — unedited); `docs/phase1-development-plan.md` §4,
+row 15 (the closure, unedited); item 57 above (the row-match-without-capability instance); item 68
+above (the silently-dead-branch instance); `phase1-development-plan.md`'s own broader staleness,
+addressed separately below — this closure's isolation from the rest of this register is one
+symptom of it, not the whole of it.
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
