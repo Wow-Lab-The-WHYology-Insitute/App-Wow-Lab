@@ -948,6 +948,82 @@ fix procedure).
 
 ---
 
+### 71. A cleared blocker leaves no trace when the item describing it isn't revisited — the general form behind items 19, 39, and 45's corrections above
+
+2026-09-18. Three items above went stale the same way, within days of being written: item 19 said a
+migration hadn't been applied after it had; item 39 (findings 2, 3) and item 45 (part 1) said a
+capability gap was blocking real work, three days before a migration and an action closed exactly
+that gap. In every case, the blocker cleared as a side effect of *other* work — done for its own
+stated reason, correctly, and verified against its own goal — that happened to also satisfy a
+sentence sitting in a different, unrelated part of this file. Nobody writing that other work
+cross-checked it against the register; nobody re-reading the register afterward cross-checked it
+against the code. Named, when this correction was requested, as this shape's fourth appearance —
+counting across the register's whole history, not just this correction pass. The clearest prior
+instance on record is item 29: the register describing its own trigger condition as unmet after the
+code had already met it. This entry is a variant of that same failure, not a repeat of it — item 29
+was the register lagging *itself*; this is the register lagging work that had no reason to know an
+open item existed at all.
+
+**Why nothing catches it on its own.** The blocked-on claim and the code that clears it are not
+mechanically connected in any way — the only place a migration and an `OPEN_ITEMS.md` paragraph
+about it are ever in the same field of view is a human's head, at the moment one of them is
+written, and that connection decays the instant attention moves elsewhere. Nothing fails: the
+thing the item said was blocked (`children_billed`'s derivation, in this case) was never built, so
+there's no broken code anywhere to surface an error. Nothing warns: `db push` succeeding, `tsc`
+passing, and a migration's own dry-run script going green all test whether the *new* code does what
+it was written to do — none of them know or care that a sentence in a markdown file was describing
+the state they just changed. And a stale paragraph is typographically identical to a current one —
+bold headers, checked-live citations, dated commits — so a reader has no visual signal that this
+particular one needs re-verifying before being trusted.
+
+**Proposed, not built — three different strengths of catch, honestly rated:**
+
+1. **A narrow, mechanical check for claims that are already a single checkable fact.** Item 19's
+   "not yet applied to production" is exactly this shape — a script could extract every migration
+   filename `OPEN_ITEMS.md` cites as unapplied/pending and diff it against `supabase migration
+   list --linked`'s own output, flagging any mismatch. Cheap, close to free to run, and would have
+   caught item 19 specifically. It would **not** have caught items 39/45 — "nobody can record
+   session attendance on any layer" isn't a single fact with an existence check; it's a claim about
+   the current wiring of RLS, a capability grant, and an action's own column scope, considered
+   together. A narrower version of this same idea — grepping for whether a function/action name an
+   item names as *missing* has since appeared anywhere in `app/` or `supabase/migrations/` — is a
+   plausible partial catch for the 39/45 shape specifically, but it's a heuristic, not a proof: it
+   would flag `updateSessionAttendance` appearing after item 39 named the gap it fills, but it
+   can't tell a real fix from a same-named decoy, and it says nothing about claims that never named
+   a function at all.
+2. **A discipline, not a tool: whoever ships something that touches a table/action/RLS policy
+   already cited in an open item's "Lives in" list greps this file for that name before merging.**
+   This would have caught both — `202609110002`'s own migration comment already quotes item 39's
+   reasoning back nearly verbatim, which means whoever wrote it *had* item 39's finding in view at
+   the moment of the fix and simply didn't complete the loop back into this file. The gap wasn't
+   not-knowing; it was not-closing-the-loop. This is real and cheap when it happens, but it depends
+   entirely on someone remembering to do the second half of a two-part habit under time pressure —
+   which is the identical failure mode that produced the gap in the first place, just one level up.
+3. **Periodic re-reading of the whole register against live code — what actually caught all three
+   instances above, and what item 64 already established is nobody's standing job once the writing
+   stops.** This is the honest floor, not a fallback: for a claim like finding 2's ("nobody can
+   record attendance, on any layer"), confirming or refuting it requires re-deriving the same
+   cross-cutting investigation (RLS policy, capability grant, action, UI) that produced it in the
+   first place. A mechanical check for that claim would have to reimplement that investigation, on
+   a schedule, against a moving target — which is not meaningfully different from a person doing
+   it, just automated. **Said plainly, since it was asked for plainly: for claims narrower than
+   "does this specific named thing exist," the honest answer is nothing automatic — only
+   re-reading, by someone or something willing to re-derive the investigation, not just re-parse
+   the prose.**
+
+**No mechanism proposed here is being built** — recorded as a decision surface for whoever next
+decides this is worth the cost, the same way item 26 and item 49 record real gaps without
+proposing fixes to them.
+
+**Lives in:** item 19, item 39, item 45 below (the three corrections this generalizes — later in
+file order, earlier in item number, an artifact of this file's own convention of adding new items
+near the top of its most-recent block rather than renumbering); item 29 below (the closest prior
+instance, from the opposite direction — the register's own trigger condition, not a blocker cleared
+by someone else's unrelated work); item 68 above (a different member of the same family — silent
+RLS narrowing — also caught only by re-deriving the investigation, not by any test that passed).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
@@ -1019,7 +1095,7 @@ avoid repeating); `docs/progress.md` entries 56 and the line-459 entry (prior
 state); this conversation (source of the answers, until written up
 elsewhere).
 
-### 19. `groups.contract_id` — a known-null column, deliberately
+### 19. `groups.contract_id` — CORRECTED 2026-09-18: applied and in real use; this item's own text said otherwise
 
 The full architecture for item 2 above is now written up:
 `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md`, with `groups.contract_id`
@@ -1049,9 +1125,33 @@ once someone confirms what they actually are. It's also possible they turn
 out to be verification residue themselves, same category as the pending-
 invites accounts in item 18 — that determination hasn't been made, and
 this column staying null is not evidence either way.
+
+**Corrected 2026-09-18, checked live, not assumed from the text above.**
+"Not yet applied to production" was wrong by the time it was read again —
+`supabase migration list --linked` shows `202608290001` applied, both
+directions, and `information_schema.columns` confirms `groups.contract_id`
+exists live, nullable `uuid`. The backfill discussion above is doubly
+obsolete, not just outdated: the 4 groups it describes no longer exist
+(they were Cambridge School seed residue, purged by the "Seed data cannot
+be reliably distinguished from real data" entry above, before this
+correction was written), and the groups that exist today are real —
+`WOW LAB` now holds 2 groups, both for Lycée Français, both carrying a
+real, non-null `contract_id` pointing at the signed contract, set through
+the create-group form's own `contract_id` field (`docs/progress.md` entry
+71's work, not this file's own item 71 above — the two share a number by
+coincidence, not by reference). The
+"re-verify/revisit when" condition above ("real client/contract data
+exists for a client that actually has groups") has been met, and the
+answer is: the mechanism already works, unattended, no hand-set values
+needed. Nothing here needed building or deciding — the column, the
+migration, and the write path were already correct; only this item's own
+sentence describing them was wrong, at least by the time anyone read it
+again.
 **Lives in:** `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §6.2, §10;
 `supabase/migrations/202608290001_groups_contract_id.sql`;
-`scripts/verify_groups_contract_id.sql`.
+`scripts/verify_groups_contract_id.sql`; the "Seed data cannot be reliably
+distinguished from real data" entry above (why the 4 original groups no
+longer exist to be null).
 
 ### 20. Payment configuration grids — six now, one seeded, five still empty
 
@@ -1169,7 +1269,7 @@ existing no-section precedent); `app/(app)/layout.tsx`
 (`canManagePaymentConfig`, the FINANȚE nav gate fix); item 22 and item 23
 below (the accounts blocker and the evaluation domain, respectively).
 
-### 22. Five of seven named team members have no account at all
+### 22. Five of seven named team members have no account at all — HEADER CORRECTED 2026-09-18, body already tracked the resolution
 
 Checked directly against every row in `public.users` and `auth.users` this session — not a
 name-pattern guess that could miss a variant spelling. Of seven people named across this project's
@@ -1315,6 +1415,14 @@ not sent a second link that day; sent one more anyway that same day as a safety 
 recorded above. The remaining seven — Cătălina, Laura, Alexandra, Teodora, Răzvan, Luiza Mirt,
 Raluca Margean — each confirmed individually via the real admin UI (six of seven) or direct
 invocation (Raluca Margean, per the gap above) before moving to the next; no failures.
+
+**Header corrected 2026-09-18 — the body was never wrong, only the title above it.** By the time
+this item's later addenda landed (2026-09-03 through 2026-09-08), all seven of the originally-named
+missing members had real accounts, and the header still read the original finding as current. This
+is a milder case than item 19's or item 39's above: nothing here asserted a false fact anywhere in
+the body — every dated addendum was accurate when written — the title alone stopped describing the
+item underneath it and nobody revisited it once the last addendum closed the gap. Retitled to say
+so plainly rather than rewritten to imply this was always resolved cleanly.
 
 **Lives in:** `public.users`, `auth.users`, `user_org_roles` (live data); item 18 above
 (related finding, same underlying data); `WOWLAB_SAD_Contracte_Trainer_Furnizor.md` Appendix A (the
@@ -1937,7 +2045,7 @@ the same way this one eventually was: by checking, not by noticing.
 
 ---
 
-### 36. Permanent-group assignments — a count of four, pending one confirmation that may make it five
+### 36. Permanent-group assignments — a count of four, pending one confirmation that may make it five — OVERDUE for its own re-verify date as of 2026-09-18
 
 From Anca, 2026-09-08, not derived or inferred: Raluca Popa will have permanent groups, likely at
 IBSB, pending the school's own confirmation expected next week. The permanent-group list — who is
@@ -1953,6 +2061,14 @@ assignment is real; if not, it stays four and this note can close without furthe
 way.
 
 **No fix proposed here** — nothing to build yet, no table this maps to today.
+
+**Flagged 2026-09-18, not resolved — this is a due-date check, not a finding.** "Next week" from
+2026-09-08 has passed; ten days on, nothing in this file or `progress.md` records an IBSB answer
+either way. Unlike items 19/39/45 above, nothing here is factually wrong — the count may genuinely
+still be four, or IBSB may have confirmed and nobody wrote it down, and this entry can't tell the
+difference; there's no code or data this maps to yet for a live check to run against, per its own
+"no fix proposed" line. Recorded so the next person reading this knows the date has passed without
+implying an answer either way — ask Anca again rather than trust "four" or assume "five."
 
 **Lives in:** Anca's confirmation, 2026-09-08 (not yet in this repo in any structured form); the
 eventual `groups`/allocation schema, whenever a "permanent vs. rotating" distinction gets modeled.
@@ -2093,7 +2209,7 @@ decision record).
 
 ---
 
-### 39. `children_confirmed`/`children_billed` — one writable field, one derived, one blocked on a bigger gap
+### 39. `children_confirmed`/`children_billed` — CORRECTED 2026-09-18: findings 2 and 3 were built 2026-09-11 and never marked; finding 1 is now buildable
 
 Anca's answer to item 38's masking question came with the full picture of how these two fields
 actually work, which changes what gets built and where. Recorded here as five separate findings —
@@ -2170,16 +2286,53 @@ scoping doesn't cover it either way, and it must not be guessed at construction 
 `delivery_format`'s own split from "Tip atelier" already was once, accepted as risk, in this same
 SAD (§3). A direct question, not an assumption, when this is built.
 
-**Nothing built yet, deliberately — this is the decision record ahead of construction, not a
-retrofit after.** Finding 2 gates findings 1 and (functionally) 4; finding 3 needs Anca's own RLS
-scope confirmed before a form is written for it; finding 5's `custom` case needs a direct answer.
+**At the time this was written: nothing built yet, deliberately — the decision record ahead of
+construction, not a retrofit after.** Finding 2 gates findings 1 and (functionally) 4; finding 3
+needs Anca's own RLS scope confirmed before a form is written for it; finding 5's `custom` case
+needs a direct answer. **That framing held for three days.**
+
+**Corrected 2026-09-18, checked against the live code, not against this item's own text.** Findings
+2 and 3 both describe a blocker that stopped being true on 2026-09-11 — three days after this item
+was written — and neither this item nor anything that read it since noticed.
+
+- **Finding 2 — resolved.** `updateSessionAttendance` (`app/(app)/groups/actions.ts`) is live: the
+  assigned trainer (row-matched on `trainer_principal_id`/`trainer_secundar_id`, gated on
+  `mywork.*`, plus a payroll month-close check) writes their own `attendance_count`/
+  `experiment_delivered` after the session, through a real UI ("record attendance" on
+  `/groups/[id]`). The code's own comment dates the underlying decision to 2026-09-11: *"The
+  assigned trainer recording their own session (Anca's decision, 2026-09-11)."* "Nobody can record
+  what actually happened at a session" is no longer true, and has not been true since the day after
+  finding 2 was written.
+- **Finding 3 — resolved.** `supabase/migrations/202609110002_add_groups_update_contracts_star_branch.sql`,
+  same date, adds exactly the `contracts.*` branch this finding names to the `groups` UPDATE
+  policy — its own header quotes this finding's own reasoning back, near-verbatim. `updateGroup`
+  (`app/(app)/groups/actions.ts`) narrows the write to `children_confirmed` alone, gated on
+  `canWriteChildrenConfirmed`, confirmed live in `groups/[id]/page.tsx`. Laura and Anka can fill it;
+  Cătălina still cannot — exactly the boundary this finding asked for, not a broader grant.
+- **Finding 1 — was blocked on finding 2 alone, and is therefore buildable now, not blocked.** The
+  derived read (`SUM(sessions.attendance_count)`, likely filtered to `status = 'delivered'`, per
+  this finding's own already-decided shape) now has real data to sum, since finding 2 shipped.
+  Checked live: `groups.children_billed` is still the plain stored column, read as-is
+  (`groups/[id]/page.tsx`, `groups-client.tsx`, `group-detail-panel.tsx`), never written by any
+  action, never derived — the decision recorded above was never implemented, not because it's still
+  blocked, but because nobody went back to build it once its blocker cleared.
+
+Findings 4 and 5 are unaffected by any of the above — finding 4 still waits on the billing generator
+existing at all (`phase1-development-plan.md` row 11, still 🔴), and finding 5's `custom` gap still
+waits on Anca. Only findings 1-3 were ever blocked on the attendance gap; only those three needed
+this correction.
 
 **Lives in:** `docs/WOWLAB_SAD_Domeniul_Operational_Groups_Sessions.md` §2/§4/§6;
 `docs/WOWLAB_SAD_Field_Masking.md` §2.7; `docs/phase1-development-plan.md` row 11;
-`supabase/migrations/202608130003_add_groups_sessions_rls_policies.sql`; `supabase/seed.sql`
-(role/capability grants); `app/(app)/groups/actions.ts` (`addSession`, `updateSessionAllocation`);
-`app/(app)/groups/[id]/group-detail-client.tsx` (`NewSessionForm`); item 37 above (Laura/Anka's
-`contracts.*`, verified live); item 38 above (the masking question this closes).
+`supabase/migrations/202608130003_add_groups_sessions_rls_policies.sql`,
+`202609110002_add_groups_update_contracts_star_branch.sql`,
+`202609110003_add_sessions_update_trainer_branch.sql`,
+`202609110004_require_mywork_capability_on_sessions_trainer_branch.sql`; `supabase/seed.sql`
+(role/capability grants); `app/(app)/groups/actions.ts` (`addSession`, `updateSessionAllocation`,
+`updateSessionAttendance`, `updateGroup`); `app/(app)/groups/[id]/group-detail-client.tsx`
+(`NewSessionForm`, the trainer's own attendance UI); item 37 above (Laura/Anka's `contracts.*`,
+verified live); item 38 above (the masking question this closes); item 45 below (part 1, the same
+build recorded and left unmarked from the other side).
 
 ---
 
@@ -2359,7 +2512,7 @@ shape).
 
 ---
 
-### 45. Trainer end-of-session screen — the map, before any of it gets built piecemeal
+### 45. Trainer end-of-session screen — the map, before any of it gets built piecemeal — CORRECTED 2026-09-18: part 1 was built the day after this was written, never marked
 
 Anca described one screen (attendance confirmation, photos, attendance count, experiment logging,
 peer feedback) that is much larger than the single question that prompted it. Investigated each of
@@ -2379,6 +2532,18 @@ narrow action exposing only `attendance_count`/`experiment_delivered` — RLS re
 columns, so the column boundary belongs in the action, the same pattern `updateSessionAllocation`
 already uses to narrow Ops's broader grant down to two columns.
 
+**Part 1, corrected 2026-09-18: built, one day after this was written, never marked here.**
+`updateSessionAttendance` (`app/(app)/groups/actions.ts`) is exactly what this part specifies —
+row-matched on `trainer_principal_id = auth.uid() OR trainer_secundar_id = auth.uid()`, gated on
+`mywork.*` (not a new narrower capability — `202609110004` settled that question the same way item
+57 below argues it should be settled), narrowed in the action to `attendance_count`/
+`experiment_delivered` alone. Live UI: "record attendance" on `/groups/[id]`. The code's own
+comment dates the decision to 2026-09-11 — this item was written 2026-09-10 and never revisited to
+close part 1 (or part 2, immediately below — same date, same gap) even though it was revisited
+repeatedly afterward (2026-09-11, -12, -15) for part 5. Same finding as item 39's correction above,
+from the session side rather than the `children_billed` side — one build closed both entries'
+blockers, and neither entry noticed on its own.
+
 **2. Ready to build: `children_confirmed` writable by `contracts.*` holders.** Anca removed the
 `delivery_format` gating that item 39 (finding 5) had recorded as an open question — both count
 fields now apply to every group regardless of format, with a blank value meaning "no count was
@@ -2387,6 +2552,10 @@ natively. Nothing to remove — the read-only display in `group-info-section.tsx
 format-gated either. What remains is exactly item 39 finding 3: Laura/Anka hold `contracts.*`, not
 `groups.create`, the only capability the current `groups` UPDATE policy checks. That RLS gap is
 the entire remaining scope for this part.
+
+**Part 2, corrected 2026-09-18: also built, same date as part 1.** See item 39's correction above
+(finding 3) for the full detail — `202609110002_add_groups_update_contracts_star_branch.sql` closed
+exactly this RLS gap. Not re-derived here to avoid saying it twice.
 
 **3. Blocked, needs a domain of its own: pre-filling the experiment from a planner.** No
 experiment-level catalog exists. `public.modules` (`202608160004`) holds 13 rows, one per
