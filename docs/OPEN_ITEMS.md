@@ -176,6 +176,30 @@ Update this file as items close or new ones are confirmed. Don't add a
 candidate item without checking it against the current code/DB first — that
 is the entire reason this file exists instead of being a wishlist.
 
+**`scripts/check_open_items_register.ts`** checks this file against itself and against the live
+repo — every `item N above/below` cross-reference points the direction its target actually sits
+in, every referenced item number has a matching `### N.` heading, and every cited migration/rollback
+filename exists on disk (or is named in the script's own short exceptions list, for the rare case
+where a cited file's absence is the point of the entry, not a staleness bug). Run by hand, same as
+`scripts/check_operator_guide.ts` and for the same reason — no CI exists in this repo to run it
+automatically. Run it after any pass that edits several items at once, the way this one did:
+
+```
+npx tsx scripts/check_open_items_register.ts
+```
+
+It does not and cannot check the harder kind of staleness item 71 below is about — a blocker
+cleared by adjacent work leaves grammatically and structurally correct text behind; nothing short
+of re-deriving the investigation catches that. It only catches the mechanical kind: a direction
+word, a number, or a filename that no longer matches this file's own structure or the repo's own
+state. **2026-09-18: fifteen real errors found and corrected across the pass that led to this
+script existing** — nine found by hand, before this script existed (two in text written that same
+session, seven left for a follow-up pass); one more found by hand while fixing those seven; five
+more the script itself caught on its very first run, including one in text written earlier that
+same day. The script's own share of that total — five, on one run, with zero setup beyond writing
+it — is the concrete answer to whether this kind of thing is worth checking for: yes, cheaply, and
+it does not have to be a repeat performance to find something real.
+
 ---
 
 ## No scheduled execution mechanism — decided, not built now
@@ -741,7 +765,7 @@ rollback; `scripts/verify_clients_mywork_visibility.sql`,
 `scripts/verify_group_detail_client_name_render_test_org_b.ts`; `app/(app)/groups/[id]/page.tsx`
 (`clientName`'s new `null` fallback), `group-header.tsx`, `group-info-section.tsx` (the translated
 placeholder), `groups/i18n.ts` (`client_hidden`); item 65 above (payroll's parallel, separate gap,
-still open, still inert); item 68 above (the general lesson this fix was checked against before
+still open, still inert); item 68 below (the general lesson this fix was checked against before
 being written).
 
 ---
@@ -1901,7 +1925,7 @@ in this file is a version of "what was written down stopped matching the thing i
 only checking the source caught it" -- `config push` succeeding vs. which email template was
 actually live (item 61), a mockup badge claiming a protection the code behind it never built
 (`docs/progress.md` #62, not this file's own item 62), a CUI-constraint recommendation reported as
-delivered without ever being written (item 62 above), an RLS branch that reads clean on the page
+delivered without ever being written (item 62 below), an RLS branch that reads clean on the page
 but is silently dead underneath (item 68). This item is the same failure mode one layer up: a
 written trigger condition that nothing re-checks against the code it describes will not notice
 when the code satisfies it. The register went stale, not the codebase -- and the fix is the same
@@ -2287,8 +2311,8 @@ way.
 
 **Flagged 2026-09-18, not resolved — this is a due-date check, not a finding.** "Next week" from
 2026-09-08 has passed; ten days on, nothing in this file or `progress.md` records an IBSB answer
-either way. Unlike items 19/39/45 above, nothing here is factually wrong — the count may genuinely
-still be four, or IBSB may have confirmed and nobody wrote it down, and this entry can't tell the
+either way. Unlike item 19 above or items 39/45 below, nothing here is factually wrong — the count
+may genuinely still be four, or IBSB may have confirmed and nobody wrote it down, and this entry can't tell the
 difference; there's no code or data this maps to yet for a live check to run against, per its own
 "no fix proposed" line. Recorded so the next person reading this knows the date has passed without
 implying an answer either way — ask Anca again rather than trust "four" or assume "five."
@@ -2602,7 +2626,7 @@ wrong value.
 
 **Lives in:** `app/(app)/clients/clients-client.tsx`, `app/(app)/clients/i18n.ts`;
 `app/(app)/contracts/contracts-client.tsx`, `app/(app)/contracts/i18n.ts`;
-`app/(app)/groups/groups-client.tsx`, `app/(app)/groups/i18n.ts`; item 21 above (the other instance
+`app/(app)/groups/groups-client.tsx`, `app/(app)/groups/i18n.ts`; item 21 below (the other instance
 of this shape).
 
 ---
@@ -2725,13 +2749,13 @@ nothing would surface an error to say so.
 **Narrow, real, unmitigated, no action taken.** This needs two different input methods producing
 different normalization for what looks like the same exit number — not something one person typing
 on one machine is likely to hit, but a real gap, not a hypothetical one, and the same "guarantee
-the code doesn't actually provide" shape as items 21 and 40 above.
+the code doesn't actually provide" shape as item 40 above and item 21 below.
 
 **Re-verify when:** exit numbers start coming from more than one input source (a copy-paste from
 an external system, an import, a second office) rather than one person typing them by hand.
 **Lives in:** `supabase/migrations/202608180002_replace_contract_number_with_entry_exit.sql`;
-`app/(app)/contracts/actions.ts` (`addContract`); items 21, 40 above (the other instances of this
-shape).
+`app/(app)/contracts/actions.ts` (`addContract`); item 40 above and item 21 below (the other
+instances of this shape).
 
 ---
 
@@ -2919,9 +2943,9 @@ question, investigated the same session, not repeated here); `docs/WOWLAB_SAD_Co
 Furnizor.md` §12; `docs/WOWLAB_SAD_Field_Masking.md` §2.4/§2.5; `docs/ws-d-plan.md`; item 23 above
 (the Happy Face precedent for part 4's open question); item 39 above (findings 2, 3, 5 — part 4's
 "trainers write directly" answer and part 2's format-gating removal both resolve open questions
-recorded there); item 8 above (`contracts.status`'s second-write-path warning, the reason a
-trainer-driven `sessions.status` transition was rejected for part 5); items 21, 40, 44 above (the
-one-field-two-owners shape part 5's decision was written to avoid repeating).
+recorded there); item 8 below (`contracts.status`'s second-write-path warning, the reason a
+trainer-driven `sessions.status` transition was rejected for part 5); items 40, 44 above and item 21
+below (the one-field-two-owners shape part 5's decision was written to avoid repeating).
 
 ---
 
@@ -2974,7 +2998,7 @@ depends on it gets written — which is the one thing a decision record exists t
 **Lives in:** `docs/WOW_LAB_OS_Solution_Architecture_Document.md` (verbatim source, copied in this
 session, not edited); `docs/WOW_LAB_OS_AD_Reconciliation.md` (status of all fifteen, checked against
 the repo); item 45 above (AD-4's independent re-derivation, AD-10's unconfirmed status, AD-14's
-offline requirement); item 8 above (the `contracts.status` precedent both AD-4 and item 45 used
+offline requirement); item 8 below (the `contracts.status` precedent both AD-4 and item 45 used
 independently); `docs/WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md` §1/§9 (AD-15, the confirmed twin
 of AD-11); item 35 above and item 48 below (the other two instances of "asserted as sourced, wrong,
 caught only by checking").
@@ -3435,7 +3459,7 @@ that screen should resend as part of shipping it, not treat the resend as a sepa
 
 **Lives in:** item 53 above (the investigation this decision follows from); `app/(app)/admin/users/
 actions.ts` (`resendInvitation` — the mechanism, already built and already proven to work: 8 of the
-10 prior resends produced a real sign-in, per item 21's 2026-09-11 caveat above).
+10 prior resends produced a real sign-in, per item 21's 2026-09-11 caveat below).
 
 ---
 
@@ -3662,7 +3686,7 @@ was the right call and is not what this item is about. The action underneath it 
 finding: a verification step that needed a precondition took the direct route to create one,
 instead of treating "the precondition isn't met yet" as information and waiting.
 
-**Lives in:** `docs/WOWLAB_SAD_Field_Masking.md` §6.4; item 21 above (`auth.users.last_sign_in_at`
+**Lives in:** `docs/WOWLAB_SAD_Field_Masking.md` §6.4; item 21 below (`auth.users.last_sign_in_at`
 as the real confirmation signal, `public.users.status` never moving in response to it — the same
 mechanics this instance's revert relied on); item 45 (the `COMMENT ON TABLE` precedent for a
 direct-SQL write landing on a table with no row_history trigger to leave a row in); `pg_trigger`
@@ -4282,7 +4306,7 @@ the app, and should not be read as such by anyone looking at this data later.
 **Lives in:** `supabase/migrations/202607130004_add_auth_support_functions.sql`
 (`handle_new_auth_user`); `app/(app)/admin/users/actions.ts` (`enableAccess`, `disableAccess`);
 `app/(app)/admin/users/page.tsx`; `app/(app)/profile/page.tsx`; item 53 above (the 10 real trainer
-accounts this caveat was confirmed against). See also item 40 below — the same
+accounts this caveat was confirmed against). See also item 40 above — the same
 shape of defect (code asserting a guarantee it did not provide), a client-side gate instead of a
 DB column.
 
