@@ -1686,6 +1686,45 @@ single `canManageContacts`), `client-contacts-client.tsx` (`canEdit`/`canDelete`
 
 ---
 
+### 81. Open question for Anca — should payroll-closing see a client's name regardless of finance segment?
+
+2026-09-21. Recorded as still open, not answered by this round's work — item 65 above found it,
+argued it, and deliberately left it: a `finance.operations.*`-only closer (Laura's shape) sees
+"Unknown" instead of a client's name for any session outside `private_school`/`parent_b2c`, because
+`clients`' own SELECT policy segregates by the same client-type split `finance.reporting.*` uses on
+the other side. This intersects a documented, deliberate business boundary (which finance role bills
+which segment) — not a bug to patch by grafting on another RLS branch the way the trainer-name gap
+(item 66 above) was. **Currently inert**, unchanged since item 65: `sessions` still holds zero rows
+in `WOW LAB` (re-confirmed live during this round's Part 2 investigation, item 79 above), so no
+client-type mix exists yet for this to actually bite on.
+**The question, for Anca directly:** should whoever closes payroll see every client's name regardless
+of billing segment, or should payroll-closing stay scoped to someone who already holds
+`finance.reporting.*` too (sidestepping the question by construction)?
+**Lives in:** item 65 above (the full finding and its own "blocked on" note, unchanged); item 20 below
+(Laura's `finance.operations.*`-only capability set); `app/(app)/payroll/page.tsx`.
+
+---
+
+### 82. Open question for Anca — are corrections allowed after an invoice has already been issued?
+
+2026-09-21. Recorded as still open, not answered by this round's work. Item 45 below (part 5) already
+named this precisely, in passing, while resolving a different, narrower question (who can correct a
+session confirmation before/after month-close): Anca's answer there means "closed" means closed to
+the *trainer*, not frozen — the record stays open to Laura/Anka indefinitely, and the invoice, by her
+own description, is issued from a month that can still change afterward if a correction happens. That
+is a real, deliberate difference from AD-10's frozen-snapshot model (`docs/AD10...`, never in the
+repo, item 46 below) — she was not asked to approve AD-10 and did not.
+**The question, for Anca directly, is more specific than the one already answered:** if a correction
+happens *after* an invoice has actually gone out (not just after the month closes), does anything
+special need to happen — a new adjustment line on the next period with reason/approver, matching
+AD-10's own audit-trail concern, or does today's open-indefinitely-to-Laura/Anka shape already cover
+it? Item 45 named this gap; it does not resolve it.
+**Lives in:** item 45 below (the exact passage this restates as a standalone question, part 5's
+`correctSessionConfirmation`/`finance.operations.*` finding); item 46 below (AD-10's own
+frozen-statements/adjustment-line model, for comparison).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
