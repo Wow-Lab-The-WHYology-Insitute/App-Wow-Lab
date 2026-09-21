@@ -1307,6 +1307,103 @@ absorbed the rest).
 
 ---
 
+### 76. `clients.status` stuck at Prospect under signed contracts — not a stale field, a specified trigger with no code path
+
+2026-09-18/21. Mihai noticed all three real clients (Scoala Germana, Scoala Avenor, Lycée Français)
+reading "Prospect" while each held a signed contract, and asked why. Not a contradiction between two
+fields, checked directly, not assumed: `changeClientStatus` (`app/(app)/clients/actions.ts`) is the
+only write path to `clients.status` after creation — `addClient` hardcodes `status: "prospect"` on
+every insert, no trigger touches the column, and `markContractSigned`
+(`app/(app)/contracts/actions.ts`) never references `clients` at all. Signing a contract has zero
+effect on the client row it belongs to, by construction, not by omission. A status nothing has ever
+moved, not a status disagreeing with a contract. Mihai moved all three to `active` by hand on
+2026-09-17, through the one existing manual path (below), before this item was written.
+
+**The SAD names the trigger, and it is not the contract — checked, not assumed to be a documentation
+gap.** `docs/WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md` §5's own lifecycle diagram:
+
+```
+[ActiveCampaign]                         [WOW LAB OS]
+ lead → prospect → deal  ── Won ──▶  client (active) ──▶ contract ──▶ groups ──▶ sessions/attendance
+```
+
+— with its own text directly under it: *"Predarea e un singur punct: **Won → client activ.**"*
+("The handoff is a single point: Won → active client.") Contract creation is drawn *downstream* of
+the client already being active, not upstream of it. Line 76 of the same document: *"`prospect`
+există ca status doar pentru clienții pre-contract care au ajuns deja în platformă"* — prospect
+exists only for pre-contract clients. By the SAD's own stated logic, a client holding a signed
+contract should never still read prospect at all — the three real ones doing exactly that aren't a
+surprise the SAD failed to anticipate; they're the direct, predictable consequence of its own named
+mechanism never being wired up.
+
+**The mechanism was never built — checked, not inferred from its absence.** `clients.external_crm_ref`
+exists (`202608100001`) and is wired to no live webhook — the same finding item 1/52 already
+recorded from the opposite direction (no ActiveCampaign integration exists anywhere in this
+codebase). Nothing fires on "Won." The only path that exists is the manual one: `ClientStatusControl`
+(`client-header.tsx`, `/clients/[id]`), gated on `clients.convert` (held only by `sales_manager` in
+`supabase/seed.sql`), driving `changeClientStatus` against a fixed transition table
+(`app/(app)/clients/status.ts`): `prospect → active`, `active → paused|churned`,
+`paused → active|churned`, `churned → active`. That path existed the whole time; nobody had used it
+for these three until Mihai did, by hand, once asked why not.
+
+**Worth recording as its own shape, distinct from this register's usual stale-field pattern
+(items 19/21/38/40, item 71's general form).** Those are all cases where a field's *meaning* drifted
+silently — a default nobody revisited, a column nothing reads, a guard nothing can trigger. This is
+different: the field's meaning was written down, precisely, by the SAD, with a named trigger --
+the trigger just has no code behind it anywhere, and the one fallback that does exist went unused.
+**The field is not wrong. It's waiting for a mechanism that was specified and never built** -- closer
+to item 2's "designed, not started" shape than to a value silently gone stale.
+
+**Contract-driven automation was considered and rejected here, not left unconsidered.** Three
+reasons, each independently sufficient:
+1. **Wrong capability for the actor.** `changeClientStatus` requires `clients.convert`
+   (`sales_manager` only). `markContractSigned` checks `finance.operations.* OR
+   finance.reporting.* OR clients.create` -- a materially different role set. A Contract
+   Administrator marking a contract signed does not hold `clients.convert` today; an automatic
+   status write from that action would hand them, silently, a status change the system's own rules
+   deny them directly.
+2. **`CLIENT_STATUS_TRANSITIONS` would have to be duplicated or bypassed.** Duplicated means two
+   places now define what a valid transition is, with nothing keeping them in sync. Bypassed is how
+   a signed contract on an already-`churned` client's record could reactivate them through a path
+   that never checks whether `churned → active` even makes sense in that context -- silently, with
+   no guard the deliberate manual path already has.
+3. **The identical second-write-path shape already named twice in this register, not a new
+   concern.** `changeClientStatus`'s own comment states it directly: *"this is the only write path
+   to the column today... a second write path appearing is the point to reconsider that"* -- the
+   same load-bearing warning item 8 already carries for `contracts.status`, and the same shape item
+   45 part 5 rejected outright for `sessions.status` (a trainer-driven transition would have given
+   that column a second write path a single caller no longer reliably owns).
+
+**Argued both ways, not settled here.** For automating `prospect → active` on contract-signed: the
+SAD's actual named trigger (Won) will likely stay unbuilt for a long time -- no webhook work is
+scoped anywhere in this register -- and a signed contract is the strongest already-tracked fact this
+platform has that a prospect became real; a July-signed, September-starting contract sitting
+labeled "Prospect" for two months is a real, visible cost, not a hypothetical one. Against it: the
+SAD's own diagram places `active` at commitment (Won), not delivery, which if anything argues for
+moving the trigger *earlier* than contract-signing, not *onto* it; and half-automating one of four
+transitions while leaving `paused`/`churned`/reactivation fully manual is an odd middle state that
+doesn't obviously beat today's fully-manual one. A status nothing ever needs by hand is exactly the
+"field that says nothing" shape this register keeps finding elsewhere -- automating the one edge
+that's easy to automate risks producing a milder version of that same thing, not fixing it.
+
+**Blocked on Anca — a business decision about what "active" is supposed to mean, not a technical
+one:** signature, first delivery, or the Won handoff exactly as the SAD already specifies. Whichever
+she picks decides whether the fix is finishing the SAD's own designed mechanism (a real ActiveCampaign
+webhook, unscoped, large), wiring a new one onto contract-signing (small, but a deliberate departure
+from the SAD, not an implementation of it), or leaving the manual path as the only path and treating
+today's finding as a one-time data catch-up, not a gap to close.
+
+**Lives in:** `app/(app)/clients/actions.ts` (`changeClientStatus`, `addClient`, `markContractSigned`
+in `app/(app)/contracts/actions.ts` — the confirmed absence of any link); `app/(app)/clients/status.ts`
+(`CLIENT_STATUS_TRANSITIONS`); `app/(app)/clients/[id]/client-header.tsx`,
+`client-status-control.tsx`; `supabase/seed.sql` (`clients.convert` → `sales_manager` only);
+`docs/WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md` §5 (the diagram and its "Won → client activ"
+line), line 76 (`prospect`'s own definition); item 1 above, item 52 below (the same unwired
+ActiveCampaign-webhook finding, from two other directions); item 8 below, item 45 below (the two
+prior instances of the second-write-path shape this decision would repeat).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
