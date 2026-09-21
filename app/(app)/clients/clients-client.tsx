@@ -41,8 +41,10 @@ const CLIENT_TYPES = ["private_school", "state_school", "corporate", "parent_b2c
 // belongs in this list; the placeholder option is what represents that.
 const BUSINESS_LINES = ["recurring_private_schools", "state_schools", "corporate_events"];
 
-// Matches the clients.status check constraint (202608100001) exactly —
-// keep in sync if that constraint ever changes.
+// The 4 possible EFFECTIVE statuses (public.client_effective_status(),
+// item 78) -- NOT the clients_status_override_check constraint (item 83),
+// which only permits 'paused'/'churned'/NULL on the raw column. This list
+// is the display/filter domain, unrelated to what's legal to store.
 const CLIENT_STATUSES = ["prospect", "active", "paused", "churned"];
 
 // Nulls always sort last regardless of direction — a missing legal_name/

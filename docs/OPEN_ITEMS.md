@@ -1737,7 +1737,7 @@ frozen-statements/adjustment-line model, for comparison).
 
 ---
 
-### 83. Item 78's `'prospect'` sentinel means "no override," not what the column's name says — raw reads are wrong, a redesign is argued, not yet built
+### 83. Item 78's `'prospect'` sentinel means "no override," not what the column's name says — RESOLVED 2026-09-21: renamed to `status_override`
 
 2026-09-21. Mihai's own objection to item 78, checked exhaustively before arguing anything: after
 that item's derivation, `clients.status` can hold the literal string `'prospect'` for a client that
@@ -1809,18 +1809,119 @@ one a row happens to hold is historical accident, not signal.
    backfill the 3 real rows' literal `'active'` to `NULL` — no behavior change, since `NULL` and
    `'active'` already compute identically under item 78's derivation).
 
-**Not built. Reported, per instruction, before changing anything.** Matches this register's own most-
-repeated pattern by name, not by coincidence — a stored value whose name no longer matches what it
-holds (item 21, `users.status`; item 76, `clients.status` before item 78; now `clients.status` again,
-introduced by the very fix that closed item 76).
+Matches this register's own most-repeated pattern by name, not by coincidence — a stored value whose
+name no longer matches what it holds (item 21, `users.status`; item 76, `clients.status` before item
+78; now `clients.status` again, introduced by the very fix that closed item 76). Recorded as its own
+general item, 84 below.
 
-**Lives in:** item 78 above (the derivation this corrects); item 21 below, item 76 above (the named
-pattern this repeats); `app/(app)/clients/status.ts`, `actions.ts` (`changeClientStatus`), `page.tsx`,
-`[id]/page.tsx`; `supabase/migrations/202609210003_add_client_effective_status_derivation.sql`
-(`client_effective_status()`, to be updated, not replaced); `docs/DATABASE_CONVENTIONS.md` §12 (the
-`clients.status = 'churned'` reference, confirmed still accurate); `docs/WOWLAB_SAD_Domeniul_Clients_
-Contracts_CRM.md` (the now-stale `prospect` description a rename would also resolve, not just paper
-over).
+**Built exactly as recommended (`202609210005`).** `clients.status` → `clients.status_override`,
+nullable, `CHECK (status_override IS NULL OR status_override IN ('paused', 'churned'))` — `'prospect'`
+and `'active'` are no longer legal values anywhere on this column, confirmed live: writing the literal
+`'active'` to `status_override` is now rejected by the constraint (assertion 2 of the dry-run script
+below). `client_effective_status()` (item 78) updated in place, same shape, new column name.
+
+**Acceptance test: every real row's effective status, before and after, all 4 rows, both orgs — not
+sampled.** Captured live before the migration, re-derived live after:
+
+| Org | Client | Stored before → after | Effective before → after |
+|---|---|---|---|
+| WOW LAB | Scoala Avenor | `'active'` → `NULL` | active → active |
+| WOW LAB | Scoala Germana | `'active'` → `NULL` | active → active |
+| WOW LAB | Lycée Français | `'active'` → `NULL` | active → active |
+| WOW LAB Test Org B | MAX | `'prospect'` → `NULL` | prospect → prospect |
+
+No paused/churned rows existed live anywhere at migration time. Every row's effective status is
+byte-identical before and after — the rename changed no visible status anywhere, which was the whole
+acceptance test, not a side observation.
+
+**`changeClientStatus` (`app/(app)/clients/actions.ts`) rewritten, not patched.** Reads
+`status_override` (only to guard its own write against a race, never as "the" status — unchanged from
+item 78's own discipline). Writes: `'paused'`/`'churned'` pass through; the reactivate edge
+(paused/churned → active) now writes literal `NULL` — item 78's `'prospect'`-as-sentinel indirection
+is gone outright, not renamed. The optimistic-concurrency guard is NULL-safe: `.eq(col, null)` builds
+`= NULL`, which SQL never matches, even against an actually-NULL row — the guard branches to `.is()`
+when the current value is `NULL`, `.eq()` otherwise. `addClient` no longer writes any override on
+create — the column has no default now (an explicit design choice: NULL, "no override," is what a new
+client should start with, matching the old default's own meaning exactly, just honestly this time).
+`CLIENT_STATUS_TRANSITIONS` (`status.ts`) unchanged in shape (still keyed by effective status, for the
+button-set lookup) — its comment now says plainly that its *values* describe override targets, not
+statuses, since `status_override` itself can never hold `'prospect'`/`'active'`.
+
+**`row_history` note, in the migration header, not just here:** entries with `changed_at` before this
+migration carry the key `"status"` with one of the 4 original literal values (including Mihai's
+2026-09-17 manual moves to `'active'`) — entries after carry `"status_override"` instead, `'paused'`/
+`'churned'`/`null`. No single query reads both sides uniformly; filter by `changed_at` and read the
+correct key per side.
+
+**Rollback is explicitly lossy, stated in its own header, not silently approximate.** It cannot recover
+whether a `NULL` row was `'prospect'` or `'active'` before — that distinction was deliberately erased
+by the forward migration itself. Rolling back backfills every `NULL` to `'prospect'` (the schema's
+original default, not a recovered fact) — for the 3 real WOW LAB rows, which were actually `'active'`,
+running the rollback would be a real step backward on the raw column, said plainly in the rollback file
+so nobody trusts it as a true undo. What survives exactly: `paused`/`churned` values, and every
+client's derived status, since `client_effective_status()` never depended on which of prospect/active
+the raw column said.
+
+**Verified live, both dry-run and end-to-end, then on the real deployment.** Dry run
+(`scripts/verify_clients_status_override_rename.sql`, rolled back) against the real data above — 1/1
+(all 4 rows identical) + 1/1 (the new constraint rejects `'active'`). End-to-end against all 5 named
+cases — prospect, signed-contract (active), paused, churned, reactivated — in WOW LAB Test Org B,
+checking BOTH the rendered page AND the raw `status_override` value directly at every step
+(`scripts/verify_clients_status_override_rename_test_org_b.ts`): 10/10 on local dev, then unchanged and
+re-run against the actual deployed code at `app.wowlab.ro` — 10/10 again, same discipline items 78/80
+already established for closing the deploy-timing gap. At every one of the 5 steps, `status_override`
+held either `NULL` or a real override — never a status word.
+
+**i18n:** none needed — same 4 display labels, same 3 action-button labels; this only changes storage.
+
+**Lives in:** item 78 above (the derivation this corrects); item 21 below, item 76 above, item 84
+below (the named pattern this repeats, now recorded generally);
+`supabase/migrations/202609210005_rename_clients_status_to_status_override.sql` and its rollback;
+`app/(app)/clients/status.ts`, `actions.ts` (`changeClientStatus`, `addClient`), `clients-client.tsx`
+(`CLIENT_STATUSES` comment); `scripts/verify_clients_status_override_rename.sql`,
+`verify_clients_status_override_rename_test_org_b.ts`; `docs/DATABASE_CONVENTIONS.md` §12 (the
+`clients.status = 'churned'` reference, confirmed still accurate — `'churned'` never stopped meaning
+what it says).
+
+---
+
+### 84. General lesson — a stored value that stopped meaning its name is fixed by renaming it, not by guarding it, because the misreading happens outside the app
+
+2026-09-21. The general form behind item 83's fix, recorded on its own so the next instance of this
+shape gets recognized faster than this one was. This register's single most-repeated failure family
+(item 21, `users.status`; item 76, `clients.status` before item 78; item 83, `clients.status` again,
+introduced by the very fix that closed item 76) has one recurring cause: a column keeps its original
+name after a change makes some of its legal values stop meaning what the name says, and every reader
+*inside* the app gets updated to route around that — while the column itself still looks, to anyone
+who hasn't read the fix, like it means what it always meant.
+
+**The fix that doesn't work: gate the column, keep the name.** Item 83 considered and rejected this —
+`REVOKE SELECT` on the raw column from `authenticated`, or an equivalent grant-based lockout, protects
+only sessions going through that grant (PostgREST/the app). It does nothing for Supabase Studio's Table
+Editor, `supabase db query`, or any future script connecting with a privileged role — which is where
+the actual misreading happens, because a person or a script assumes a column named `status` holds a
+status. **No code-layer discipline reaches a human looking directly at the schema.**
+
+**The fix that works: rename the column to what it now holds.** A rename is visible to every reader
+uniformly — Table Editor, `psql`, `service_role`, `authenticated`, all see the identical renamed
+column, so nobody can mistake it for its old meaning by habit. This is the same principle
+`billing_rule`/`estimated_value` already rely on (protected from being read as public data by living
+behind a masking view, not by a grant someone has to remember exists) — applied here to a column's own
+*name* rather than its access path.
+
+**When this applies:** any time a fix changes what a stored value means without changing what it's
+called — a derivation added on top of a column that used to be the literal answer (item 78's own
+shape), a status value redefined to serve two purposes, a flag whose true/false stopped mapping to
+what the field name implies. The test: would a person with raw database access, who has not read the
+migration that changed this, draw the wrong conclusion from the column's current name and value? If
+yes, gating access is not the fix — renaming is, because the reader that matters is the one no grant
+or app-layer check can reach.
+
+**Lives in:** item 83 above (the concrete instance this generalizes); item 21 below, item 76 above
+(the two prior instances of the same shape, both left as gate-or-ignore rather than renamed at the
+time); item 71 above (a different general form — a cleared blocker leaving no trace — worth
+distinguishing: that one is about a register entry going stale, this one is about a *column* going
+stale while its entry stays accurate).
 
 ---
 
