@@ -1577,6 +1577,115 @@ against).
 
 ---
 
+### 79. `delivery_format` → nine-value list — mapped, not migrated (Anca's instruction)
+
+2026-09-21. Anca decided the nine workshop types item 52 below already verified from source
+(`Fielduri pentru planificare ateliere.xlsx`), corrected — **Săptămâna Verde**, not the source's
+literal "Scoala Verde"; **Wow Lab Party** as the single deduplicated value item 52 already derived
+from the raw ten-line dropdown — replace `delivery_format`'s six values. Investigation only, reported
+to Mihai, nothing built or migrated, exactly as instructed.
+
+**Every current reader, found by grep across the whole codebase:**
+- Display labels (`groups-client.tsx`, `group-info-section.tsx`) — one `format_${value}` i18n key per
+  exact value.
+- Resources caption (`trainer-resources-section.tsx`) — **binary only**: `deliveryFormat !== "recurring"`,
+  not per-value.
+- Duration multiplier (SAD §12.6/12.7, `app.resolve_duration_multiplier`, `202608310002`) — SQL
+  `case when p_delivery_format in ('scoala_altfel','saptamana_verde') then ... ×2 else ×1.5`. **No app
+  code calls this function anywhere** — checked directly, the only hits outside its own migration are
+  `scripts/verify_payment_config_tables.sql`. Fully specified, never wired to payroll.
+- Payroll (`app/(app)/payroll/*`) — **nothing**. Zero references to `delivery_format` anywhere.
+- Masking (`docs/WOWLAB_SAD_Field_Masking.md`) — **nothing**. Zero mentions.
+- `business_line` — its own `state_schools` i18n label already reads *"(Școala Altfel / Săptămâna
+  Verde)"*, a pre-existing redundancy with `delivery_format` at a coarser grain, unaffected either way.
+
+**Live rows, checked directly, both orgs:** WOW LAB has 2 groups, both `recurring` (Lycée Français).
+WOW LAB Test Org B has 1 group, `corporate` (client "MAX," a test fixture). **`custom`: zero rows,
+anywhere, ever** — confirms the task's own prediction. No `scoala_altfel`/`saptamana_verde`/`party`
+rows exist live either.
+
+**Mapping the 6 onto the 9:**
+- **Clean 1:1** — `scoala_altfel` → *Scoala Altfel*; `saptamana_verde` → *Săptămâna Verde* (the exact
+  pair item 52 flagged "close enough, not confirmed" — now confirmed).
+- **Clean by observed data, not enforced** — `recurring` → *Scoli private (colaborări recurente)*.
+  True for both live rows, but nothing in the schema stops a `recurring` group at a state school,
+  which this specific target has no room for.
+- **Splits, no single target** — `party` → *Wow Lab Party* or *Party in companii* (venue not captured
+  today). `corporate` → *Parteneriate cu companii*, *Party in companii*, or arguably *Evenimente/
+  prezentari la mall* (nature of engagement not captured). The one live `corporate` row is a test
+  fixture, not a real ambiguity.
+- **No home** — `custom`: the nine-value list has no catch-all. Zero live rows, so no live-data cost,
+  but the overflow bucket disappears structurally.
+- **Nothing maps in** — 3 of the 9 have no current equivalent: *Cursuri deschise*, *Scoli private
+  (colaborări ocazionale)*, *Evenimente/prezentari la mall*. Today these would all be forced into
+  `corporate` or `custom`.
+
+**What a migration would do to live data:** the 2 real production rows map cleanly and unambiguously.
+The 1 ambiguous row is test-org fixture data, not a real record needing a decision. Migrating today
+costs zero real ambiguity. **Does any rule change meaning:** only the ×2 duration multiplier is keyed
+on these values, and it's keyed on exactly the two values that map 1:1 — relabeling its `case when`
+preserves meaning exactly, and it has no live caller today, so even that edit is currently zero-risk.
+The resources caption's binary check also survives unchanged, since "recurring" still maps to exactly
+one target value.
+
+**Still Anca's, not settled here:** whether/when to actually migrate. This item records the mapping
+so that decision, whenever made, isn't also a research task.
+
+**Lives in:** item 52 below (the verified nine-value source and the volume fork this extends);
+`app/(app)/groups/i18n.ts`, `groups-client.tsx`, `group-info-section.tsx`, `trainer-resources-section.tsx`;
+`supabase/migrations/202608130001_create_groups_sessions_domain_tables.sql` (the live 6-value CHECK
+constraint, untouched), `202608310002_payment_config_tables.sql` (`app.resolve_duration_multiplier`);
+`docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §12.6/12.7.
+
+---
+
+### 80. Catalina (operations_manager) can now create and edit client contacts
+
+2026-09-21. Anca's decision: Catalina should be able to create client contacts. Confirmed live before
+building: `operations_manager` holds `operations.*`, `clients.read`, `contracts.read`,
+`trainers.allocate`/`substitute`, `calendars.*`, `groups.create`, `sessions.create` — not
+`clients.create` or `contracts.*`, the two capabilities that gated `client_contacts` INSERT/UPDATE/
+DELETE (`202609110001`) — so she genuinely could not, before this.
+
+**Capability granted: `operations.*`** — not a new grant, already held by `operations_manager` alone
+(confirmed live, no other role holds it in `seed.sql`), added as a fourth alternative to the existing
+INSERT/UPDATE predicate (`clients.create OR contracts.* OR operations.*`, plus owner/platform owner).
+
+**EDIT: yes**, for the named real need (correcting a phone typo) — bundled with INSERT, same
+granularity this table's other capability branches already use. **DELETE: deliberately not granted** —
+no argued need beyond what EDIT already covers; stays with the existing owners (Sales/Contract
+Administrator/org owner). This required splitting the page's single `canManage` flag (previously
+covering create+edit+delete identically, because all three policies shared one predicate) into
+`canEditContacts`/`canDeleteContacts` — getting this wrong would have shown Catalina a Delete button
+RLS silently rejects, a broken affordance rather than a hole.
+
+**Finance segregation confirmed unweakened, by construction and by a live negative test, not just by
+argument.** Only the INSERT/UPDATE policies were touched; the SELECT policy (where the finance
+client-type segregation actually lives, `202608250001`) was not edited at all. Verified live in WOW
+LAB Test Org B against a fixture holding BOTH `contracts.*`/`clients.read` (which would otherwise
+satisfy the broader non-finance SELECT branch) AND `finance.operations.*` (which excludes them from
+it) — confirmed they still cannot see a `corporate`-type client's contact, despite the broader
+capabilities this migration also touches.
+
+**Verified live.** SQL dry run (rolled back), `scripts/verify_operations_client_contacts_write.sql`:
+operations_manager can INSERT and UPDATE, cannot DELETE; a trainer cannot INSERT; finance segregation
+holds for a user who also holds `contracts.*` — 6/6. Rendered-page proof in WOW LAB Test Org B,
+`scripts/verify_operations_client_contacts_ui_test_org_b.ts`: the create button and an edit action
+render for the operations manager, no delete action renders; a trainer with no allocated session at
+the client sees neither the client nor its contacts — 6/6.
+
+**i18n:** none needed — the same create/edit/delete controls and labels already exist; this changes
+which roles reach them, not any string.
+
+**Lives in:** `supabase/migrations/202609210004_grant_operations_client_contacts_write.sql` and its
+rollback; `app/(app)/clients/[id]/page.tsx` (`canEditContacts`, `canDeleteContacts`, replacing the
+single `canManageContacts`), `client-contacts-client.tsx` (`canEdit`/`canDelete` props),
+`actions.ts` comment; `scripts/verify_operations_client_contacts_write.sql`,
+`verify_operations_client_contacts_ui_test_org_b.ts`; item 37 below, `202609110001`,
+`202608250001` (the write/read policy history this extends).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,

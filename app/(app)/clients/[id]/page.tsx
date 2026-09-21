@@ -41,16 +41,36 @@ type ContractRow = {
 };
 type LegalEntityLookupRow = { id: string; name: string };
 
-// client_contacts INSERT/UPDATE/DELETE policy (202609110001, replacing
-// 202608100003/202608270001's finance exclusion per Anca's 2026-09-11
-// decision -- see that migration's own header): org/platform owner,
-// clients.create (sales_manager), or contracts.* (contract_administrator),
-// regardless of any finance role also held -- a THIRD alternative
-// (clients.create) beyond contracts/[id]/page.tsx's own narrower
-// canManageContracts, so this can't reuse that function; kept as its own
-// local copy per this codebase's established convention of duplicating
-// the has_capability-loop pattern per file rather than sharing it.
-async function canManageContacts(
+// client_contacts INSERT/UPDATE policy (202609210004, item 80: Catalina/
+// operations_manager can now create and edit contacts, extending
+// 202609110001's org/platform owner, clients.create (sales_manager), or
+// contracts.* (contract_administrator) predicate with a fourth
+// alternative, operations.*) -- a FOURTH alternative beyond
+// contracts/[id]/page.tsx's own narrower canManageContracts, so this
+// can't reuse that function; kept as its own local copy per this
+// codebase's established convention of duplicating the has_capability-
+// loop pattern per file rather than sharing it.
+async function canEditContacts(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  org: string,
+) {
+  const [isOwner, hasClientsCreate, hasContractsStar, hasOperationsStar] = await Promise.all([
+    checkCapability(supabase, "org.settings.manage", org),
+    checkCapability(supabase, "clients.create", org),
+    checkCapability(supabase, "contracts.*", org),
+    checkCapability(supabase, "operations.*", org),
+  ]);
+  return isOwner || hasClientsCreate || hasContractsStar || hasOperationsStar;
+}
+
+// client_contacts DELETE policy (202609110001) -- deliberately NOT
+// extended with operations.* (item 80: no argued need for Catalina to
+// delete a contact outright, only to create/correct one) -- a real,
+// narrower predicate than canEditContacts above, not the same check
+// reused. Getting this wrong (reusing canEditContacts for the delete
+// button too) would show Catalina a Delete action RLS silently rejects --
+// a broken affordance, not a security hole, but still wrong.
+async function canDeleteContacts(
   supabase: Awaited<ReturnType<typeof createClient>>,
   org: string,
 ) {
@@ -135,13 +155,19 @@ export default async function ClientDetailPage({
   // set the view itself unmasks on (202608100006), so this can't drift
   // out of sync with what the view actually decided for this session.
   let financeVisible = false;
-  let canManage = false;
+  // Split (item 80): canEditClientContacts gates create+edit (now includes
+  // operations.*); canDeleteClientContacts gates delete only (unchanged) --
+  // was a single canManage flag before this covered create+edit+delete
+  // identically, which stopped being true the day these two diverged.
+  let canEditClientContacts = false;
+  let canDeleteClientContacts = false;
   let canConvert = false;
-  // Distinct from canManage (client_contacts' own, broader gate) --
-  // mirrors the actual clients UPDATE policy exactly (org.settings.manage
-  // OR clients.create), confirmed live: contract_administrator satisfies
-  // canManage via contracts.* but does not hold clients.create, so it
-  // must not see this gate open even though it can manage contacts.
+  // Distinct from canEditClientContacts (client_contacts' own, broader
+  // gate) -- mirrors the actual clients UPDATE policy exactly
+  // (org.settings.manage OR clients.create), confirmed live:
+  // contract_administrator satisfies canEditClientContacts via
+  // contracts.* but does not hold clients.create, so it must not see this
+  // gate open even though it can manage contacts.
   let canEditClient = false;
   // Same non-discriminating-today caveat as the action itself: crm_link.*
   // is held by the identical three roles as clients.create right now, so
@@ -161,7 +187,8 @@ export default async function ClientDetailPage({
         }
       }
     }
-    if (!canManage && (await canManageContacts(supabase, org))) canManage = true;
+    if (!canEditClientContacts && (await canEditContacts(supabase, org))) canEditClientContacts = true;
+    if (!canDeleteClientContacts && (await canDeleteContacts(supabase, org))) canDeleteClientContacts = true;
     if (!canConvert && (await checkCapability(supabase, "clients.convert", org))) {
       canConvert = true;
     }
@@ -176,7 +203,15 @@ export default async function ClientDetailPage({
     if (!canEditCrmLink && (await checkCapability(supabase, "crm_link.*", org))) {
       canEditCrmLink = true;
     }
-    if (financeVisible && canManage && canConvert && canEditClient && canEditCrmLink) break;
+    if (
+      financeVisible &&
+      canEditClientContacts &&
+      canDeleteClientContacts &&
+      canConvert &&
+      canEditClient &&
+      canEditCrmLink
+    )
+      break;
   }
 
   return (
@@ -200,7 +235,8 @@ export default async function ClientDetailPage({
         clientId={client.id}
         organizationId={client.organization_id}
         contacts={contacts ?? []}
-        canManage={canManage}
+        canEdit={canEditClientContacts}
+        canDelete={canDeleteClientContacts}
       />
 
       <ClientContractsSection

@@ -95,12 +95,12 @@ export async function addClient(
 export type VoidActionResult = { ok: true } | { ok: false; error: string };
 
 // Same relationship as addClient: runs through the caller's own session
-// client, so the client_contacts RLS INSERT/UPDATE policies
-// (202609110001 — org/platform owner, clients.create, or contracts.*,
-// regardless of any finance role also held) are the real authority. The
-// canManageContacts()-gated form in clients/[id]/page.tsx is a
-// convenience; a request that reaches here without the right capability
-// gets rejected by RLS, not by app code.
+// client, so the client_contacts RLS INSERT/UPDATE policies (202609110001
+// + 202609210004 — org/platform owner, clients.create, contracts.*, or
+// operations.*, regardless of any finance role also held) are the real
+// authority. The canEditContacts()-gated form in clients/[id]/page.tsx is
+// a convenience; a request that reaches here without the right
+// capability gets rejected by RLS, not by app code.
 export async function addClientContact(
   orgId: string,
   clientId: string,
