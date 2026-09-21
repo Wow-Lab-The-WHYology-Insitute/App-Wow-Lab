@@ -12,19 +12,29 @@
  * actual rendered page, the same discipline as
  * verify_group_detail_client_name_render_test_org_b.ts.
  *
- * Run:
+ * Run (Test Org B, local dev -- the original invocation):
  *   npx tsx --env-file=.env.local scripts/verify_one_off_workshop_extension_fields_test_org_b.ts
- * Prerequisite: a local `next dev` server already running on
- * NEXT_PUBLIC_SITE_URL (http://localhost:3000).
+ *
+ * Run (real WOW LAB org, production, after deploy -- OTHER_TRAINER_EMAIL
+ * omitted deliberately: no second WOW LAB trainer fixture with a working
+ * auth identity was available, per item 70; assertion 9 is skipped in
+ * that case, not faked):
+ *   VERIFY_ORG_NAME="WOW LAB" VERIFY_OWNER_EMAIL="test+ui-owner@wowlab.dev" \
+ *   VERIFY_PRINCIPAL_EMAIL="maxdigitalro+trainer@gmail.com" VERIFY_SITE_URL="https://app.wowlab.ro" \
+ *   npx tsx --env-file=.env.local scripts/verify_one_off_workshop_extension_fields_test_org_b.ts
  */
 
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 
-const OWNER_EMAIL = "test+user-b@wowlab.dev";
-const PRINCIPAL_EMAIL = "maxdigitalro+trainerb1@gmail.com";
-const OTHER_TRAINER_EMAIL = "maxdigitalro+trainerb3@gmail.com"; // not allocated to this session
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const ORG_NAME = process.env.VERIFY_ORG_NAME ?? "WOW LAB Test Org B";
+const OWNER_EMAIL = process.env.VERIFY_OWNER_EMAIL ?? "test+user-b@wowlab.dev";
+const PRINCIPAL_EMAIL = process.env.VERIFY_PRINCIPAL_EMAIL ?? "maxdigitalro+trainerb1@gmail.com";
+// Not allocated to this session -- proves the narrowed RLS branch doesn't
+// leak org-wide. Optional: omitted in the production run (see above).
+const OTHER_TRAINER_EMAIL = process.env.VERIFY_OTHER_TRAINER_EMAIL ?? "maxdigitalro+trainerb3@gmail.com";
+const HAS_OTHER_TRAINER = Boolean(process.env.VERIFY_ORG_NAME) ? Boolean(process.env.VERIFY_OTHER_TRAINER_EMAIL) : true;
+const SITE_URL = process.env.VERIFY_SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 function admin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -66,7 +76,7 @@ async function main() {
   const { data: org, error: orgErr } = await a
     .from("organizations")
     .select("id")
-    .eq("name", "WOW LAB Test Org B")
+    .eq("name", ORG_NAME)
     .single();
   if (orgErr || !org) throw new Error(`Org lookup failed: ${orgErr?.message}`);
 
@@ -171,12 +181,19 @@ async function main() {
     );
 
     // ---- 3. Unrelated trainer: page itself is inaccessible (groups' own mywork.* branch requires an allocated session) ----
-    const otherRes = await signInAndFetch(a, OTHER_TRAINER_EMAIL, `/groups/${group.id}`);
-    report.push(
-      otherRes.status !== 200 || otherRes.html.includes("access_denied") || !otherRes.html.includes(CONTACT_NAME)
-        ? "9. PASS - unrelated trainer: does not see the on-site contact's name anywhere in the response"
-        : "9. FAIL - unrelated trainer can see the on-site contact -- leaks beyond their own sessions",
-    );
+    // Skipped, not faked, when no second trainer fixture with a working
+    // auth identity is available (the production run) -- this exact
+    // isolation is already proven in Test Org B, where the fixture exists.
+    if (HAS_OTHER_TRAINER) {
+      const otherRes = await signInAndFetch(a, OTHER_TRAINER_EMAIL, `/groups/${group.id}`);
+      report.push(
+        otherRes.status !== 200 || otherRes.html.includes("access_denied") || !otherRes.html.includes(CONTACT_NAME)
+          ? "9. PASS - unrelated trainer: does not see the on-site contact's name anywhere in the response"
+          : "9. FAIL - unrelated trainer can see the on-site contact -- leaks beyond their own sessions",
+      );
+    } else {
+      report.push("9. SKIPPED - no second trainer fixture available in this org; proven separately in Test Org B");
+    }
 
     console.log("\n" + report.join("\n"));
     if (report.some((r) => r.startsWith("FAIL") || r.includes("FAIL"))) {

@@ -1484,7 +1484,14 @@ rendered pages (`scripts/verify_one_off_workshop_extension_fields_test_org_b.ts`
 owner and an allocated trainer both see the client's default address, the linked contact's name and
 phone, and the derived 16:00–17:30 time range on the same session; an unrelated trainer with no
 allocation sees none of it. Fixture rows (client, contact, group, session) created and deleted by
-the script each run — confirmed back to baseline after.
+the script each run — confirmed back to baseline after. Deployed, then the same script re-run live
+against `https://app.wowlab.ro`, real `WOW LAB` org, `test+ui-owner@wowlab.dev` and
+`maxdigitalro+trainer@gmail.com` (fixtures, not named teammates): 8/8 (assertion 9, the unrelated-
+trainer isolation check, skipped rather than faked — no second WOW LAB trainer fixture with a
+working auth identity was available, per item 70; that exact isolation is what Test Org B's own 9/9
+already proved). `WOW LAB`'s own counts (3 clients, 2 groups, 0 sessions, 0 `client_contacts`)
+confirmed unchanged before and after — `client_contacts` is still genuinely zero, so the
+scheduled-execution trigger noted above has still not fired.
 
 **Scope cut, stated rather than silently dropped:** address override and on-site contact are
 edit-only on `groups` — not offered on the group *create* form (`groups-client.tsx`), only via
