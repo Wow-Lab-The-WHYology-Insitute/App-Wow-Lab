@@ -50,7 +50,18 @@ const MODULE_KEYS = [
   "astronomy",
   "doctor",
 ];
-const FORMAT_KEYS = ["recurring", "scoala_altfel", "saptamana_verde", "party", "corporate", "custom"];
+// Anca's nine workshop types (2026-09-21, item 79/85) -- see groups/i18n.ts.
+const FORMAT_KEYS = [
+  "scoala_altfel",
+  "saptamana_verde",
+  "wow_lab_party",
+  "parteneriate_companii",
+  "cursuri_deschise",
+  "scoli_private_ocazionale",
+  "scoli_private_recurente",
+  "evenimente_mall",
+  "party_companii",
+];
 const STATUS_KEYS = ["active", "paused", "ended"];
 
 // Nulls always sort last regardless of direction — same convention as
@@ -727,7 +738,10 @@ function NewGroupForm({
     }
   }
 
-  const isRecurring = deliveryFormat === "recurring";
+  // "Recurring" means scoli_private_recurente specifically (item 79/85,
+  // confirmed with Mihai) -- not a substring check, and not any of the
+  // other eight values.
+  const isRecurring = deliveryFormat === "scoli_private_recurente";
   const [scheduleDay, setScheduleDay] = useState(DAYS_OF_WEEK[0]);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");

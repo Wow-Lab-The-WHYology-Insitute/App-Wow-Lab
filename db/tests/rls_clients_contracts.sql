@@ -56,11 +56,11 @@ begin;
     v_contract_private uuid;
     v_contract_corporate uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Private School', 'private_school', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Private School', 'private_school')
     returning id into v_client_private;
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Corporate Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Corporate Client', 'corporate')
     returning id into v_client_corporate;
 
     insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status, billing_rule)
@@ -109,11 +109,11 @@ begin;
     v_contract_private uuid;
     v_contract_state uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Private School 2', 'private_school', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Private School 2', 'private_school')
     returning id into v_client_private;
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture State School', 'state_school', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture State School', 'state_school')
     returning id into v_client_state;
 
     insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status, billing_rule)
@@ -163,8 +163,8 @@ begin;
     v_client uuid;
     v_contract uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Masking Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Masking Client', 'corporate')
     returning id into v_client;
     insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status, billing_rule)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-MASK-001', 'one_off_event', 'signed', 'SECRET-RATE-4200-lei')
@@ -218,8 +218,8 @@ begin;
     v_client uuid;
     v_contract uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Sales Masking Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Sales Masking Client', 'corporate')
     returning id into v_client;
     insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status, billing_rule)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-SALES-MASK-001', 'one_off_event', 'signed', 'REAL-RATE-950-lei-atelier')
@@ -260,8 +260,8 @@ begin;
     v_client uuid;
     v_contract uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Financial Masking Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Financial Masking Client', 'corporate')
     returning id into v_client;
     insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status, estimated_value, previous_year_value)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-FIN-MASK-001', 'one_off_event', 'signed', 12345.67, 9876.54)
@@ -306,8 +306,8 @@ begin;
     v_client uuid;
     v_contract uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Financial Unmasking Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Financial Unmasking Client', 'corporate')
     returning id into v_client;
     insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status, estimated_value, previous_year_value)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-FIN-UNMASK-001', 'one_off_event', 'signed', 55555.00, 44444.00)
@@ -351,8 +351,8 @@ begin;
     v_client uuid;
     v_contract uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Sales Negative Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Sales Negative Client', 'corporate')
     returning id into v_client;
     insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-SALES-NEG-001', 'one_off_event', 'draft')
@@ -378,8 +378,8 @@ begin;
     v_contract_blocked boolean := false;
     v_update_count int;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Sales-Created Client (rolled back)', 'private_school', 'prospect')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Sales-Created Client (rolled back)', 'private_school')
     returning id into v_new_client;
     perform set_config('test.sales_insert_client_ok', (v_new_client is not null)::text, true);
 
@@ -438,8 +438,8 @@ begin;
   declare
     v_client uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Contract Admin Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Contract Admin Client', 'corporate')
     returning id into v_client;
     perform set_config('app.fixture_client', v_client::text, true);
   end $$;
@@ -537,11 +537,11 @@ begin;
     values (current_setting('app.test_org_wow_lab_test_b')::uuid, 'Fixture Org B Legal Entity (rolled back)', 'srl')
     returning id into v_legal_entity_b;
 
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Org A Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Org A Client', 'corporate')
     returning id into v_client_a;
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab_test_b')::uuid, 'Fixture Org B Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab_test_b')::uuid, 'Fixture Org B Client', 'corporate')
     returning id into v_client_b;
 
     insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status)
@@ -599,8 +599,8 @@ begin;
   declare
     v_client uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Delete-Deny Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Delete-Deny Client', 'corporate')
     returning id into v_client;
     perform set_config('app.fixture_client', v_client::text, true);
   end $$;
@@ -653,8 +653,8 @@ begin;
     v_client uuid;
     v_contract uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Sabotage Corporate Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Sabotage Corporate Client', 'corporate')
     returning id into v_client;
     insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-SABOTAGE-001', 'one_off_event', 'signed')

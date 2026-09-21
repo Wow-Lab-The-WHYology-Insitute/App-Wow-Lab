@@ -1585,7 +1585,7 @@ against).
 
 ---
 
-### 79. `delivery_format` → nine-value list — mapped, not migrated (Anca's instruction)
+### 79. `delivery_format` → nine-value list — mapped, not migrated (Anca's instruction) — BUILT 2026-09-21, see item 85
 
 2026-09-21. Anca decided the nine workshop types item 52 below already verified from source
 (`Fielduri pentru planificare ateliere.xlsx`), corrected — **Săptămâna Verde**, not the source's
@@ -1922,6 +1922,114 @@ or app-layer check can reach.
 time); item 71 above (a different general form — a cleared blocker leaving no trace — worth
 distinguishing: that one is about a register entry going stale, this one is about a *column* going
 stale while its entry stays accurate).
+
+---
+
+### 85. Item 79's mapping built — `delivery_format` migrated to Anca's nine workshop types
+
+2026-09-21. Anca decided; item 79 above did the investigation and found it lower-risk than it
+looked (no live caller on the duration multiplier, payroll/masking read nothing from this field,
+`custom` has zero live rows) — this item is the build.
+
+**The nine, keys ASCII snake_case (Mihai's instruction), labels carrying the diacritics in
+`app/(app)/groups/i18n.ts`, RO and EN:** `scoala_altfel` (Școala Altfel), `saptamana_verde`
+(Săptămâna Verde — Anca's own naming, matching the schema's existing key, not the source
+spreadsheet's literal "Scoala Verde" item 52 originally quoted), `wow_lab_party` (Wow Lab Party),
+`parteneriate_companii` (Parteneriate cu companii), `cursuri_deschise` (Cursuri deschise),
+`scoli_private_ocazionale` (Școli private, colaborări ocazionale), `scoli_private_recurente` (Școli
+private, colaborări recurente), `evenimente_mall` (Evenimente/prezentări la mall), `party_companii`
+(Party în companii). `scoala_altfel`/`saptamana_verde` keep their exact prior literal strings — same
+program, same key, only the surrounding list was confirmed (same reasoning item 83 used for
+`paused`/`churned` surviving the status rename unchanged).
+
+**Every existing row, reported before the migration was written, not defaulted:** exactly 3 rows
+exist across both orgs, confirmed live immediately before writing the migration.
+
+| Org | Client | Module | Old value | New value |
+|---|---|---|---|---|
+| WOW LAB | Școala Franceză (Lycée Français, `private_school`) | wow_mix | `recurring` | `scoli_private_recurente` — clean, not just by the general rule: this row's own client is a private school with an ongoing relationship |
+| WOW LAB | same client | wow_mix | `recurring` | `scoli_private_recurente` — same reasoning |
+| WOW LAB Test Org B | MAX (`corporate`) | green_energy | `corporate` | **splits three ways** — `parteneriate_companii` / `party_companii` / `evenimente_mall`, nothing on the row distinguishes them |
+
+**The split, flagged before building, resolved by Mihai, not defaulted.** Asked directly rather than
+guessing: chose `parteneriate_companii`. No `scoala_altfel`, `saptamana_verde`, `party`, or `custom`
+rows exist live anywhere, so those three old values had nothing to migrate.
+
+**Recurring, confirmed: `scoli_private_recurente` only.** Matches Mihai's own reading exactly — none
+of the other eight (including `scoala_altfel`/`saptamana_verde`, which were never "recurring" in this
+sense even under the old six-value list). Updated both places this distinction lives:
+`app/(app)/groups/[id]/trainer-resources-section.tsx` (`isOneOff`, the feedback-form caption) and
+`groups-client.tsx` (`isRecurring`, the create form's schedule-pattern shape — day+time vs.
+date+time). Found and fixed a real staleness while updating the caption itself:
+`resources_feedback_form_optional`'s own text hardcoded example values ("Școala Altfel, Săptămâna
+Verde, corporate, parties") that no longer exist under the new vocabulary — rewritten around the
+actual rule ("required for one-off workshops — optional only for recurring private-school
+collaborations") instead of an example list that would drift again the next time the vocabulary does.
+
+**Duration multiplier: re-keyed, not silently orphaned.** `app.resolve_duration_multiplier`
+(`202608310002`) still has no live caller anywhere in app code — reconfirmed fresh, unchanged since
+item 79. The two literal strings it matches (`scoala_altfel`, `saptamana_verde`) are unchanged by this
+migration, so its `case when` didn't need new values — but it was still `CREATE OR REPLACE`'d with an
+explicit comment recording that re-confirmation, so the day a payroll calculation finally calls it,
+whoever's reading finds the check already done, not a silent assumption. Instruction: "re-verify this
+comment the day a payroll calculation actually calls this function for the first time."
+
+**`business_line` overlap, reported, not reconciled — both decisions stand, they answer different
+questions.** `business_line`'s own `state_schools` value is labeled *"(Școala Altfel / Săptămâna
+Verde)"* — a coarser-grained version of exactly the new list's first two entries.
+`business_line_recurring_private_schools` overlaps `scoli_private_recurente`.
+`business_line_corporate_events` overlaps the remaining company/event-flavored values
+(`wow_lab_party`, `parteneriate_companii`, `evenimente_mall`, `party_companii`) as a group, not 1:1.
+This redundancy already existed between `business_line` and the old `delivery_format` (nothing ever
+enforced they agree); the new vocabulary doesn't create it or fix it, just changes which words sit on
+the more granular side. Not reconciled — Anca decided both fields for different reasons, and this
+item doesn't second-guess either.
+
+**No catch-all value.** Item 79 already flagged `custom`'s old escape-hatch role as having no
+equivalent in the nine — not invented here either. Anca's decision was "these nine replace the six,"
+not "these nine plus a fallback." A workshop that genuinely fits none of the nine is now a real gap
+to surface, not silently absorbed.
+
+**Acceptance test: every row, before and after, nothing unintended changed — same discipline as item
+83's status rename.** Dry run against the real live data
+(`scripts/verify_groups_delivery_format_nine_types_migration.sql`, rolled back): all 3 rows mapped
+exactly as the table above states, zero rows outside those 3 touched, and writing the old literal
+`'recurring'` is rejected by the new constraint — 2/2. Applied for real, then re-queried live: matches
+the dry run exactly, byte for byte.
+
+**Found and fixed while verifying, not part of the original scope but left broken would defeat the
+point of touching the file at all.** `db/tests/rls_groups_sessions.sql`'s own header claims "safe to
+re-run at any time" — its `delivery_format` fixture literals (`'recurring'`, `'party'`, `'custom'`)
+would have silently broken that claim the moment this migration shipped, so they're updated
+(`'recurring'` → `scoli_private_recurente`, `'party'` → `wow_lab_party`, `'custom'` → an arbitrary
+valid replacement, `cursuri_deschise` — these points don't test format-specific behavior). Discovered
+in the same pass, unrelated to this migration but blocking its own sanity check: both
+`db/tests/rls_groups_sessions.sql` and `rls_clients_contracts.sql` still inserted a bare `status`
+column into `public.clients`, broken since item 83 renamed it to `status_override` — fixed (the column
+is simply omitted now, same as `addClient`'s own fix in item 83, since none of these fixtures test
+status semantics). A THIRD, older staleness was found and left alone, out of scope for both this task
+and item 83: `db/tests/rls_clients_contracts.sql` also references `contracts.contract_number`, dropped
+in favor of `entry_number`/`exit_number` back in `202608180002` — predates both this item and item 83,
+not fixed here, named so it isn't mistaken for something this round already covered.
+
+**Verified live, local dev then the real deployment, same discipline as items 78/80/83.**
+`scripts/verify_groups_delivery_format_nine_types_test_org_b.ts` against WOW LAB Test Org B: the real
+migrated MAX/green_energy row renders "Company partnerships," a fresh `scoli_private_recurente` group
+shows the optional caption, a fresh `wow_lab_party` group shows the required caption (proving the
+split is keyed on `scoli_private_recurente` specifically, not a substring check), the list page
+renders the new label — 7/7 on local dev, 7/7 again against the real `app.wowlab.ro` deployment.
+
+**i18n:** `format_*` keys fully replaced (6 → 9, `app/(app)/groups/i18n.ts`); one caption rewritten
+(`resources_feedback_form_optional`, the stale-example fix above). Both RO and EN.
+
+**Lives in:** item 79 above (the investigation and mapping this builds);
+`supabase/migrations/202609210006_migrate_groups_delivery_format_to_nine_workshop_types.sql` and its
+rollback (a true undo this time — 3 known rows by id, no lossy backfill, unlike item 83's);
+`app/(app)/groups/i18n.ts`, `groups-client.tsx` (`FORMAT_KEYS`, `isRecurring`),
+`[id]/trainer-resources-section.tsx` (`isOneOff`); `scripts/verify_groups_delivery_format_nine_types_migration.sql`,
+`verify_groups_delivery_format_nine_types_test_org_b.ts`; `db/tests/rls_groups_sessions.sql`,
+`rls_clients_contracts.sql` (the incidental `status`→`status_override` fix); item 83 above (the same
+acceptance-test discipline, and the second write path that broke `db/tests` unnoticed until now).
 
 ---
 

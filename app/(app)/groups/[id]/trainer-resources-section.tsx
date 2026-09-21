@@ -14,21 +14,23 @@ import { groupsDict } from "../i18n";
 //
 // The feedback form's own relevance (mandatory for one-off workshops,
 // optional for recurring ones, per Anca) is NOT used to hide the link --
-// only to change the caption under it. delivery_format is Mihai's own
-// unconfirmed working categorization (WOWLAB_SAD_Domeniul_Operational_
-// Groups_Sessions.md: "decizie de lucru, risc acceptat"), and hiding a
-// feedback mechanism behind a classification nobody has confirmed risks
-// a trainer who genuinely needs it finding nothing there at all. Showing
-// it always, captioned correctly, costs a recurring-group trainer one
-// extra line of text they can ignore -- the asymmetry favors always
-// showing it.
+// only to change the caption under it. Showing it always, captioned
+// correctly, costs a recurring-group trainer one extra line of text they
+// can ignore -- the asymmetry favors always showing it.
+//
+// "Recurring" means delivery_format === scoli_private_recurente
+// specifically (item 79/85, Anca's nine workshop types, 2026-09-21,
+// confirmed with Mihai) -- the other eight are all one-off in this
+// caption's sense, including scoala_altfel/saptamana_verde, which used to
+// be distinct values under the six-value list this replaced but were
+// never "recurring" in this specific sense either.
 const FEEDBACK_FORM_URL =
   "https://docs.google.com/forms/d/e/1FAIpQLSci_C5t8LqsLMddloMDSLgdO9wJSw5LMakwUcEO3dbtLkXXgQ/viewform";
 const RESPONSIBILITIES_DOC_URL = "https://docs.google.com/document/d/1io8GJYq4wBvHvPcblAcqOTOcxNZsOcrC-JfpQ3bLzmQ/edit";
 
 export function TrainerResourcesSection({ deliveryFormat }: { deliveryFormat: string }) {
   const t = useTranslations(groupsDict);
-  const isOneOff = deliveryFormat !== "recurring";
+  const isOneOff = deliveryFormat !== "scoli_private_recurente";
 
   return (
     <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">

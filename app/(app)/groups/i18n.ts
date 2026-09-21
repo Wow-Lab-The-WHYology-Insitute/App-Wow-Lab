@@ -51,12 +51,28 @@ export const groupsDict: Dictionary = {
   module_astronomy: { en: "Astronomy", ro: "Astronomy" },
   module_doctor: { en: "I Wanna Be a Doctor", ro: "I Wanna Be a Doctor" },
 
-  format_recurring: { en: "Recurring (school club)", ro: "Recurent (club școlar)" },
+  // Anca's nine workshop types (2026-09-21, item 79/85), replacing the
+  // prior six-value working list. Keys are ASCII snake_case (Mihai's
+  // instruction); labels carry the diacritics, RO and EN. scoala_altfel/
+  // saptamana_verde keep their old keys unchanged -- same program, same
+  // key, only the surrounding list was confirmed. "Recurring," wherever
+  // this app distinguishes it (the resources caption, the create form's
+  // schedule-pattern shape), means format_scoli_private_recurente ONLY.
   format_scoala_altfel: { en: "Școala Altfel", ro: "Școala Altfel" },
   format_saptamana_verde: { en: "Săptămâna Verde", ro: "Săptămâna Verde" },
-  format_party: { en: "Party", ro: "Party" },
-  format_corporate: { en: "Corporate", ro: "Corporate" },
-  format_custom: { en: "Custom", ro: "Custom" },
+  format_wow_lab_party: { en: "Wow Lab Party", ro: "Wow Lab Party" },
+  format_parteneriate_companii: { en: "Company partnerships", ro: "Parteneriate cu companii" },
+  format_cursuri_deschise: { en: "Open courses", ro: "Cursuri deschise" },
+  format_scoli_private_ocazionale: {
+    en: "Private schools (occasional collaboration)",
+    ro: "Școli private (colaborări ocazionale)",
+  },
+  format_scoli_private_recurente: {
+    en: "Private schools (recurring collaboration)",
+    ro: "Școli private (colaborări recurente)",
+  },
+  format_evenimente_mall: { en: "Mall events/presentations", ro: "Evenimente/prezentări la mall" },
+  format_party_companii: { en: "Company parties", ro: "Party în companii" },
 
   status_active: { en: "Active", ro: "Activă" },
   status_paused: { en: "Paused", ro: "Suspendată" },
@@ -274,9 +290,16 @@ export const groupsDict: Dictionary = {
     en: "Required for this workshop.",
     ro: "Obligatoriu pentru acest atelier.",
   },
+  // Rewritten 2026-09-21 (item 79/85) -- the old text named specific
+  // examples ("Școala Altfel, Săptămâna Verde, corporate, parties") that
+  // no longer match the nine-value vocabulary (there is no "corporate" or
+  // "parties" value now). Rephrased around the actual rule instead of an
+  // example list that would drift again the next time the vocabulary
+  // does -- "one-off" here means "every delivery_format except
+  // scoli_private_recurente" (trainer-resources-section.tsx).
   resources_feedback_form_optional: {
-    en: "Only required for one-off workshops (Școala Altfel, Săptămâna Verde, corporate, parties) — optional for recurring groups.",
-    ro: "Obligatoriu doar pentru atelierele unice (Școala Altfel, Săptămâna Verde, corporate, petreceri) — opțional pentru grupele recurente.",
+    en: "Required for one-off workshops — optional only for recurring private-school collaborations.",
+    ro: "Obligatoriu pentru atelierele unice — opțional doar pentru colaborările recurente cu școli private.",
   },
   resources_responsibilities_label: {
     en: "Trainer responsibilities: principal vs secundar",

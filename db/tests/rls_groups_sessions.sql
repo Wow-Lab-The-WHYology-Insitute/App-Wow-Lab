@@ -14,6 +14,14 @@
 --   supabase db query --linked --file /tmp/point_N.sql
 -- Every block ends in ROLLBACK — safe to re-run at any time, never leaves
 -- fixture rows behind (confirmed at the end of this file).
+--
+-- delivery_format literals updated 2026-09-21 (item 79/85, groups_
+-- delivery_format_check migrated from 6 values to Anca's 9 workshop
+-- types): 'recurring' -> 'scoli_private_recurente', 'party' ->
+-- 'wow_lab_party', 'custom' -> 'cursuri_deschise' (an arbitrary valid
+-- replacement -- these points don't test format-specific behavior, the
+-- value only needs to satisfy the CHECK constraint). 'saptamana_verde'
+-- is unchanged, still a legal value under the new constraint too.
 
 -- ============================================================================
 -- Points 1+2 — Trainer A sees ONLY sessions where they are trainer_
@@ -40,15 +48,15 @@ begin;
     v_session_secundar uuid;  -- trainer_a as secundar
     v_session_other_trainer uuid; -- trainer_b only, different group
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Client', 'private_school', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Client', 'private_school')
     returning id into v_client;
 
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, v_client, 'gaga', 'recurring', 'active')
+    values (current_setting('app.test_org_wow_lab')::uuid, v_client, 'gaga', 'scoli_private_recurente', 'active')
     returning id into v_group_a;
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, v_client, 'astronomy', 'recurring', 'active')
+    values (current_setting('app.test_org_wow_lab')::uuid, v_client, 'astronomy', 'scoli_private_recurente', 'active')
     returning id into v_group_b;
 
     insert into public.sessions (organization_id, group_id, session_date, trainer_principal_id, status)
@@ -132,11 +140,11 @@ begin;
     v_group uuid;
     v_session uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Ops Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Ops Client', 'corporate')
     returning id into v_client;
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, v_client, 'detective', 'party', 'active')
+    values (current_setting('app.test_org_wow_lab')::uuid, v_client, 'detective', 'wow_lab_party', 'active')
     returning id into v_group;
     insert into public.sessions (organization_id, group_id, session_date, trainer_principal_id, status)
     values (current_setting('app.test_org_wow_lab')::uuid, v_group, '2026-09-15', current_setting('app.test_trainer_b')::uuid, 'planned')
@@ -182,8 +190,8 @@ begin;
     v_group uuid;
     v_session uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Finance Admin Client', 'state_school', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Finance Admin Client', 'state_school')
     returning id into v_client;
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client, 'lights', 'saptamana_verde', 'active')
@@ -223,7 +231,7 @@ begin;
       values (
         current_setting('app.test_org_wow_lab')::uuid,
         (select client_id from public.groups where id = current_setting('app.fixture_group_fa')::uuid),
-        'chem_me', 'custom', 'active'
+        'chem_me', 'cursuri_deschise', 'active'
       );
     exception
       when insufficient_privilege then
@@ -301,8 +309,8 @@ begin;
   declare
     v_client uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Ops-Create Client', 'private_school', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Ops-Create Client', 'private_school')
     returning id into v_client;
     perform set_config('app.fixture_client', v_client::text, true);
   end $$;
@@ -324,7 +332,7 @@ begin;
     v_update_count int;
   begin
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, current_setting('app.fixture_client')::uuid, 'wow_mix', 'recurring', 'active')
+    values (current_setting('app.test_org_wow_lab')::uuid, current_setting('app.fixture_client')::uuid, 'wow_mix', 'scoli_private_recurente', 'active')
     returning id into v_group;
     perform set_config('app.fixture_group', v_group::text, true);
 
@@ -398,18 +406,18 @@ begin;
     v_session_a uuid;
     v_session_b uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Org A Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Org A Client', 'corporate')
     returning id into v_client_a;
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab_test_b')::uuid, 'Fixture GS Org B Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab_test_b')::uuid, 'Fixture GS Org B Client', 'corporate')
     returning id into v_client_b;
 
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, v_client_a, 'gaga', 'recurring', 'active')
+    values (current_setting('app.test_org_wow_lab')::uuid, v_client_a, 'gaga', 'scoli_private_recurente', 'active')
     returning id into v_group_a;
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
-    values (current_setting('app.test_org_wow_lab_test_b')::uuid, v_client_b, 'gaga', 'recurring', 'active')
+    values (current_setting('app.test_org_wow_lab_test_b')::uuid, v_client_b, 'gaga', 'scoli_private_recurente', 'active')
     returning id into v_group_b;
 
     insert into public.sessions (organization_id, group_id, session_date, status)
@@ -476,11 +484,11 @@ begin;
     v_group uuid;
     v_session uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Sabotage Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Sabotage Client', 'corporate')
     returning id into v_client;
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, v_client, 'astronomy', 'recurring', 'active')
+    values (current_setting('app.test_org_wow_lab')::uuid, v_client, 'astronomy', 'scoli_private_recurente', 'active')
     returning id into v_group;
     insert into public.sessions (organization_id, group_id, session_date, trainer_principal_id, status)
     values (current_setting('app.test_org_wow_lab')::uuid, v_group, '2026-10-10', current_setting('app.test_trainer_b')::uuid, 'planned')
@@ -530,8 +538,8 @@ begin;
   declare
     v_client uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS RowHistory Client', 'private_school', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS RowHistory Client', 'private_school')
     returning id into v_client;
     perform set_config('app.fixture_client', v_client::text, true);
   end $$;
@@ -552,7 +560,7 @@ begin;
     v_session uuid;
   begin
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, current_setting('app.fixture_client')::uuid, 'lotions', 'recurring', 'active')
+    values (current_setting('app.test_org_wow_lab')::uuid, current_setting('app.fixture_client')::uuid, 'lotions', 'scoli_private_recurente', 'active')
     returning id into v_group;
     perform set_config('app.fixture_group', v_group::text, true);
     perform set_config('test.group_history_before_update', (select count(*) from public.row_history where table_name = 'groups' and row_id = v_group)::text, true);
