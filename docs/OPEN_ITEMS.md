@@ -3430,7 +3430,7 @@ reused that org for).
 
 ---
 
-### 52. Anca's planning-fields spec describes a workshop; the schema models a group — a domain question, not missing columns
+### 52. Anca's planning-fields spec describes a workshop; the schema models a group — CENTRAL FORK CLOSED 2026-09-21: recurring stays primary, one-off gets extension fields
 
 Three real documents from Anca — a 26-field planning spec, a PDF on principal/secondary/reserve
 trainer responsibilities, and a post-workshop feedback form's question list — describe a **workshop**
@@ -3482,29 +3482,111 @@ asks the trainer how many children attended. `docs/OPEN_ITEMS.md` item 45 part 1
 talk to each other, asking the same person the same question twice, with no reconciliation and no
 way to tell which is right if they ever diverge.
 
-**Checked, not built:** whether any existing document states workshop volume — how many one-off
-workshops Wow Lab runs in a year against how many recurring groups — since that ratio decides
-whether the domain gap above is the exception or the actual shape of most of the business. Searched
-this repo (`docs/`, `progress.md`), the already-known Drive feedback spreadsheet, the AD document
-(mentions the one-off/recurring split conceptually — P3's "Program → Groups (recurring) or direct
-sessions (one-off)" — with no figures attached), and two real operational spreadsheets in
-`~/Downloads` — `New Wow Lab Trainer Calculations Table.xlsx` ("Pontaj si Norma," ~11,876 rows,
-one row per trainer/workshop-date/school occurrence back to 2024) and `Tabel Costuri Agregate Total
-HR WOW Lab.xlsx` (a monthly per-trainer cost rollup). **No document anywhere states the ratio.**
-The raw transactional data in the first spreadsheet could support computing it — school name, date,
-and duration per row, back to 2024 — but nothing does that computation or states its result today,
-and doing so wasn't asked for here.
+**Checked, not built, at the time this was written:** whether any existing document states workshop
+volume — how many one-off workshops Wow Lab runs in a year against how many recurring groups —
+since that ratio decides whether the domain gap above is the exception or the actual shape of most
+of the business. Searched this repo (`docs/`, `progress.md`), the already-known Drive feedback
+spreadsheet, the AD document (mentions the one-off/recurring split conceptually — P3's "Program →
+Groups (recurring) or direct sessions (one-off)" — with no figures attached), and two real
+operational spreadsheets in `~/Downloads` — `New Wow Lab Trainer Calculations Table.xlsx` ("Pontaj
+si Norma," ~11,876 rows, one row per trainer/workshop-date/school occurrence back to 2024) and
+`Tabel Costuri Agregate Total HR WOW Lab.xlsx` (a monthly per-trainer cost rollup). No document
+anywhere stated the ratio. The raw transactional data in the first spreadsheet could support
+computing it — school name, date, and duration per row, back to 2024 — but nothing had done that
+computation or stated its result yet.
 
-**No migration, no table, no code — reported as a domain question for Anca to answer, not a set of
-fields to add.**
+**Computed 2026-09-21 — `Pontaj si Norma`, 1,422 data rows (of 11,876 raw rows; the rest of the
+sheet is unused space).** No column marks workshop type — the split was inferred, not read off a
+field, from `School Name`: most of its 34 distinct values are real named schools (recurring club
+delivery); a minority are generic event labels standing in for one-off work — `Scoala Altfel` (171
+rows), `Saptamana Verde` (59), `Wow Lab Party` (26) — plus three non-school venues identifiable
+only by not being a school (`ASOCIATIA CURTEA VECHE`, `PR CORNER S.R.L`, `Mina Museum SRL`, 16 rows
+together). 103 rows under `New Lesson Plan` were excluded outright, not counted either way —
+`Trainer Classification` on those rows reads `Lesson plan writer`, a different work stream (lesson
+authoring pay, not delivery). **This is a proxy inferred from a free-text field, not a fact anyone
+recorded as such — treat the numbers below as a first real estimate, not a source of truth the way
+a real `delivery_format`-equivalent column on this data would be.**
+
+- **Overall:** recurring 1,045, one-off 274 → **3.8 : 1 by count, 3.7 : 1 by hours** (average
+  session length is nearly identical either way — 1.15h recurring vs. 1.19h one-off — so count and
+  hours agree here; they need not, and a future check with more format variance shouldn't assume
+  they always will).
+- **By school year — the trend, not just the average:** 2024/2025 (Aug 2024–Jul 2025, 636 sessions)
+  — **2.9 : 1** by count. 2025/2026 (Sep 2025–Jun 2026, partial year, 682 sessions) — **5.2 : 1** by
+  count. One-offs fell from 163 to 110 sessions in absolute terms, and from 25.6% to 16.1% of the
+  total — recurring is not just the larger share, it is actively growing as a share of what this
+  business delivers, in the one year of trend this data shows.
+- **Revenue could not be computed, from either spreadsheet.** Both hold trainer *cost* (what Wow Lab
+  pays out), never a client-facing price — there is no revenue column anywhere in either file.
+
+**The fork closes: recurring stays the primary model; one-off workshops get the fields they're
+missing as an extension of it, not a restructure that promotes workshops to the primary entity.**
+At roughly 4:1 and widening, recurring clubs are the dominant shape of real, delivered work today —
+not the exception the domain gap above was checked against. That argues directly against making a
+one-off workshop the first-class unit with recurring groups as its special case, which was the
+live alternative this fork was actually weighing. **It does not make the gap smaller.** One-off
+workshops are still roughly a fifth of delivered hours even in the leaner, more recent year — real,
+ongoing volume, not noise — so every absence the section above lists (address, time range, the
+reserve-trainer slot, a real principal flag, per-experiment attribution, a workshop-level contact
+and description) is still a real gap to fill, now scoped as additions to the existing
+`groups`/`sessions` model rather than as a second, parallel entity.
+
+**The nine-value workshop type list is verified, not just cited secondhand — read directly from the
+source, `Fielduri pentru planificare ateliere.xlsx` (`~/Downloads`), the "Tip Atelier" row's own
+dropdown definition, quoted in full:**
+
+> Dropdown list:
+> Lista:
+> Scoala Altfel
+> Scoala Verde
+> Wow Lab Party
+> Parteneriate cu companii
+> Cursuri deschise - Exemplu Cursuri de chimie
+> Scoli private (colaborări ocazionale) - Exemplu Science Week la IBSB
+> Scoli private (colaborări recurente)
+> Wow Lab Party
+> Evenimente/prezentari la mall - Exemplu Barlad Value Center
+> Party in companii
+
+Ten lines, `Wow Lab Party` listed twice — **nine distinct values**: Scoala Altfel; Scoala Verde;
+Wow Lab Party; Parteneriate cu companii (company partnerships); Cursuri deschise (open courses,
+e.g. chemistry courses); Scoli private, colaborări ocazionale (private schools, occasional
+collaboration, e.g. a Science Week at IBSB); Scoli private, colaborări recurente (private schools,
+recurring collaboration); Evenimente/prezentari la mall (mall events/presentations, e.g. Barlad
+Value Center); Party in companii (parties at companies).
+
+**Why this can't map onto `delivery_format`'s six values (`recurring`, `scoala_altfel`,
+`saptamana_verde`, `party`, `corporate`, `custom`) — checked precisely, not just "it's different":**
+the nine-value list mixes three different axes in one flat dropdown that `delivery_format` keeps
+separate or collapses on purpose — **occasion** (Scoala Altfel, Scoala Verde), **venue** (mall),
+**client type** (private schools, companies), and **frequency** (occasional vs. recurring,
+spelled out as two separate private-school lines) all sit at the same list level. One direct
+naming mismatch, not just a conceptual one: the spec says **"Scoala Verde,"** the schema's enum
+says **`saptamana_verde`** ("Săptămâna Verde") — close enough to be the same program, not
+confirmed to be, and not silently treated as such here. Two spec lines (`Wow Lab Party`, `Party in
+companii`) and two more (`Parteneriate cu companii`, `Party in companii` again) plausibly both
+collapse onto single `delivery_format` values (`party`, `corporate`) — plausibly, not confirmed;
+`recurring` most likely corresponds to "Scoli private (colaborări recurente)" alone, leaving state
+schools' own recurring relationships (if any) unaccounted for in either list.
+
+**Still Anca's, not settled by the volume answer:** whether the nine-value list replaces
+`delivery_format`, sits beside it as a second, more granular classification, or is dropped in favor
+of the six already built. The ratio decided the *structural* fork (extend, don't restructure); it
+says nothing about which *vocabulary* the extension should speak.
+
+**No migration, no table, no code — the structural fork is closed; the extension work itself is not
+started.** What's now buildable, pending Anca's vocabulary answer above: the seven still-absent
+fields listed earlier in this item, added to `groups`/`sessions`, not to a new entity.
 
 **Lives in:** `docs/OPEN_ITEMS.md` item 45 (the attendance-count duplication's other half); the
-three source documents themselves, once placed in `docs/` (`WOWLAB_Spec_Planificare_Ateliere`,
-`WOWLAB_Spec_Trainer_Principal_Secundar`, `WOWLAB_Spec_Formular_Feedback_Post_Atelier` — not yet
-copied in as of this entry); `supabase/migrations/202608130001_create_groups_sessions_domain_tables.sql`,
+three source documents (`WOWLAB_Spec_Trainer_Principal_Secundar.md`, now in `docs/`, untracked;
+`Fielduri pentru planificare ateliere.xlsx`, found and read `~/Downloads`, not yet copied in;
+`WOWLAB_Spec_Formular_Feedback_Post_Atelier`, still not located); `New Wow Lab Trainer Calculations
+Table.xlsx` (`~/Downloads`, `Pontaj si Norma` sheet — the volume computation's own source);
+`supabase/migrations/202608130001_create_groups_sessions_domain_tables.sql`,
 `202608160004_groups_sessions_field_additions.sql` (the live `sessions`/`groups` schema this was
-checked against); `docs/WOW_LAB_OS_Solution_Architecture_Document.md` line 49 (the one place the
-one-off/recurring split is named, without a volume figure).
+checked against, and where the extension fields would land); `docs/WOW_LAB_OS_Solution_Architecture_Document.md`
+line 49 (the one place the one-off/recurring split is named, without a volume figure).
 
 ---
 
