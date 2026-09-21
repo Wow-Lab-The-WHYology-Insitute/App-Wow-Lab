@@ -1558,11 +1558,19 @@ the same signed-contract check — same displayed answer, no migration/backfill 
 
 **Verified live, not just dry-run.** SQL dry run (rolled back): paused-override-wins-over-signed-
 contract, real-prospect-stays-prospect, legacy-active-value-falls-through-correctly — 3/3. End-to-end
-against real rendered pages in WOW LAB Test Org B (`scripts/verify_client_effective_status_test_org_b.ts`):
-prospect shows no action buttons, adding a signed contract flips list+detail to Active with zero
-writes to `clients.status`, pausing overrides the still-signed contract, reactivating writes the
-literal `'prospect'` sentinel yet re-renders Active — 10/10. Then confirmed read-only against
-`app.wowlab.ro` (`VERIFY_READONLY=1`): `/clients` and all 3 real clients' detail pages render Active.
+against real rendered pages in WOW LAB Test Org B, first on local dev, then unchanged and re-run
+against the actual deployed production code at `app.wowlab.ro`
+(`VERIFY_SITE_URL=https://app.wowlab.ro`, `scripts/verify_client_effective_status_test_org_b.ts`) —
+10/10 both times: prospect shows no action buttons, adding a signed contract flips list+detail to
+Active with zero writes to `clients.status`, pausing overrides the still-signed contract, reactivating
+writes the literal `'prospect'` sentinel yet re-renders Active. This closes the deploy-timing gap a
+purely read-only production check against the 3 real WOW LAB clients couldn't: those 3 rows render
+identically under old and new code (both already said Active), so passing there didn't prove the new
+code path was live — disposable fixtures in WOW LAB itself to force a real distinguishing case were
+correctly refused by the permission system as a shared-resource write; WOW LAB Test Org B against the
+real production deployment is the same code path with none of that risk, and is what closes it.
+Confirmed separately, read-only, against the 3 real WOW LAB clients too: `/clients` and all 3 detail
+pages render Active, no regression.
 
 **i18n:** none needed. Same 4 status labels (`status_prospect/active/paused/churned`) and 3 action-
 button labels (`status_action_active/paused/churned`) already in `clientsDict` — this changes how the
@@ -1669,10 +1677,14 @@ capabilities this migration also touches.
 
 **Verified live.** SQL dry run (rolled back), `scripts/verify_operations_client_contacts_write.sql`:
 operations_manager can INSERT and UPDATE, cannot DELETE; a trainer cannot INSERT; finance segregation
-holds for a user who also holds `contracts.*` — 6/6. Rendered-page proof in WOW LAB Test Org B,
-`scripts/verify_operations_client_contacts_ui_test_org_b.ts`: the create button and an edit action
-render for the operations manager, no delete action renders; a trainer with no allocated session at
-the client sees neither the client nor its contacts — 6/6.
+holds for a user who also holds `contracts.*` — 6/6. Rendered-page proof in WOW LAB Test Org B, first
+on local dev, then unchanged and re-run against the actual deployed production code at `app.wowlab.ro`
+(`NEXT_PUBLIC_SITE_URL=https://app.wowlab.ro`, `scripts/verify_operations_client_contacts_ui_test_org_b.ts`)
+— 6/6 both times: the create button and an edit action render for the operations manager, no delete
+action renders; a trainer with no allocated session at the client sees neither the client nor its
+contacts. The production run is what actually proves this code path is live, not just that WOW LAB's
+3 real client pages didn't regress (separately smoke-checked, also clean) — same reasoning as item 78's
+own production-verification note.
 
 **i18n:** none needed — the same create/edit/delete controls and labels already exist; this changes
 which roles reach them, not any string.
@@ -1722,6 +1734,93 @@ it? Item 45 named this gap; it does not resolve it.
 **Lives in:** item 45 below (the exact passage this restates as a standalone question, part 5's
 `correctSessionConfirmation`/`finance.operations.*` finding); item 46 below (AD-10's own
 frozen-statements/adjustment-line model, for comparison).
+
+---
+
+### 83. Item 78's `'prospect'` sentinel means "no override," not what the column's name says — raw reads are wrong, a redesign is argued, not yet built
+
+2026-09-21. Mihai's own objection to item 78, checked exhaustively before arguing anything: after
+that item's derivation, `clients.status` can hold the literal string `'prospect'` for a client that
+computes as Active. Worse than the report below first assumed — it isn't only `'prospect'` that's
+compromised. `client_effective_status()`'s own case expression (`202609210003`) treats exactly two
+values as real, trustworthy overrides — `'paused'`, `'churned'` — and **everything else** falls
+through to the contract check, `'active'` included. The 3 real rows still hold the literal string
+`'active'` today; that happens to produce the right answer, by coincidence of which write came last,
+not because the value carries meaning. Of the 4 values the CHECK constraint still permits, only 2
+retain any literal meaning. The other 2 are indistinguishable synonyms for "no override" — which
+one a row happens to hold is historical accident, not signal.
+
+**Every reader of the raw column, found by exhaustive grep, not sampled:**
+- **App code** — every `clients` select in `app/`, enumerated (15 call sites across
+  clients/contracts/groups/payroll). Exactly two select the `status` column at all: the two page.tsx
+  queries item 78 already aliased to `status:client_effective_status` (correct — they read the
+  computed value, not the raw one), and `changeClientStatus`'s own read, which selects raw `status`
+  only to feed the `.eq("status", current.status)` optimistic-concurrency guard on its own write — it
+  never treats that value as "the" status; `CLIENT_STATUS_TRANSITIONS` is looked up by
+  `effective_status` already, per item 78's own design. No other call site selects `status` at all
+  (confirmed by reading each of the other 13). **App code is not wrong today** — checked, not assumed.
+- **RLS policies, every table** — grepped for `clients.status`/`cl.status`/any status-keyed subquery
+  against `clients` across every migration. None. No policy anywhere reads this column.
+- **Views** — the only `c.status` hits found are `contracts_billing_masked`'s family of migrations,
+  where `c` aliases `public.contracts`, not `clients` — confirmed by reading the view's own `FROM`
+  clause, not assumed from the alias letter. No view selects `clients.status`.
+- **Filters / the `/clients` status dropdown** — `clients-client.tsx`'s filter operates on
+  `client.status`, which arrives from page.tsx already carrying the computed value (same alias as
+  above) — correct. The dropdown's own option list (`CLIENT_STATUSES`, minus `prospect`) is a static
+  local literal, unaffected either way.
+- **`db/tests/`, `scripts/*.sql`** — grepped for any assertion keyed on `clients.status`'s raw value.
+  None found.
+- **Not asked for, found anyway, and the real risk:** anyone with direct database access — Supabase
+  Studio's Table Editor, `supabase db query --linked`, any future ad hoc report or export — sees the
+  literal stored value with nothing distinguishing it from a genuine status. This is not fixable by
+  code discipline, because it isn't code: a person looking at the table, or a script written by
+  someone who doesn't know `client_effective_status()` exists, reads `'prospect'` and reasonably
+  believes it. **This is the actual failure mode item 78 introduced** — not a bug in the app today,
+  a trap for the first reader who reasonably assumes a column means what it's named.
+- **Documentation:** `docs/DATABASE_CONVENTIONS.md` §12 cites `clients.status = 'churned'` as its
+  worked example of the status-replaces-delete convention — still accurate; `'churned'` is one of the
+  two values that kept its literal meaning. `docs/WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md`'s own
+  description of `prospect` (quoted in item 76 above: *"prospect exists as status only for pre-
+  contract clients"*) is now stale for a raw reader of the column, for the reason this item names.
+
+**The redesign, argued.** Two shapes were on the table.
+1. *Keep the name, make the raw column unreachable except through the computed one* (e.g. `REVOKE
+   SELECT` on `status` from `authenticated`, matching the precedent already used for
+   `client_contacts.notes`, `202608250001`). **Rejected.** It only protects PostgREST/`authenticated`
+   sessions — the actual risk named above is Supabase Studio and `supabase db query`, both of which
+   connect as a privileged role that a table-level `REVOKE` from `authenticated` does not touch. It
+   would fix the reader that was never actually wrong (app code, already routed through the computed
+   column) and leave the one that is wrong (direct database access) completely unprotected.
+2. **Chosen: rename the column to what it now holds, and make illegal what it no longer means.**
+   `status` → `status_override` (exact name TBD, open to a better one), nullable, `CHECK
+   (status_override IS NULL OR status_override IN ('paused', 'churned'))` — `'prospect'`/`'active'`
+   stop being legal values for this column at all, because they were never a real value here, only a
+   sentinel for "nothing." `NULL` replaces item 78's own `'prospect'`-as-sentinel trick outright — a
+   genuine simplification, not just a rename: `changeClientStatus`'s reactivate edge would write a
+   literal `NULL` instead of the borrowed string `'prospect'`, closing the exact "writes prospect,
+   displays Active" indirection item 78's own text already flagged as the one non-obvious edge.
+   `client_effective_status()`'s case expression becomes `status_override IS NOT NULL → status_override
+   ELSE (signed contract ? active : prospect)` — clearer, not just relabeled. A rename protects every
+   reader uniformly — Table Editor, `psql`, `service_role`, `authenticated`, all see the same renamed
+   column, so nobody can mistake it for "the status" by habit, the same way a differently-named
+   column already protects `billing_rule`/`estimated_value` from being read as public data without
+   anyone needing to remember a grant exists. Blast radius is small and already mapped by the audit
+   above: 3 app-code call sites, the computed-column function, one migration (rename + constraint +
+   backfill the 3 real rows' literal `'active'` to `NULL` — no behavior change, since `NULL` and
+   `'active'` already compute identically under item 78's derivation).
+
+**Not built. Reported, per instruction, before changing anything.** Matches this register's own most-
+repeated pattern by name, not by coincidence — a stored value whose name no longer matches what it
+holds (item 21, `users.status`; item 76, `clients.status` before item 78; now `clients.status` again,
+introduced by the very fix that closed item 76).
+
+**Lives in:** item 78 above (the derivation this corrects); item 21 below, item 76 above (the named
+pattern this repeats); `app/(app)/clients/status.ts`, `actions.ts` (`changeClientStatus`), `page.tsx`,
+`[id]/page.tsx`; `supabase/migrations/202609210003_add_client_effective_status_derivation.sql`
+(`client_effective_status()`, to be updated, not replaced); `docs/DATABASE_CONVENTIONS.md` §12 (the
+`clients.status = 'churned'` reference, confirmed still accurate); `docs/WOWLAB_SAD_Domeniul_Clients_
+Contracts_CRM.md` (the now-stale `prospect` description a rename would also resolve, not just paper
+over).
 
 ---
 
