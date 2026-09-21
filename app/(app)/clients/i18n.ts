@@ -70,6 +70,14 @@ export const clientsDict: Dictionary = {
   detail_cui: { en: "CUI", ro: "CUI" },
   detail_added: { en: "Added", ro: "Adăugat" },
   no_entity_yet: { en: "No contracts yet", ro: "Fără contracte încă" },
+  // Item 52's one-off-workshop extension: the default delivery address
+  // for every group at this client (overridable per group).
+  detail_address: { en: "Address", ro: "Adresă" },
+  address_default_hint: {
+    en: "Default for every group at this client",
+    ro: "Implicit pentru fiecare grupă la acest client",
+  },
+  address_placeholder: { en: "Address (optional)", ro: "Adresă (opțional)" },
 
   open_client: {
     en: "View contacts & contracts",

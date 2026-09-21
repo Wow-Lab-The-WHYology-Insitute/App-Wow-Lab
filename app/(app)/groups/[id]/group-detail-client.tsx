@@ -30,7 +30,25 @@ type Session = {
   experiment_drive_link: string | null;
   trainer_principal_confirmed_at: string | null;
   trainer_secundar_confirmed_at: string | null;
+  start_time: string | null;
 };
+
+// start_time is "HH:MM:SS" (Postgres time, no timezone -- local clock
+// time, matching session_date's own plain-date shape). End is derived
+// here, never stored (item 52's time-range design: same precedent as
+// contract expiry and children_billed) -- null whenever either half is
+// missing, not a guess.
+function formatTimeRange(startTime: string | null, durationMinutes: number | null): string | null {
+  if (!startTime) return null;
+  const start = startTime.slice(0, 5);
+  if (!durationMinutes) return start;
+  const [h, m] = startTime.split(":").map(Number);
+  const endTotalMinutes = h * 60 + m + durationMinutes;
+  const endH = Math.floor(endTotalMinutes / 60) % 24;
+  const endM = endTotalMinutes % 60;
+  const end = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+  return `${start} – ${end}`;
+}
 type TrainerOption = { id: string; name: string };
 
 // Matches the sessions.status check constraint (202608160004) exactly —
@@ -294,7 +312,7 @@ export function GroupDetailClient({
             <NewSessionForm
               trainerOptions={trainerOptions}
               isPending={isPending}
-              onSubmit={(date, principalId, secundarId, status, attendance, experiment, duration, experimentDriveLink) => {
+              onSubmit={(date, principalId, secundarId, status, attendance, experiment, duration, experimentDriveLink, startTime) => {
                 setError(null);
                 startTransition(async () => {
                   try {
@@ -309,6 +327,7 @@ export function GroupDetailClient({
                       experiment,
                       duration,
                       experimentDriveLink,
+                      startTime,
                     );
                     if (!result.ok) setError(result.error);
                     else setIsFormOpen(false);
@@ -557,7 +576,14 @@ function SessionTableRow({
   const { locale } = useLocale();
   return (
     <tr className="font-body text-ink border-b border-black/5 align-top last:border-0">
-      <td className="py-3 pr-4 text-xs whitespace-nowrap">{formatShortDate(session.session_date, locale)}</td>
+      <td className="py-3 pr-4 text-xs whitespace-nowrap">
+        {formatShortDate(session.session_date, locale)}
+        {formatTimeRange(session.start_time, session.duration_minutes) && (
+          <span className="text-muted block">
+            {formatTimeRange(session.start_time, session.duration_minutes)}
+          </span>
+        )}
+      </td>
       {editing ? (
         <>
           <td className="py-3 pr-4">
@@ -759,6 +785,11 @@ function SessionCard({
       <div className="flex items-center justify-between">
         <p className="font-body text-ink text-sm font-semibold">
           {formatShortDate(session.session_date, locale)}
+          {formatTimeRange(session.start_time, session.duration_minutes) && (
+            <span className="text-muted ml-1.5 text-xs font-normal">
+              {formatTimeRange(session.start_time, session.duration_minutes)}
+            </span>
+          )}
         </p>
         <Badge tone={SESSION_STATUS_TONES[session.status]}>
           {SESSION_STATUS_KEYS[session.status] ? t(SESSION_STATUS_KEYS[session.status]) : session.status}
@@ -959,6 +990,7 @@ function NewSessionForm({
     experiment: string,
     duration: string,
     experimentDriveLink: string,
+    startTime: string,
   ) => void;
 }) {
   const t = useTranslations(groupsDict);
@@ -970,6 +1002,7 @@ function NewSessionForm({
   const [experiment, setExperiment] = useState("");
   const [duration, setDuration] = useState("");
   const [experimentDriveLink, setExperimentDriveLink] = useState("");
+  const [startTime, setStartTime] = useState("");
 
   return (
     <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
@@ -983,6 +1016,15 @@ function NewSessionForm({
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
+            className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+          />
+        </label>
+        <label className="font-body text-muted flex flex-col gap-1 text-xs">
+          {t("kv_start_time")}
+          <input
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
             className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
           />
         </label>
@@ -1065,7 +1107,7 @@ function NewSessionForm({
         type="button"
         disabled={isPending || !date}
         onClick={() =>
-          onSubmit(date, principalId, secundarId, status, attendance, experiment, duration, experimentDriveLink)
+          onSubmit(date, principalId, secundarId, status, attendance, experiment, duration, experimentDriveLink, startTime)
         }
         className="font-body mt-3 w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
       >

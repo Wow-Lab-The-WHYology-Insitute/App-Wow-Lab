@@ -112,6 +112,8 @@ export async function updateGroup(
   notes: string,
   contractId: string,
   childrenConfirmed: string,
+  address: string,
+  onSiteContactId: string,
 ): Promise<ActionResult> {
   const supabase = await createClient();
 
@@ -136,6 +138,22 @@ export async function updateGroup(
     }
   }
 
+  // Same re-check as contractId above, same reasoning: constrained to
+  // this client's own contacts, not trusted from the form's own
+  // client-side filtering (item 52's on-site-contact design record) --
+  // a raw FK to client_contacts(id) alone can't express "belongs to the
+  // same client as this group."
+  if (onSiteContactId) {
+    const { data: contact } = await supabase
+      .from("client_contacts")
+      .select("id, client_id")
+      .eq("id", onSiteContactId)
+      .maybeSingle();
+    if (!contact || contact.client_id !== current.client_id) {
+      return { ok: false, error: "That contact does not belong to this group's client." };
+    }
+  }
+
   const [isOwner, hasGroupsCreate, hasContractsStar] = await Promise.all([
     checkCapability(supabase, "org.settings.manage", current.organization_id),
     checkCapability(supabase, "groups.create", current.organization_id),
@@ -148,6 +166,8 @@ export async function updateGroup(
   if (canManageGroupFields) {
     payload.notes = notes.trim() || null;
     payload.contract_id = contractId || null;
+    payload.address = address.trim() || null;
+    payload.on_site_contact_id = onSiteContactId || null;
   }
   if (canWriteChildrenConfirmed) {
     payload.children_confirmed = childrenConfirmed.trim() ? Number(childrenConfirmed) : null;
@@ -185,6 +205,7 @@ export async function addSession(
   experimentDelivered: string,
   durationMinutes: string,
   experimentDriveLink: string,
+  startTime: string,
 ): Promise<ActionResult> {
   if (!groupId || !sessionDate) {
     return { ok: false, error: "Session date is required." };
@@ -204,6 +225,12 @@ export async function addSession(
       experiment_delivered: experimentDelivered.trim() || null,
       duration_minutes: durationMinutes.trim() ? Number(durationMinutes) : null,
       experiment_drive_link: experimentDriveLink.trim() || null,
+      // No end time stored alongside this -- derived at read time from
+      // start_time + duration_minutes when both exist, never both stored
+      // (item 52's time-range design: same precedent as contract expiry
+      // and children_billed). Not defaulted from groups.schedule_pattern
+      // -- free text, no enforced grammar, nothing here parses it.
+      start_time: startTime || null,
     })
     .select("id")
     .single();

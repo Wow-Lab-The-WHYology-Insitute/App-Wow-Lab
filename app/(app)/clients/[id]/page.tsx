@@ -17,6 +17,7 @@ type ClientRow = {
   notes: string | null;
   legal_name: string | null;
   cui: string | null;
+  address: string | null;
 };
 type ContactRow = {
   id: string;
@@ -79,7 +80,7 @@ export default async function ClientDetailPage({
   const { data: client } = await supabase
     .from("clients")
     .select(
-      "id, organization_id, name, client_type, status, business_line, external_crm_ref, notes, legal_name, cui",
+      "id, organization_id, name, client_type, status, business_line, external_crm_ref, notes, legal_name, cui, address",
     )
     .eq("id", id)
     .maybeSingle<ClientRow>();

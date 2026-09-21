@@ -38,6 +38,7 @@ export async function addClient(
   cui: string,
   notes: string,
   externalCrmRef: string,
+  address: string,
 ): Promise<ActionResult> {
   if (!name.trim() || !clientType) {
     return { ok: false, error: "Name and client type are required." };
@@ -55,6 +56,10 @@ export async function addClient(
     legal_name: legalName.trim() || null,
     cui: cui.trim() || null,
     notes: notes.trim() || null,
+    // Default delivery address for every group at this client -- free
+    // text, same "no stricter shape" treatment as notes (item 52's
+    // address design). Overridable per group, never per session.
+    address: address.trim() || null,
     status: "prospect",
   };
 
@@ -355,6 +360,7 @@ export async function updateClient(
   cui: string,
   notes: string,
   externalCrmRef: string,
+  address: string,
 ): Promise<ActionResult> {
   if (!name.trim() || !clientType) {
     return { ok: false, error: "Name and client type are required." };
@@ -388,6 +394,7 @@ export async function updateClient(
     legal_name: legalName.trim() || null,
     cui: cui.trim() || null,
     notes: notes.trim() || null,
+    address: address.trim() || null,
   };
 
   if (canEditCrmLink) {

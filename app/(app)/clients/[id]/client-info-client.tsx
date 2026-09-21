@@ -37,6 +37,7 @@ type Client = {
   notes: string | null;
   legal_name: string | null;
   cui: string | null;
+  address: string | null;
 };
 
 export function ClientInfoClient({
@@ -97,6 +98,11 @@ export function ClientInfoClient({
       <Kv label={t("detail_billed_via")} value={billedViaValue} />
       <Kv label={t("detail_legal_name")} value={client.legal_name || "—"} />
       <Kv label={t("detail_cui")} value={client.cui || "—"} />
+      <Kv
+        label={t("detail_address")}
+        value={client.address || "—"}
+        sublabel={client.address ? t("address_default_hint") : undefined}
+      />
       <Kv label={t("detail_notes")} value={client.notes || "—"} />
     </Section>
   );
@@ -124,6 +130,7 @@ function ClientEditForm({
   const [cui, setCui] = useState(client.cui ?? "");
   const [notes, setNotes] = useState(client.notes ?? "");
   const [externalCrmRef, setExternalCrmRef] = useState(client.external_crm_ref ?? "");
+  const [address, setAddress] = useState(client.address ?? "");
 
   function doSave() {
     setError(null);
@@ -138,6 +145,7 @@ function ClientEditForm({
           cui,
           notes,
           externalCrmRef,
+          address,
         );
         if (!result.ok) {
           setError(result.error === DUPLICATE_CUI_ERROR ? t("duplicate_cui_error") : result.error);
@@ -200,6 +208,13 @@ function ClientEditForm({
           onChange={(e) => setCui(e.target.value)}
           placeholder={t("cui_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
+        />
+        <input
+          type="text"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder={t("address_placeholder")}
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
         />
         <textarea
           value={notes}
@@ -275,30 +290,35 @@ function Kv({
   mono,
   href,
   external,
+  sublabel,
 }: {
   label: string;
   value: string;
   mono?: boolean;
   href?: string;
   external?: boolean;
+  sublabel?: string;
 }) {
   return (
-    <div className="flex items-baseline justify-between border-b border-black/5 py-2 text-sm last:border-0">
-      <span className="font-body text-muted">{label}</span>
-      {href ? (
-        <a
-          href={href}
-          target={external ? "_blank" : undefined}
-          rel={external ? "noreferrer" : undefined}
-          className="text-brand-pink font-body font-medium hover:underline"
-        >
-          {value}
-        </a>
-      ) : (
-        <span className={`text-ink ${mono ? "font-mono text-xs" : "font-body font-medium"}`}>
-          {value}
-        </span>
-      )}
+    <div className="flex flex-col gap-0.5 border-b border-black/5 py-2 text-sm last:border-0">
+      <div className="flex items-baseline justify-between">
+        <span className="font-body text-muted">{label}</span>
+        {href ? (
+          <a
+            href={href}
+            target={external ? "_blank" : undefined}
+            rel={external ? "noreferrer" : undefined}
+            className="text-brand-pink font-body font-medium hover:underline"
+          >
+            {value}
+          </a>
+        ) : (
+          <span className={`text-ink ${mono ? "font-mono text-xs" : "font-body font-medium"}`}>
+            {value}
+          </span>
+        )}
+      </div>
+      {sublabel && <span className="font-body text-muted self-end text-xs">{sublabel}</span>}
     </div>
   );
 }

@@ -212,8 +212,46 @@ export const groupsDict: Dictionary = {
   // Same shape as contract_hidden above -- a client is always linked
   // (groups.client_id is not null), the id just isn't resolvable under
   // the viewer's own RLS. Never falls back to the raw id (OPEN_ITEMS.md
-  // item 66).
+  // item 66). Reused as-is for on_site_contact_id below (contact_hidden
+  // would just repeat the identical phrase under a new key).
   client_hidden: { en: "Not visible to your role", ro: "Nevizibil pentru rolul tău" },
+
+  // Item 52's one-off-workshop extension fields: time range, address,
+  // on-site contact.
+  kv_start_time: { en: "Start time", ro: "Ora de start" },
+  kv_address: { en: "Address", ro: "Adresă" },
+  // Shown only when the group has its own address override (not the
+  // client's default) -- see page.tsx's addressIsOverride.
+  address_override_hint: {
+    en: "Overrides the client's own address",
+    ro: "Suprascrie adresa clientului",
+  },
+  address_override_placeholder: {
+    en: "Address (leave blank to use the client's own)",
+    ro: "Adresă (lasă gol pentru adresa clientului)",
+  },
+  kv_onsite_contact: { en: "On-site contact", ro: "Persoană de contact la fața locului" },
+  select_onsite_contact: {
+    en: "No on-site contact",
+    ro: "Fără persoană de contact la fața locului",
+  },
+  // Shown next to the edit form's contact picker when the client has no
+  // contacts to choose from yet -- creating a new client_contacts row
+  // needs clients.create/contracts.* (item 52's design record), which
+  // groups.create holders (Operations) don't necessarily hold, so this
+  // form deliberately only links, never creates.
+  no_contacts_for_client_hint: {
+    en: "This client has no contacts yet -- add one from the client's own page first.",
+    ro: "Acest client nu are încă niciun contact -- adaugă unul din pagina clientului mai întâi.",
+  },
+  // Shown when a linked contact exists but its own contact_purpose isn't
+  // 'trainer_facing' yet -- the link and that flag are deliberately
+  // independent (202609210002), so linking alone doesn't make a contact
+  // trainer-visible.
+  contact_not_trainer_facing_hint: {
+    en: "Not yet visible to trainers -- mark this contact \"trainer-facing\" on the client's own page first.",
+    ro: "Încă nevizibil pentru traineri -- marchează acest contact „vizibil pentru traineri” din pagina clientului mai întâi.",
+  },
 
   // group-info-section.tsx's edit form (updateGroup) -- mirrors
   // clients/i18n.ts and contracts/i18n.ts's own edit/save/cancel/notes

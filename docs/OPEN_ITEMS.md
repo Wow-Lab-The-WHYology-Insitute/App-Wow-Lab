@@ -248,6 +248,13 @@ built first, and today it doesn't exist at all, manual or automatic.
 **Trigger condition — when this reopens:** the first real personal-data row entering production,
 which is the 14-school import. Not before.
 
+**Noted 2026-09-21, not fired yet:** item 77 below built the first real feature that gives this
+trigger an actual path to fire outside the 14-school import specifically — a one-off workshop's
+on-site contact, linked to a real `client_contacts` row. `client_contacts` still holds zero rows in
+production as of this note; building the feature doesn't fire this trigger, the first real
+Operations use of it (linking a real contact for a real workshop) does. Re-check this item the day
+that happens, from whichever direction it happens first.
+
 **Prerequisite to decide at that reopening, not now:** a scheduled write has no JWT to read, by
 construction, so `row_history` would record `actor_user_id = NULL` for it. Confirmed empirically
 this session, not inferred: every one of the 24 rows deleted by this session's own service-role
@@ -1401,6 +1408,101 @@ in `app/(app)/contracts/actions.ts` — the confirmed absence of any link); `app
 line), line 76 (`prospect`'s own definition); item 1 above, item 52 below (the same unwired
 ActiveCampaign-webhook finding, from two other directions); item 8 below, item 45 below (the two
 prior instances of the second-write-path shape this decision would repeat).
+
+---
+
+### 77. Item 52's three extension fields built — time range, address, on-site contact
+
+2026-09-21. Item 52's closed fork (recurring stays primary, one-off workshops get the fields they
+were missing as an extension) built out for the first three: time range, address, on-site contact.
+Design argued before building, not decided silently — six sub-questions, each closed on its own
+reasoning, one real RLS correction found and fixed along the way.
+
+**Time range — `sessions.start_time`, nothing else stored.** `time`, nullable. End is derived at
+read time (`start_time + duration_minutes`, both present or the range shows start alone) — same
+precedent as contract expiry and `children_billed` (item 39): store one fact, never two that could
+disagree. Not defaulted from `groups.schedule_pattern` — confirmed live that column is free text
+with no enforced grammar, nothing parses it, and guessing a time out of it would silently
+mis-populate real sessions. A pattern change on the group has zero retroactive effect on sessions
+already created, which is correct: a session that happened at 16:00 stays recorded at 16:00 even if
+the club's slot moves next term.
+
+**Address — `clients.address` (default), `groups.address` (override), nothing on `sessions`.**
+Argued directly against item 52's own volume finding: at ~4:1 recurring and widening, the dominant
+case is one client address shared by every session of every group at that client — the ratio is the
+argument against session-level storage, not a detail beside it. Group-level override exists for the
+minority the nine-value type list names (a mall event, an off-site occasional collaboration). Both
+columns plain free text, no structured parts — matches `schedule_pattern`/`age_range`'s own already-
+established "no stricter shape enforced" treatment on the same tables. Resolved with
+`groups.address ?? clients.address` at read time, not backfilled.
+
+**On-site contact — `groups.on_site_contact_id → client_contacts(id)`, link only, never free text.**
+Validated in the action exactly like `contract_id` already is: re-fetched, rejected if the contact's
+`client_id` doesn't match the group's own — a raw FK can't express that constraint by itself.
+
+*A real RLS gap found and corrected before this shipped, not assumed fine because a comment once
+said so.* `202608250001`'s `mywork.*` branch on `client_contacts` was a bare `contact_purpose =
+'trainer_facing'` row match with no session scoping at all — its own comment had already flagged it
+as unverified ("re-verify the day a trainer-facing read capability is added... currently
+unreachable... a paper check, not a live one"). This was that day. `202609210002` narrows it to the
+identical session-scoped shape already proven twice in this codebase (`202609160001` on `users`,
+`202609170001` on `clients`, item 66) — a viewer sees the contact only through a group with a
+session they're actually allocated to. Checked against item 68's lesson before writing it: the
+nested reads align exactly with `groups`'/`sessions`' own `mywork.*` branches for this same
+viewer/capability pair, so nothing here can be silently narrowed to false the way `202609160001`'s
+original `finance.operations.*` branch was.
+
+Deliberately kept independent: linking a contact as on-site does **not** by itself make them
+trainer-visible. `contact_purpose = 'trainer_facing'` is still required on top of the link — a
+5th dry-run assertion (`scripts/verify_client_contacts_trainer_facing_scoping.sql`) proved this
+specifically, and caught its own bug on the first run (the test update ran while still impersonating
+the trainer, who holds no write capability on `client_contacts` — silently affected 0 rows; fixed by
+resetting role before the write, not by weakening the assertion).
+
+**A real capability mismatch, named, not routed around.** `client_contacts` INSERT requires
+`clients.create` or `contracts.*` — Operations (`operations_manager`, who actually creates sessions)
+holds neither. Since the table is empty in production, the first real one-off workshop will usually
+need a brand-new contact Operations cannot create. Scoped the group/session action to **link only**
+— a dropdown of the client's existing contacts — leaving contact creation exactly where it already
+lives (`/clients/[id]`). Consequence stated plainly in the UI (`no_contacts_for_client_hint`) and
+here: for a new one-off client with no contacts yet, someone holding `clients.create`/`contracts.*`
+has to add the contact first.
+
+**Not resolved, named instead:** the row-level grant on `client_contacts` includes `email` alongside
+`phone` — no column-masking exists on this table beyond `notes`. A trainer who clears the (now
+narrowed) row check sees the full contact card, not just name and phone. Left as-is, matching the
+table's existing row-level convention.
+
+**The GDPR trigger — the scheduled-execution item above got a forward pointer, not fired.**
+`client_contacts` holds zero rows in production. Building this feature doesn't fire that item's own
+"first real personal-data row" trigger; the first real Operations use of it will. Not reopened here.
+
+**Verified live, in order.** Dry-run of the RLS narrowing (5/5, including the caught test bug) run
+against the schema before applying. Migrations applied (`202609210001` schema, `202609210002` RLS).
+`tsc --noEmit` and `next build` clean. End-to-end against `wow-lab-test-b`, real sessions, real
+rendered pages (`scripts/verify_one_off_workshop_extension_fields_test_org_b.ts`, 9/9): the org
+owner and an allocated trainer both see the client's default address, the linked contact's name and
+phone, and the derived 16:00–17:30 time range on the same session; an unrelated trainer with no
+allocation sees none of it. Fixture rows (client, contact, group, session) created and deleted by
+the script each run — confirmed back to baseline after.
+
+**Scope cut, stated rather than silently dropped:** address override and on-site contact are
+edit-only on `groups` — not offered on the group *create* form (`groups-client.tsx`), only via
+`group-info-section.tsx`'s existing edit flow, to avoid fetching every client's contacts org-wide
+into the groups list page for a field most groups won't set at creation. `schedule_pattern` shown as
+inline hint text next to the new start-time field was planned in the design pass and cut for the
+same reason — not built.
+
+**Lives in:** `supabase/migrations/202609210001_add_one_off_workshop_extension_fields.sql`,
+`202609210002_narrow_client_contacts_trainer_facing_branch.sql`, and their rollbacks;
+`scripts/verify_client_contacts_trainer_facing_scoping.sql`,
+`scripts/verify_one_off_workshop_extension_fields_test_org_b.ts`; `app/(app)/groups/actions.ts`
+(`updateGroup`, `addSession`), `app/(app)/clients/actions.ts` (`addClient`, `updateClient`);
+`app/(app)/groups/[id]/page.tsx`, `group-info-section.tsx`, `group-detail-client.tsx`;
+`app/(app)/clients/[id]/page.tsx`, `client-info-client.tsx`, `clients-client.tsx`;
+`app/(app)/groups/i18n.ts`, `app/(app)/clients/i18n.ts`; item 52 below (the closed fork this
+extends); item 66, item 68 above (the RLS precedent and the lesson checked against); item 39 below
+(the derived-not-stored precedent for time range).
 
 ---
 
@@ -3574,9 +3676,12 @@ schools' own recurring relationships (if any) unaccounted for in either list.
 of the six already built. The ratio decided the *structural* fork (extend, don't restructure); it
 says nothing about which *vocabulary* the extension should speak.
 
-**No migration, no table, no code — the structural fork is closed; the extension work itself is not
-started.** What's now buildable, pending Anca's vocabulary answer above: the seven still-absent
-fields listed earlier in this item, added to `groups`/`sessions`, not to a new entity.
+**At the time this fork closed: no migration, no table, no code yet.** Three of the seven
+still-absent fields — time range, address, on-site contact — were built the same week, as an
+extension of `groups`/`sessions`, not a new entity (item 77 above). Four remain: a real principal
+flag (not implied by column position), a third/reserve trainer slot, per-experiment attribution, and
+a workshop-level description distinct from `notes` — still pending Anca's vocabulary answer above
+for the ones that touch `delivery_format`/`Tip Atelier` directly.
 
 **Lives in:** `docs/OPEN_ITEMS.md` item 45 (the attendance-count duplication's other half); the
 three source documents (`WOWLAB_Spec_Trainer_Principal_Secundar.md`, now in `docs/`, untracked;

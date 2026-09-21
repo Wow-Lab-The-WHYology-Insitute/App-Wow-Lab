@@ -21,10 +21,14 @@ type GroupRow = {
   age_range: string | null;
   school_year_calendar_link: string | null;
   contract_id: string | null;
+  address: string | null;
+  on_site_contact_id: string | null;
 };
-type ClientLookupRow = { id: string; name: string };
+type ClientLookupRow = { id: string; name: string; address: string | null };
 type ContractLookupRow = { id: string; exit_number: string | null };
 type ContractOptionRow = { id: string; client_id: string; exit_number: string | null };
+type ContactLookupRow = { id: string; full_name: string; phone: string | null; contact_purpose: string | null };
+type ContactOptionRow = { id: string; client_id: string; full_name: string };
 type SessionRow = {
   id: string;
   session_date: string;
@@ -37,6 +41,7 @@ type SessionRow = {
   experiment_drive_link: string | null;
   trainer_principal_confirmed_at: string | null;
   trainer_secundar_confirmed_at: string | null;
+  start_time: string | null;
 };
 type UserLookupRow = {
   id: string;
@@ -65,7 +70,7 @@ export default async function GroupDetailPage({
   const { data: group } = await supabase
     .from("groups")
     .select(
-      "id, organization_id, client_id, module, delivery_format, schedule_pattern, children_confirmed, children_billed, status, notes, age_range, school_year_calendar_link, contract_id",
+      "id, organization_id, client_id, module, delivery_format, schedule_pattern, children_confirmed, children_billed, status, notes, age_range, school_year_calendar_link, contract_id, address, on_site_contact_id",
     )
     .eq("id", id)
     .maybeSingle<GroupRow>();
@@ -80,9 +85,24 @@ export default async function GroupDetailPage({
 
   const { data: clientRow } = await supabase
     .from("clients")
-    .select("id, name")
+    .select("id, name, address")
     .eq("id", group.client_id)
     .maybeSingle<ClientLookupRow>();
+
+  // The group's own linked on-site contact, for the read view -- resolved
+  // the same way linkedContract is below: a null result here with
+  // group.on_site_contact_id set is "linked, but RLS filters it out for
+  // this viewer" (a trainer not allocated to any session in this group,
+  // or the contact's own contact_purpose isn't trainer_facing -- see
+  // 202609210002), not "no contact linked at all" -- same
+  // null-vs-masked-vs-zero distinction contractVisible already draws.
+  const { data: onSiteContact } = group.on_site_contact_id
+    ? await supabase
+        .from("client_contacts")
+        .select("id, full_name, phone, contact_purpose")
+        .eq("id", group.on_site_contact_id)
+        .maybeSingle<ContactLookupRow>()
+    : { data: null };
 
   // The group's own linked contract, for the read view -- resolved
   // separately from contractOptions below (which only exists for the
@@ -105,7 +125,7 @@ export default async function GroupDetailPage({
   const { data: sessions } = await supabase
     .from("sessions")
     .select(
-      "id, session_date, trainer_principal_id, trainer_secundar_id, status, attendance_count, experiment_delivered, duration_minutes, experiment_drive_link, trainer_principal_confirmed_at, trainer_secundar_confirmed_at",
+      "id, session_date, trainer_principal_id, trainer_secundar_id, status, attendance_count, experiment_delivered, duration_minutes, experiment_drive_link, trainer_principal_confirmed_at, trainer_secundar_confirmed_at, start_time",
     )
     .eq("group_id", id)
     .order("session_date", { ascending: false })
@@ -190,6 +210,7 @@ export default async function GroupDetailPage({
   // filters this client-side to group.client_id, matching NewGroupForm's
   // (groups-client.tsx) filtering of the identical shape.
   let contractOptions: ContractOptionRow[] = [];
+  let contactOptions: ContactOptionRow[] = [];
   if (canManage) {
     const { data: cto } = await supabase
       .from("contracts")
@@ -197,6 +218,18 @@ export default async function GroupDetailPage({
       .eq("organization_id", group.organization_id)
       .returns<ContractOptionRow[]>();
     contractOptions = cto ?? [];
+
+    // Same "only fetch what the button needs" discipline as contractOptions
+    // just above, filtered client-side by GroupEditForm to this group's own
+    // client -- the on-site contact picker is deliberately link-only (item
+    // 52's on-site-contact design record): it offers whichever contacts
+    // already exist for the client, never creates a new one from this form.
+    const { data: cno } = await supabase
+      .from("client_contacts")
+      .select("id, client_id, full_name")
+      .eq("organization_id", group.organization_id)
+      .returns<ContactOptionRow[]>();
+    contactOptions = cno ?? [];
   }
 
   // Trainer picker options, only fetched when the form/edit controls will
@@ -265,9 +298,23 @@ export default async function GroupDetailPage({
         contractId={group.contract_id}
         contractExitNumber={linkedContract?.exit_number ?? null}
         contractVisible={group.contract_id ? linkedContract !== null : true}
+        // Group override, then the client's own default -- never null just
+        // because the group itself never set one (item 52's address design:
+        // client-level default, group-level override, COALESCE at read
+        // time). "" (not null) if truly neither is set anywhere.
+        address={group.address ?? clientRow?.address ?? null}
+        addressIsOverride={Boolean(group.address)}
+        onSiteContactId={group.on_site_contact_id}
+        onSiteContactName={onSiteContact?.full_name ?? null}
+        onSiteContactPhone={onSiteContact?.phone ?? null}
+        onSiteContactNotYetTrainerFacing={
+          Boolean(onSiteContact) && onSiteContact?.contact_purpose !== "trainer_facing"
+        }
+        onSiteContactVisible={group.on_site_contact_id ? onSiteContact !== null : true}
         canManage={Boolean(canManage)}
         canWriteChildrenConfirmed={Boolean(canWriteChildrenConfirmed)}
         contractOptions={contractOptions}
+        contactOptions={contactOptions}
       />
 
       <GroupDetailClient
