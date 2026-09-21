@@ -1513,6 +1513,70 @@ extends); item 66, item 68 above (the RLS precedent and the lesson checked again
 
 ---
 
+### 78. Item 76 resolved — a client is active once it has a signed contract, derived not stored
+
+2026-09-21. Anca's decision, closing item 76's "blocked on Anca" fork: a client is active once it
+has a signed contract. Built as a derivation, not a write from `markContractSigned` — argued both
+shapes before building, chose derived, reported to Mihai before writing any code.
+
+**Why derived, not stored.** Three reasons: (1) `markContractSigned` is gated `contracts.*` /
+`finance.operations.*` / `finance.reporting.*` / `clients.create` — **not** `clients.convert`
+(`sales_manager`-only, `seed.sql`). Checked live: `contract_administrator` holds `contracts.*` but
+not `clients.convert`. A direct write from `markContractSigned` would hand a Contract Administrator
+a status change the capability model reserves for Sales — the identical wrong-capability-for-the-
+actor shape item 76 itself already named. (2) A stored write forces an undecided sub-question
+(should a contract signed on an already-`churned` client silently reactivate them?) that the derived
+shape never has to answer — an override always wins, full stop. (3) `changeClientStatus`'s own
+comment already states this column has exactly one write path and flags a second one appearing as
+the point to reconsider — the same shape item 8 (`contracts.status`) and item 45 part 5
+(`sessions.status`, rejected) both already carry.
+
+**Built:** `public.client_effective_status(clients)` — a `security definer` SQL function exposed as
+a PostgREST computed column (`202609210003`). `paused`/`churned` stored values always win as manual
+overrides; every other stored value (including the 3 real clients' legacy literal `'active'`, set by
+Mihai's 2026-09-17 manual move) falls through to `exists(signed contract) ? 'active' : 'prospect'`.
+`security definer`, not a plain RLS-scoped join — checked against item 68's lesson first: `clients`'
+own SELECT policy (`202609170001`) has a `mywork.*` branch (session-scoped trainer visibility) that
+`contracts`' SELECT policy has no equivalent of at all, so a plain embed would have silently shown
+"Prospect" to a trainer regardless of truth. `markContractSigned` remains untouched — still never
+references `clients`, confirmed by inspection after the change, not just before.
+
+`CLIENT_STATUS_TRANSITIONS` (`app/(app)/clients/status.ts`) lost its `prospect: [active]` edge —
+that transition is automatic now, not a button, so a true prospect shows zero action buttons (proven
+live, assertion 3 below). `paused`/`churned → active` ("reactivate") writes the literal sentinel
+`'prospect'`, not `'active'` — `changeClientStatus` translates `newStatus === "active"` to
+`writeValue = "prospect"` before writing. Always correct on every reachable path: `paused`/`churned`
+can only be reached from derived-active, which required a signed contract, and nothing in this
+system ever un-signs one (item 8's own dead-branch finding), so reactivate always re-derives to
+Active in practice — proven live, assertions 9–10 below.
+
+**Left the 3 real clients correct, confirmed before and after, not assumed.** Live query before
+building: all 3 (Scoala Avenor, Scoala Germana, Lycée Français) hold stored `status = 'active'` and
+each has a `contracts.status = 'signed'` row — both facts checked directly. The derivation treats a
+legacy stored `'active'` identically to `'prospect'` (neither is an override), falling through to
+the same signed-contract check — same displayed answer, no migration/backfill needed or done.
+
+**Verified live, not just dry-run.** SQL dry run (rolled back): paused-override-wins-over-signed-
+contract, real-prospect-stays-prospect, legacy-active-value-falls-through-correctly — 3/3. End-to-end
+against real rendered pages in WOW LAB Test Org B (`scripts/verify_client_effective_status_test_org_b.ts`):
+prospect shows no action buttons, adding a signed contract flips list+detail to Active with zero
+writes to `clients.status`, pausing overrides the still-signed contract, reactivating writes the
+literal `'prospect'` sentinel yet re-renders Active — 10/10. Then confirmed read-only against
+`app.wowlab.ro` (`VERIFY_READONLY=1`): `/clients` and all 3 real clients' detail pages render Active.
+
+**i18n:** none needed. Same 4 status labels (`status_prospect/active/paused/churned`) and 3 action-
+button labels (`status_action_active/paused/churned`) already in `clientsDict` — this changes how the
+value is computed, not any user-facing string.
+
+**Lives in:** `supabase/migrations/202609210003_add_client_effective_status_derivation.sql` and its
+rollback; `app/(app)/clients/status.ts` (`CLIENT_STATUS_TRANSITIONS`), `actions.ts`
+(`changeClientStatus`), `page.tsx` and `[id]/page.tsx` (both aliasing `status:client_effective_status`);
+`scripts/verify_client_effective_status_test_org_b.ts`; item 76 above (the finding this resolves);
+item 8 below, item 45 below (the second-write-path precedent); item 68 above (the RLS lesson checked
+against).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,

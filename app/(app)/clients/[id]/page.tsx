@@ -77,10 +77,13 @@ export default async function ClientDetailPage({
     return <AccessDenied reasonKey="access_denied_not_signed_in" />;
   }
 
+  // status: item 78's computed column (public.client_effective_status),
+  // aliased back onto "status" -- ClientHeader/ClientStatusControl and the
+  // rest of this page never need the raw stored value.
   const { data: client } = await supabase
     .from("clients")
     .select(
-      "id, organization_id, name, client_type, status, business_line, external_crm_ref, notes, legal_name, cui, address",
+      "id, organization_id, name, client_type, status:client_effective_status, business_line, external_crm_ref, notes, legal_name, cui, address",
     )
     .eq("id", id)
     .maybeSingle<ClientRow>();

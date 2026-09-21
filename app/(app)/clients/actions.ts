@@ -252,7 +252,9 @@ export async function deleteClientContact(
 // never touches this column. Same reasoning as markContractSigned: this
 // is the only write path to the column today, so the guard lives here,
 // not in a DB constraint or trigger; a second write path appearing is the
-// point to reconsider that.
+// point to reconsider that. Item 78 (Anca, 2026-09-21) deliberately does
+// NOT add one -- markContractSigned still never references clients; see
+// status.ts and the 202609210003 migration for the full argument.
 //
 // Gated on clients.convert specifically, checked explicitly here rather
 // than left to the table's own UPDATE policy (org.settings.manage OR
@@ -271,9 +273,12 @@ export async function changeClientStatus(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = await createClient();
 
+  // client_effective_status: item 78's computed column. Transitions are
+  // looked up by the EFFECTIVE status (what the caller actually saw on
+  // screen), not the raw stored column -- see status.ts's header comment.
   const { data: current } = await supabase
     .from("clients")
-    .select("organization_id, status")
+    .select("organization_id, status, effective_status:client_effective_status")
     .eq("id", clientId)
     .maybeSingle();
 
@@ -284,11 +289,11 @@ export async function changeClientStatus(
     };
   }
 
-  const allowedNext = CLIENT_STATUS_TRANSITIONS[current.status] ?? [];
+  const allowedNext = CLIENT_STATUS_TRANSITIONS[current.effective_status] ?? [];
   if (!allowedNext.includes(newStatus)) {
     return {
       ok: false,
-      error: `Cannot move from "${current.status}" to "${newStatus}".`,
+      error: `Cannot move from "${current.effective_status}" to "${newStatus}".`,
     };
   }
 
@@ -304,9 +309,17 @@ export async function changeClientStatus(
     };
   }
 
+  // newStatus "active" (the reactivate edge, paused/churned -> active)
+  // writes the literal sentinel 'prospect', not 'active' -- see status.ts.
+  // paused/churned write through unchanged. The .eq("status", ...) guard
+  // below still compares the RAW stored column (current.status), which is
+  // what the row literally holds and what the write is racing against --
+  // unrelated to the effective/sentinel translation above.
+  const writeValue = newStatus === "active" ? "prospect" : newStatus;
+
   const { data, error } = await supabase
     .from("clients")
-    .update({ status: newStatus })
+    .update({ status: writeValue })
     .eq("id", clientId)
     .eq("status", current.status)
     .select("id");
