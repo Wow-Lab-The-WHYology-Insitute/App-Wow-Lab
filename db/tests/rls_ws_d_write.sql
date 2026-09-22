@@ -20,6 +20,28 @@
 --     result can still be read as a plain SELECT row like everywhere else.
 --
 -- Run block-by-block in the SQL Editor, or as a whole script.
+--
+-- FIXED 2026-09-22 (found while auditing every db/tests/ and scripts/
+-- verify_*.sql file for whether it still runs, per Mihai's own direct
+-- request): Blocks 1, 2, and 6 each resolved a SECOND fixture user's id
+-- by email AFTER the role switch to authenticated -- this worked until
+-- 202608210001_users_field_masking_grants.sql (2026-08-21) revoked
+-- SELECT on public.users entirely from authenticated (column grants only,
+-- id excepted). Block 1's post-switch lookup (line ~80, unguarded)
+-- aborted the whole block outright -- easy to notice, if anyone had run
+-- it. Blocks 2 and 6 were worse: their post-switch lookup sat INSIDE the
+-- same BEGIN/EXCEPTION meant to catch the write policy's own
+-- insufficient_privilege, so the lookup's failure was silently
+-- indistinguishable from the intended one -- both assertions kept
+-- reading `pass = true`, including Block 6's sabotage check, whose own
+-- comment says `pass` is supposed to flip to FALSE when the policy is
+-- broken. It didn't, because the assertion was never actually reaching
+-- the sabotaged policy at all. The suite's own "does this have teeth"
+-- self-check had no teeth, silently, since the same day. Fixed the same
+-- way every other block already does it: resolve every fixture id into a
+-- session GUC while still privileged, before the role switch, matching
+-- this file's own header sentence above -- Blocks 1/2/6 just didn't
+-- follow it for the second lookup in each.
 
 -- ============================================================================
 -- Block 1 — test+owner-a@wowlab.dev (organization_owner @ wow-lab): POSITIVE
@@ -34,6 +56,9 @@ begin;
     true
   );
   select set_config('app.test_org_wow_lab', (select id::text from public.organizations where slug = 'wow-lab'), true);
+  -- Resolved while still privileged -- referenced after the role switch
+  -- below, where authenticated has no SELECT on users.email (2026-09-22 fix).
+  select set_config('app.fixture_catalina', (select id::text from public.users where email = 'test+catalina@wowlab.dev'), true);
 
   select set_config('role', 'authenticated', true);
 
@@ -77,7 +102,7 @@ begin;
     insert into public.user_org_roles (organization_id, user_id, role_id)
     select
       current_setting('app.test_org_wow_lab')::uuid,
-      (select id from public.users where email = 'test+catalina@wowlab.dev'),
+      current_setting('app.fixture_catalina')::uuid,
       (select id from public.roles where key = 'trainer')
     returning id
   )
@@ -116,6 +141,12 @@ begin;
     true
   );
   select set_config('app.test_org_wow_lab', (select id::text from public.organizations where slug = 'wow-lab'), true);
+  -- Resolved while still privileged -- see the file header's 2026-09-22
+  -- fix note. Referencing this by email inside the exception-guarded
+  -- INSERT below (after the role switch) silently swallowed its own
+  -- insufficient_privilege into v_blocked, giving a true "blocked" result
+  -- whether or not the actual write policy denied anything.
+  select set_config('app.fixture_finance_ops_a', (select id::text from public.users where email = 'test+finance-ops-a@wowlab.dev'), true);
 
   select set_config('role', 'authenticated', true);
 
@@ -127,7 +158,7 @@ begin;
       insert into public.user_org_roles (organization_id, user_id, role_id)
       values (
         current_setting('app.test_org_wow_lab')::uuid,
-        (select id from public.users where email = 'test+finance-ops-a@wowlab.dev'),
+        current_setting('app.fixture_finance_ops_a')::uuid,
         (select id from public.roles where key = 'evaluator')
       );
     exception
@@ -257,6 +288,9 @@ begin;
     true
   );
   select set_config('app.test_org_wow_lab', (select id::text from public.organizations where slug = 'wow-lab'), true);
+  -- Resolved while still privileged -- same 2026-09-22 fix as Block 2,
+  -- which this block otherwise mirrors exactly.
+  select set_config('app.fixture_finance_admin_a', (select id::text from public.users where email = 'test+finance-admin-a@wowlab.dev'), true);
 
   -- Still privileged at this point (role not yet switched) — sabotage the
   -- real policy in place.
@@ -273,7 +307,7 @@ begin;
       insert into public.user_org_roles (organization_id, user_id, role_id)
       values (
         current_setting('app.test_org_wow_lab')::uuid,
-        (select id from public.users where email = 'test+finance-admin-a@wowlab.dev'),
+        current_setting('app.fixture_finance_admin_a')::uuid,
         (select id from public.roles where key = 'evaluator')
       );
     exception

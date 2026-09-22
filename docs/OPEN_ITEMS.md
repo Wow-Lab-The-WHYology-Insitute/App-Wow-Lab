@@ -1156,9 +1156,31 @@ proof the real-user-testing discipline works. That framing was meant to be durab
 which is exactly what makes the finding above load-bearing: the specific evidence it cited has been
 directly contradicted on its own terms, three times, the earliest five days after the ink dried,
 none caught by the suite named as the reason. Re-run today, that suite still passes 12/12 + 8/8 —
-nothing in it changed — so in the narrowest sense the cited evidence is still true. The conclusion
-drawn from it is not: "this discipline catches what a developer review exists to catch" is the part
-three dated, real, previously-uncounted instances now contradict. Separately, and independent of
+nothing in it changed — so in the narrowest sense the cited evidence is still true. **CORRECTED
+2026-09-22 — that "re-run" was not actually re-run carefully enough; the claim above was wrong on its
+own terms, left as written rather than silently edited (same discipline this entry already applies to
+`ws-d-plan.md`).** Asked directly to run every `db/tests/` and `scripts/verify_*.sql` file for real
+and report pass/fail rather than trust either file's own claim, not just this entry's: `rls_clients_
+contracts.sql` could not run AT ALL since 2026-08-18 (`contract_number`, dropped in `202608180002` —
+eleven days after the 2026-08-07 closure, not five; see item 86 below for the full audit) — the
+"8/8" figure this paragraph names is `rls_ws_d_write.sql` specifically, which DID run, but not
+honestly: three of its blocks resolve a second fixture user's id by email AFTER switching role to
+`authenticated`, which lost SELECT on `users.email` on 2026-08-21
+(`202608210001_users_field_masking_grants.sql`) — inside a `BEGIN/EXCEPTION WHEN insufficient_
+privilege` block written to catch the WRITE POLICY's own expected denial. The lookup's failure and
+the policy's denial are the same SQLSTATE, indistinguishable to that handler — every affected
+assertion kept reading `pass = true` regardless of what the actual policy did. **This includes the
+suite's own sabotage self-check** ("does this suite have teeth"), whose own comment says `pass` is
+supposed to flip to FALSE when the policy is deliberately broken. It didn't — the assertion was never
+reaching the sabotaged policy at all. The one piece of evidence this closure cites as proof the suite
+"has teeth" had none, silently, three days before this paragraph was first written, and this entry
+said "still true" without checking closely enough to notice. Both files fixed 2026-09-22 (item 86
+below) — re-verified for real: `rls_clients_contracts.sql` 8 points + sabotage, all correct;
+`rls_ws_d_write.sql` 6 blocks + sabotage, all correct, sabotage now correctly reads `pass = false`
+under a broken policy. The conclusion drawn from the ORIGINAL evidence is not: "this discipline
+catches what a developer review exists to catch" is the part three dated, real, previously-uncounted
+instances (now four, item 86 below) contradict — and the evidence itself was weaker than claimed
+even before that, only nobody had checked. Separately, and independent of
 that: the decision's other framing — "review vs. no review, because no developer exists to run one"
 (`ws-d-plan.md`'s own *"nu avem developer acum"*) — turns on a fact only Mihai has, not something
 checkable from this repo. If that constraint is unchanged, the choice architecture is unchanged
@@ -1181,8 +1203,10 @@ recorded here); `supabase/migrations/202608100003_add_clients_contracts_rls_poli
 `202608250001_client_contacts_row_filters_and_notes_grant.sql`, `202607100004_add_write_policies_ws_d_d1b.sql`
 (the two live unverified candidates); `202609150002_add_sessions_confirmation_columns_and_rls.sql`
 (the one checked and ruled safe); item 57 below (the second instance); item 68 above (the third
-instance); `phase1-development-plan.md`'s own broader staleness, addressed separately below — this
-closure's isolation from the rest of this register is one symptom of it, not the whole of it.
+instance); item 86 below (the 2026-09-22 correction — the suite's own claimed pass count was itself
+wrong, and the audit that found it); `phase1-development-plan.md`'s own broader staleness, addressed
+separately below — this closure's isolation from the rest of this register is one symptom of it, not
+the whole of it.
 
 ---
 
@@ -2030,6 +2054,186 @@ rollback (a true undo this time — 3 known rows by id, no lossy backfill, unlik
 `verify_groups_delivery_format_nine_types_test_org_b.ts`; `db/tests/rls_groups_sessions.sql`,
 `rls_clients_contracts.sql` (the incidental `status`→`status_override` fix); item 83 above (the same
 acceptance-test discipline, and the second write path that broke `db/tests` unnoticed until now).
+
+---
+
+### 86. Every `db/tests/` and `scripts/verify_*.sql` file, actually run — a fourth and fifth instance found, two fixed, none of the rest touched
+
+2026-09-22. Mihai's own finding: `rls_clients_contracts.sql` inserts `contracts.contract_number`,
+dropped 2026-08-18 — it cannot have run successfully since. Asked to run every file in both
+directories for real and report pass/fail, not what any file claims. 39 files total (6 in
+`db/tests/`, 33 `scripts/verify_*.sql`), each run against the live linked database.
+
+**Result, by category — not "broken" vs "working," three genuinely different shapes:**
+
+1. **Genuinely clean:** `capability_liveness.sql`, `rls_d0_helpers.sql`, `rls_ws_d_read.sql`,
+   `verify_payment_config_grid_counts.sql`, plus 8 `scripts/verify_*.sql` files that use the
+   `raise exception` reporting convention and show all-PASS inside it (`verify_clients_unique_cui`,
+   `verify_groups_delivery_format_nine_types_migration`, `verify_operations_client_contacts_write`,
+   `verify_payroll_periods_close`, `verify_remove_client_contacts_write_finance_exclusion`,
+   `verify_remove_contracts_write_finance_exclusion`, `verify_users_field_masking_grants`) — 12 files.
+2. **One-time dry-run scripts, non-idempotent by design, colliding with their own already-applied
+   migration ("relation/policy/column/function already exists").** Not decay — these were never
+   meant to re-run after the migration they dry-ran for shipped; re-running them now just recreates
+   an object that's already permanently there. 12 files: `verify_allow_org_membership_without_role`,
+   `verify_client_contacts_delete`, `verify_contracts_delete`, `verify_contracts_field_masking`,
+   `verify_contracts_signed_date_status_check`, `verify_groups_contract_id`,
+   `verify_lesson_plan_rate_tables`, `verify_payment_config_tables`, `verify_sessions_location_language`,
+   `verify_suppliers`, `verify_trainer_grade_assignments_source`, `verify_users_masked_view`.
+3. **Same one-time-by-design category, but ALSO now broken by later, unrelated drift — this
+   session's own item 83/85 casualties, one day old, not silent decay:** `verify_clients_status_
+   override_rename.sql` (references `clients.status`, renamed by item 83); `verify_clients_business_
+   line_check.sql` (same); `verify_clients_mywork_visibility.sql`,
+   `verify_clients_mywork_visibility_wowlab_prod_org.sql`, `verify_groups_children_confirmed_write.sql`,
+   `verify_sessions_confirmation_write.sql`, `verify_sessions_trainer_attendance_write.sql`,
+   `verify_sessions_trainer_attendance_write_test_org_b.sql`, `verify_users_trainer_name_visibility.sql`,
+   `verify_client_contacts_trainer_facing_scoping.sql` (all insert `delivery_format = 'recurring'`/
+   `'party'`, illegal since item 85). Left as-is — these already did their one job; not part of this
+   fix.
+4. **One reported real failure, not decay:** `verify_remaining_test_account_flags.sql` — 2 of 3
+   assertions pass, the third (a total-count check against a baseline of 52 captured 2026-09-04)
+   now reads a different total, because real accounts were added since. A stale snapshot assertion,
+   not a regression.
+5. **Two structural failures not fully root-caused** (`invalid input syntax for type uuid: ""`) —
+   `verify_client_contacts_row_filters.sql`, `verify_row_history_actor_user_id.sql` — a config/GUC
+   dependency issue, not investigated to root cause within this round; named so it isn't mistaken for
+   something this audit already resolved.
+6. **Genuinely broken "safe to re-run at any time" regression suite — the actual finding, fixed:**
+
+**`db/tests/rls_clients_contracts.sql` — exactly Mihai's own diagnosis, confirmed.** Broken since
+`202608180002` (2026-08-18), 14 `contract_number` references. All 14 replaced with `exit_number` (the
+column's real replacement, same literal values — every one was already unique per org, so no value
+changes needed). Re-run for real, point by point, not just the file as a whole: **8 real assertions,
+all PASS, plus the sabotage self-check, which correctly flips to `pass = false` under a deliberately
+broken policy.** 2026-08-07 + 11 days = 2026-08-18 — the closure's own arithmetic, confirmed.
+
+**`db/tests/rls_ws_d_write.sql` — broken worse than "doesn't run," and this is the sharper finding.**
+Three blocks (1, 2, 6) resolve a second fixture user's id by email AFTER the role switch to
+`authenticated` — worked until `202608210001_users_field_masking_grants.sql` (2026-08-21) revoked
+SELECT on `users.email` from `authenticated` entirely. Block 1's lookup was unguarded — the whole
+block aborted outright, at least visibly broken if anyone had looked. Blocks 2 and 6's lookups sat
+INSIDE the same `BEGIN/EXCEPTION WHEN insufficient_privilege` written to catch the write policy's own
+expected denial — the lookup's failure and the policy's denial share the same SQLSTATE, indistinguishable
+to that handler. **Block 6 is the suite's own sabotage self-check** ("does this suite have teeth") —
+its own comment states `pass` is supposed to read FALSE when the policy is deliberately broken. It
+read `true` instead, silently, since 2026-08-21 — the one piece of evidence offered that this suite's
+negative tests actually test anything had none, and item 72's own 2026-09-18 text claimed "re-run
+today, that suite still passes 12/12+8/8... the cited evidence is still true" without catching it —
+corrected there now, not silently edited. Fixed by resolving every fixture id into a session GUC while
+still privileged, matching this file's own stated convention, which blocks 1/2/6 just didn't follow
+for their second lookup. Re-verified block by block: **all 6 blocks correct, sabotage now correctly
+reads `pass = false` under a broken policy.**
+
+**Does the suite now cover the policies that exist — reported, not assumed from a pass count.**
+Confirmed by actually reading `rls_clients_contracts.sql`'s 8 points against `clients`/`contracts`/
+`client_contacts`'s current policies: finance segregation (2 branches), operations visibility,
+billing/financial masking (2 fields, 2 directions), sales/contract-admin write capability gates,
+cross-org isolation, DELETE deny-all, sabotage. It does NOT cover: `client_contacts`' `mywork.*`
+trainer-facing branch (narrowed by item 77/`202609210002`, entirely outside this file's scope — that
+branch's only coverage is `scripts/verify_client_contacts_trainer_facing_scoping.sql`, a one-time dry
+run, category 3 above, itself now broken); `operations.*`'s new write grant (item 80); the finance
+`org.settings.manage`-vs-`clients.create` distinction on `clients` itself. `rls_ws_d_write.sql`
+covers exactly the 6 July write policies its own header names — nothing added since, matching item
+72's own finding that this file has one commit, ever.
+
+**Would the suite have caught the two bugs found this month by other means — asked directly, not
+assumed from "the suite is stale" alone.** Both answers are no, for the same underlying reason item
+72 already established, now with two more named instances:
+- **Item 68's finance-branch-reading-an-RLS-gated-table bug** (`public.users`' own trainer-visibility
+  policy, fixed `202609160002`) — no `db/tests/` file exercises `users`' SELECT policy's finance
+  branch at all; item 72 already found "every verification of `users`' own repeatedly-revised
+  visibility policy was a one-off `scripts/verify_*.sql`, run once by hand. No runner exists." Still
+  true, confirmed again here.
+- **The too-wide `client_contacts` `mywork.*`/trainer_facing branch** (fixed `202609210002`, item
+  77) — not covered by `rls_clients_contracts.sql` at all (confirmed by the point-by-point read
+  above); its only verification was `scripts/verify_client_contacts_trainer_facing_scoping.sql`,
+  itself a one-time dry run (category 3 above), not a maintained regression check.
+
+Neither gap was closed by this fix — fixing `rls_clients_contracts.sql`/`rls_ws_d_write.sql` restores
+them to correctly testing what they already tested in July/August; it adds no new coverage for either
+bug. That would be new work, not a repair, and wasn't asked for here.
+
+**Lives in:** item 72 above (the WS-D entry this corrects and extends — the closure's cited evidence
+was weaker than its own re-verification claimed); item 68 above, item 77 above (the two bugs checked
+against); `db/tests/rls_clients_contracts.sql`, `rls_ws_d_write.sql` (both fixed);
+`supabase/migrations/202608180002_replace_contract_number_with_entry_exit.sql`,
+`202608210001_users_field_masking_grants.sql` (the two migrations that did the breaking).
+
+---
+
+### 87. Deploy ordering — migrations apply instantly, app code rolls out after; a rule proposed, not built
+
+2026-09-22. For item 85 (nine workshop types), the rollout gap between migration and deploy produced
+only failing verification-script assertions, caught immediately. For item 83 (`status`→
+`status_override`), the same gap meant OLD app code, still reading `clients.status`, ran briefly
+against a schema where that column no longer existed. Asked whether that caused real errors in
+production, from logs if reachable, then to propose (not build) a rule.
+
+**Logs: unreachable in this environment, reported plainly rather than guessed around.** Neither
+`vercel logs` nor any Supabase log query is authenticated/available here (`vercel whoami` returns
+"Not authorized"; the Supabase CLI has no log-query subcommand for Postgres/PostgREST). What follows
+is reasoned from the actual code, not observed from a log line — stated as such, not blurred into a
+confirmed finding.
+
+**What would actually have happened, traced through the real code, not assumed generically.**
+Neither failure mode is a raw crash, for a reason specific to this codebase's own pattern, confirmed
+by reading it: `app/(app)/clients/page.tsx` and `[id]/page.tsx` both destructure only `{ data }` from
+their Supabase queries, never checking `error` — a query failure just yields `data = null`/`undefined`,
+which `?? []` or a `!client` check turns into an empty list or the existing `AccessDenied` page, not a
+thrown exception. `error.tsx`/`global-error.tsx` still don't exist anywhere (item 25 below,
+re-confirmed live, still true) — but that gap never gets exercised here, because nothing actually
+throws. So: for item 83's window, a real request to `/clients` or `/clients/[id]` during the gap would
+have rendered a **misleadingly empty client list, or a misleading "not found"** — wrong, but not
+visibly broken, self-healing the moment the new deploy completed (confirmed ~60-90s in this session's
+own observed timing). For item 85's window: `lib/i18n.tsx`'s `useTranslations` deliberately falls back
+to the **raw dictionary key** on a miss ("a forgotten translation should be obvious in the UI, not
+swallowed," its own comment) — old code showing a new `delivery_format` value would have rendered the
+literal string `format_scoli_private_recurente` as a label — ugly, self-evidently wrong, not a crash,
+not wrong data. Whether any real request actually landed in either window: not determinable without
+logs — WOW LAB's real traffic is small (3 clients, 2 groups, a handful of real accounts), so the
+probability is low but not zero, and this item does not claim either way.
+
+**A rule, proposed, not built — expand-then-contract.** For a rename or a value-domain narrowing on a
+column real app code reads: (1) *expand* — add the new column/values alongside the old, unchanged; (2)
+deploy code that reads/writes the new shape exclusively; (3) once that deploy is confirmed live, a
+*separate, later* migration drops the old column/values. Item 78 already did step 1's equivalent for
+`clients.status` (added `client_effective_status()` as a new function, left the raw column alone) —
+the risk this item is about was entirely in item 83's later *contract* step, the rename itself, done
+as one atomic migration+deploy. A full expand-then-contract treatment of that specific step would have
+added the new `status_override` column first (nullable, backfilled), shipped code reading it
+exclusively while `status` still physically existed untouched, then dropped `status` in a separate
+migration once that deploy was confirmed — no window where a live column reference goes missing
+underneath running code, for either direction of the deploy race.
+
+**Cost, argued, not asserted.** Two migrations and two deploy cycles instead of one, with a real gap
+between them (hours to days, to be meaningfully safer than the ~90 seconds this session's actual
+timing shows — a short wait doesn't add real protection over what already happened). For item 85's
+value-domain change specifically, the equivalent isn't a new column, it's a temporarily-widened CHECK
+constraint (old 6 + new 9 as one superset) and an i18n dictionary carrying both old and new keys until
+the narrowing migration ships — a real increase in surface area to hold correctly for the transition
+window, not a mechanical checklist item.
+
+**Is it worth it at this project's scale — recommended, not decided.** No, not as a blanket rule for
+every rename/drop, given three specific, checked mitigating facts, not a general "it's probably fine":
+this codebase's own `{ data }`-only query pattern already bounds a schema-mismatch failure to
+"visibly/silently wrong," never a crash; `useTranslations`' own fallback does the same for i18n
+misses; and WOW LAB's real traffic today is small enough that the actual exposure window (observed
+~60-90s) is low-consequence even in the worst case. Full expand-then-contract's cost (two migrations,
+two deploys, a real waiting gap, extra surface to hold correctly meanwhile) is a velocity tax this
+project's current single-pipeline, AI-assisted workflow would feel on every rename, for a risk that's
+already small and self-healing. **Lighter-weight alternative, actually worth adopting now:** for a
+rename/drop specifically (not additive changes), don't push code and apply the migration in the same
+motion — push the code first, confirm the new deployment is actually live (this session's own
+established re-verification habit), and only then apply the migration. That doesn't eliminate the
+gap, but it removes the "did the migration land before or after the deploy" uncertainty that made this
+round's own timing partly accidental. Revisit full expand-then-contract the day WOW LAB's real traffic
+or the consequence of a wrong page (not just an empty list) grows enough that a 60-90 second window
+stops being obviously low-stakes.
+
+**Lives in:** item 83 above, item 85 above (the two migrations this item traces); item 25 below (the
+missing error boundary, checked and confirmed still not the actual failure mode here); item 78 above
+(the derivation step that already did half of expand-then-contract, unknowingly); `app/(app)/clients/page.tsx`,
+`[id]/page.tsx` (the `{ data }`-only pattern); `lib/i18n.tsx` (`useTranslations`' fallback).
 
 ---
 

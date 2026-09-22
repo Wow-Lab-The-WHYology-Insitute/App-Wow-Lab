@@ -36,6 +36,17 @@
 -- shape. Point 8 ("row_history captures INSERT/UPDATE") is implemented as
 -- UPDATE-only — see the note at that block for why, and the final report.
 --
+-- FIXED 2026-09-22 (found and reported by Mihai directly): every contract
+-- fixture insert in this file used contract_number, dropped along with
+-- client_contract_number in 202608180002_replace_contract_number_with_
+-- entry_exit.sql (2026-08-18), replaced by entry_number/exit_number. This
+-- file could not have run successfully since that date -- eleven days
+-- before the 2026-08-07 WS-D closure this suite's own reasoning rested on
+-- had already ended, unnoticed until asked. All 14 occurrences replaced
+-- with exit_number (the new primary display identifier, unique per org --
+-- every fixture literal here was already unique within its own org, so
+-- the swap needed no value changes). See docs/OPEN_ITEMS.md item 72/86.
+--
 -- Run block-by-block (each BEGIN..ROLLBACK is self-contained — split into
 -- its own file/`supabase db query --linked --file` call to see every
 -- block's result), or as a whole script in the SQL Editor where every
@@ -63,10 +74,10 @@ begin;
     values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Corporate Client', 'corporate')
     returning id into v_client_corporate;
 
-    insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status, billing_rule)
+    insert into public.contracts (organization_id, client_id, legal_entity_id, exit_number, contract_type, status, billing_rule)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client_private, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-PRIVATE-001', 'recurring_annual', 'signed', '95 lei/copil/sedinta')
     returning id into v_contract_private;
-    insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status, billing_rule)
+    insert into public.contracts (organization_id, client_id, legal_entity_id, exit_number, contract_type, status, billing_rule)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client_corporate, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-CORPORATE-001', 'one_off_event', 'signed', 'event contract')
     returning id into v_contract_corporate;
 
@@ -116,10 +127,10 @@ begin;
     values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture State School', 'state_school')
     returning id into v_client_state;
 
-    insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status, billing_rule)
+    insert into public.contracts (organization_id, client_id, legal_entity_id, exit_number, contract_type, status, billing_rule)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client_private, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-PRIVATE-002', 'recurring_annual', 'signed', '80 lei/copil')
     returning id into v_contract_private;
-    insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status, billing_rule)
+    insert into public.contracts (organization_id, client_id, legal_entity_id, exit_number, contract_type, status, billing_rule)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client_state, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-STATE-001', 'framework', 'signed', 'grant framework contract')
     returning id into v_contract_state;
 
@@ -166,7 +177,7 @@ begin;
     insert into public.clients (organization_id, name, client_type)
     values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Masking Client', 'corporate')
     returning id into v_client;
-    insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status, billing_rule)
+    insert into public.contracts (organization_id, client_id, legal_entity_id, exit_number, contract_type, status, billing_rule)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-MASK-001', 'one_off_event', 'signed', 'SECRET-RATE-4200-lei')
     returning id into v_contract;
 
@@ -221,7 +232,7 @@ begin;
     insert into public.clients (organization_id, name, client_type)
     values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Sales Masking Client', 'corporate')
     returning id into v_client;
-    insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status, billing_rule)
+    insert into public.contracts (organization_id, client_id, legal_entity_id, exit_number, contract_type, status, billing_rule)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-SALES-MASK-001', 'one_off_event', 'signed', 'REAL-RATE-950-lei-atelier')
     returning id into v_contract;
 
@@ -263,7 +274,7 @@ begin;
     insert into public.clients (organization_id, name, client_type)
     values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Financial Masking Client', 'corporate')
     returning id into v_client;
-    insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status, estimated_value, previous_year_value)
+    insert into public.contracts (organization_id, client_id, legal_entity_id, exit_number, contract_type, status, estimated_value, previous_year_value)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-FIN-MASK-001', 'one_off_event', 'signed', 12345.67, 9876.54)
     returning id into v_contract;
 
@@ -309,7 +320,7 @@ begin;
     insert into public.clients (organization_id, name, client_type)
     values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Financial Unmasking Client', 'corporate')
     returning id into v_client;
-    insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status, estimated_value, previous_year_value)
+    insert into public.contracts (organization_id, client_id, legal_entity_id, exit_number, contract_type, status, estimated_value, previous_year_value)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-FIN-UNMASK-001', 'one_off_event', 'signed', 55555.00, 44444.00)
     returning id into v_contract;
 
@@ -354,7 +365,7 @@ begin;
     insert into public.clients (organization_id, name, client_type)
     values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Sales Negative Client', 'corporate')
     returning id into v_client;
-    insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status)
+    insert into public.contracts (organization_id, client_id, legal_entity_id, exit_number, contract_type, status)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-SALES-NEG-001', 'one_off_event', 'draft')
     returning id into v_contract;
 
@@ -384,7 +395,7 @@ begin;
     perform set_config('test.sales_insert_client_ok', (v_new_client is not null)::text, true);
 
     begin
-      insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status)
+      insert into public.contracts (organization_id, client_id, legal_entity_id, exit_number, contract_type, status)
       values (
         current_setting('app.test_org_wow_lab')::uuid,
         current_setting('app.fixture_client')::uuid,
@@ -459,7 +470,7 @@ begin;
     v_contract uuid;
     v_update_count int;
   begin
-    insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status, billing_rule)
+    insert into public.contracts (organization_id, client_id, legal_entity_id, exit_number, contract_type, status, billing_rule)
     values (current_setting('app.test_org_wow_lab')::uuid, current_setting('app.fixture_client')::uuid, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-CA-001', 'framework', 'draft', 'TBD')
     returning id into v_contract;
     perform set_config('app.fixture_contract', v_contract::text, true);
@@ -544,10 +555,10 @@ begin;
     values (current_setting('app.test_org_wow_lab_test_b')::uuid, 'Fixture Org B Client', 'corporate')
     returning id into v_client_b;
 
-    insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status)
+    insert into public.contracts (organization_id, client_id, legal_entity_id, exit_number, contract_type, status)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client_a, current_setting('app.test_legal_entity_a')::uuid, 'C1-TEST-ORGA-001', 'one_off_event', 'signed')
     returning id into v_contract_a;
-    insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status)
+    insert into public.contracts (organization_id, client_id, legal_entity_id, exit_number, contract_type, status)
     values (current_setting('app.test_org_wow_lab_test_b')::uuid, v_client_b, v_legal_entity_b, 'C1-TEST-ORGB-001', 'one_off_event', 'signed')
     returning id into v_contract_b;
 
@@ -656,7 +667,7 @@ begin;
     insert into public.clients (organization_id, name, client_type)
     values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture Sabotage Corporate Client', 'corporate')
     returning id into v_client;
-    insert into public.contracts (organization_id, client_id, legal_entity_id, contract_number, contract_type, status)
+    insert into public.contracts (organization_id, client_id, legal_entity_id, exit_number, contract_type, status)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-SABOTAGE-001', 'one_off_event', 'signed')
     returning id into v_contract;
     perform set_config('app.fixture_contract_corporate', v_contract::text, true);
