@@ -1221,6 +1221,25 @@ suite genuinely is what the closure described — a suite that passes, with a sa
 actually has teeth, now additionally covering both defects found since. That decision can now rest on
 real, current evidence, whichever way it's made.
 
+**2026-09-22 — a fourth instance, the one that names what a review is actually for.** Column
+narrowing — which fields a caller may change on a row RLS already admits them into — lived only in
+server action TypeScript across this entire codebase, while `authenticated` held a table-wide UPDATE
+grant on every column of `sessions` (and an equally unrestricted one on the three finance columns of
+`contracts` and `groups.children_confirmed`). Confirmed live, not assumed: a trainer, using nothing
+but the public anon key and their own real session cookie (non-httpOnly by `@supabase/ssr`'s own
+default, unoverridden here), issued a raw `PATCH` to `/rest/v1/sessions` and successfully confirmed a
+**colleague's** attendance directly — the field pay is keyed on (`202609150002`'s own header: "Pay
+follows this timestamp") — with zero involvement from the server action written specifically to
+prevent exactly that. Items 57/68/the avatar policy (this entry's earlier three) were each a single
+RLS branch, subtle and narrow. This one was a structural pattern repeated across every write action in
+the codebase, for as long as the codebase has had write actions — not a policy someone wrote
+carelessly once, a whole *category* of check nobody had verified could not be walked around. **This is
+exactly the shape an external review exists to catch, and it was caught by an internal one instead —
+roughly six weeks after the 2026-08-07 closure declined to hold one.** Fixed same day (item 91 below):
+every affected write routed through a `SECURITY DEFINER` function, the direct grant revoked, a
+permanent sabotage-proven regression test added. The reopen-review decision remains Mihai's — this
+paragraph adds a fourth, larger data point to it, not a recommendation.
+
 **Lives in:** `docs/ws-d-plan.md` (lines 3, 100 — unedited); `docs/phase1-development-plan.md` §4,
 row 15 (the closure, unedited); `db/tests/rls_ws_d_read.sql`, `rls_ws_d_write.sql` (the cited suite,
 frozen since 2026-07-10), `rls_clients_contracts.sql`, `rls_groups_sessions.sql` (the two
@@ -1232,9 +1251,9 @@ recorded here); `supabase/migrations/202608100003_add_clients_contracts_rls_poli
 (the one checked and ruled safe); item 57 below (the second instance); item 68 above (the third
 instance); item 86 below (the 2026-09-22 correction — the suite's own claimed pass count was itself
 wrong, and the audit that found it), item 88 below (the rebuild that makes the closing statement
-above true); `phase1-development-plan.md`'s own broader staleness, addressed
-separately below — this closure's isolation from the rest of this register is one symptom of it, not
-the whole of it.
+above true), item 91 below (the fourth instance and its fix); `phase1-development-plan.md`'s own
+broader staleness, addressed separately below — this closure's isolation from the rest of this
+register is one symptom of it, not the whole of it.
 
 ---
 
@@ -2404,6 +2423,104 @@ mechanical fix to bolt on here.
 still-missing error boundary — related but not the same gap: that's about uncaught exceptions, this is
 about caught-and-silently-treated-as-empty results); `app/(app)/clients/page.tsx`, `[id]/page.tsx` (the
 two confirmed instances — likely not the only ones in the codebase, not audited exhaustively here).
+
+---
+
+### 91. Column narrowing lived only in server actions — confirmed exploitable live, fixed same day
+
+2026-09-22. Every write path in this codebase follows one shape: RLS admits the ROW, a server
+action's own TypeScript narrows which COLUMNS may change (`updateGroup` limits `contracts.*` holders
+to `children_confirmed`; `updateSessionAttendance` limits a trainer to `attendance_count`/
+`experiment_delivered`; `confirmSessionAttendance` limits a trainer to their own slot's timestamp).
+Postgres RLS has no per-row column privilege concept — a server action is one route to the database,
+not the only one.
+
+**(a) Confirmed reachable, live, not reasoned about.** `NEXT_PUBLIC_SUPABASE_ANON_KEY` is bundled
+into every page by Next.js's own convention. `@supabase/ssr`'s own `DEFAULT_COOKIE_OPTIONS` sets
+`httpOnly: false` (read directly from the library source) — this app never overrides it — so the
+session cookie is readable by client-side script. Set up a real session in WOW LAB Test Org B
+(principal = trainerb1, secundar = trainerb2), signed in as the real `@supabase/ssr` flow this app
+uses, issued `PATCH /rest/v1/sessions` for `trainer_secundar_confirmed_at`. **HTTP 200, accepted** —
+re-read via service role confirmed it landed: the principal set the secundar's own confirmation
+timestamp directly, with zero involvement from `confirmSessionAttendance`. Root cause: `authenticated`
+held table-wide UPDATE on every column of `sessions`; no column-level UPDATE/INSERT grant existed
+anywhere in this codebase's migration history (every column-scoped GRANT found was SELECT-only).
+
+**(b) Every column-narrowing rule found, ranked by consequence.** `sessions.trainer_*_confirmed_at`
+(pay-triggering, another trainer's data — the case above) and the unconditional `finance.operations.*`
+RLS branch on `sessions` (admitted the whole row, not just the two correction columns
+`correctSessionConfirmation` exposes) were the two that mattered most. `contracts.billing_rule`/
+`estimated_value`/`previous_year_value` — a `contract_administrator` (holds `contracts.*`, none of
+the three finance capabilities) could set these directly on INSERT or UPDATE despite never being able
+to read them back through `contracts_billing_masked`. `groups.children_confirmed` — a billing input
+Anca decided only `contracts.*` holders enter; `groups.create` holders (Operations) could set it
+directly. `clients.external_crm_ref` (`crm_link.*`) and `clients.status_override` (`clients.convert`)
+have the identical shape but are **currently non-discriminating** — the same roles hold both the
+narrower and the broader capability in production today — left open, not fixed this round.
+
+**(c) Fixed, as recommended: SECURITY DEFINER functions, direct grants revoked.** Column-level
+grants alone can't express "a trainer may write attendance but Operations may write status" (one
+shared `authenticated` Postgres role, capability resolved per-row in application logic, not per
+Postgres role) — confirmed the hard way: the first version of this fix used a column-level `REVOKE`
+layered on top of `authenticated`'s pre-existing TABLE-level grant, which does nothing (Postgres ACL
+grants are additive; a broader grant keeps authorizing a column regardless of a narrower revoke) —
+caught by this round's own new test on its first run, not assumed correct because the SQL looked
+right. Real fix: revoke the table-level grant entirely (sessions: no re-grant at all, every write
+goes through a function; contracts/groups: revoke then re-grant on the explicit column list minus the
+protected ones — the same shape `contracts_field_masking`/`users_field_masking_grants` already use
+for SELECT, applied to UPDATE/INSERT here for the first time).
+
+Six new `SECURITY DEFINER` functions in schema `app` (`202609220001`), each a literal restatement of
+what its TypeScript action already checked — org, row match, `mywork.*`/`finance.operations.*`, which
+slot the caller holds, month-close — not a redesign: `rpc_update_session_allocation`,
+`rpc_update_session_attendance`, `rpc_confirm_session_attendance` (the one this whole item is about —
+there is no column parameter at all; which slot gets written is resolved from the row + the caller's
+own id, so there is no input that can even ask for the other trainer's column),
+`rpc_correct_session_confirmation`, `rpc_set_contract_financials`, `rpc_set_group_children_confirmed`.
+Owned by a new `app_write_owner` role — NOLOGIN/NOBYPASSRLS/INHERIT, member of `authenticated`, same
+recipe as `app_masking_owner` (`202608190001`), deliberately a separate role (distinct blast radius,
+not merged for convenience) — never `postgres`, which has BYPASSRLS in this project and would skip
+org isolation entirely. Exposed via thin `public.*` `SECURITY INVOKER` wrappers (`202609220002`) — the
+`app` schema itself is not exposed to PostgREST, same established exception `public.has_capability`
+already set. `updateSessionAllocation`'s own gate narrows to what its error message already claimed
+("Operations Manager or Master") rather than the full breadth `sessions`' old UPDATE policy
+technically admitted (`finance.operations.*`, any row-matched trainer) — a real, deliberate narrowing,
+not a restatement, chosen because this function is now the ONLY write path and the narrower reading
+was always the documented intent, never actually enforced.
+
+`addSession`'s INSERT has the identical shape — confirmed, not fixed this round. `sessions`' INSERT
+grant is column-unrestricted, same as UPDATE was; `sessions.create` (Operations/owner, not any
+trainer) is the only capability that reaches it at all, so the exposure is narrower than the UPDATE
+case, but a raw POST could still set `trainer_principal_confirmed_at`/`trainer_secundar_confirmed_at`/
+`attendance_count` at creation time, pre-approving payroll for a session that hasn't happened. Left
+open, explicitly reported per instruction, not built.
+
+**Broke 3 pre-existing, passing tests in `rls_groups_sessions.sql` the moment the fix landed** — a
+direct, expected consequence of revoking table-wide UPDATE that the exact same tests had relied on:
+`finance_admin`'s own raw sessions UPDATE (now blocked for everyone, not capability-specific, renamed
+to say so), `operations_manager`'s trainer-rotation test and the sessions row_history capture test
+(both switched to call `rpc_update_session_allocation` instead of a raw UPDATE — the real path now).
+Fixed in the same round, re-verified.
+
+**Verified.** SQL: all 6 functions, allowed case succeeds and every forbidden case refused (8 sessions
+checks, 2 contracts, 2 groups). The acceptance test named directly — the exact PATCH from (a) — now
+returns `403 permission denied for table sessions`, confirmed via the same script that first proved it
+vulnerable. New permanent regression coverage, `db/tests/rls_write_routing_functions.sql`: the raw
+write refused for sessions/contracts/groups, each function's positive/negative case, and a sabotage
+check that temporarily re-grants the exact revoked privilege and confirms the raw-write assertion
+flips to fail — proving this suite would catch the exact regression that made the live PATCH succeed.
+Full suite via `scripts/run_rls_suite.ts`: 90 passed, 0 failed, 0 errors, exit 0.
+
+**Lives in:** `supabase/migrations/202609220001_route_column_narrowed_writes_through_security_definer_functions.sql`,
+`202609220002_expose_write_routing_functions_via_public_wrappers.sql`,
+`202609220003_fix_contracts_groups_column_revoke_table_grant_override.sql` and their rollbacks;
+`app/(app)/groups/actions.ts` (`updateSessionAllocation`, `updateSessionAttendance`,
+`confirmSessionAttendance`, `correctSessionConfirmation`, `updateGroup`), `app/(app)/contracts/actions.ts`
+(`addContract`, `updateContract`); `db/tests/rls_write_routing_functions.sql`,
+`rls_groups_sessions.sql`, `rls_clients_contracts.sql` (the 4 pre-existing tests this fix required
+updating); `scripts/investigate_direct_postgrest_write.ts`; item 89 above (a different, narrower
+instance of the same underlying shape — `groups`' write policy admitting `contracts.*`, not yet
+resolved); item 72 above (the WS-D entry this closes the loop on).
 
 ---
 

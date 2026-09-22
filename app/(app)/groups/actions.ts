@@ -162,31 +162,55 @@ export async function updateGroup(
   const canManageGroupFields = isOwner || hasGroupsCreate;
   const canWriteChildrenConfirmed = isOwner || hasContractsStar;
 
-  const payload: Record<string, unknown> = {};
-  if (canManageGroupFields) {
-    payload.notes = notes.trim() || null;
-    payload.contract_id = contractId || null;
-    payload.address = address.trim() || null;
-    payload.on_site_contact_id = onSiteContactId || null;
-  }
-  if (canWriteChildrenConfirmed) {
-    payload.children_confirmed = childrenConfirmed.trim() ? Number(childrenConfirmed) : null;
-  }
-
-  const { data, error } = await supabase
-    .from("groups")
-    .update(payload)
-    .eq("id", groupId)
-    .select("id");
-
-  if (error) {
-    return { ok: false, error: error.message };
-  }
-  if (!data || data.length === 0) {
+  if (!canManageGroupFields && !canWriteChildrenConfirmed) {
     return {
       ok: false,
       error: "Not permitted (requires Operations Manager, Master, or a contract administrator).",
     };
+  }
+
+  // notes/contract_id/address/on_site_contact_id: unaffected by item 91 --
+  // still a direct .update(), still RLS-gated exactly as before. Only
+  // children_confirmed moved, below.
+  if (canManageGroupFields) {
+    const { error } = await supabase
+      .from("groups")
+      .update({
+        notes: notes.trim() || null,
+        contract_id: contractId || null,
+        address: address.trim() || null,
+        on_site_contact_id: onSiteContactId || null,
+      })
+      .eq("id", groupId);
+
+    if (error) {
+      return { ok: false, error: error.message };
+    }
+  }
+
+  // children_confirmed: routed through app.rpc_set_group_children_confirmed
+  // (item 91, 2026-09-22) -- authenticated's column-level UPDATE grant on
+  // this column is revoked; a contracts.* holder (or owner) is now the
+  // only writer, via the function's own re-check, matching Anca's
+  // 2026-09-11 decision this action already encoded (operations_manager
+  // sees the count but does not fill it). Splits what used to be one
+  // atomic UPDATE into two separate writes when both fields change at
+  // once -- a failure between them is recoverable (re-save), not silently
+  // lost, but no longer perfectly atomic.
+  if (canWriteChildrenConfirmed) {
+    const { data: rpcResult, error: rpcError } = await supabase.rpc("rpc_set_group_children_confirmed", {
+      p_group_id: groupId,
+      p_children_confirmed: childrenConfirmed.trim() ? Number(childrenConfirmed) : null,
+    });
+    if (rpcError) {
+      return { ok: false, error: rpcError.message };
+    }
+    if (rpcResult !== "ok") {
+      return {
+        ok: false,
+        error: "Not permitted (requires Operations Manager, Master, or a contract administrator).",
+      };
+    }
   }
 
   revalidatePath(`/groups/${groupId}`);
@@ -247,9 +271,15 @@ export async function addSession(
 // trainer_secundar_id on an existing session. Deliberately scoped to only
 // these two columns — status/attendance_count/experiment_delivered are not
 // part of this inline-edit affordance (not asked for by the task spec).
-// RLS blocks (rather than errors) an unauthorized UPDATE — it succeeds
-// with 0 rows affected, not a thrown error, same shape as
-// markContractSigned in app/(app)/contracts/actions.ts.
+//
+// Routed through app.rpc_update_session_allocation (item 91, 2026-09-22):
+// authenticated no longer has table-level UPDATE on sessions at all --
+// confirmed live that a raw PATCH to /rest/v1/sessions bypassed this
+// action's own column narrowing entirely (a trainer could write their
+// CO-trainer's confirmation timestamp directly, the pay-triggering
+// field). The RPC function re-checks org.settings.manage/sessions.create
+// itself (SECURITY DEFINER, bypasses RLS by construction) -- this action
+// no longer relies on RLS's row admission alone the way it used to.
 export async function updateSessionAllocation(
   groupId: string,
   sessionId: string,
@@ -257,19 +287,16 @@ export async function updateSessionAllocation(
   trainerSecundarId: string,
 ): Promise<VoidActionResult> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("sessions")
-    .update({
-      trainer_principal_id: trainerPrincipalId || null,
-      trainer_secundar_id: trainerSecundarId || null,
-    })
-    .eq("id", sessionId)
-    .select("id");
+  const { data, error } = await supabase.rpc("rpc_update_session_allocation", {
+    p_session_id: sessionId,
+    p_trainer_principal_id: trainerPrincipalId || null,
+    p_trainer_secundar_id: trainerSecundarId || null,
+  });
 
   if (error) {
     return { ok: false, error: error.message };
   }
-  if (!data || data.length === 0) {
+  if (data !== "ok") {
     return {
       ok: false,
       error: "Not permitted (requires Operations Manager or Master).",
@@ -305,6 +332,16 @@ export async function updateSessionAllocation(
 // what actually happened. RLS's row match (202609110004) can't tell them
 // apart either -- both fail as the identical silent zero-rows -- so the
 // distinction has to be made here, before the write, same as confirm's.
+// Routed through app.rpc_update_session_attendance (item 91, 2026-09-22)
+// -- authenticated no longer has table-level UPDATE on sessions.
+// Everything this action used to pre-check (signed in, row match, month
+// open) is re-checked INSIDE the SECURITY DEFINER function itself now --
+// this action's own pre-checks below are kept anyway, not because the
+// function needs them, but so the specific error messages
+// (SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR / SESSION_ATTENDANCE_MONTH_
+// CLOSED_ERROR) stay exact rather than collapsing into one generic
+// "not permitted" -- the function's own return code is what actually
+// gates the write regardless of what this action concluded first.
 export async function updateSessionAttendance(
   groupId: string,
   sessionId: string,
@@ -319,49 +356,22 @@ export async function updateSessionAttendance(
     return { ok: false, error: "Not signed in." };
   }
 
-  const { data: session } = await supabase
-    .from("sessions")
-    .select("organization_id, session_date, trainer_principal_id, trainer_secundar_id")
-    .eq("id", sessionId)
-    .maybeSingle();
-
-  if (!session) {
-    return { ok: false, error: "Session not found, or not visible to your role." };
-  }
-
-  if (session.trainer_principal_id !== user.id && session.trainer_secundar_id !== user.id) {
-    return { ok: false, error: SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR };
-  }
-
-  const period = `${session.session_date.slice(0, 7)}-01`;
-  const { data: closedPeriod } = await supabase
-    .from("payroll_periods")
-    .select("id")
-    .eq("organization_id", session.organization_id)
-    .eq("period", period)
-    .not("closed_at", "is", null)
-    .maybeSingle();
-
-  if (closedPeriod) {
-    return { ok: false, error: SESSION_ATTENDANCE_MONTH_CLOSED_ERROR };
-  }
-
-  const { data, error } = await supabase
-    .from("sessions")
-    .update({
-      attendance_count: attendanceCount.trim() ? Number(attendanceCount) : null,
-      experiment_delivered: experimentDelivered.trim() || null,
-    })
-    .eq("id", sessionId)
-    .select("id");
+  const { data, error } = await supabase.rpc("rpc_update_session_attendance", {
+    p_session_id: sessionId,
+    p_attendance_count: attendanceCount.trim() ? Number(attendanceCount) : null,
+    p_experiment_delivered: experimentDelivered.trim() || null,
+  });
 
   if (error) {
     return { ok: false, error: error.message };
   }
-  if (!data || data.length === 0) {
-    // The pre-checks above passed, so 0 rows here means the month closed
-    // in the gap between them and this write (a race, not the common
-    // case) -- still the most accurate message available.
+  if (data === "not_found") {
+    return { ok: false, error: "Session not found, or not visible to your role." };
+  }
+  if (data === "not_assigned") {
+    return { ok: false, error: SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR };
+  }
+  if (data === "month_closed") {
     return { ok: false, error: SESSION_ATTENDANCE_MONTH_CLOSED_ERROR };
   }
 
@@ -392,6 +402,15 @@ export async function updateSessionAttendance(
 // session" (checked here, before ever attempting the write) and "your
 // month is closed" (checked via payroll_periods, which mywork.* holders
 // can read for exactly this reason -- 202609150001).
+// Routed through app.rpc_confirm_session_attendance (item 91, 2026-09-22)
+// -- the exact write a live test confirmed bypassable via raw PostgREST
+// PATCH on 2026-09-22 (a principal setting trainer_secundar_confirmed_at
+// directly, with authenticated holding an unrestricted table-level
+// UPDATE grant on sessions). Which column gets written is now resolved
+// INSIDE the SECURITY DEFINER function, from the row + the caller's own
+// id -- there is no column parameter here at all, so this action (or any
+// other caller of the RPC) has no way to even ASK for the other
+// trainer's slot, let alone be trusted not to.
 export async function confirmSessionAttendance(
   groupId: string,
   sessionId: string,
@@ -405,49 +424,21 @@ export async function confirmSessionAttendance(
     return { ok: false, error: "Not signed in." };
   }
 
-  const { data: session } = await supabase
-    .from("sessions")
-    .select("organization_id, session_date, trainer_principal_id, trainer_secundar_id")
-    .eq("id", sessionId)
-    .maybeSingle();
-
-  if (!session) {
-    return { ok: false, error: "Session not found, or not visible to your role." };
-  }
-
-  const isPrincipal = session.trainer_principal_id === user.id;
-  const isSecundar = session.trainer_secundar_id === user.id;
-  if (!isPrincipal && !isSecundar) {
-    return { ok: false, error: SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR };
-  }
-
-  const period = `${session.session_date.slice(0, 7)}-01`;
-  const { data: closedPeriod } = await supabase
-    .from("payroll_periods")
-    .select("id")
-    .eq("organization_id", session.organization_id)
-    .eq("period", period)
-    .not("closed_at", "is", null)
-    .maybeSingle();
-
-  if (closedPeriod) {
-    return { ok: false, error: SESSION_CONFIRMATION_MONTH_CLOSED_ERROR };
-  }
-
-  const column = isPrincipal ? "trainer_principal_confirmed_at" : "trainer_secundar_confirmed_at";
-  const { data, error } = await supabase
-    .from("sessions")
-    .update({ [column]: confirmed ? new Date().toISOString() : null })
-    .eq("id", sessionId)
-    .select("id");
+  const { data, error } = await supabase.rpc("rpc_confirm_session_attendance", {
+    p_session_id: sessionId,
+    p_confirmed: confirmed,
+  });
 
   if (error) {
     return { ok: false, error: error.message };
   }
-  if (!data || data.length === 0) {
-    // The pre-checks above passed, so 0 rows here means the month closed
-    // in the gap between them and this write (a race, not the common
-    // case) -- still the most accurate message available.
+  if (data === "not_found") {
+    return { ok: false, error: "Session not found, or not visible to your role." };
+  }
+  if (data === "not_assigned") {
+    return { ok: false, error: SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR };
+  }
+  if (data === "month_closed") {
     return { ok: false, error: SESSION_CONFIRMATION_MONTH_CLOSED_ERROR };
   }
 
@@ -474,6 +465,14 @@ export async function confirmSessionAttendance(
 // Writes both columns every call, to whatever state the caller passes
 // for each -- there is no row match to fall back on here, so unlike
 // confirmSessionAttendance this is not scoped to "one slot only."
+// Routed through app.rpc_correct_session_confirmation (item 91,
+// 2026-09-22) -- authenticated no longer has table-level UPDATE on
+// sessions. Before this, RLS's unconditional finance.operations.* branch
+// admitted a finance.operations.* holder to write ANY column on ANY
+// session via a raw request (attendance_count, status, trainer
+// assignment), not just the two confirmation columns this action ever
+// exposed -- the function now re-checks the capability itself and writes
+// only those two, closing that gap too.
 export async function correctSessionConfirmation(
   groupId: string,
   sessionId: string,
@@ -482,38 +481,19 @@ export async function correctSessionConfirmation(
 ): Promise<VoidActionResult> {
   const supabase = await createClient();
 
-  const { data: session } = await supabase
-    .from("sessions")
-    .select("organization_id")
-    .eq("id", sessionId)
-    .maybeSingle();
-
-  if (!session) {
-    return { ok: false, error: "Session not found, or not visible to your role." };
-  }
-
-  const [isOwner, hasFinanceOperations] = await Promise.all([
-    checkCapability(supabase, "org.settings.manage", session.organization_id),
-    checkCapability(supabase, "finance.operations.*", session.organization_id),
-  ]);
-
-  if (!isOwner && !hasFinanceOperations) {
-    return { ok: false, error: "Not permitted (requires finance.operations.*)." };
-  }
-
-  const { data, error } = await supabase
-    .from("sessions")
-    .update({
-      trainer_principal_confirmed_at: principalConfirmed ? new Date().toISOString() : null,
-      trainer_secundar_confirmed_at: secundarConfirmed ? new Date().toISOString() : null,
-    })
-    .eq("id", sessionId)
-    .select("id");
+  const { data, error } = await supabase.rpc("rpc_correct_session_confirmation", {
+    p_session_id: sessionId,
+    p_principal_confirmed: principalConfirmed,
+    p_secundar_confirmed: secundarConfirmed,
+  });
 
   if (error) {
     return { ok: false, error: error.message };
   }
-  if (!data || data.length === 0) {
+  if (data === "not_found") {
+    return { ok: false, error: "Session not found, or not visible to your role." };
+  }
+  if (data === "not_permitted") {
     return { ok: false, error: "Not permitted (requires finance.operations.*)." };
   }
 

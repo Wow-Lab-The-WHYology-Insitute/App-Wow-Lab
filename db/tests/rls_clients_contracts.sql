@@ -470,8 +470,16 @@ begin;
     v_contract uuid;
     v_update_count int;
   begin
-    insert into public.contracts (organization_id, client_id, legal_entity_id, exit_number, contract_type, status, billing_rule)
-    values (current_setting('app.test_org_wow_lab')::uuid, current_setting('app.fixture_client')::uuid, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-CA-001', 'framework', 'draft', 'TBD')
+    -- billing_rule removed 2026-09-22 (item 91): contract_administrator
+    -- holds none of finance.operations.*/finance.reporting.*/
+    -- clients.create, so they can no longer set it via ANY path (not the
+    -- old direct INSERT, which this fixture used incidentally for test
+    -- data with no bearing on what THIS point actually tests, and not
+    -- app.rpc_set_contract_financials, which requires one of those three)
+    -- -- confirmed live, this is exactly the fix's intended effect, not a
+    -- workaround for it.
+    insert into public.contracts (organization_id, client_id, legal_entity_id, exit_number, contract_type, status)
+    values (current_setting('app.test_org_wow_lab')::uuid, current_setting('app.fixture_client')::uuid, current_setting('app.test_legal_entity')::uuid, 'C1-TEST-CA-001', 'framework', 'draft')
     returning id into v_contract;
     perform set_config('app.fixture_contract', v_contract::text, true);
 

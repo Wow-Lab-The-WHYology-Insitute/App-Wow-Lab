@@ -72,6 +72,18 @@ export async function addContract(
     (await checkCapability(supabase, "finance.reporting.*", orgId)) ||
     (await checkCapability(supabase, "clients.create", orgId));
 
+  // billing_rule/estimated_value/previous_year_value: no longer in this
+  // payload at all (item 91, 2026-09-22) -- authenticated's column-level
+  // INSERT grant on these three is revoked. Confirmed live before this
+  // fix: a contract_administrator (contracts.*, none of the three finance
+  // capabilities) could set them directly via a raw POST despite never
+  // being able to read them back through contracts_billing_masked --
+  // real, not hypothetical. The contract is inserted first, without
+  // financials; if financeVisible, app.rpc_set_contract_financials sets
+  // them as a second step (its own re-check of the identical capability
+  // set, SECURITY DEFINER). Two writes instead of one -- a failure
+  // between them leaves a contract with no financials set yet, not a
+  // wrong value; recoverable via updateContract, not silently lost.
   const payload: Record<string, unknown> = {
     organization_id: orgId,
     client_id: clientId,
@@ -94,16 +106,6 @@ export async function addContract(
     status: "draft",
   };
 
-  if (financeVisible && financials) {
-    payload.billing_rule = financials.billingRule.trim() || null;
-    payload.estimated_value = financials.estimatedValue.trim()
-      ? Number(financials.estimatedValue)
-      : null;
-    payload.previous_year_value = financials.previousYearValue.trim()
-      ? Number(financials.previousYearValue)
-      : null;
-  }
-
   const { data, error } = await supabase
     .from("contracts")
     .insert(payload)
@@ -122,6 +124,21 @@ export async function addContract(
       };
     }
     return { ok: false, error: error?.message ?? "Could not create contract." };
+  }
+
+  if (financeVisible && financials) {
+    const { data: rpcResult, error: rpcError } = await supabase.rpc("rpc_set_contract_financials", {
+      p_contract_id: data.id,
+      p_billing_rule: financials.billingRule.trim() || null,
+      p_estimated_value: financials.estimatedValue.trim() ? Number(financials.estimatedValue) : null,
+      p_previous_year_value: financials.previousYearValue.trim() ? Number(financials.previousYearValue) : null,
+    });
+    if (rpcError || rpcResult !== "ok") {
+      return {
+        ok: false,
+        error: rpcError?.message ?? "Contract was created, but the financial fields could not be saved.",
+      };
+    }
   }
 
   revalidatePath("/contracts");
@@ -266,6 +283,10 @@ export async function updateContract(
     (await checkCapability(supabase, "finance.reporting.*", current.organization_id)) ||
     (await checkCapability(supabase, "clients.create", current.organization_id));
 
+  // billing_rule/estimated_value/previous_year_value: no longer in this
+  // payload (item 91, 2026-09-22) -- same reasoning as addContract above.
+  // Routed through app.rpc_set_contract_financials as a separate write,
+  // only when financeVisible.
   const payload: Record<string, unknown> = {
     client_id: clientId,
     legal_entity_id: legalEntityId,
@@ -279,16 +300,6 @@ export async function updateContract(
     offer_structure: offerStructure || null,
     ac_link: acLink.trim() || null,
   };
-
-  if (financeVisible && financials) {
-    payload.billing_rule = financials.billingRule.trim() || null;
-    payload.estimated_value = financials.estimatedValue.trim()
-      ? Number(financials.estimatedValue)
-      : null;
-    payload.previous_year_value = financials.previousYearValue.trim()
-      ? Number(financials.previousYearValue)
-      : null;
-  }
 
   const { data, error } = await supabase
     .from("contracts")
@@ -310,6 +321,21 @@ export async function updateContract(
       ok: false,
       error: "Not permitted (requires contract_administrator or Master).",
     };
+  }
+
+  if (financeVisible && financials) {
+    const { data: rpcResult, error: rpcError } = await supabase.rpc("rpc_set_contract_financials", {
+      p_contract_id: contractId,
+      p_billing_rule: financials.billingRule.trim() || null,
+      p_estimated_value: financials.estimatedValue.trim() ? Number(financials.estimatedValue) : null,
+      p_previous_year_value: financials.previousYearValue.trim() ? Number(financials.previousYearValue) : null,
+    });
+    if (rpcError || rpcResult !== "ok") {
+      return {
+        ok: false,
+        error: rpcError?.message ?? "Contract was updated, but the financial fields could not be saved.",
+      };
+    }
   }
 
   revalidatePath(`/contracts/${contractId}`);

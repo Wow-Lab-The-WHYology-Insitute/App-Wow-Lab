@@ -257,8 +257,20 @@ begin;
     get diagnostics v_group_update_count = row_count;
     perform set_config('test.fa_group_update_count', v_group_update_count::text, true);
 
-    update public.sessions set status = 'cancelled' where id = current_setting('app.fixture_session_fa')::uuid;
-    get diagnostics v_session_update_count = row_count;
+    -- sessions: item 91 (2026-09-22) revoked authenticated's table-level
+    -- UPDATE on sessions entirely -- this now throws insufficient_privilege
+    -- unconditionally, for every caller, not just finance_admin (no
+    -- column-level distinction left to test via a raw UPDATE at all: every
+    -- legitimate sessions write goes through one of the 4 RPC functions
+    -- now). Guarded, where it used to run bare, so the block doesn't abort;
+    -- the assertion below is renamed to say what it actually proves now.
+    begin
+      update public.sessions set status = 'cancelled' where id = current_setting('app.fixture_session_fa')::uuid;
+      get diagnostics v_session_update_count = row_count;
+    exception
+      when insufficient_privilege then
+        v_session_update_count := -1;
+    end;
     perform set_config('test.fa_session_update_count', v_session_update_count::text, true);
   end $$;
 
@@ -301,10 +313,19 @@ begin;
     '1',
     current_setting('test.fa_group_update_count') = '1'
   union all
-  select 'finance_admin: UPDATE sessions affects 0 rows (no write capability)',
+  -- Updated 2026-09-22 (item 91): raw UPDATE on sessions now throws
+  -- insufficient_privilege for EVERY authenticated caller, not just
+  -- finance_admin specifically -- table-level UPDATE is revoked entirely,
+  -- every legitimate write goes through one of the 4 RPC functions.
+  -- -1 is this block's own sentinel for "the exception fired" (see the
+  -- do block above); this no longer distinguishes finance_admin's
+  -- capability, it proves the table-wide lockdown applies universally --
+  -- the same property db/tests/rls_write_routing_functions.sql tests
+  -- directly and in more depth.
+  select 'finance_admin: raw UPDATE on sessions is blocked (table-level revoke, item 91 -- universal, not capability-specific)',
     current_setting('test.fa_session_update_count'),
-    '0',
-    current_setting('test.fa_session_update_count') = '0';
+    '-1',
+    current_setting('test.fa_session_update_count') = '-1';
 rollback;
 
 -- ============================================================================
@@ -343,7 +364,6 @@ begin;
   declare
     v_group uuid;
     v_session uuid;
-    v_update_count int;
   begin
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
     values (current_setting('app.test_org_wow_lab')::uuid, current_setting('app.fixture_client')::uuid, 'wow_mix', 'scoli_private_recurente', 'active')
@@ -354,23 +374,26 @@ begin;
     values (current_setting('app.test_org_wow_lab')::uuid, v_group, '2026-10-01', 'planned')
     returning id into v_session;
     perform set_config('app.fixture_session', v_session::text, true);
-
-    -- Set BOTH trainer fields, then CHANGE them in a second UPDATE, proving
-    -- "set/change" (not just set-once).
-    update public.sessions
-       set trainer_principal_id = current_setting('app.test_trainer_a')::uuid,
-           trainer_secundar_id = current_setting('app.test_trainer_b')::uuid
-     where id = v_session;
-    get diagnostics v_update_count = row_count;
-    perform set_config('test.ops_allocate_count', v_update_count::text, true);
-
-    update public.sessions
-       set trainer_principal_id = current_setting('app.test_trainer_b')::uuid,
-           trainer_secundar_id = current_setting('app.test_trainer_a')::uuid
-     where id = v_session;
-    get diagnostics v_update_count = row_count;
-    perform set_config('test.ops_reallocate_count', v_update_count::text, true);
   end $$;
+
+  -- Set BOTH trainer fields, then CHANGE them in a second call, proving
+  -- "set/change" (not just set-once). Routed through
+  -- app.rpc_update_session_allocation (item 91, 2026-09-22) --
+  -- authenticated no longer has table-level UPDATE on sessions; catalina
+  -- (operations_manager, sessions.create) is exactly the caller that
+  -- function's own gate admits, matching what this point already
+  -- intended to prove.
+  select set_config('test.ops_allocate_result', app.rpc_update_session_allocation(
+    current_setting('app.fixture_session')::uuid,
+    current_setting('app.test_trainer_a')::uuid,
+    current_setting('app.test_trainer_b')::uuid
+  ), true);
+
+  select set_config('test.ops_reallocate_result', app.rpc_update_session_allocation(
+    current_setting('app.fixture_session')::uuid,
+    current_setting('app.test_trainer_b')::uuid,
+    current_setting('app.test_trainer_a')::uuid
+  ), true);
 
   select 'operations_manager: INSERT groups succeeds (groups.create)' as check_name,
     (select count(*) from public.groups where id = current_setting('app.fixture_group')::uuid)::text as actual,
@@ -382,15 +405,15 @@ begin;
     '1',
     (select count(*) from public.sessions where id = current_setting('app.fixture_session')::uuid) = 1
   union all
-  select 'operations_manager: UPDATE sets trainer_principal_id + trainer_secundar_id (1 row)',
-    current_setting('test.ops_allocate_count'),
-    '1',
-    current_setting('test.ops_allocate_count') = '1'
+  select 'operations_manager: rpc_update_session_allocation sets trainer_principal_id + trainer_secundar_id',
+    current_setting('test.ops_allocate_result'),
+    'ok',
+    current_setting('test.ops_allocate_result') = 'ok'
   union all
-  select 'operations_manager: UPDATE CHANGES trainer_principal_id + trainer_secundar_id (1 row, rotation)',
-    current_setting('test.ops_reallocate_count'),
-    '1',
-    current_setting('test.ops_reallocate_count') = '1'
+  select 'operations_manager: rpc_update_session_allocation CHANGES trainer_principal_id + trainer_secundar_id (rotation)',
+    current_setting('test.ops_reallocate_result'),
+    'ok',
+    current_setting('test.ops_reallocate_result') = 'ok'
   union all
   select 'operations_manager: final trainer_principal_id reflects the rotation (now trainer_b)',
     (select trainer_principal_id::text from public.sessions where id = current_setting('app.fixture_session')::uuid),
@@ -544,6 +567,8 @@ rollback;
 -- ============================================================================
 begin;
   select set_config('app.test_org_wow_lab', (select id::text from public.organizations where slug = 'wow-lab'), true);
+  select set_config('app.test_trainer_a', (select id::text from public.users where email = 'test+trainer-a@wowlab.dev'), true);
+  select set_config('app.test_trainer_b', (select id::text from public.users where email = 'test+trainer-b@wowlab.dev'), true);
 
   -- test+catalina (operations_manager) holds groups.create/sessions.create
   -- but NOT clients.create -- the fixture client is created while still
@@ -586,8 +611,20 @@ begin;
     perform set_config('test.session_history_before_update', (select count(*) from public.row_history where table_name = 'sessions' and row_id = v_session)::text, true);
 
     update public.groups set status = 'paused' where id = v_group;
-    update public.sessions set status = 'delivered', attendance_count = 12 where id = v_session;
   end $$;
+
+  -- sessions: item 91 (2026-09-22) revoked authenticated's table-level
+  -- UPDATE on sessions entirely -- a direct "update sessions set status=..."
+  -- here would now throw insufficient_privilege unconditionally, for any
+  -- caller. Routed through app.rpc_update_session_allocation instead --
+  -- catalina (operations_manager, sessions.create) is a legitimate caller
+  -- of that function, and it performs a real UPDATE on the row, which is
+  -- all this point actually needs to prove row_history still captures it.
+  select app.rpc_update_session_allocation(
+    (select current_setting('app.fixture_session'))::uuid,
+    current_setting('app.test_trainer_a')::uuid,
+    current_setting('app.test_trainer_b')::uuid
+  );
 
   -- test+catalina has org.audit.read? No -- only organization_owner gets
   -- that via the B4 dynamic grant. RESET ROLE before querying row_history,
