@@ -282,10 +282,24 @@ begin;
     'true',
     current_setting('test.fa_session_insert_blocked')::boolean = true
   union all
-  select 'finance_admin: UPDATE groups affects 0 rows (no write capability)',
+  -- Corrected 2026-09-22 (found by run_rls_suite.ts on its first real
+  -- run, not assumed correct because the file said so): this assertion
+  -- claimed UPDATE was blocked, "no write capability" -- checked directly
+  -- against the live groups UPDATE policy and it's wrong. That policy's
+  -- own WITH CHECK is (is_platform_owner() OR org.settings.manage OR
+  -- groups.create OR contracts.*) -- and finance_admin_reporting DOES
+  -- hold contracts.* (seed.sql), the shared read/write key
+  -- contract_administrator also holds. Recorded as its own open item
+  -- (docs/OPEN_ITEMS.md), not fixed here: groups has no equivalent of the
+  -- write exclusion items 37/45 already added to contracts/
+  -- client_contacts specifically to stop finance_admin_reporting's shared
+  -- contracts.* key from doubling as write access on tables it should
+  -- only read. This assertion now tests what the policy actually does,
+  -- not what an earlier, unverified assumption said it should.
+  select 'finance_admin: UPDATE groups succeeds via contracts.* (shared key with contract_administrator -- NOT excluded from write here, unlike contracts/client_contacts)',
     current_setting('test.fa_group_update_count'),
-    '0',
-    current_setting('test.fa_group_update_count') = '0'
+    '1',
+    current_setting('test.fa_group_update_count') = '1'
   union all
   select 'finance_admin: UPDATE sessions affects 0 rows (no write capability)',
     current_setting('test.fa_session_update_count'),

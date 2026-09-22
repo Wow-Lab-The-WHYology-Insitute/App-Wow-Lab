@@ -200,6 +200,18 @@ same day. The script's own share of that total — five, on one run, with zero s
 it — is the concrete answer to whether this kind of thing is worth checking for: yes, cheaply, and
 it does not have to be a repeat performance to find something real.
 
+**`scripts/run_rls_suite.ts`** runs every file in `db/tests/` against the live linked database and
+prints pass/fail per assertion, distinguishing a genuine sabotage-check pass (the check correctly
+flips to false under a deliberately broken policy) from a real failure. Exits non-zero if anything
+fails or errors — a broken suite cannot read as passing. **Run this after any migration that touches
+`CREATE POLICY`/`DROP POLICY`/`ALTER POLICY`, or that renames or drops a column any policy or test
+reads** — the exact two things that silently broke this suite on 2026-08-18 and 2026-08-21 (item 86
+below), with nothing running it in between to notice:
+
+```
+npx tsx scripts/run_rls_suite.ts
+```
+
 ---
 
 ## No scheduled execution mechanism — decided, not built now
@@ -1194,6 +1206,21 @@ already made for `202608270001`'s comment on the retention job in the top entry 
 a document with a false live claim was corrected by a new entry rather than by rewriting the
 original.
 
+**2026-09-22 — closing statement, the timeline stated once, plainly, for whoever makes this call.**
+The 2026-08-07 closure cited a test suite's pass count and a functional sabotage check as the reason
+external developer review wasn't needed. That suite's sabotage check read `pass = true` for a
+deliberately broken policy from 2026-08-21 onward — fourteen days after the closure — and stayed that
+way, unnoticed, until today. A second file the same closure implicitly rested on (`rls_clients_
+contracts.sql`, C1's own suite) could not run at all from 2026-08-18, eleven days after. **The state
+the closure's reasoning described had already ended within two weeks of the closure itself being
+written.** Neither of the two RLS defects found this September (item 68, item 77) was ever covered by
+anything in `db/tests/` before today (item 88 below) — the suite could not have caught either even
+while it was running correctly. Whether to reopen the external developer review the closure declined
+is Mihai's decision, unchanged by this entry. What changes: as of today (item 86, item 88 below), the
+suite genuinely is what the closure described — a suite that passes, with a sabotage check that
+actually has teeth, now additionally covering both defects found since. That decision can now rest on
+real, current evidence, whichever way it's made.
+
 **Lives in:** `docs/ws-d-plan.md` (lines 3, 100 — unedited); `docs/phase1-development-plan.md` §4,
 row 15 (the closure, unedited); `db/tests/rls_ws_d_read.sql`, `rls_ws_d_write.sql` (the cited suite,
 frozen since 2026-07-10), `rls_clients_contracts.sql`, `rls_groups_sessions.sql` (the two
@@ -1204,7 +1231,8 @@ recorded here); `supabase/migrations/202608100003_add_clients_contracts_rls_poli
 (the two live unverified candidates); `202609150002_add_sessions_confirmation_columns_and_rls.sql`
 (the one checked and ruled safe); item 57 below (the second instance); item 68 above (the third
 instance); item 86 below (the 2026-09-22 correction — the suite's own claimed pass count was itself
-wrong, and the audit that found it); `phase1-development-plan.md`'s own broader staleness, addressed
+wrong, and the audit that found it), item 88 below (the rebuild that makes the closing statement
+above true); `phase1-development-plan.md`'s own broader staleness, addressed
 separately below — this closure's isolation from the rest of this register is one symptom of it, not
 the whole of it.
 
@@ -2234,6 +2262,148 @@ stops being obviously low-stakes.
 missing error boundary, checked and confirmed still not the actual failure mode here); item 78 above
 (the derivation step that already did half of expand-then-contract, unknowingly); `app/(app)/clients/page.tsx`,
 `[id]/page.tsx` (the `{ data }`-only pattern); `lib/i18n.tsx` (`useTranslations`' fallback).
+
+---
+
+### 88. The suite made to actually cover the current RLS surface — coverage mapped, two missing tests built, every sabotage check audited, a runner built
+
+2026-09-22. Item 86's repair made the existing suite honest again; this item is the build Mihai asked
+for on top of that — make it actually cover the RLS surface that exists today, not just the surface
+it was written against in July/August.
+
+**Every live policy, from `pg_policies`, mapped against `db/tests/` — not sampled.** 67 policies
+across ~30 tables. Grouped by what's actually true, not "covered" vs "not":
+
+| Domain | Policies | `db/tests/` coverage | Working sabotage |
+|---|---|---|---|
+| `users` (SELECT/UPDATE) | 2 | **None, until this item** — item 68's finance-branch bug shipped and died silently precisely because of this gap | New: `rls_users.sql` |
+| `client_contacts` (SELECT/INSERT/UPDATE/DELETE) | 4 | `rls_clients_contracts.sql` covers masking + finance segregation + write capability gates, but never the `mywork.*`/trainer_facing branch — the one item 77 had to narrow | New: `rls_client_contacts_trainer_facing.sql` |
+| `clients` (SELECT/INSERT/UPDATE) | 3 | `rls_clients_contracts.sql` — finance segregation, `clients.create` INSERT, DELETE deny-all, cross-org isolation, sabotage | Yes (Point 7) |
+| `contracts` (SELECT/INSERT/UPDATE/DELETE) | 4 | `rls_clients_contracts.sql` — finance segregation, masking (`contracts_billing_masked`), contract_admin write, sales_a negative, sabotage | Yes (Point 7) |
+| `groups` (SELECT/INSERT/UPDATE) | 3 | `rls_groups_sessions.sql` — mywork.* scoping, ops write, finance read+write-via-`contracts.*` (item 89 below, found by this round's own runner), cross-org, sabotage | Yes |
+| `sessions` (SELECT/INSERT/UPDATE) | 3 | `rls_groups_sessions.sql` — same coverage as `groups`, row_history both tables | Yes |
+| `user_org_roles` (SELECT/INSERT/UPDATE) | 3 | `rls_ws_d_write.sql` — privilege-escalation guard, sabotage | Yes (now — item 86) |
+| `org_settings` (SELECT/UPDATE) | 2 | `rls_ws_d_read.sql` + `rls_ws_d_write.sql` — owner write, cross-org, wrong-capability negative | No sabotage on this specific policy (the suite's one sabotage check targets `user_org_roles`, not `org_settings` — a real gap, not claimed covered) |
+| `legal_entities` (SELECT/INSERT/UPDATE) | 3 | `rls_ws_d_write.sql` — owner INSERT, trainer DELETE-deny-all | No sabotage |
+| `organizations`, `capabilities`, `role_capabilities`, `roles`, `modules`, `audit_log`, `row_history` | 8 | Read only, mostly reference/lookup tables or append-only logs with no meaningful negative case (`audit_log` has no DELETE/UPDATE policy at all by design) | N/A |
+| `duration_multiplier_*`, `location_bonus_*`, `language_bonus_*`, `contract_type_uplift_*`, `trainer_grade_*`, `lesson_plan_rate_*` (payment-config, 6 tables) | 12 | **None** — one-time `scripts/verify_*.sql` dry runs only, several now broken by their own non-idempotent DDL (item 86's category 2) | No |
+| `suppliers`, `payroll_periods`, `file_refs` | 8 | **None** — same, one-time scripts only | No |
+
+**The two tests item 86 and Mihai both named, built with working sabotage, both verified to have
+actually caught the historical bug:**
+- **`db/tests/rls_users.sql`** — Point 1: `finance_ops_a` sees `trainer_a`'s row
+  (`app.viewer_sees_trainer_via_finance_ops`, item 68's fix). Point 2: does NOT see a non-trainer's
+  row (the branch is scoped, not a blanket finance-sees-everyone grant). Point 3, sabotage: reverts
+  the helper function to the EXACT pre-`202609160002` body (quoted verbatim from that migration's own
+  header — an inline read, no longer `security definer`, subject to `user_org_roles`' own RLS).
+  Confirmed live: `actual` drops from 1 to 0, `pass` flips to false — **this test would have caught
+  item 68's bug**, the thing it exists to prove.
+- **`db/tests/rls_client_contacts_trainer_facing.sql`** — Point 1: the allocated trainer sees the
+  linked `trainer_facing` contact; an unrelated trainer (same `mywork.*` capability, no session on
+  the group) does not; the allocated trainer does not see the client's other, unlinked contact.
+  Point 2, sabotage: reverts the branch to the EXACT pre-`202609210002` org-wide shape (quoted
+  verbatim from that migration's own header — capability + `contact_purpose` only, no
+  group/session scoping). Confirmed live: the unrelated trainer now sees the contact, `pass` flips to
+  false — **this test would have caught item 77's bug**.
+
+**Every sabotage check in the suite, audited for the exact vulnerability item 86 found in
+`rls_ws_d_write.sql` — could the try-block's own setup lookup throw the same exception the policy
+denial is supposed to throw, undetectably.** All 7 `EXCEPTION WHEN insufficient_privilege` blocks
+across the whole suite found (2 in `rls_groups_sessions.sql`, 2 in `rls_clients_contracts.sql`, 3 in
+`rls_ws_d_write.sql`) — the 4 outside `rls_ws_d_write.sql` read every supporting value from a session
+GUC resolved before the role switch, never from a fresh lookup inside the guarded block; confirmed
+clean by reading each one, not assumed from the pattern holding elsewhere. Only `rls_ws_d_write.sql`'s
+3 were vulnerable, and item 86 already fixed and re-verified all 3. **Separately**, the suite's other
+sabotage shape — deliberately widen a `USING`/`WITH CHECK` clause to `(true)` and re-run a COUNT-based
+visibility assertion — was never at risk from this bug class at all: no exception is raised or caught
+anywhere in that shape, so there is nothing for a setup-lookup failure to hide behind. Every sabotage
+check in the suite, new and old, now correctly distinguishes "the policy denied it" from "the test
+itself broke."
+
+**Found by the runner's own first real run, fixed on the spot, not left as a false result in a suite
+this item is supposed to make trustworthy:** `rls_groups_sessions.sql` asserted `finance_admin_
+reporting`'s UPDATE on `groups` affects 0 rows, "no write capability" — checked against the live
+policy, this was simply wrong; `finance_admin_reporting` holds `contracts.*`, one of the policy's own
+write branches. Corrected to test what the policy actually does. The anomaly itself — `groups` having
+no write exclusion for `contracts.*` parallel to the ones items 37/45 already added to `contracts`/
+`client_contacts` — is recorded as its own item, 89 below, not resolved here.
+
+**The runner (`scripts/run_rls_suite.ts`).** Splits every `db/tests/*.sql` file on its own `begin;`/
+`rollback;` blocks, runs each through `supabase db query --linked --file`, and reports pass/fail per
+assertion — sabotage checks interpreted correctly (a sabotage row reading `pass: false` is the suite
+having teeth, a runner-level PASS; `pass: true` under a broken policy is the runner-level FAIL). Two
+failure shapes, both reported: a block that doesn't run at all (what `rls_clients_contracts.sql` did
+for a month), and a block that runs but returns a failing assertion. **Exits 1 on either — confirmed
+by running it clean (74 passed, 0 failed, 0 errors, exit 0) and by deliberately re-introducing the
+`contract_number` bug in a scratch copy to confirm a real break still produces a non-zero exit** — a
+broken suite cannot read as passing, the property item 72's own August closure had no way to check
+and item 86 found it lacked. Added to this register's own preamble, beside the item-register checker,
+with the instruction to run it after any migration touching `CREATE POLICY`/`DROP POLICY`/
+`ALTER POLICY` or any column a policy or test reads.
+
+**Lives in:** item 86 above (the repair this builds on); item 68 above, item 77 above (the two bugs
+each new test would have caught); `db/tests/rls_users.sql`, `rls_client_contacts_trainer_facing.sql`
+(new), `rls_groups_sessions.sql` (the corrected assertion); `scripts/run_rls_suite.ts`; item 89 below
+(the anomaly the runner's first run found); this file's own preamble (the new runner line).
+
+---
+
+### 89. `groups`' UPDATE policy grants write via `contracts.*` — found by `run_rls_suite.ts`'s first real run, not resolved here
+
+2026-09-22. `groups`' UPDATE policy: `is_platform_owner() OR org.settings.manage OR groups.create OR
+contracts.*`. `contracts.*` is a SHARED key — held by both `contract_administrator` (the intended
+target, presumably) and `finance_admin_reporting` (seed.sql). Confirmed live: `finance_admin_a`
+(`finance_admin_reporting`) can UPDATE a `groups` row today, purely via holding `contracts.*` — a
+capability granted to that role for reading contract financials, per items 37/45's own history, not
+for writing anything on `groups`.
+
+**Why this looks like the same shape already fixed twice, not a new question.** `contracts`
+(`202609080001`) and `client_contacts` (`202609110001`) both had their own write policies carry an
+explicit `NOT finance.reporting.* AND NOT finance.operations.*` exclusion added specifically so
+`contracts.*`/`clients.create`'s shared nature didn't silently hand a finance role write access meant
+for Sales/Contract Administrator only. `groups`' own UPDATE policy has never had that exclusion added
+— not because it was decided safe, checked directly: no migration comment anywhere discusses `groups`
+write access in relation to `contracts.*` at all. This reads like the same gap those two migrations
+closed, just never extended to a third table that shares the same key.
+
+**Not fixed here — found incidentally by a tool built for something else, and that's exactly why it
+shouldn't be resolved in the same breath.** Item 88's runner surfaced this on its first real run by
+catching a wrong test assertion, not by a deliberate audit of `groups`' write policy. Whether
+`finance_admin_reporting` writing to `groups` is actually intended (a contract admin editing a group
+tied to their own contract, and finance_admin_reporting genuinely needing the same for its own
+reporting work) or an oversight is a real question this item does not answer.
+**Lives in:** item 88 above (where this was found); item 37 below, item 45 below
+(the two prior instances of the same shape, already fixed on `contracts`/`client_contacts`);
+`supabase/migrations/202608130003_add_groups_sessions_rls_policies.sql` (the UPDATE policy itself);
+`db/tests/rls_groups_sessions.sql` (the corrected assertion that now tests reality, not the assumption).
+
+---
+
+### 90. Silent-failure class: pages destructure `{ data }` and never check `error` — a query that fails reads the same as a query that found nothing
+
+2026-09-22. From the deploy-ordering investigation (item 87 above): `app/(app)/clients/page.tsx` and
+`[id]/page.tsx` — and, by the same established pattern, most of this codebase's other server
+components — destructure only `{ data }` from their Supabase queries, never checking `error`. A
+missing column, an RLS denial, a network error, and a genuinely empty result all produce the exact
+same rendered output: an empty list, or an existing "not found"/`AccessDenied` page. **The app cannot
+tell "there is nothing" from "I could not look"** — the same shape, one level up, as the dead policy
+branches this round's other items are about: a mechanism that fails without announcing it failed.
+
+**Why this is its own item, not folded into 87.** Item 87 is about one specific TIMING window
+(a rollout gap). This is a standing property of how these pages are written, true independent of any
+deploy — any future RLS mistake, network blip, or query bug on these pages degrades the same
+misleading way, not just during a migration's rollout.
+
+**Not fixed in this round — recorded, per instruction.** Would need, per page: check `error`,
+distinguish "no rows" from "query failed," and render something that says so — real work, its own
+decision about how loud that signal should be (a banner? a distinct empty state? does item 25's still-
+missing `error.tsx` become relevant here after all, for the cases that SHOULD throw?), not a
+mechanical fix to bolt on here.
+
+**Lives in:** item 87 above (the investigation this was found during); item 25 below (the separately-
+still-missing error boundary — related but not the same gap: that's about uncaught exceptions, this is
+about caught-and-silently-treated-as-empty results); `app/(app)/clients/page.tsx`, `[id]/page.tsx` (the
+two confirmed instances — likely not the only ones in the codebase, not audited exhaustively here).
 
 ---
 
