@@ -2511,6 +2511,24 @@ check that temporarily re-grants the exact revoked privilege and confirms the ra
 flips to fail — proving this suite would catch the exact regression that made the live PATCH succeed.
 Full suite via `scripts/run_rls_suite.ts`: 90 passed, 0 failed, 0 errors, exit 0.
 
+**2026-09-23 — walked all six write paths through the real app on `app.wowlab.ro`, in WOW LAB Test
+Org B, not through SQL or a direct `.rpc()` call.** Per Mihai's own instruction, since item 90 means a
+200 response proves nothing on its own: extracted the real Next.js Server Action ids from the deployed
+bundle's `createServerReference` calls (`/groups/[id]` and `/contracts/[id]` page chunks) and issued
+the exact `Next-Action` POST protocol a real browser click sends, then read every result back via
+service role. Operations reassigns a trainer; a trainer records attendance/experiment; a trainer
+confirms their own slot; finance corrects a confirmation both with the month open and with it closed
+(`correctSessionConfirmation` is deliberately not month-gated, by design — confirmed it still writes
+after a `payroll_periods.closed_at` was set for real); a contract administrator sets a contract's
+financial fields; a `contracts.*` holder sets `children_confirmed` — **all six landed, confirmed by
+reading the column back, not by the response alone.** Two initially showed `ok:false` with a real,
+specific error (not a silent no-op) — `updateContract`/`updateGroup`'s own "contract not visible"
+check correctly refused, because the first fixture used a `corporate`-type client and the acting
+fixture also holds `finance.operations.*`, whose SELECT branch on `contracts` is scoped to
+`private_school`/`parent_b2c` only — a pre-existing, correct RLS segregation the test fixture
+collided with, not an item 91 regression; switching the fixture to `private_school` resolved it and
+all six passed. No path showed success on screen while writing nothing.
+
 **Lives in:** `supabase/migrations/202609220001_route_column_narrowed_writes_through_security_definer_functions.sql`,
 `202609220002_expose_write_routing_functions_via_public_wrappers.sql`,
 `202609220003_fix_contracts_groups_column_revoke_table_grant_override.sql` and their rollbacks;
@@ -2518,9 +2536,53 @@ Full suite via `scripts/run_rls_suite.ts`: 90 passed, 0 failed, 0 errors, exit 0
 `confirmSessionAttendance`, `correctSessionConfirmation`, `updateGroup`), `app/(app)/contracts/actions.ts`
 (`addContract`, `updateContract`); `db/tests/rls_write_routing_functions.sql`,
 `rls_groups_sessions.sql`, `rls_clients_contracts.sql` (the 4 pre-existing tests this fix required
-updating); `scripts/investigate_direct_postgrest_write.ts`; item 89 above (a different, narrower
-instance of the same underlying shape — `groups`' write policy admitting `contracts.*`, not yet
-resolved); item 72 above (the WS-D entry this closes the loop on).
+updating); `scripts/investigate_direct_postgrest_write.ts`,
+`verify_item91_write_paths_through_app.ts`; item 89 above (a different, narrower instance of the same
+underlying shape — `groups`' write policy admitting `contracts.*`, not yet resolved); item 72 above
+(the WS-D entry this closes the loop on); item 92 below (the privilege-model lesson this round's own
+first-draft bug taught).
+
+---
+
+### 92. General lesson — `REVOKE UPDATE (column)` does nothing while a table-wide `UPDATE` grant survives; Postgres privileges are additive, never overriding
+
+2026-09-22/23. Found building item 91, not in the abstract: the first version of that fix issued
+`REVOKE UPDATE (billing_rule, estimated_value, previous_year_value) ON contracts FROM authenticated`
+— syntactically valid, applied without error, and protected nothing. `authenticated` already held a
+plain `GRANT UPDATE ON contracts TO authenticated` (table-wide, from `202608100003`) predating it, and
+Postgres ACL entries are additive — a broader grant keeps authorizing every column it covers
+regardless of a narrower revoke layered on top; `REVOKE` only removes what was granted at that exact
+level, it cannot subtract from a wider grant that also covers the same privilege. `information_schema.
+column_privileges` still showed `authenticated`/`UPDATE` on `billing_rule` after the "fix" shipped, and
+a live impersonated `UPDATE` succeeded with no exception — caught only because
+`db/tests/rls_write_routing_functions.sql`'s own raw-write test ran against it and failed, on its
+first real run, not assumed correct because the SQL read right. Had that test not existed yet, this
+round's own fix would have shipped protecting nothing — the identical shape it was written to close.
+
+**Same family as item 68, not a new one.** Item 68: an RLS branch that "applied cleanly on `db push`,
+and evaluated to `false` for every caller it was written for, unconditionally" — a migration that
+runs without error and changes nothing about what it claims to guard. This is that shape one layer
+down, in the GRANT system instead of RLS: a `REVOKE` that applies cleanly and changes nothing about
+what it claims to restrict, because a wider, pre-existing grant silently continues to cover it. Neither
+failure mode raises an error. Both require a live behavioral test — reading the column back after an
+impersonated write, not reading the migration's own SQL — to catch, because the schema itself offers
+no signal that the narrower statement was overridden.
+
+**The fix, both times: revoke the WIDER grant first, then re-grant only what should remain.** Exactly
+what `202608190001`/`202608210001` already established for `SELECT` masking (`REVOKE ALL`, then `GRANT
+SELECT` on the explicit surviving column list) and what item 91's real fix (`202609220003`) had to
+apply to `UPDATE`/`INSERT` for the first time: there is no way to narrow a column set downward from a
+table-wide grant except by removing the table-wide grant entirely and re-stating the narrower one from
+scratch. A column-level `REVOKE` is only meaningful when nothing broader already grants the same
+privilege — checking for that is not optional, it decides whether the statement does anything at all.
+
+**Lives in:** item 91 above (where this was found and fixed); item 68 above (the RLS-layer instance of
+the identical shape); `supabase/migrations/202609220001_route_column_narrowed_writes_through_security_definer_functions.sql`
+(the first, ineffective version of the column revoke),
+`202609220003_fix_contracts_groups_column_revoke_table_grant_override.sql` (the real fix);
+`db/tests/rls_write_routing_functions.sql` (the test that caught it); `202608190001_contracts_field_masking.sql`,
+`202608210001_users_field_masking_grants.sql` (the `REVOKE ALL` + re-grant pattern this now also
+applies to `UPDATE`/`INSERT`, not just `SELECT`).
 
 ---
 
