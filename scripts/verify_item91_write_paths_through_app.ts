@@ -104,7 +104,7 @@ async function main() {
     const { data: contract } = await a.from("contracts").insert({ organization_id: org!.id, client_id: client!.id, legal_entity_id: legalEntity!.id, exit_number: "ITEM91-THROUGH-APP-001", contract_type: "one_off_event", status: "signed" }).select("id").single();
     cleanup.push(async () => { await a.from("contracts").delete().eq("id", contract!.id); });
 
-    const { data: session1 } = await a.from("sessions").insert({ organization_id: org!.id, group_id: group!.id, session_date: new Date().toISOString().slice(0, 10), trainer_principal_id: principal!.id, trainer_secundar_id: secundar!.id, status: "planned" }).select("id").single();
+    const { data: session1 } = await a.from("sessions").insert({ organization_id: org!.id, group_id: group!.id, session_date: new Date().toISOString().slice(0, 10), trainer_principal_id: principal!.id, trainer_secundar_id: secundar!.id, status: "planned" }).select("id, session_date").single();
     cleanup.push(async () => { await a.from("sessions").delete().eq("id", session1!.id); });
 
     // ---- 1. Operations reassigns a trainer on a session ----
