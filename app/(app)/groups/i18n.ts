@@ -166,6 +166,12 @@ export const groupsDict: Dictionary = {
   // children_confirmed count, a different field entirely.
   session_confirmed_status: { en: "Confirmed", ro: "Confirmat" },
   session_not_confirmed_status: { en: "Not confirmed", ro: "Neconfirmat" },
+  // The action-worded case: an empty checkbox on the assigned trainer's
+  // own, not-yet-confirmed slot. Deliberately not "Not confirmed" --
+  // that's a state word sitting next to a box that hasn't been touched
+  // yet, easy to misread as if the box itself asserts the state rather
+  // than performs the action.
+  confirmation_check_to_confirm: { en: "Check to confirm", ro: "Bifează pentru a confirma" },
   confirmation_month_closed_error: {
     en: "This month is closed. You can no longer change your confirmation.",
     ro: "Luna este închisă. Nu îți mai poți modifica confirmarea.",

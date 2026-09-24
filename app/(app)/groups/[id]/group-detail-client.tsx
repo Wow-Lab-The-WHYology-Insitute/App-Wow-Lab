@@ -486,25 +486,42 @@ type SessionRowProps = {
   onCorrectConfirmation: (slot: "principal" | "secundar", checked: boolean) => void;
 };
 
-// Beside each trainer's own name -- three cases, checked in this order:
-// (1) the row-matched trainer for that specific slot gets a live
-// checkbox (confirmSessionAttendance, respects the month-close gate); (2)
-// failing that, a finance.operations.*/org.settings.manage viewer gets
-// a live checkbox too, but through correctSessionConfirmation, which
-// does NOT respect the close gate -- that's the whole point of a
-// correction path. Order matters here, not just for readability: a
-// viewer who happens to be both the assigned trainer AND finance-capable
-// on the same session must hit case 1 first, or they could bypass their
-// own close-gate restriction through their own correction capability.
-// (3) anyone else who can see the row gets a read-only status word.
+// Beside each trainer's own name. Five render shapes, not three --
+// state and action used to share one widget (a checkbox whose CHECKED
+// attribute mirrored the state while its LABEL TEXT also swapped between
+// "Confirmed"/"Not confirmed" -- an empty box next to "Not confirmed"
+// reads as ambiguous: is checking it the action, or is the box itself
+// asserting "not confirmed" is already true?). Now state and action are
+// never both live in the same rendering: a checkbox never appears next
+// to text that names the state it's already in.
 //
-// isSaving covers the dead-zone gap for both live-checkbox cases: once
-// the action resolves, isPending ends before the revalidated `sessions`
-// prop actually lands, so the checkbox would otherwise flash back to
-// interactive with the OLD value for a real, multi-second window.
-// "Saving…" replaces the label (not just a disabled attribute) so that
-// window never reads as "confirmed" or "not confirmed" when it might
-// already be neither.
+// Checked in this order (same precedence as before -- a viewer who is
+// both the assigned trainer AND finance-capable on the same session
+// must hit their own-slot case first, or they could bypass their own
+// close-gate restriction through their own correction capability):
+//   1. Saving -- transient, covers the dead-zone gap where isPending
+//      ends before the revalidated `sessions` prop actually lands, so
+//      nothing here ever flashes a stale checked/unchecked value.
+//   2. Own slot, already confirmed -- a plain label, not a control
+//      anymore. Confirming your own delivery is a one-way action; a
+//      mistake is fixed through the correction path below (finance/
+//      owner), not by self-unchecking, so there is nothing left to
+//      offer here once it's done.
+//   3. Own slot, not yet confirmed -- the one real action this shape
+//      offers, worded as an action ("Check to confirm"), not as a
+//      state, so an empty box never sits next to a claim about what's
+//      already true.
+//   4. Correction (canCorrect, not the assigned trainer) -- genuinely
+//      bidirectional, fixing a wrong confirmation either way is the
+//      whole point, so this never collapses to a label. The checkbox's
+//      own checked/unchecked state carries the boolean; the text beside
+//      it stays the constant "Confirmed" (what's being toggled) instead
+//      of swapping to "Not confirmed", which is what made the box and
+//      the words redundant-but-conflicting in the old shape.
+//   5. Read-only (neither of the above) -- a plain state label, always,
+//      confirmed or not. Deliberately visible either way: the state
+//      isn't private between the two trainers on a session, only the
+//      control is.
 function ConfirmationControl({
   confirmedAt,
   isOwnSlot,
@@ -523,25 +540,38 @@ function ConfirmationControl({
   onCorrect: (checked: boolean) => void;
 }) {
   const t = useTranslations(groupsDict);
-  const statusLabel = confirmedAt ? t("session_confirmed_status") : t("session_not_confirmed_status");
+  const confirmed = Boolean(confirmedAt);
 
-  if (!isOwnSlot && !canCorrect) {
-    return <span className="font-body text-muted block text-[11px]">{statusLabel}</span>;
-  }
   if (isSaving) {
     return <span className="font-body text-muted mt-0.5 block text-[11px] italic">{t("saving_confirmation")}</span>;
   }
+
+  if (isOwnSlot && confirmed) {
+    return <span className="font-body text-muted mt-0.5 block text-[11px]">{t("session_confirmed_status")}</span>;
+  }
+
+  if (isOwnSlot) {
+    return (
+      <label className="font-body text-muted mt-0.5 flex items-center gap-1.5 text-[11px]">
+        <input type="checkbox" checked={false} disabled={isPending} onChange={(e) => onToggle(e.target.checked)} className="accent-brand-pink" />
+        {t("confirmation_check_to_confirm")}
+      </label>
+    );
+  }
+
+  if (canCorrect) {
+    return (
+      <label className="font-body text-muted mt-0.5 flex items-center gap-1.5 text-[11px]">
+        <input type="checkbox" checked={confirmed} disabled={isPending} onChange={(e) => onCorrect(e.target.checked)} className="accent-brand-pink" />
+        {t("session_confirmed_status")}
+      </label>
+    );
+  }
+
   return (
-    <label className="font-body text-muted mt-0.5 flex items-center gap-1.5 text-[11px]">
-      <input
-        type="checkbox"
-        checked={Boolean(confirmedAt)}
-        disabled={isPending}
-        onChange={(e) => (isOwnSlot ? onToggle : onCorrect)(e.target.checked)}
-        className="accent-brand-pink"
-      />
-      {statusLabel}
-    </label>
+    <span className="font-body text-muted block text-[11px]">
+      {confirmed ? t("session_confirmed_status") : t("session_not_confirmed_status")}
+    </span>
   );
 }
 
