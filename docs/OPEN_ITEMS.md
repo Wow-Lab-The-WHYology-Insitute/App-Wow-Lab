@@ -2677,6 +2677,75 @@ layer up the stack).
 
 ---
 
+### 95. Five of six pay grids seeded, PFA-inclusive, effective 2026-09-01 — trainer grades seeded for ten of eleven active trainers — rounding assumption reversed
+
+2026-09-24, Anca's answers complete. `trainer_grade_rates`, `location_bonus`, `language_bonus`,
+`duration_multiplier`, `lesson_plan_rates` seeded (`202609240001`); `trainer_grade_assignments`
+seeded for ten trainers (`202609240002`). Both dry-run verified (`scripts/verify_pay_grids_seed.sql`,
+rolled back) and re-verified against the real data afterward — every check calls the actual resolver
+function, not a raw row read, so this proves the consumption path Finance's future calculation will
+use, not just that INSERT succeeded.
+
+**contract_type_uplift stays at zero rows, zero versions — not seeded at 0%.** The six new rates are
+PFA-inclusive already (Anca: "in contractul cu trainerii PFA sau SRL vom avea direct 111 lei/ora tarif
+de baza junior") — applying contract_type_uplift on top would double the uplift, not add to it. Seeding
+it at 0% was considered and rejected: a 0%-seeded grid looks configured in `/payment-config` while being
+silently unreachable, the exact shape item 92 names one layer up (an additive `GRANT` that survives a
+narrower `REVOKE`) — a grid that exists and must never be applied is the same failure read from the
+data side instead of the privilege side. `app.resolve_contract_type_uplift` is left in place (dropping
+a working, harmless resolver is a bigger, unrequested action) but is now commented at the function level
+(`comment on function`) so a future `app.calculate_session_pay` finds the reason not to call it right at
+the point of decision, not only in this register. Confirmed live: the resolver still raises against the
+empty grid rather than returning a silent value — the fail-loud behavior the six original resolvers were
+built for still holds with real data seeded everywhere else around it.
+
+**`duration_multiplier` has one seeded value that is an assumption, not an observation, and this is
+recorded at three levels — the migration's own note, the version row Finance will see in
+`/payment-config`, and here.** `scoala_altfel_saptamana_verde` at 90 minutes appears nowhere in 1,456
+historical rows; seeded at 1.2 to match the standard context purely so the resolver has a row instead of
+raising on a duration nobody has actually recorded in that context. `scoala_altfel_saptamana_verde` at
+120 (2.0) **is** Anca-confirmed, but as a decision going forward, not a correction of past pay — the same
+1,456 rows show the ×2 multiplier was never once applied; the one real Școala Altfel two-hour row on
+record used the standard 1.5.
+
+**Rounding — reverses the recommendation reported (not built, not previously recorded as its own item)
+earlier this same round.** That report reasoned toward "round once, at the end," from two real examples
+that didn't disambiguate rounding placement and a guess about what "match her table to the leu" meant.
+Wrong guess: 444 of 1,456 real approved amounts
+carry bani — 198.36, 164.16, 200.625 among them. "To the leu" meant literally to the ban, i.e. exact.
+**`app.calculate_session_pay` (not yet built — see below) returns the unrounded product, full stop.** No
+rounding step belongs anywhere in this calculation.
+
+**Trainer grades, ten of eleven.** `trainer_grade_assignments` had zero rows before this — seeding the
+rate-per-grade table alone couldn't resolve anyone's pay without this. All ten names Anca gave resolved
+to a real `public.users` row on the first check, live, before anything was inserted (Cătălina Trușan,
+Sonia Ganea, Andrada Eremia, Elena Bacalum, Teodora Merișan, Alexandra Nuțu, Viorel Toboșaru, Raluca
+Popa, Alina Garofil, Răzvan Alexandru Bălașov) — nothing to report there, and the migration itself
+re-checks the count post-insert and raises if it isn't exactly 10, defense in depth against a future
+re-run silently matching fewer rows. Luiza Mirt gets no row on purpose: no workshop in Anca's file to
+read a grade from, and her own answer for Luiza ("grade 3 if she returns") is a conditional rule, not a
+fact to seed today.
+
+**Still open, not built this round (report only, per the instruction that asked for this):**
+`app.calculate_session_pay` itself — a SQL function, not a seventh resolver in the `resolve_*` shape,
+composing the four resolvers (grade rate, duration multiplier, location bonus, language bonus) and
+returning the unrounded product. And the three input gaps the calculation depends on: `location_tier`
+and `language_group` have no form field anywhere in the app today (every session created through it gets
+both `NULL`); `language_group` belongs on `groups`, not `sessions`, and should move there before the
+calculation reads it, since a recurring group's language doesn't vary by session the way its assigned
+trainer (and therefore its travel distance) does; and trainer home city needs a home of its own — not
+`users` (SAD §12.5 already rejected that placement for a different reason that still holds), reversing
+only the *scope* of that section's rejection now that home cities are confirmed for all eleven, not the
+placement reasoning itself.
+
+**Lives in:** `supabase/migrations/202609240001_seed_pay_grids_pfa_inclusive_rates.sql`,
+`202609240002_seed_trainer_grade_assignments.sql`; `supabase/rollbacks/` same names;
+`scripts/verify_pay_grids_seed.sql`; item 92 above (the additive-grant shape this grid's own
+empty-vs-0%-seeded argument mirrors); `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §12.5 (the
+home-city rejection this reverses in scope, not in its placement reasoning).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
