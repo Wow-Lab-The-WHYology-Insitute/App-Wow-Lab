@@ -2746,6 +2746,89 @@ home-city rejection this reverses in scope, not in its placement reasoning).
 
 ---
 
+### 96. The three pay-calculation inputs built — group language, session location tier with a pre-fill, trainer home city
+
+2026-09-24. `language_group` moved from `sessions` to `groups` (`202609240003`), entered once at group
+creation and on the group edit form. **Reverses `202608310001`'s own stated reasoning, recorded where
+that reasoning was, not silently overwritten**: that migration said language was "confirmed to vary
+per session, not per client or per trainer." In real use it doesn't, for a recurring engagement — a
+French-school club is French every week, and a per-session field for a fact that never changes is
+fifty-two chances a year to drift, not fifty-two real facts. `location_tier` stays on `sessions` —
+unlike language, it genuinely depends on who's assigned that week, not just on the school, so it
+doesn't share language's reason to move.
+
+**No data lost, checked, not assumed**: the one real session in the whole database (a fixture,
+`wow-lab-test-b`) had `language_group = NULL`, and so did every session that ever existed — no UI ever
+wrote to the column (confirmed by grep before dropping it). **Also not inferred for any existing
+group, on purpose, even the one where it's obvious**: "Școala Franceză (Lycee Francais)" is a real WOW
+LAB client with two real groups, unmistakably French-medium by name. Left `NULL` anyway — guessing is
+not the same as knowing, same discipline the original column's own "no backfill" comment already
+applied to historical sessions, now applied to a group whose language isn't historical, just not yet
+confirmed by Anca.
+
+`location_tier` got its first form field ever, on session creation, at the trainer-allocation moment —
+same person, same screen. Entered, not derived: checked live before building anything, every WOW LAB
+client's `address` is `NULL` today, so a school-side derivation has no structured data to read even in
+principle, on top of the trainer-dependency reason above. Pre-fills `bucuresti` only when the assigned
+trainer's known home city **and** the group's resolved address (group override, then client default —
+the same resolution `GroupInfoSection` already renders, not a second concept) both say Bucharest;
+either missing leaves the field genuinely unset, reading as "choose one," not a default that looks
+chosen. Stops re-computing the instant a human touches the field, even if they change the trainer
+again afterward, so it can never silently overwrite a real choice.
+
+`trainer_home_cities` (`202609240004`): a small table, not a column on `users` (SAD §12.5's placement
+reasoning still holds) and not the versioned-grid shape either — a home city has no effective date the
+way a grade does, so it's a plain table with real `UPDATE`, no version history, no `row_history`
+trigger. Seeded for all 11 active trainers (the same 11 SAD §12.5 counted): Alexandra Nuțu → Cluj,
+Viorel Toboșaru → Cernavodă, the other nine (including Luiza Mirt, who has no grade yet but isn't
+excluded from this fact) → Bucuresti. SELECT is deliberately broader than the pay grids' own
+finance-only gate (`org.settings.manage`/`sessions.create`/`finance.operations.*`/
+`finance.reporting.*`) — copying the finance-only shape would have silently broken the one feature
+this table exists for, since Operations (who creates sessions) doesn't necessarily hold any finance
+capability. WRITE stays owner-only; **where it's edited and by whom is reported, not built this
+round** — no UI exists yet, matching `trainer_grade_assignments`' own precedent (seeded via migration,
+still no edit screen). Recommendation: `/admin/users`, gated the same as the rest of that page
+(`org.members.manage`), not `/payment-config` — this is a per-person admin fact, not a rate grid.
+
+**SAD §12.5 addendum, dated 2026-09-24** (in Romanian, matching the document): records the reversal
+precisely — the column was rejected because only 2 of 11 cities were confirmed and no general rule
+existed for the rest; Anca has now given all 11, so that premise is gone. The placement conclusion
+(not on `users`) is explicitly unchanged, and the addendum says why it still holds even though the
+count changed: the *other* half of any derivation — the school's own city — still isn't structured
+data, so `trainer_home_cities` enables a suggestion, not the automatic resolution the original section
+rejected.
+
+**Verified live on `app.wowlab.ro`, `wow-lab-test-b`** (`scripts/verify_pay_inputs_through_app.ts`,
+real Next-Action POSTs through the deployed app, not SQL impersonation): `addGroup` with a language,
+then `updateGroup` changing it and adding a Bucharest-looking address, both land; a session for a
+Bucharest-based trainer with `location_tier='bucuresti'` (what a confirmed pre-fill would submit)
+lands; a session for a Cluj-based trainer with the field left blank lands as `NULL`, not coerced into
+a guess. The pre-fill's own boolean condition, evaluated against the real fetched data, is `true` for
+the Bucharest trainer and `false` for the Cluj one. The page's RSC payload was confirmed to actually
+carry the trainer-home-city and address data the client needs. All five resolvers the future
+calculation will call — grade, grade rate, duration multiplier, location bonus, language bonus —
+return a value rather than raising, checked via `app.resolve_*` directly (no `public.*` wrapper exists
+for these, so `.rpc()` can't reach them — same discovery item 6 of the original payment-config build
+made, re-confirmed here) against minimal fixture rates this script seeded into `wow-lab-test-b` for the
+purpose and tore down afterward, independently re-confirmed removed (fixture rows: 0; the one
+pre-existing 6-row `trainer_grade_assignments` set in that org, dated 2026-09-02, predates this script
+and is unrelated to it).
+
+**One honest limit, stated plainly rather than glossed over**: point 3 above (the pre-fill condition)
+evaluates the same expression `NewSessionForm` uses, against real data — it does not observe an actual
+browser render the form and run the real React effect. No browser-automation tool is available in this
+environment. The data the effect depends on (home cities, resolved address) was confirmed to reach the
+client correctly (RSC payload check) and the effect's own logic was confirmed correct in isolation; the
+two were never observed running together in a live browser.
+
+**Lives in:** `supabase/migrations/202609240003_move_language_group_to_groups.sql`,
+`202609240004_create_trainer_home_cities.sql`; `app/(app)/groups/actions.ts`,
+`groups-client.tsx`, `[id]/group-detail-client.tsx`, `[id]/group-info-section.tsx`, `[id]/page.tsx`,
+`i18n.ts`; `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §12.5 (the addendum);
+`scripts/verify_pay_inputs_through_app.ts`; item 95 above (the pay grids these inputs feed).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
