@@ -212,6 +212,18 @@ below), with nothing running it in between to notice:
 npx tsx scripts/run_rls_suite.ts
 ```
 
+**`scripts/check_deploy_status.ts`** polls GitHub's commit-status API for the real Vercel outcome of
+a commit — `git push` succeeding only confirms the git operation, never the build. Exits 0 on
+`success`, 1 on anything else including a timeout still `pending`. **Run this after any push meant to
+reach `app.wowlab.ro`, before trusting any verification done there** — the exact gap that let main
+fail to deploy for 25h8m unnoticed (item 94 below), during which every push in the window reported
+success on its own terms:
+
+```
+npx tsx scripts/check_deploy_status.ts        # checks HEAD
+npx tsx scripts/check_deploy_status.ts <sha>   # checks a specific commit
+```
+
 ---
 
 ## No scheduled execution mechanism — decided, not built now
