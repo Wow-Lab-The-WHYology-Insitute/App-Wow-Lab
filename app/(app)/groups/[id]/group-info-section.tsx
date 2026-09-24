@@ -34,6 +34,7 @@ export function GroupInfoSection({
   onSiteContactPhone,
   onSiteContactNotYetTrainerFacing,
   onSiteContactVisible,
+  languageGroup,
   canManage,
   canWriteChildrenConfirmed,
   contractOptions,
@@ -60,6 +61,7 @@ export function GroupInfoSection({
   onSiteContactPhone: string | null;
   onSiteContactNotYetTrainerFacing: boolean;
   onSiteContactVisible: boolean;
+  languageGroup: string | null;
   canManage: boolean;
   canWriteChildrenConfirmed: boolean;
   contractOptions: ContractOption[];
@@ -79,6 +81,7 @@ export function GroupInfoSection({
         address={address}
         addressIsOverride={addressIsOverride}
         onSiteContactId={onSiteContactId}
+        languageGroup={languageGroup}
         canManage={canManage}
         canWriteChildrenConfirmed={canWriteChildrenConfirmed}
         contractOptions={contractOptions}
@@ -107,6 +110,10 @@ export function GroupInfoSection({
       <Kv label={t("col_client")} value={clientName ?? t("client_hidden")} />
       <Kv label={t("col_module")} value={t(`module_${module}`)} />
       <Kv label={t("kv_delivery_format")} value={t(`format_${deliveryFormat}`)} />
+      <Kv
+        label={t("kv_language")}
+        value={languageGroup ? t(`language_${languageGroup}`) : "—"}
+      />
       <Kv label={t("col_schedule")} value={schedulePattern || "—"} />
       <Kv label={t("kv_age_range")} value={ageRange || "—"} />
       <Kv
@@ -176,6 +183,7 @@ function GroupEditForm({
   address,
   addressIsOverride,
   onSiteContactId,
+  languageGroup,
   canManage,
   canWriteChildrenConfirmed,
   contractOptions,
@@ -191,6 +199,7 @@ function GroupEditForm({
   address: string | null;
   addressIsOverride: boolean;
   onSiteContactId: string | null;
+  languageGroup: string | null;
   canManage: boolean;
   canWriteChildrenConfirmed: boolean;
   contractOptions: ContractOption[];
@@ -217,6 +226,7 @@ function GroupEditForm({
   // the client's address back onto the group as if it were an override.
   const [addressValue, setAddressValue] = useState(addressIsOverride ? (address ?? "") : "");
   const [onSiteContactIdValue, setOnSiteContactIdValue] = useState(onSiteContactId ?? "");
+  const [languageGroupValue, setLanguageGroupValue] = useState(languageGroup ?? "");
   const contractsForClient = contractOptions.filter((c) => c.client_id === clientId);
   const contactsForClient = contactOptions.filter((c) => c.client_id === clientId);
 
@@ -231,6 +241,7 @@ function GroupEditForm({
           childrenConfirmedValue,
           addressValue,
           onSiteContactIdValue,
+          languageGroupValue,
         );
         if (!result.ok) setError(result.error);
         else onSaved();
@@ -269,6 +280,15 @@ function GroupEditForm({
               placeholder={t("address_override_placeholder")}
               className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
             />
+            <select
+              value={languageGroupValue}
+              onChange={(e) => setLanguageGroupValue(e.target.value)}
+              className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
+            >
+              <option value="">{t("select_language")}</option>
+              <option value="ro_en">{t("language_ro_en")}</option>
+              <option value="fr_de_es">{t("language_fr_de_es")}</option>
+            </select>
             <select
               value={onSiteContactIdValue}
               onChange={(e) => setOnSiteContactIdValue(e.target.value)}

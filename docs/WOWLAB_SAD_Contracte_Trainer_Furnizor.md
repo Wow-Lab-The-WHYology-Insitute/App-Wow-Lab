@@ -524,6 +524,25 @@ verificat direct în `information_schema`: cele 12 coloane ale tabelului (`id`, 
 `full_name`, `status`, `is_platform_owner`, `created_at`, `updated_at`, `first_name`,
 `last_name`, `phone`, `avatar_url`, `is_test_account`) rămân neschimbate.
 
+**Adăugire, 2026-09-24: premisa s-a schimbat, decizia despre `sessions.location_tier` nu.**
+Coloana de domiciliu a fost respinsă mai sus pentru un motiv concret — erau confirmate doar 2
+din 11 orașe, fără o regulă generală pentru restul. Anca a dat acum orașul de domiciliu pentru
+toți cei 11 traineri activi (`public.trainer_home_cities`, tabel propriu, nu coloană pe
+`users` — vezi motivul plasării mai jos), deci premisa „doar 2 din 11 cunoscute" nu mai e
+adevărată. Asta nu resuscită modelul respins (domiciliu × livrare → rezolvat automat): cealaltă
+jumătate a comparației — orașul școlii — tot nu există ca dată structurată, doar adresă text
+liber, adesea goală (confirmat live: niciun client din WOW LAB nu are astăzi o adresă
+completată). Ce se schimbă: `trainer_home_cities` permite o **sugestie**, nu o rezolvare — pe
+formularul de creare a sesiunii, când trainerul alocat locuiește în București ȘI adresa
+grupului/clientului pare să indice București, câmpul `location_tier` e pre-completat cu
+`bucuresti`, dar rămâne editabil și nu se trimite niciodată singur; când oricare condiție
+lipsește, câmpul rămâne gol, ca un „alege una" real, nu ca un implicit care pare ales.
+**Concluzia despre plasare rămâne neschimbată: nu pe `users`.** `trainer_home_cities` e un
+tabel propriu (id, organization_id, trainer_id unic, city, set_by, created_at, updated_at) —
+un oraș de domiciliu nu are dată de intrare în vigoare așa cum are un grad, deci nu împrumută
+nici forma versionată a grilelor de plată. Vezi `supabase/migrations/202609240004_create_
+trainer_home_cities.sql` și `docs/OPEN_ITEMS.md`.
+
 ### 12.6 Școala Altfel / Săptămâna Verde — excepția de 2 ore
 
 Workshop-urile de 2 ore de acest tip folosesc coeficientul ×2, nu ×1.5 (§12.7).

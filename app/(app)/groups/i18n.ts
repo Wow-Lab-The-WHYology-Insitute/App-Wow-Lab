@@ -102,6 +102,13 @@ export const groupsDict: Dictionary = {
   select_module: { en: "Select module…", ro: "Alege modulul…" },
   select_format: { en: "Select delivery format…", ro: "Alege formatul de livrare…" },
   contract_option_no_exit: { en: "(no exit number yet)", ro: "(fără număr de ieșire încă)" },
+  // Group-level (202609240003 -- moved off sessions, entered once at
+  // group creation and on the group edit form, not per session). Same
+  // vocabulary/keys as the payment-config language_bonus grid and the
+  // sessions.language_group column this replaced.
+  select_language: { en: "Select language…", ro: "Alege limba…" },
+  language_ro_en: { en: "Romanian / English", ro: "Română / Engleză" },
+  language_fr_de_es: { en: "French / German / Spanish", ro: "Franceză / Germană / Spaniolă" },
   status_label: { en: "Status", ro: "Status" },
   age_range_placeholder: { en: "Age range (e.g. 6-9 ani — optional)", ro: "Interval de vârstă (ex. 6-9 ani — opțional)" },
   calendar_link_placeholder: {
@@ -191,6 +198,23 @@ export const groupsDict: Dictionary = {
   new_session_title: { en: "New session", ro: "Sesiune nouă" },
   trainer_principal_label: { en: "Trainer principal", ro: "Trainer principal" },
   trainer_secundar_label: { en: "Trainer secundar", ro: "Trainer secundar" },
+  // location_tier stays on the session (unlike language, above -- it
+  // genuinely varies with who's assigned, item 95/96 report). Entered
+  // here, at the same moment as trainer allocation; sometimes pre-filled
+  // from the principal's known home city, never auto-submitted.
+  location_tier_label: { en: "Location (travel)", ro: "Locație (deplasare)" },
+  location_tier_placeholder: { en: "Choose one…", ro: "Alege una…" },
+  location_tier_bucuresti: { en: "Bucharest", ro: "București" },
+  location_tier_imprejurimi: { en: "Surrounding areas", ro: "Împrejurimi" },
+  location_tier_alte_orase: { en: "Other cities", ro: "Alte orașe" },
+  // Shown only when the app pre-filled the value below from the
+  // principal's home city -- makes clear this is a suggestion, not a
+  // confirmed entry, so the person creating the session knows to check
+  // it rather than assume it was already verified.
+  location_tier_prefilled_hint: {
+    en: "Auto-suggested from the trainer's home city — confirm or change.",
+    ro: "Sugerat automat din orașul de domiciliu al trainerului — confirmă sau schimbă.",
+  },
   attendance_placeholder: { en: "Attendance count (optional)", ro: "Număr prezenți (opțional)" },
   experiment_placeholder: { en: "Experiment delivered (optional)", ro: "Experiment livrat (opțional)" },
   duration_placeholder: { en: "Duration (optional)", ro: "Durată (opțional)" },
@@ -206,6 +230,7 @@ export const groupsDict: Dictionary = {
   back_link: { en: "← Groups", ro: "← Grupe" },
   section_group_info_title: { en: "Group info", ro: "Informații grupă" },
   kv_delivery_format: { en: "Delivery format", ro: "Format livrare" },
+  kv_language: { en: "Language", ro: "Limbă" },
   kv_age_range: { en: "Age range", ro: "Interval de vârstă" },
   kv_calendar: { en: "School-year calendar", ro: "Calendar an școlar" },
   open_link: { en: "Open link", ro: "Deschide link" },

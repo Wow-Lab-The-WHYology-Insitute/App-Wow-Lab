@@ -32,6 +32,7 @@ export async function addGroup(
   ageRange: string,
   schoolYearCalendarLink: string,
   contractId: string,
+  languageGroup: string,
 ): Promise<ActionResult> {
   if (!clientId || !module || !deliveryFormat) {
     return { ok: false, error: "Client, module, and delivery format are required." };
@@ -67,6 +68,9 @@ export async function addGroup(
       age_range: ageRange.trim() || null,
       school_year_calendar_link: schoolYearCalendarLink.trim() || null,
       contract_id: contractId || null,
+      // Group-level, not session-level (202609240003) -- entered once
+      // here, never per session.
+      language_group: languageGroup || null,
     })
     .select("id")
     .single();
@@ -114,6 +118,7 @@ export async function updateGroup(
   childrenConfirmed: string,
   address: string,
   onSiteContactId: string,
+  languageGroup: string,
 ): Promise<ActionResult> {
   const supabase = await createClient();
 
@@ -169,9 +174,10 @@ export async function updateGroup(
     };
   }
 
-  // notes/contract_id/address/on_site_contact_id: unaffected by item 91 --
-  // still a direct .update(), still RLS-gated exactly as before. Only
-  // children_confirmed moved, below.
+  // notes/contract_id/address/on_site_contact_id/language_group:
+  // unaffected by item 91 -- still a direct .update(), still RLS-gated
+  // exactly as before (language_group's own column-level grant added
+  // alongside it, 202609240003). Only children_confirmed moved, below.
   if (canManageGroupFields) {
     const { error } = await supabase
       .from("groups")
@@ -180,6 +186,7 @@ export async function updateGroup(
         contract_id: contractId || null,
         address: address.trim() || null,
         on_site_contact_id: onSiteContactId || null,
+        language_group: languageGroup || null,
       })
       .eq("id", groupId);
 
@@ -230,6 +237,7 @@ export async function addSession(
   durationMinutes: string,
   experimentDriveLink: string,
   startTime: string,
+  locationTier: string,
 ): Promise<ActionResult> {
   if (!groupId || !sessionDate) {
     return { ok: false, error: "Session date is required." };
@@ -255,6 +263,13 @@ export async function addSession(
       // and children_billed). Not defaulted from groups.schedule_pattern
       // -- free text, no enforced grammar, nothing here parses it.
       start_time: startTime || null,
+      // Entered, never derived (item 95/96 report: the school side has
+      // only free-text addresses, and travel depends on who's assigned,
+      // not the school alone) -- the form pre-fills a suggestion from the
+      // assigned trainer's home city, but this action trusts whatever
+      // value actually arrives, pre-filled-then-confirmed or manually
+      // chosen, same as every other field here.
+      location_tier: locationTier || null,
     })
     .select("id")
     .single();

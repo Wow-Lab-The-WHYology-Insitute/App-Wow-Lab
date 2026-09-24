@@ -94,6 +94,8 @@ export function GroupDetailClient({
   canManageSessions,
   canCorrectConfirmation,
   trainerOptions,
+  trainerHomeCities,
+  groupAddress,
   viewerId,
 }: {
   groupId: string;
@@ -102,6 +104,8 @@ export function GroupDetailClient({
   canManageSessions: boolean;
   canCorrectConfirmation: boolean;
   trainerOptions: TrainerOption[];
+  trainerHomeCities: Record<string, string>;
+  groupAddress: string | null;
   viewerId: string;
 }) {
   const t = useTranslations(groupsDict);
@@ -311,8 +315,10 @@ export function GroupDetailClient({
           {isFormOpen && (
             <NewSessionForm
               trainerOptions={trainerOptions}
+              trainerHomeCities={trainerHomeCities}
+              groupAddress={groupAddress}
               isPending={isPending}
-              onSubmit={(date, principalId, secundarId, status, attendance, experiment, duration, experimentDriveLink, startTime) => {
+              onSubmit={(date, principalId, secundarId, status, attendance, experiment, duration, experimentDriveLink, startTime, locationTier) => {
                 setError(null);
                 startTransition(async () => {
                   try {
@@ -328,6 +334,7 @@ export function GroupDetailClient({
                       duration,
                       experimentDriveLink,
                       startTime,
+                      locationTier,
                     );
                     if (!result.ok) setError(result.error);
                     else setIsFormOpen(false);
@@ -976,10 +983,14 @@ function TrainerSelect({
 
 function NewSessionForm({
   trainerOptions,
+  trainerHomeCities,
+  groupAddress,
   isPending,
   onSubmit,
 }: {
   trainerOptions: TrainerOption[];
+  trainerHomeCities: Record<string, string>;
+  groupAddress: string | null;
   isPending: boolean;
   onSubmit: (
     date: string,
@@ -991,6 +1002,7 @@ function NewSessionForm({
     duration: string,
     experimentDriveLink: string,
     startTime: string,
+    locationTier: string,
   ) => void;
 }) {
   const t = useTranslations(groupsDict);
@@ -1003,6 +1015,37 @@ function NewSessionForm({
   const [duration, setDuration] = useState("");
   const [experimentDriveLink, setExperimentDriveLink] = useState("");
   const [startTime, setStartTime] = useState("");
+  const [locationTier, setLocationTier] = useState("");
+  const [locationTierTouched, setLocationTierTouched] = useState(false);
+  const [locationTierPrefilled, setLocationTierPrefilled] = useState(false);
+
+  // Entered, never derived (item 95/96 report) -- this only ever
+  // suggests. Fires while the principal is the only trainer picked so
+  // far and the person hasn't touched the field themselves; stops for
+  // good the moment they do, even if they change the trainer again
+  // afterward, so it never silently overwrites a real choice. Both the
+  // trainer's home city AND the resolved address need to say Bucharest
+  // -- the school side is free text with no structured city, so a
+  // missing or unrecognized address leaves this unset rather than
+  // guessed, reading as "choose one," not a default that looks chosen.
+  useEffect(() => {
+    if (locationTierTouched) return;
+    const homeCity = trainerHomeCities[principalId]?.trim().toLowerCase();
+    const addressLooksLikeBucharest = (groupAddress ?? "").toLowerCase().includes("bucur");
+    if (homeCity === "bucuresti" && addressLooksLikeBucharest) {
+      setLocationTier("bucuresti");
+      setLocationTierPrefilled(true);
+    } else {
+      setLocationTier("");
+      setLocationTierPrefilled(false);
+    }
+  }, [principalId, trainerHomeCities, groupAddress, locationTierTouched]);
+
+  function handleLocationTierChange(value: string) {
+    setLocationTier(value);
+    setLocationTierTouched(true);
+    setLocationTierPrefilled(false);
+  }
 
   return (
     <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
@@ -1102,12 +1145,41 @@ function NewSessionForm({
           placeholder={t("experiment_drive_link_placeholder")}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         />
+        <label className="font-body text-muted flex flex-col gap-1 text-xs">
+          {t("location_tier_label")}
+          <select
+            value={locationTier}
+            onChange={(e) => handleLocationTierChange(e.target.value)}
+            className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+          >
+            <option value="">{t("location_tier_placeholder")}</option>
+            <option value="bucuresti">{t("location_tier_bucuresti")}</option>
+            <option value="imprejurimi">{t("location_tier_imprejurimi")}</option>
+            <option value="alte_orase">{t("location_tier_alte_orase")}</option>
+          </select>
+          {locationTierPrefilled && (
+            <span className="font-body text-muted text-[11px] normal-case">
+              {t("location_tier_prefilled_hint")}
+            </span>
+          )}
+        </label>
       </div>
       <button
         type="button"
         disabled={isPending || !date}
         onClick={() =>
-          onSubmit(date, principalId, secundarId, status, attendance, experiment, duration, experimentDriveLink, startTime)
+          onSubmit(
+            date,
+            principalId,
+            secundarId,
+            status,
+            attendance,
+            experiment,
+            duration,
+            experimentDriveLink,
+            startTime,
+            locationTier,
+          )
         }
         className="font-body mt-3 w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
       >

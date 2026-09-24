@@ -23,6 +23,7 @@ type GroupRow = {
   contract_id: string | null;
   address: string | null;
   on_site_contact_id: string | null;
+  language_group: string | null;
 };
 type ClientLookupRow = { id: string; name: string; address: string | null };
 type ContractLookupRow = { id: string; exit_number: string | null };
@@ -51,6 +52,7 @@ type UserLookupRow = {
 };
 type RoleIdRow = { id: string };
 type UserOrgRoleRow = { user_id: string };
+type HomeCityRow = { trainer_id: string; city: string };
 
 export default async function GroupDetailPage({
   params,
@@ -70,7 +72,7 @@ export default async function GroupDetailPage({
   const { data: group } = await supabase
     .from("groups")
     .select(
-      "id, organization_id, client_id, module, delivery_format, schedule_pattern, children_confirmed, children_billed, status, notes, age_range, school_year_calendar_link, contract_id, address, on_site_contact_id",
+      "id, organization_id, client_id, module, delivery_format, schedule_pattern, children_confirmed, children_billed, status, notes, age_range, school_year_calendar_link, contract_id, address, on_site_contact_id, language_group",
     )
     .eq("id", id)
     .maybeSingle<GroupRow>();
@@ -266,6 +268,24 @@ export default async function GroupDetailPage({
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  // Pre-fill input for NewSessionForm's location_tier suggestion (item
+  // 95/96 report: entered, never derived -- this is a suggestion the
+  // form can offer, not a value this page computes and trusts). Same
+  // "only fetch what the button needs" discipline as trainerOptions just
+  // above -- only fetched when the form that uses it will actually
+  // render. trainer_home_cities' own SELECT RLS (202609240004) requires
+  // sessions.create or broader, which canManageSessions already confirms
+  // for this viewer.
+  let trainerHomeCities: Record<string, string> = {};
+  if (canManageSessions) {
+    const { data: homeCityRows } = await supabase
+      .from("trainer_home_cities")
+      .select("trainer_id, city")
+      .eq("organization_id", group.organization_id)
+      .returns<HomeCityRow[]>();
+    trainerHomeCities = Object.fromEntries((homeCityRows ?? []).map((r) => [r.trainer_id, r.city]));
+  }
+
   // null, never group.client_id -- a raw id is not a display fallback
   // (OPEN_ITEMS.md item 66: RLS legitimately filtering the client row is
   // not the same fact as "no client", and must never render as an
@@ -311,6 +331,7 @@ export default async function GroupDetailPage({
           Boolean(onSiteContact) && onSiteContact?.contact_purpose !== "trainer_facing"
         }
         onSiteContactVisible={group.on_site_contact_id ? onSiteContact !== null : true}
+        languageGroup={group.language_group}
         canManage={Boolean(canManage)}
         canWriteChildrenConfirmed={Boolean(canWriteChildrenConfirmed)}
         contractOptions={contractOptions}
@@ -324,6 +345,12 @@ export default async function GroupDetailPage({
         canManageSessions={Boolean(canManageSessions)}
         canCorrectConfirmation={canCorrectConfirmation}
         trainerOptions={trainerOptions}
+        trainerHomeCities={trainerHomeCities}
+        // Same resolution GroupInfoSection already renders (group
+        // override, then the client's own default) -- reused, not a
+        // second address concept, for the location_tier pre-fill
+        // heuristic's "does this address look like Bucharest" check.
+        groupAddress={group.address ?? clientRow?.address ?? null}
         viewerId={user.id}
       />
 
