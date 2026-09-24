@@ -2586,6 +2586,45 @@ applies to `UPDATE`/`INSERT`, not just `SELECT`).
 
 ---
 
+### 93. `/profile`'s technical details panel was visible to every signed-in user, trainer included — gated on `org.settings.manage` 2026-09-24
+
+Not a security issue like items 89-92 — RLS already let a session read its own capabilities and org
+membership, so nothing here was reachable that wasn't already the session's own data. It was a
+clarity/audience issue: `/profile` (originally built S2 as a literal diagnostic page proving the
+auth → RLS loop works, restyled but not rewritten in S3) rendered its subtitle and a "Show technical
+details" panel unconditionally, for every role. The subtitle read `"Diagnostic view: every value
+below came through your own session (anon key + your JWT), never service_role — proof the auth → RLS
+loop works, not yet a real Phase 1 dashboard"` — internal engineering language, in English only, on
+the first page a newly-invited trainer opens. The panel itself, once opened, showed: raw user UUID,
+`is_platform_owner` boolean, the stale `users.status` column; the full list of orgs RLS lets the
+session see; role-per-org (redundant with the plain-language summary above it); the session's full
+resolved capability-key list per org (`clients.read`, `mywork.*`, ...); and a literal spot-check
+render of `has_capability('org.members.manage', wow-lab)` next to a `true`/`false` badge. None of it
+is information a trainer or an operations/curriculum role (Cătălina) has any use for; the plain-
+language summary directly above it (`AccessSummary`: "You are X. You have access to: Y, Z.") already
+covers the one part — own role, which sections reachable — that is genuinely useful to a normal user,
+and needed no change.
+
+**Fix:** subtitle rewritten to a plain description of the page's actual purpose (own details, what
+can be changed) — full RO/EN, `profileDict.diagnostic_intro`. `TechnicalDetails` (button and panel)
+gated on `org.settings.manage`, computed the same way `page.tsx` already computes `visibleNavKeys` —
+a capability loop over the session's memberships, not a role-name check — so it also covers the
+platform owner via `has_capability`'s own `is_platform_owner()` bypass, same as every other owner-only
+branch in the app (`layout.tsx`, `clients`/`contracts`/`groups`/`payroll` pages). The data fetches that
+only ever fed the panel (`role_capabilities` join, the `has_capability` RPC spot-check loop) are now
+skipped entirely when the gate is closed, not just hidden — a trainer's page load no longer pays for
+them.
+
+**Verified live on `app.wowlab.ro`, `wow-lab-test-b`** (`scripts/verify_profile_diagnostics_gate.ts`,
+real magic-link sessions, not SQL impersonation): `maxdigitalro+trainerb1@gmail.com` sees the new
+plain subtitle and no technical-details toggle at all; `test+user-b@wowlab.dev` (organization_owner)
+sees the plain subtitle and still has the full panel. Both PASS.
+
+**Lives in:** `app/(app)/profile/page.tsx`, `app/(app)/profile/i18n.ts`,
+`scripts/verify_profile_diagnostics_gate.ts`.
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
