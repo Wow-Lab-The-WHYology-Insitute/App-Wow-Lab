@@ -2625,6 +2625,46 @@ sees the plain subtitle and still has the full panel. Both PASS.
 
 ---
 
+### 94. Production silently stopped deploying for over a day — `git push` succeeding was mistaken for "shipped," nobody checked the actual build result
+
+Found only because this item's own live-verification step kept reading the old `/profile` content
+back after a push that should have changed it. `next build` type-checks the whole project, `scripts/`
+included, not just `app/`. `scripts/verify_item91_write_paths_through_app.ts` (committed in `b623fcd`,
+2026-09-23 08:34 UTC, earlier this same session) read `session1!.session_date` past its own
+`.select("id")` — a real `tsc` error, never run locally as a full `next build` before that commit, so
+it went uncaught. Every push to `main` since then failed on Vercel:  `b623fcd` itself, then today's
+`e236058` and `6ed0226`. `app.wowlab.ro` kept serving the `522bd0e` build (2026-09-22, last one that
+actually deployed) the entire time — silently: `git push` reported success every time, because it only
+confirms the git operation, never the build. Confirmed via the GitHub commit-status API
+(`/repos/.../commits/<sha>/status`), not by guessing from elapsed time — this session's own habit of
+"verify live, don't reason about it" caught a gap in the deploy step itself, not just in the app.
+
+**Consequence for this session's own record:** the item-91/92 write-path verifications (both the
+original one and this session's re-run) are unaffected — `522bd0e`, the commit that actually rewrote
+the session/contract/group actions to call the RPC functions, deployed successfully on 2026-09-22 and
+was the live build throughout, so those results stand. Nothing else shipped between `522bd0e` and the
+fix below (`52e2629`) ever reached production, including the item-92 documentation-only commit itself
+(harmless, since it changed no app code) — but had that gap included an actual behavioral fix, it
+would have shipped nothing while every local check said otherwise.
+
+**Fix:** `52e2629` — added `session_date` to the `.select()` list. Confirmed with a full local
+`next build` (not just `tsc --noEmit`, which doesn't reproduce Next's own build-time type-check pass)
+before pushing again, and confirmed the resulting deploy's GitHub status was `success` before treating
+anything as live.
+
+**General lesson, same family as item 90 (a failed write can render as silent success) one layer up:**
+a failed deploy can render as silent success too, if the only signal checked is the exit code of
+`git push`. From here: after any push meant to reach `app.wowlab.ro`, check
+`https://api.github.com/repos/Wow-Lab-The-WHYology-Insitute/App-Wow-Lab/commits/<sha>/status` (or the
+Vercel dashboard) for an actual `success` state before verifying or reporting anything as deployed —
+not just before this specific fix, going forward.
+
+**Lives in:** `scripts/verify_item91_write_paths_through_app.ts` (the type error and its fix);
+`b623fcd` through `52e2629` (the broken window); item 90 above (the same silent-failure shape, one
+layer up the stack).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
