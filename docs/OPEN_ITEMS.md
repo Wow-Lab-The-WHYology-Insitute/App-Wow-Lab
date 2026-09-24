@@ -2829,6 +2829,94 @@ two were never observed running together in a live browser.
 
 ---
 
+### 97. Three findings from walking the trainer view — colleague visibility (already correct), the confirmation control's wording (fixed), start_time on old sessions (recorded, not fixed)
+
+2026-09-24, from Mihai's own manual walkthrough of the trainer-view fixture (item 93).
+
+**1. A trainer's own colleague-visibility — investigated, could not reproduce, and the design question
+argued regardless of whether it reproduces.** Read `ConfirmationControl` and the two places that call
+it (the desktop `<table>` row and the mobile card) — both already gate the colleague's slot on
+`!isOwnSlot && !canCorrect` and, in that branch, render the *state* as a plain read-only label,
+confirmed or not. Fetched the real rendered HTML as both trainer fixtures, live, against every session
+that existed in `wow-lab-test-b` at the time (two), in both directions (B1 viewing B2, B2 viewing B1),
+in both the desktop and mobile markup: all eight combinations showed the colleague's status as text,
+never nothing. Could not reproduce "shows the name alone, with nothing underneath" through any request
+this session can make. The one thing this can't rule out, stated plainly rather than glossed over: a
+client-side-only defect that only shows up after the browser hydrates and React takes over — no
+browser-automation tool is available in this environment, so every check here is against the initial
+server-rendered HTML, not a live DOM after hydration.
+
+**The design question stands regardless, and the reading is right — argued, not just accepted.** The
+confirmation state is a fact about a shared event (the same workshop, worked by both trainers), not a
+private fact about the person who set it — the asymmetry that belongs is over the *control*
+(confirming is a first-person act: only the assigned trainer can assert "I delivered this," and only
+finance/owner can correct it after the fact), not over who can *read* the resulting state. An
+unconfirmed colleague, going into month close, is exactly the thing a trainer in that session would
+want to notice and flag — hiding it would remove signal from the one person best positioned to catch
+it early. No comment, migration, or design doc anywhere in this codebase gives a reason to hide it, and
+the code, both before and after today's confirmation-control change, already doesn't. Nothing to build
+here; if Mihai still sees this live, it needs a repro he can hand back (device, exact click sequence),
+since neither the code nor a live re-test finds the gap.
+
+**2. The confirmation control's wording — fixed.** Read the control's five actual render shapes before
+changing anything (not the "four" as first framed — read-only and correction are distinct audiences
+with different requirements, see below):
+
+| Viewer | State | Before | After |
+|---|---|---|---|
+| Read-only (colleague) | unconfirmed | plain "Not confirmed" | unchanged |
+| Read-only (colleague) | confirmed | plain "Confirmed" | unchanged |
+| Own slot | unconfirmed | empty checkbox + "Not confirmed" | empty checkbox + **"Check to confirm"** |
+| Own slot | confirmed | checked checkbox + "Confirmed" | **plain "Confirmed" label, checkbox removed** |
+| Correction (finance/owner) | either | checkbox (reflects state) + state-swapped text | checkbox (reflects state) + **constant "Confirmed"** |
+
+The old shape put a checkbox and a state word in the same widget, and let the word swap between
+"Confirmed"/"Not confirmed" while the checkbox's own checked attribute *also* carried the state — two
+signals for one fact, and an empty box beside "Not confirmed" reads as if the box itself is asserting
+that, not offering to change it. New rule, applied everywhere: a checkbox never sits next to text
+naming the state it's already in. Own-slot confirming is a one-way action in this control now — once
+confirmed, self-unchecking isn't offered; reversing a mistake is finance/owner's correction path, which
+was always the intended fix mechanism for a wrong confirmation, not a second way to do the same thing.
+Correction stays genuinely bidirectional (fixing either direction is the whole point) but the label no
+longer swaps — the checkbox's own on/off state is the only thing that changes, the word beside it just
+names what's being toggled.
+
+Consulted the frontend-design skill on visual treatment before building: for a control this small and
+this frequent, inline in a dense table, the checkbox element itself (already `accent-brand-pink`) is
+sufficient interactive affordance — no additional color/underline treatment was added for the two
+click-to-act shapes.
+
+**Verified live on `app.wowlab.ro`, `wow-lab-test-b`**
+(`scripts/verify_confirmation_control_through_app.ts`, real Next-Action POSTs, a fresh isolated
+group+session so the render check couldn't accidentally match one of the standing fixture sessions'
+rows instead): as B1, own unconfirmed slot renders the empty checkbox + "Check to confirm"; as B2
+viewing B1's same still-unconfirmed slot, plain "Not confirmed" text, no checkbox — reconfirming finding
+1's conclusion from the opposite direction. B1 then actually confirms (a real write, checked via
+read-back); afterward B1's own slot renders "Confirmed" with the checkbox gone, and B2 viewing that
+same slot sees plain "Confirmed" text. As `test+ui-contract-admin-b@wowlab.dev` (holds
+`finance_operations`, satisfying the correction gate): both slots render an interactive checkbox
+labeled the constant "Confirmed" — checked for B1 (actually confirmed), unchecked for B2 (never
+confirmed in this fixture) — confirming the label never swaps to "Not confirmed" even when unchecked.
+All fixtures (session, group, client) deleted afterward.
+
+**3. `start_time` on sessions that predate it — recorded, not fixed, as asked.** `formatTimeRange`
+returns `null` when `start_time` is absent, and the caller gates the whole span on that (`{...&&
+(<span>...)}`) — so a session with no recorded start time shows nothing at all next to its date, not
+even a placeholder dash the way other optional fields (duration, attendance) show "—". Checked live:
+exactly one session in the entire database has `start_time = NULL` today (the item-93 trainer-view
+fixture, created directly by a service-role script that left it blank, not a genuine historical row —
+`sessions` holds only two rows total, both created this week, both after `start_time` already existed
+as a column since item 77). So there is no real historical backlog behind this today, but the general
+case is real and will recur: `start_time` is optional on the create form, so any future session where
+it's left blank will render the same way — no fix requested, and none made; this is the record Mihai
+asked for.
+
+**Lives in:** `app/(app)/groups/[id]/group-detail-client.tsx` (`ConfirmationControl`,
+`formatTimeRange`); `app/(app)/groups/i18n.ts`; `scripts/verify_confirmation_control_through_app.ts`;
+item 93 above (the trainer-view fixture this walkthrough used).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
