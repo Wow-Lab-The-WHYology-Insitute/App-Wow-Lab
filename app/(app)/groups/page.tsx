@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
+import { displayName } from "@/lib/display-name";
 import { GroupsClient } from "./groups-client";
 import { AccessDenied } from "@/components/ui/access-denied";
 
@@ -29,21 +30,6 @@ type UserLookupRow = {
   first_name: string | null;
   last_name: string | null;
 };
-
-// Never falls back to email — email isn't even in the query below anymore
-// (users field-masking prep: if it isn't displayed, it shouldn't be
-// selected). full_name is NOT NULL at the schema level, but can itself be
-// a raw email address (handle_new_auth_user, 202607130004, defaults it to
-// the invited email when no full_name is supplied) — checked for and
-// skipped, not treated as a safe value just because it's non-null. Returns
-// "" (not null) when nothing safe is available, a deliberate signal
-// distinct from "no trainer assigned" (see groupsDict.unnamed_user).
-function displayName(u: Pick<UserLookupRow, "full_name" | "first_name" | "last_name">) {
-  const full = [u.first_name, u.last_name].filter(Boolean).join(" ");
-  if (full) return full;
-  if (u.full_name && !u.full_name.includes("@")) return u.full_name;
-  return "";
-}
 
 // G2: list page for the Operational domain (G1 schema/RLS). No manual
 // org-scoping on the fetch itself — groups' SELECT policy (202608130003)

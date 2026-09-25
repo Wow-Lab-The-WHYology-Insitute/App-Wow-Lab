@@ -4,6 +4,7 @@ import { contractsDict } from "./contracts/i18n";
 import { groupsDict } from "./groups/i18n";
 import { profileDict } from "./profile/i18n";
 import { suppliersDict } from "./suppliers/i18n";
+import { myWorkDict } from "./my-work/i18n";
 import { paymentConfigDict } from "./payment-config/i18n";
 import { payrollDict } from "./payroll/i18n";
 
@@ -21,6 +22,10 @@ import { payrollDict } from "./payroll/i18n";
 // so the label was simply wrong; it now takes profileDict's actual name.
 export const chromeDict: Dictionary = {
   nav_profile: profileDict.page_title,
+  // Gated on mywork.* in layout.tsx -- unlike every other item in this
+  // first group, this page's content is genuinely scoped to one person's
+  // own work, and mywork.* is the capability that means exactly that.
+  nav_my_work: myWorkDict.page_title,
   nav_users_roles: { en: "Users & Roles", ro: "Utilizatori și roluri" },
   nav_group_clients_contracts: { en: "Clients & Contracts", ro: "Clienți și contracte" },
   nav_clients: clientsDict.page_title,

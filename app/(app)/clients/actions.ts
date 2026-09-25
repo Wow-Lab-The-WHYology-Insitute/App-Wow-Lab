@@ -38,6 +38,7 @@ export async function addClient(
   cui: string,
   notes: string,
   externalCrmRef: string,
+  address: string,
 ): Promise<ActionResult> {
   if (!name.trim() || !clientType) {
     return { ok: false, error: "Name and client type are required." };
@@ -55,7 +56,16 @@ export async function addClient(
     legal_name: legalName.trim() || null,
     cui: cui.trim() || null,
     notes: notes.trim() || null,
-    status: "prospect",
+    // Default delivery address for every group at this client -- free
+    // text, same "no stricter shape" treatment as notes (item 52's
+    // address design). Overridable per group, never per session.
+    address: address.trim() || null,
+    // status_override left out entirely -- the column has no DEFAULT
+    // since item 83 (renamed from status, which defaulted to 'prospect'),
+    // so a new client starts with no override, exactly the "no override"
+    // state that literal default used to represent. public.
+    // client_effective_status() then derives prospect (no signed
+    // contract yet), same first-render result as before.
   };
 
   if (canEditCrmLink) {
@@ -90,12 +100,12 @@ export async function addClient(
 export type VoidActionResult = { ok: true } | { ok: false; error: string };
 
 // Same relationship as addClient: runs through the caller's own session
-// client, so the client_contacts RLS INSERT/UPDATE policies
-// (202609110001 — org/platform owner, clients.create, or contracts.*,
-// regardless of any finance role also held) are the real authority. The
-// canManageContacts()-gated form in clients/[id]/page.tsx is a
-// convenience; a request that reaches here without the right capability
-// gets rejected by RLS, not by app code.
+// client, so the client_contacts RLS INSERT/UPDATE policies (202609110001
+// + 202609210004 — org/platform owner, clients.create, contracts.*, or
+// operations.*, regardless of any finance role also held) are the real
+// authority. The canEditContacts()-gated form in clients/[id]/page.tsx is
+// a convenience; a request that reaches here without the right
+// capability gets rejected by RLS, not by app code.
 export async function addClientContact(
   orgId: string,
   clientId: string,
@@ -243,11 +253,14 @@ export async function deleteClientContact(
   return { ok: true };
 }
 
-// Owns clients.status entirely -- the edit form (updateClient, below)
-// never touches this column. Same reasoning as markContractSigned: this
-// is the only write path to the column today, so the guard lives here,
-// not in a DB constraint or trigger; a second write path appearing is the
-// point to reconsider that.
+// Owns clients.status_override entirely -- the edit form (updateClient,
+// below) never touches this column. Same reasoning as markContractSigned:
+// this is the only write path to the column today, so the guard lives
+// here, not in a DB constraint or trigger; a second write path appearing
+// is the point to reconsider that. Item 78 (Anca, 2026-09-21) deliberately
+// does NOT add one -- markContractSigned still never references clients;
+// see status.ts and the 202609210003/202609210005 migrations for the
+// full argument.
 //
 // Gated on clients.convert specifically, checked explicitly here rather
 // than left to the table's own UPDATE policy (org.settings.manage OR
@@ -257,8 +270,8 @@ export async function deleteClientContact(
 // changes nothing about who can act -- but it means a future role split
 // (someone gets clients.create without clients.convert) is enforced
 // correctly the day it happens, not silently allowed because the action
-// only ever checked the coarser capability. The .eq("status", ...) on the
-// write itself is still there too, as the same defense-in-depth the RLS
+// only ever checked the coarser capability. The status_override write
+// guard below is still there too, as the same defense-in-depth the RLS
 // policy already provides against a stale read.
 export async function changeClientStatus(
   clientId: string,
@@ -266,9 +279,14 @@ export async function changeClientStatus(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = await createClient();
 
+  // client_effective_status: item 78's computed column. Transitions are
+  // looked up by the EFFECTIVE status (what the caller actually saw on
+  // screen), not the raw override column -- see status.ts's header
+  // comment. status_override itself is read only to guard the write
+  // below against a race, never treated as "the" status (item 83).
   const { data: current } = await supabase
     .from("clients")
-    .select("organization_id, status")
+    .select("organization_id, status_override, effective_status:client_effective_status")
     .eq("id", clientId)
     .maybeSingle();
 
@@ -279,11 +297,11 @@ export async function changeClientStatus(
     };
   }
 
-  const allowedNext = CLIENT_STATUS_TRANSITIONS[current.status] ?? [];
+  const allowedNext = CLIENT_STATUS_TRANSITIONS[current.effective_status] ?? [];
   if (!allowedNext.includes(newStatus)) {
     return {
       ok: false,
-      error: `Cannot move from "${current.status}" to "${newStatus}".`,
+      error: `Cannot move from "${current.effective_status}" to "${newStatus}".`,
     };
   }
 
@@ -299,12 +317,27 @@ export async function changeClientStatus(
     };
   }
 
-  const { data, error } = await supabase
+  // newStatus "active" (the reactivate edge, paused/churned -> active)
+  // clears the override -- writes NULL, not a borrowed status word (item
+  // 83 removed the earlier 'prospect'-sentinel indirection entirely: NULL
+  // now means exactly what status_override's own name says). paused/
+  // churned write through unchanged.
+  const writeValue: "paused" | "churned" | null = newStatus === "active" ? null : (newStatus as "paused" | "churned");
+
+  // The optimistic-concurrency guard compares status_override against the
+  // exact value just read, including NULL -- .eq(col, null) would build
+  // "= NULL" (always false in SQL, never matches), so NULL is guarded
+  // with .is() instead, same distinction Postgres itself makes.
+  let query = supabase
     .from("clients")
-    .update({ status: newStatus })
-    .eq("id", clientId)
-    .eq("status", current.status)
-    .select("id");
+    .update({ status_override: writeValue })
+    .eq("id", clientId);
+  query =
+    current.status_override === null
+      ? query.is("status_override", null)
+      : query.eq("status_override", current.status_override);
+
+  const { data, error } = await query.select("id");
 
   if (error) {
     return { ok: false, error: error.message };
@@ -325,8 +358,8 @@ export async function changeClientStatus(
 // legal_name, cui, notes -- gated by the table's own UPDATE policy
 // (org.settings.manage OR clients.create), which is already exactly the
 // right granularity for these, same relationship addClient already has to
-// the INSERT policy. status is deliberately excluded -- changeClientStatus
-// above owns that column entirely.
+// the INSERT policy. status_override is deliberately excluded --
+// changeClientStatus above owns that column entirely.
 //
 // external_crm_ref is different: checked here explicitly against
 // crm_link.*, a capability seeded specifically for this field (seed.sql:
@@ -355,6 +388,7 @@ export async function updateClient(
   cui: string,
   notes: string,
   externalCrmRef: string,
+  address: string,
 ): Promise<ActionResult> {
   if (!name.trim() || !clientType) {
     return { ok: false, error: "Name and client type are required." };
@@ -388,6 +422,7 @@ export async function updateClient(
     legal_name: legalName.trim() || null,
     cui: cui.trim() || null,
     notes: notes.trim() || null,
+    address: address.trim() || null,
   };
 
   if (canEditCrmLink) {

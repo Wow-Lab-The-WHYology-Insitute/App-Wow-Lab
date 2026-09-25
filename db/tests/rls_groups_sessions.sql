@@ -14,6 +14,14 @@
 --   supabase db query --linked --file /tmp/point_N.sql
 -- Every block ends in ROLLBACK — safe to re-run at any time, never leaves
 -- fixture rows behind (confirmed at the end of this file).
+--
+-- delivery_format literals updated 2026-09-21 (item 79/85, groups_
+-- delivery_format_check migrated from 6 values to Anca's 9 workshop
+-- types): 'recurring' -> 'scoli_private_recurente', 'party' ->
+-- 'wow_lab_party', 'custom' -> 'cursuri_deschise' (an arbitrary valid
+-- replacement -- these points don't test format-specific behavior, the
+-- value only needs to satisfy the CHECK constraint). 'saptamana_verde'
+-- is unchanged, still a legal value under the new constraint too.
 
 -- ============================================================================
 -- Points 1+2 — Trainer A sees ONLY sessions where they are trainer_
@@ -40,15 +48,15 @@ begin;
     v_session_secundar uuid;  -- trainer_a as secundar
     v_session_other_trainer uuid; -- trainer_b only, different group
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Client', 'private_school', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Client', 'private_school')
     returning id into v_client;
 
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, v_client, 'gaga', 'recurring', 'active')
+    values (current_setting('app.test_org_wow_lab')::uuid, v_client, 'gaga', 'scoli_private_recurente', 'active')
     returning id into v_group_a;
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, v_client, 'astronomy', 'recurring', 'active')
+    values (current_setting('app.test_org_wow_lab')::uuid, v_client, 'astronomy', 'scoli_private_recurente', 'active')
     returning id into v_group_b;
 
     insert into public.sessions (organization_id, group_id, session_date, trainer_principal_id, status)
@@ -132,11 +140,11 @@ begin;
     v_group uuid;
     v_session uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Ops Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Ops Client', 'corporate')
     returning id into v_client;
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, v_client, 'detective', 'party', 'active')
+    values (current_setting('app.test_org_wow_lab')::uuid, v_client, 'detective', 'wow_lab_party', 'active')
     returning id into v_group;
     insert into public.sessions (organization_id, group_id, session_date, trainer_principal_id, status)
     values (current_setting('app.test_org_wow_lab')::uuid, v_group, '2026-09-15', current_setting('app.test_trainer_b')::uuid, 'planned')
@@ -182,8 +190,8 @@ begin;
     v_group uuid;
     v_session uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Finance Admin Client', 'state_school', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Finance Admin Client', 'state_school')
     returning id into v_client;
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
     values (current_setting('app.test_org_wow_lab')::uuid, v_client, 'lights', 'saptamana_verde', 'active')
@@ -223,7 +231,7 @@ begin;
       values (
         current_setting('app.test_org_wow_lab')::uuid,
         (select client_id from public.groups where id = current_setting('app.fixture_group_fa')::uuid),
-        'chem_me', 'custom', 'active'
+        'chem_me', 'cursuri_deschise', 'active'
       );
     exception
       when insufficient_privilege then
@@ -249,8 +257,20 @@ begin;
     get diagnostics v_group_update_count = row_count;
     perform set_config('test.fa_group_update_count', v_group_update_count::text, true);
 
-    update public.sessions set status = 'cancelled' where id = current_setting('app.fixture_session_fa')::uuid;
-    get diagnostics v_session_update_count = row_count;
+    -- sessions: item 91 (2026-09-22) revoked authenticated's table-level
+    -- UPDATE on sessions entirely -- this now throws insufficient_privilege
+    -- unconditionally, for every caller, not just finance_admin (no
+    -- column-level distinction left to test via a raw UPDATE at all: every
+    -- legitimate sessions write goes through one of the 4 RPC functions
+    -- now). Guarded, where it used to run bare, so the block doesn't abort;
+    -- the assertion below is renamed to say what it actually proves now.
+    begin
+      update public.sessions set status = 'cancelled' where id = current_setting('app.fixture_session_fa')::uuid;
+      get diagnostics v_session_update_count = row_count;
+    exception
+      when insufficient_privilege then
+        v_session_update_count := -1;
+    end;
     perform set_config('test.fa_session_update_count', v_session_update_count::text, true);
   end $$;
 
@@ -274,15 +294,38 @@ begin;
     'true',
     current_setting('test.fa_session_insert_blocked')::boolean = true
   union all
-  select 'finance_admin: UPDATE groups affects 0 rows (no write capability)',
+  -- Corrected 2026-09-22 (found by run_rls_suite.ts on its first real
+  -- run, not assumed correct because the file said so): this assertion
+  -- claimed UPDATE was blocked, "no write capability" -- checked directly
+  -- against the live groups UPDATE policy and it's wrong. That policy's
+  -- own WITH CHECK is (is_platform_owner() OR org.settings.manage OR
+  -- groups.create OR contracts.*) -- and finance_admin_reporting DOES
+  -- hold contracts.* (seed.sql), the shared read/write key
+  -- contract_administrator also holds. Recorded as its own open item
+  -- (docs/OPEN_ITEMS.md), not fixed here: groups has no equivalent of the
+  -- write exclusion items 37/45 already added to contracts/
+  -- client_contacts specifically to stop finance_admin_reporting's shared
+  -- contracts.* key from doubling as write access on tables it should
+  -- only read. This assertion now tests what the policy actually does,
+  -- not what an earlier, unverified assumption said it should.
+  select 'finance_admin: UPDATE groups succeeds via contracts.* (shared key with contract_administrator -- NOT excluded from write here, unlike contracts/client_contacts)',
     current_setting('test.fa_group_update_count'),
-    '0',
-    current_setting('test.fa_group_update_count') = '0'
+    '1',
+    current_setting('test.fa_group_update_count') = '1'
   union all
-  select 'finance_admin: UPDATE sessions affects 0 rows (no write capability)',
+  -- Updated 2026-09-22 (item 91): raw UPDATE on sessions now throws
+  -- insufficient_privilege for EVERY authenticated caller, not just
+  -- finance_admin specifically -- table-level UPDATE is revoked entirely,
+  -- every legitimate write goes through one of the 4 RPC functions.
+  -- -1 is this block's own sentinel for "the exception fired" (see the
+  -- do block above); this no longer distinguishes finance_admin's
+  -- capability, it proves the table-wide lockdown applies universally --
+  -- the same property db/tests/rls_write_routing_functions.sql tests
+  -- directly and in more depth.
+  select 'finance_admin: raw UPDATE on sessions is blocked (table-level revoke, item 91 -- universal, not capability-specific)',
     current_setting('test.fa_session_update_count'),
-    '0',
-    current_setting('test.fa_session_update_count') = '0';
+    '-1',
+    current_setting('test.fa_session_update_count') = '-1';
 rollback;
 
 -- ============================================================================
@@ -301,8 +344,8 @@ begin;
   declare
     v_client uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Ops-Create Client', 'private_school', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Ops-Create Client', 'private_school')
     returning id into v_client;
     perform set_config('app.fixture_client', v_client::text, true);
   end $$;
@@ -321,10 +364,9 @@ begin;
   declare
     v_group uuid;
     v_session uuid;
-    v_update_count int;
   begin
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, current_setting('app.fixture_client')::uuid, 'wow_mix', 'recurring', 'active')
+    values (current_setting('app.test_org_wow_lab')::uuid, current_setting('app.fixture_client')::uuid, 'wow_mix', 'scoli_private_recurente', 'active')
     returning id into v_group;
     perform set_config('app.fixture_group', v_group::text, true);
 
@@ -332,23 +374,26 @@ begin;
     values (current_setting('app.test_org_wow_lab')::uuid, v_group, '2026-10-01', 'planned')
     returning id into v_session;
     perform set_config('app.fixture_session', v_session::text, true);
-
-    -- Set BOTH trainer fields, then CHANGE them in a second UPDATE, proving
-    -- "set/change" (not just set-once).
-    update public.sessions
-       set trainer_principal_id = current_setting('app.test_trainer_a')::uuid,
-           trainer_secundar_id = current_setting('app.test_trainer_b')::uuid
-     where id = v_session;
-    get diagnostics v_update_count = row_count;
-    perform set_config('test.ops_allocate_count', v_update_count::text, true);
-
-    update public.sessions
-       set trainer_principal_id = current_setting('app.test_trainer_b')::uuid,
-           trainer_secundar_id = current_setting('app.test_trainer_a')::uuid
-     where id = v_session;
-    get diagnostics v_update_count = row_count;
-    perform set_config('test.ops_reallocate_count', v_update_count::text, true);
   end $$;
+
+  -- Set BOTH trainer fields, then CHANGE them in a second call, proving
+  -- "set/change" (not just set-once). Routed through
+  -- app.rpc_update_session_allocation (item 91, 2026-09-22) --
+  -- authenticated no longer has table-level UPDATE on sessions; catalina
+  -- (operations_manager, sessions.create) is exactly the caller that
+  -- function's own gate admits, matching what this point already
+  -- intended to prove.
+  select set_config('test.ops_allocate_result', app.rpc_update_session_allocation(
+    current_setting('app.fixture_session')::uuid,
+    current_setting('app.test_trainer_a')::uuid,
+    current_setting('app.test_trainer_b')::uuid
+  ), true);
+
+  select set_config('test.ops_reallocate_result', app.rpc_update_session_allocation(
+    current_setting('app.fixture_session')::uuid,
+    current_setting('app.test_trainer_b')::uuid,
+    current_setting('app.test_trainer_a')::uuid
+  ), true);
 
   select 'operations_manager: INSERT groups succeeds (groups.create)' as check_name,
     (select count(*) from public.groups where id = current_setting('app.fixture_group')::uuid)::text as actual,
@@ -360,15 +405,15 @@ begin;
     '1',
     (select count(*) from public.sessions where id = current_setting('app.fixture_session')::uuid) = 1
   union all
-  select 'operations_manager: UPDATE sets trainer_principal_id + trainer_secundar_id (1 row)',
-    current_setting('test.ops_allocate_count'),
-    '1',
-    current_setting('test.ops_allocate_count') = '1'
+  select 'operations_manager: rpc_update_session_allocation sets trainer_principal_id + trainer_secundar_id',
+    current_setting('test.ops_allocate_result'),
+    'ok',
+    current_setting('test.ops_allocate_result') = 'ok'
   union all
-  select 'operations_manager: UPDATE CHANGES trainer_principal_id + trainer_secundar_id (1 row, rotation)',
-    current_setting('test.ops_reallocate_count'),
-    '1',
-    current_setting('test.ops_reallocate_count') = '1'
+  select 'operations_manager: rpc_update_session_allocation CHANGES trainer_principal_id + trainer_secundar_id (rotation)',
+    current_setting('test.ops_reallocate_result'),
+    'ok',
+    current_setting('test.ops_reallocate_result') = 'ok'
   union all
   select 'operations_manager: final trainer_principal_id reflects the rotation (now trainer_b)',
     (select trainer_principal_id::text from public.sessions where id = current_setting('app.fixture_session')::uuid),
@@ -398,18 +443,18 @@ begin;
     v_session_a uuid;
     v_session_b uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Org A Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Org A Client', 'corporate')
     returning id into v_client_a;
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab_test_b')::uuid, 'Fixture GS Org B Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab_test_b')::uuid, 'Fixture GS Org B Client', 'corporate')
     returning id into v_client_b;
 
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, v_client_a, 'gaga', 'recurring', 'active')
+    values (current_setting('app.test_org_wow_lab')::uuid, v_client_a, 'gaga', 'scoli_private_recurente', 'active')
     returning id into v_group_a;
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
-    values (current_setting('app.test_org_wow_lab_test_b')::uuid, v_client_b, 'gaga', 'recurring', 'active')
+    values (current_setting('app.test_org_wow_lab_test_b')::uuid, v_client_b, 'gaga', 'scoli_private_recurente', 'active')
     returning id into v_group_b;
 
     insert into public.sessions (organization_id, group_id, session_date, status)
@@ -476,11 +521,11 @@ begin;
     v_group uuid;
     v_session uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Sabotage Client', 'corporate', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS Sabotage Client', 'corporate')
     returning id into v_client;
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, v_client, 'astronomy', 'recurring', 'active')
+    values (current_setting('app.test_org_wow_lab')::uuid, v_client, 'astronomy', 'scoli_private_recurente', 'active')
     returning id into v_group;
     insert into public.sessions (organization_id, group_id, session_date, trainer_principal_id, status)
     values (current_setting('app.test_org_wow_lab')::uuid, v_group, '2026-10-10', current_setting('app.test_trainer_b')::uuid, 'planned')
@@ -522,6 +567,8 @@ rollback;
 -- ============================================================================
 begin;
   select set_config('app.test_org_wow_lab', (select id::text from public.organizations where slug = 'wow-lab'), true);
+  select set_config('app.test_trainer_a', (select id::text from public.users where email = 'test+trainer-a@wowlab.dev'), true);
+  select set_config('app.test_trainer_b', (select id::text from public.users where email = 'test+trainer-b@wowlab.dev'), true);
 
   -- test+catalina (operations_manager) holds groups.create/sessions.create
   -- but NOT clients.create -- the fixture client is created while still
@@ -530,8 +577,8 @@ begin;
   declare
     v_client uuid;
   begin
-    insert into public.clients (organization_id, name, client_type, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS RowHistory Client', 'private_school', 'active')
+    insert into public.clients (organization_id, name, client_type)
+    values (current_setting('app.test_org_wow_lab')::uuid, 'Fixture GS RowHistory Client', 'private_school')
     returning id into v_client;
     perform set_config('app.fixture_client', v_client::text, true);
   end $$;
@@ -552,7 +599,7 @@ begin;
     v_session uuid;
   begin
     insert into public.groups (organization_id, client_id, module, delivery_format, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, current_setting('app.fixture_client')::uuid, 'lotions', 'recurring', 'active')
+    values (current_setting('app.test_org_wow_lab')::uuid, current_setting('app.fixture_client')::uuid, 'lotions', 'scoli_private_recurente', 'active')
     returning id into v_group;
     perform set_config('app.fixture_group', v_group::text, true);
     perform set_config('test.group_history_before_update', (select count(*) from public.row_history where table_name = 'groups' and row_id = v_group)::text, true);
@@ -564,8 +611,20 @@ begin;
     perform set_config('test.session_history_before_update', (select count(*) from public.row_history where table_name = 'sessions' and row_id = v_session)::text, true);
 
     update public.groups set status = 'paused' where id = v_group;
-    update public.sessions set status = 'delivered', attendance_count = 12 where id = v_session;
   end $$;
+
+  -- sessions: item 91 (2026-09-22) revoked authenticated's table-level
+  -- UPDATE on sessions entirely -- a direct "update sessions set status=..."
+  -- here would now throw insufficient_privilege unconditionally, for any
+  -- caller. Routed through app.rpc_update_session_allocation instead --
+  -- catalina (operations_manager, sessions.create) is a legitimate caller
+  -- of that function, and it performs a real UPDATE on the row, which is
+  -- all this point actually needs to prove row_history still captures it.
+  select app.rpc_update_session_allocation(
+    (select current_setting('app.fixture_session'))::uuid,
+    current_setting('app.test_trainer_a')::uuid,
+    current_setting('app.test_trainer_b')::uuid
+  );
 
   -- test+catalina has org.audit.read? No -- only organization_owner gets
   -- that via the B4 dynamic grant. RESET ROLE before querying row_history,

@@ -176,6 +176,54 @@ Update this file as items close or new ones are confirmed. Don't add a
 candidate item without checking it against the current code/DB first — that
 is the entire reason this file exists instead of being a wishlist.
 
+**`scripts/check_open_items_register.ts`** checks this file against itself and against the live
+repo — every `item N above/below` cross-reference points the direction its target actually sits
+in, every referenced item number has a matching `### N.` heading, and every cited migration/rollback
+filename exists on disk (or is named in the script's own short exceptions list, for the rare case
+where a cited file's absence is the point of the entry, not a staleness bug). Run by hand, same as
+`scripts/check_operator_guide.ts` and for the same reason — no CI exists in this repo to run it
+automatically. Run it after any pass that edits several items at once, the way this one did:
+
+```
+npx tsx scripts/check_open_items_register.ts
+```
+
+It does not and cannot check the harder kind of staleness item 71 below is about — a blocker
+cleared by adjacent work leaves grammatically and structurally correct text behind; nothing short
+of re-deriving the investigation catches that. It only catches the mechanical kind: a direction
+word, a number, or a filename that no longer matches this file's own structure or the repo's own
+state. **2026-09-18: fifteen real errors found and corrected across the pass that led to this
+script existing** — nine found by hand, before this script existed (two in text written that same
+session, seven left for a follow-up pass); one more found by hand while fixing those seven; five
+more the script itself caught on its very first run, including one in text written earlier that
+same day. The script's own share of that total — five, on one run, with zero setup beyond writing
+it — is the concrete answer to whether this kind of thing is worth checking for: yes, cheaply, and
+it does not have to be a repeat performance to find something real.
+
+**`scripts/run_rls_suite.ts`** runs every file in `db/tests/` against the live linked database and
+prints pass/fail per assertion, distinguishing a genuine sabotage-check pass (the check correctly
+flips to false under a deliberately broken policy) from a real failure. Exits non-zero if anything
+fails or errors — a broken suite cannot read as passing. **Run this after any migration that touches
+`CREATE POLICY`/`DROP POLICY`/`ALTER POLICY`, or that renames or drops a column any policy or test
+reads** — the exact two things that silently broke this suite on 2026-08-18 and 2026-08-21 (item 86
+below), with nothing running it in between to notice:
+
+```
+npx tsx scripts/run_rls_suite.ts
+```
+
+**`scripts/check_deploy_status.ts`** polls GitHub's commit-status API for the real Vercel outcome of
+a commit — `git push` succeeding only confirms the git operation, never the build. Exits 0 on
+`success`, 1 on anything else including a timeout still `pending`. **Run this after any push meant to
+reach `app.wowlab.ro`, before trusting any verification done there** — the exact gap that let main
+fail to deploy for 25h8m unnoticed (item 94 below), during which every push in the window reported
+success on its own terms:
+
+```
+npx tsx scripts/check_deploy_status.ts        # checks HEAD
+npx tsx scripts/check_deploy_status.ts <sha>   # checks a specific commit
+```
+
 ---
 
 ## No scheduled execution mechanism — decided, not built now
@@ -223,6 +271,13 @@ built first, and today it doesn't exist at all, manual or automatic.
 
 **Trigger condition — when this reopens:** the first real personal-data row entering production,
 which is the 14-school import. Not before.
+
+**Noted 2026-09-21, not fired yet:** item 77 below built the first real feature that gives this
+trigger an actual path to fire outside the 14-school import specifically — a one-off workshop's
+on-site contact, linked to a real `client_contacts` row. `client_contacts` still holds zero rows in
+production as of this note; building the feature doesn't fire this trigger, the first real
+Operations use of it (linking a real contact for a real workshop) does. Re-check this item the day
+that happens, from whichever direction it happens first.
 
 **Prerequisite to decide at that reopening, not now:** a scheduled write has no JWT to read, by
 construction, so `row_history` would record `actor_user_id = NULL` for it. Confirmed empirically
@@ -660,36 +715,89 @@ join); the `clients` table's own SELECT policy (its client-type segregation bran
 
 ---
 
-### 66. A trainer's own group detail page shows the raw client UUID, not the name -- found re-verifying the payroll fixes, pre-existing, not touched
+### 66. A trainer's own group detail page showed the raw client UUID, not the name — RESOLVED 2026-09-17, a scoped `mywork.*` branch added to `clients`
 
 Re-walking the payroll fixes as a trainer fixture (`maxdigitalro+trainerb1@gmail.com`) surfaced
 this live: `/groups/[id]`'s header and its "Client" row both read
 `78e6b320-ed9e-46d2-9d84-f3fed73abfc3` instead of the client's name, for a session the trainer is
-legitimately assigned to and allowed to view. Confirmed pre-existing, not a regression from this
-round's edits -- `git diff` on `app/(app)/groups/[id]/page.tsx` shows the one line responsible,
+legitimately assigned to and allowed to view. Confirmed pre-existing, not a regression from that
+round's edits -- `git diff` on `app/(app)/groups/[id]/page.tsx` showed the one line responsible,
 `const clientName = clientRow?.name ?? group.client_id;`, untouched by any of the five fixes.
 
 **Root cause, checked against `clients`' own SELECT policy (item 65 above quotes the same
 policy):** `is_platform_owner() OR org.settings.manage OR (clients.read AND not
 finance.operations.* AND not finance.reporting.*) OR (finance.operations.* AND client_type in
-(...)) OR (finance.reporting.* AND client_type not in (...))`. No branch admits `mywork.*` at all
--- a `trainer`/`senior_trainer` viewer cannot see any row in `clients`, ever, regardless of
-whether they're allocated to a session for that client. `clientRow` comes back `null`, and the
-existing fallback silently prints the id instead of erroring or saying "Unknown."
+(...)) OR (finance.reporting.* AND client_type not in (...))`. No branch admitted `mywork.*` at all
+-- a `trainer`/`senior_trainer` viewer could not see any row in `clients`, ever, regardless of
+whether they were allocated to a session for that client. `clientRow` came back `null`, and the
+existing fallback silently printed the id instead of erroring or saying "Unknown." This was RLS
+correctly refusing, not a display bug on its own -- `clients`' finance segregation was doing
+exactly what it was built to do; it had just never been asked to cover the trainer's own screen.
+The display code compounded it by treating a null lookup as "print the id," which is the part that
+was a bug regardless of the access answer.
 
-**Not fixed here -- out of the five asked for, and the same "don't graft a broad RLS branch onto a
-deliberately segregated table without a policy decision" caution as item 65 applies:** unlike the
-`users` gap (item 4 of this round, a plain oversight), this is `clients`' segregation design doing
-exactly what it was built to do, just never checked against the trainer's own screen before. A
-`mywork.*` branch scoped to "a client with a group the viewer has an allocated session in" (same
-session-scoped shape as the `users` fix's own `mywork.*` branch) is the likely correct fix, but is
-a policy addition, not a copy-paste of an existing pattern -- recorded for a deliberate decision,
-not applied unilaterally mid-round.
-**Re-verify when:** a trainer's group detail page is looked at again, or this is picked up as its
-own fix.
-**Lives in:** item 65 above (same `clients` policy, same caution); `app/(app)/groups/[id]/page.tsx`
-(`clientName`'s fallback); `app/(app)/groups/[id]/group-header.tsx`,
-`app/(app)/groups/[id]/group-info-section.tsx` (both render the same unresolved value).
+**Decision, argued, not just accepted: a trainer should see the name.** A trainer delivering a
+session already knows which client (school/venue) they're at -- withholding the name protects
+nothing they don't already have. Checked for a hidden cost before agreeing: `clients` carries no
+financial columns (`billing_rule` and friends live on `contracts`, already separately masked);
+its other columns (`client_type`, `business_line`, `status`, `external_crm_ref`, `notes`) are
+internal CRM bookkeeping already exposed row-wide to every other non-finance internal role via the
+existing `clients.read` branch -- nothing new rides along with the name. Against that, a raw UUID
+protects nothing either; it just reads as broken.
+
+**Fix, as an RLS branch, not a lookup workaround (`202609170001`):** a `mywork.*` branch on
+`clients`' SELECT policy, scoped to "a client with a group the viewer has an allocated session
+in" -- exactly the shape flagged as likely-correct when this item was first opened. Structurally
+mirrors `groups`' own existing `mywork.*` branch (nested nothing new), which matters per item 68's
+lesson directly above: the nested reads on `public.groups`/`public.sessions` use the identical
+condition those tables' own `mywork.*` branches already use for this exact viewer/capability pair,
+so nothing here can be silently narrowed to false the way `202609160001`'s `finance.operations.*`
+branch was -- confirmed, not just reasoned, per the dry run below.
+
+**A UUID must never render as a name, independent of the RLS answer.** `page.tsx`'s `clientName`
+now falls back to `null`, never to `group.client_id`. `GroupHeader`/`GroupInfoSection` (both `"use
+client"`, but still SSR'd on first load) render a translated placeholder --
+`t("client_hidden")`, "Not visible to your role" / "Nevizibil pentru rolul tău" -- the same
+`contract_hidden` shape this file already used for a masked contract link. Checked which roles
+could still hit the placeholder today: every role holding `groups.read` (`operations_manager`,
+`finance_operations`, `finance_admin_reporting`) also holds `clients.read` or a finance branch
+(confirmed against `seed.sql`'s grants), so nothing reachable today actually shows it -- it exists
+for correctness, not because a live gap remains.
+
+**Verified, in order:** (1) a transaction-scoped dry run
+(`scripts/verify_clients_mywork_visibility.sql`) applying the exact policy DDL then asserting,
+rolled back -- 4/4: principal sees the client, secundar sees the same client, an unrelated trainer
+(no session on the group) does not, the principal does not see a second, unrelated client. (2) the
+real migration pushed live (`db push --linked`). (3) the actual rendered page, not just the
+policy: a real `verifyOtp` sign-in as `maxdigitalro+trainerb1@gmail.com` in WOW LAB Test Org B,
+carried as an `@supabase/ssr` cookie into a plain HTTP GET of `/groups/[id]` against a local `next
+dev` server (no headless browser available in this environment) --
+`scripts/verify_group_detail_client_name_render_test_org_b.ts` confirms the real client name is
+the visible text in both the `<h1>` and the "Client" row, and that the raw id never appears as
+element text content (it still legitimately appears once, in the hydration payload, as
+`GroupInfoSection`'s own `clientId` prop -- used by the edit form's contract filtering, not
+displayed). (4) since `WOW LAB` (the real org, not Test Org B) holds zero `sessions` rows today
+(confirmed live, same finding as item 65) -- nothing in production exercises this branch yet --
+the identical branch was independently re-verified against `WOW LAB`'s own organization id via pure
+SQL impersonation, insert-then-rollback, no Auth API call and no `last_sign_in_at` touch
+(`scripts/verify_clients_mywork_visibility_wowlab_prod_org.sql`): PASS. (5) after deploy, the same
+real-rendered-page check from (3) was re-run directly against `https://app.wowlab.ro`, real WOW LAB
+org, using `maxdigitalro+trainer@gmail.com` (a fixture account, not a named teammate --
+`test+trainer-a@wowlab.dev` was tried first and has no `auth.users` row at all, the same gap
+Cătălina/`test+user-b@wowlab.dev` had per item 22/DATABASE_CONVENTIONS.md §11, noted below as item
+70, not fixed here): 3/3, identical result to Test Org B. Fixture rows created and deleted by the
+script; `WOW LAB`'s own group/session/client counts confirmed unchanged (2/0/3) before and after.
+
+**Full RO/EN i18n:** `client_hidden` added to `groups/i18n.ts`.
+
+**Lives in:** `supabase/migrations/202609170001_add_clients_mywork_visibility_branch.sql` and its
+rollback; `scripts/verify_clients_mywork_visibility.sql`,
+`scripts/verify_clients_mywork_visibility_wowlab_prod_org.sql`,
+`scripts/verify_group_detail_client_name_render_test_org_b.ts`; `app/(app)/groups/[id]/page.tsx`
+(`clientName`'s new `null` fallback), `group-header.tsx`, `group-info-section.tsx` (the translated
+placeholder), `groups/i18n.ts` (`client_hidden`); item 65 above (payroll's parallel, separate gap,
+still open, still inert); item 68 below (the general lesson this fix was checked against before
+being written).
 
 ---
 
@@ -877,6 +985,2243 @@ matching on a command string that every same-framework project on the machine sh
 
 ---
 
+### 70. Working note: `test+trainer-a@wowlab.dev` and `test+trainer-b@wowlab.dev` (WOW LAB) have no `auth.users` row
+
+Found verifying item 66's fix against the real `WOW LAB` org: `generateLink` for
+`test+trainer-a@wowlab.dev` failed with an empty error object. Checked live, not assumed: both
+`test+trainer-a@wowlab.dev` and `test+trainer-b@wowlab.dev` have a `public.users` row but no
+matching `auth.users` row -- the same gap `test+catalina@wowlab.dev`/`test+user-b@wowlab.dev` had
+(item 22, fixed per DATABASE_CONVENTIONS.md §11's `admin.auth.admin.createUser({id, ...})`
+procedure), just never hit before because nothing needed to sign in as either fixture until now.
+
+**Not fixed here** -- out of scope for the task that found it, and neither account was blocking
+anything: `maxdigitalro+trainer@gmail.com` (a real WOW LAB trainer fixture that does have an auth
+identity) was used instead for that verification. Same §11 procedure would fix these two if a
+future task needs to sign in as either.
+**Lives in:** item 22 (the same historical gap, other accounts); `DATABASE_CONVENTIONS.md` §11 (the
+fix procedure).
+
+---
+
+### 71. A cleared blocker leaves no trace when the item describing it isn't revisited — the general form behind items 19, 39, and 45's corrections below
+
+2026-09-18. Three items above went stale the same way, within days of being written: item 19 said a
+migration hadn't been applied after it had; item 39 (findings 2, 3) and item 45 (part 1) said a
+capability gap was blocking real work, three days before a migration and an action closed exactly
+that gap. In every case, the blocker cleared as a side effect of *other* work — done for its own
+stated reason, correctly, and verified against its own goal — that happened to also satisfy a
+sentence sitting in a different, unrelated part of this file. Nobody writing that other work
+cross-checked it against the register; nobody re-reading the register afterward cross-checked it
+against the code. Named, when this correction was requested, as this shape's fourth appearance —
+counting across the register's whole history, not just this correction pass. The clearest prior
+instance on record is item 29: the register describing its own trigger condition as unmet after the
+code had already met it. This entry is a variant of that same failure, not a repeat of it — item 29
+was the register lagging *itself*; this is the register lagging work that had no reason to know an
+open item existed at all.
+
+**Why nothing catches it on its own.** The blocked-on claim and the code that clears it are not
+mechanically connected in any way — the only place a migration and an `OPEN_ITEMS.md` paragraph
+about it are ever in the same field of view is a human's head, at the moment one of them is
+written, and that connection decays the instant attention moves elsewhere. Nothing fails: the
+thing the item said was blocked (`children_billed`'s derivation, in this case) was never built, so
+there's no broken code anywhere to surface an error. Nothing warns: `db push` succeeding, `tsc`
+passing, and a migration's own dry-run script going green all test whether the *new* code does what
+it was written to do — none of them know or care that a sentence in a markdown file was describing
+the state they just changed. And a stale paragraph is typographically identical to a current one —
+bold headers, checked-live citations, dated commits — so a reader has no visual signal that this
+particular one needs re-verifying before being trusted.
+
+**Proposed, not built — three different strengths of catch, honestly rated:**
+
+1. **A narrow, mechanical check for claims that are already a single checkable fact.** Item 19's
+   "not yet applied to production" is exactly this shape — a script could extract every migration
+   filename `OPEN_ITEMS.md` cites as unapplied/pending and diff it against `supabase migration
+   list --linked`'s own output, flagging any mismatch. Cheap, close to free to run, and would have
+   caught item 19 specifically. It would **not** have caught items 39/45 — "nobody can record
+   session attendance on any layer" isn't a single fact with an existence check; it's a claim about
+   the current wiring of RLS, a capability grant, and an action's own column scope, considered
+   together. A narrower version of this same idea — grepping for whether a function/action name an
+   item names as *missing* has since appeared anywhere in `app/` or `supabase/migrations/` — is a
+   plausible partial catch for the 39/45 shape specifically, but it's a heuristic, not a proof: it
+   would flag `updateSessionAttendance` appearing after item 39 named the gap it fills, but it
+   can't tell a real fix from a same-named decoy, and it says nothing about claims that never named
+   a function at all.
+2. **A discipline, not a tool: whoever ships something that touches a table/action/RLS policy
+   already cited in an open item's "Lives in" list greps this file for that name before merging.**
+   This would have caught both — `202609110002`'s own migration comment already quotes item 39's
+   reasoning back nearly verbatim, which means whoever wrote it *had* item 39's finding in view at
+   the moment of the fix and simply didn't complete the loop back into this file. The gap wasn't
+   not-knowing; it was not-closing-the-loop. This is real and cheap when it happens, but it depends
+   entirely on someone remembering to do the second half of a two-part habit under time pressure —
+   which is the identical failure mode that produced the gap in the first place, just one level up.
+3. **Periodic re-reading of the whole register against live code — what actually caught all three
+   instances above, and what item 64 already established is nobody's standing job once the writing
+   stops.** This is the honest floor, not a fallback: for a claim like finding 2's ("nobody can
+   record attendance, on any layer"), confirming or refuting it requires re-deriving the same
+   cross-cutting investigation (RLS policy, capability grant, action, UI) that produced it in the
+   first place. A mechanical check for that claim would have to reimplement that investigation, on
+   a schedule, against a moving target — which is not meaningfully different from a person doing
+   it, just automated. **Said plainly, since it was asked for plainly: for claims narrower than
+   "does this specific named thing exist," the honest answer is nothing automatic — only
+   re-reading, by someone or something willing to re-derive the investigation, not just re-parse
+   the prose.**
+
+**No mechanism proposed here is being built** — recorded as a decision surface for whoever next
+decides this is worth the cost, the same way item 26 and item 49 record real gaps without
+proposing fixes to them.
+
+**Lives in:** item 19, item 39, item 45 below (the three corrections this generalizes — later in
+file order, earlier in item number, an artifact of this file's own convention of adding new items
+near the top of its most-recent block rather than renumbering); item 29 below (the closest prior
+instance, from the opposite direction — the register's own trigger condition, not a blocker cleared
+by someone else's unrelated work); item 68 above (a different member of the same family — silent
+RLS narrowing — also caught only by re-deriving the investigation, not by any test that passed).
+
+---
+
+### 72. The WS-D developer-review gate — two documents disagree on whether it's open, and neither was ever told about the other
+
+2026-09-18. Real school data entered production this month — three signed contracts, two real
+groups. Two documents make claims about what that was supposed to require, and they don't agree.
+
+**`docs/ws-d-plan.md`, quoted in full, the relevant lines:** line 3 — *"Poarta de review de
+developer e **amânată** (nu avem developer acum) → WS-D **nu** se declară „sigur" doar pe baza
+testelor; construim cu grijă și etichetăm riscul."* Line 100 — *"RLS pică **în tăcere**: o politică
+subtil greșită trece toate testele dacă și testul e subtil greșit. Fără review de developer, WS-D e
+„construit cu grijă și testat", **nu** „garantat etanș". Mergem înainte pe fazele de construcție,
+dar **înainte de a pune date reale de școli/copii în producție**, poarta asta trebuie trecută."*
+Unconditional, present tense, no date, never edited since.
+
+**`docs/phase1-development-plan.md` §4 / row 15, quoted in full — what the closure actually rested
+on:** *"Decizie finală (2026-08-07): gate-ul formal de review extern de developer NU se mai face —
+Mihai a ales conștient să meargă mai departe fără el, pe baza a ce există deja: suita de teste RLS
+(12/12 + 8/8 asertări, cu test de sabotaj funcțional), plus cele 3 descoperiri de mai sus găsite
+organic, cu dovadă live, nu ipotetic. Rândul #15 din tabelul de mai sus e închis oficial cu acest
+raționament, nu doar amânat."* The "3 descoperiri," named in full just above that sentence in the
+same document: the Members table reading empty (a PostgREST foreign-key ambiguity, never previously
+verified as an error) — fixed; every DELETE on the 4 audited tables being silently cancelled by an
+old trigger bug, meaning the "remove a role" action in `/admin/users` had never once worked
+correctly — fixed, checked twice independently, including a historical audit confirming no real
+user had ever actually been affected by it; invited-but-unconfirmed users being structurally unable
+to sign in through the public form (`disable_signup`, not rate-limiting) — fixed by direct
+reinvitation. Plus a separate end-to-end pass across all 7 real accounts at the time (role, nav,
+capabilities, RPC spot-checks, 7/7, confirmed manually by Mihai).
+
+**The timeline, checked precisely, not assumed close.** The closure is dated 2026-08-07. The
+earliest real client in production today, Lycée Français, is dated 2026-09-10 — roughly five weeks
+later. The decision was made *before* the condition `ws-d-plan.md` names, not in response to it.
+`ws-d-plan.md` itself carries no date anywhere in the file and was never edited to reference the
+closure. This item is the first place the two documents have ever been read against each other.
+
+**Neither document was ever told about the other, and neither is referenced anywhere else in this
+register.** `phase1-development-plan.md` is itself last verified 2026-08-10, its own staleness
+addressed separately below — written and closed before virtually all of the domain-specific RLS
+this register now tracks existed (Clients & Contracts, Groups & Sessions, payment-config, payroll
+all shipped after it).
+
+**Corrected 2026-09-18 — the failure mode has happened three times, not two, and the earliest of
+the three predates both items already cited here by weeks.** Checked directly, not assumed from
+memory of items 57/68 alone: `202608120002`'s avatar-read Storage policy, shipped 2026-08-12 — five
+days after the closure — read `public.user_org_roles` inline for `app.belongs_to_org()`, subject to
+that table's own RLS, and denied every non-platform-owner caller outright. Its own fix
+(`202608120003`) states the cause plainly: *"found via live testing (not assumed) immediately after
+applying it"* — a person clicking around, not the cited test suite, not any suite. This instance
+was never recorded anywhere in this register until now. Together with item 57 (a row match shipped
+without its paired capability check, 2026-09-10/11) and item 68 (a branch that "applied cleanly on
+`db push`, and evaluated to `false` for every caller it was written for, unconditionally,"
+2026-09-16/17) — three confirmed instances, spanning the full five weeks since the closure, the
+first one five days after it, none caught by the suite the closure cites, all caught by a person
+reading a specific policy by hand, once, after the fact.
+
+**The cited test suite, checked directly rather than trusted by name.** `db/tests/rls_ws_d_read.sql`
+and `db/tests/rls_ws_d_write.sql` are the "12/12 + 8/8" suite — their own header comments name the
+exact two July migrations they test, and counting their own assertion blocks lines up with those
+figures. Git history: one commit each, both 2026-07-10, never touched again — not once, through all
+22 migrations that have touched `CREATE POLICY`/`DROP POLICY` since the closure. They know nothing
+of `clients`, `contracts`, `groups`, `sessions`, payment-config, or payroll, none of which existed
+when they were written. `db/tests/rls_clients_contracts.sql` (created 2026-08-10/11) and
+`db/tests/rls_groups_sessions.sql` (created 2026-08-13) each got commits only during their own
+construction week and never again — six more migrations to `clients`/`contracts`/`client_contacts`
+policies and five more to `groups`/`sessions` policies have shipped since, none reflected in either
+file. `suppliers`, payment-config, and payroll have no test file in `db/tests/` at all, ever; every
+verification of `users`' own repeatedly-revised visibility policy was a one-off `scripts/verify_*.sql`,
+run once by hand. No runner exists anywhere for `db/tests/` — every file's own header says "run
+block-by-block in the SQL Editor." The suite the closure names has not run against anything built
+since, and nothing has stood in for it as a maintained, re-run mechanism.
+
+**What a real review would examine today that nothing currently does — audited, not assumed, by
+searching every `CREATE POLICY` for an inline cross-table read (the exact shape all three known
+bugs share) instead of a `SECURITY DEFINER` helper call.** Two live, currently-unverified candidates
+beyond the three already-fixed instances:
+- `contracts` and `client_contacts`'s own SELECT policies (`202608100003`, `202608250001`) each
+  have a `finance.operations.*`/`finance.reporting.*` branch reading `public.clients.client_type`
+  inline, checking `client_type in ('private_school', 'parent_b2c')`. Safe today only because that
+  exact two-value list is hand-written separately in three places — those two policies and
+  `clients`' own — with nothing keeping them in sync but discipline. A single edit to any one of the
+  three, without the other two, goes silently wrong in whichever direction the drift runs.
+- `users`' own UPDATE policy (`202607100004`, unedited since July) has an `org.members.manage`
+  branch reading `user_org_roles` inline, which itself needs `org.members.read` to return anything.
+  Safe today only because `org.members.manage` is never granted to any role except
+  `organization_owner`, who holds `org.members.read` too — via the same dynamic "all capabilities"
+  grant, not because the two are related. A future role holding `org.members.manage` alone (a
+  plausible want: "can edit membership, not browse the whole roster") would silently lose the
+  ability to edit anyone, the identical shape as the avatar bug above.
+
+One checked and ruled out: `sessions`' UPDATE policy reads `payroll_periods` inline for its
+month-close check (`202609150002`) — deliberately safe, not coincidentally. `payroll_periods`' own
+SELECT policy explicitly grants `mywork.*` read, with a comment stating exactly why. The one place
+in the schema this risk was reasoned about at write time, not discovered after.
+
+**Whether the 2026-08-07 reasoning still holds — sharper than "arguments on both sides," reported,
+not decided.** The decision was explicitly a judgment about *the state of the work* — its own text
+never mentions data timing or "revisit once real data arrives," only "pe baza a ce există deja"
+(on the basis of what already exists): the test suite's pass count and three caught bugs, offered as
+proof the real-user-testing discipline works. That framing was meant to be durable, not a stopgap —
+which is exactly what makes the finding above load-bearing: the specific evidence it cited has been
+directly contradicted on its own terms, three times, the earliest five days after the ink dried,
+none caught by the suite named as the reason. Re-run today, that suite still passes 12/12 + 8/8 —
+nothing in it changed — so in the narrowest sense the cited evidence is still true. **CORRECTED
+2026-09-22 — that "re-run" was not actually re-run carefully enough; the claim above was wrong on its
+own terms, left as written rather than silently edited (same discipline this entry already applies to
+`ws-d-plan.md`).** Asked directly to run every `db/tests/` and `scripts/verify_*.sql` file for real
+and report pass/fail rather than trust either file's own claim, not just this entry's: `rls_clients_
+contracts.sql` could not run AT ALL since 2026-08-18 (`contract_number`, dropped in `202608180002` —
+eleven days after the 2026-08-07 closure, not five; see item 86 below for the full audit) — the
+"8/8" figure this paragraph names is `rls_ws_d_write.sql` specifically, which DID run, but not
+honestly: three of its blocks resolve a second fixture user's id by email AFTER switching role to
+`authenticated`, which lost SELECT on `users.email` on 2026-08-21
+(`202608210001_users_field_masking_grants.sql`) — inside a `BEGIN/EXCEPTION WHEN insufficient_
+privilege` block written to catch the WRITE POLICY's own expected denial. The lookup's failure and
+the policy's denial are the same SQLSTATE, indistinguishable to that handler — every affected
+assertion kept reading `pass = true` regardless of what the actual policy did. **This includes the
+suite's own sabotage self-check** ("does this suite have teeth"), whose own comment says `pass` is
+supposed to flip to FALSE when the policy is deliberately broken. It didn't — the assertion was never
+reaching the sabotaged policy at all. The one piece of evidence this closure cites as proof the suite
+"has teeth" had none, silently, three days before this paragraph was first written, and this entry
+said "still true" without checking closely enough to notice. Both files fixed 2026-09-22 (item 86
+below) — re-verified for real: `rls_clients_contracts.sql` 8 points + sabotage, all correct;
+`rls_ws_d_write.sql` 6 blocks + sabotage, all correct, sabotage now correctly reads `pass = false`
+under a broken policy. The conclusion drawn from the ORIGINAL evidence is not: "this discipline
+catches what a developer review exists to catch" is the part three dated, real, previously-uncounted
+instances (now four, item 86 below) contradict — and the evidence itself was weaker than claimed
+even before that, only nobody had checked. Separately, and independent of
+that: the decision's other framing — "review vs. no review, because no developer exists to run one"
+(`ws-d-plan.md`'s own *"nu avem developer acum"*) — turns on a fact only Mihai has, not something
+checkable from this repo. If that constraint is unchanged, the choice architecture is unchanged
+regardless of the RLS surface's growth; if it isn't, this decision was never re-weighed against the
+option it originally had none of.
+
+**This is Mihai's decision, and possibly Anca's — not resolved by this entry.** What this entry
+fixes is that the register was silent about the contradiction, and undercounted the evidence, until
+now. It does not pick a side. `ws-d-plan.md` is left unedited — the same standing choice this repo
+already made for `202608270001`'s comment on the retention job in the top entry of this file, where
+a document with a false live claim was corrected by a new entry rather than by rewriting the
+original.
+
+**2026-09-22 — closing statement, the timeline stated once, plainly, for whoever makes this call.**
+The 2026-08-07 closure cited a test suite's pass count and a functional sabotage check as the reason
+external developer review wasn't needed. That suite's sabotage check read `pass = true` for a
+deliberately broken policy from 2026-08-21 onward — fourteen days after the closure — and stayed that
+way, unnoticed, until today. A second file the same closure implicitly rested on (`rls_clients_
+contracts.sql`, C1's own suite) could not run at all from 2026-08-18, eleven days after. **The state
+the closure's reasoning described had already ended within two weeks of the closure itself being
+written.** Neither of the two RLS defects found this September (item 68, item 77) was ever covered by
+anything in `db/tests/` before today (item 88 below) — the suite could not have caught either even
+while it was running correctly. Whether to reopen the external developer review the closure declined
+is Mihai's decision, unchanged by this entry. What changes: as of today (item 86, item 88 below), the
+suite genuinely is what the closure described — a suite that passes, with a sabotage check that
+actually has teeth, now additionally covering both defects found since. That decision can now rest on
+real, current evidence, whichever way it's made.
+
+**2026-09-22 — a fourth instance, the one that names what a review is actually for.** Column
+narrowing — which fields a caller may change on a row RLS already admits them into — lived only in
+server action TypeScript across this entire codebase, while `authenticated` held a table-wide UPDATE
+grant on every column of `sessions` (and an equally unrestricted one on the three finance columns of
+`contracts` and `groups.children_confirmed`). Confirmed live, not assumed: a trainer, using nothing
+but the public anon key and their own real session cookie (non-httpOnly by `@supabase/ssr`'s own
+default, unoverridden here), issued a raw `PATCH` to `/rest/v1/sessions` and successfully confirmed a
+**colleague's** attendance directly — the field pay is keyed on (`202609150002`'s own header: "Pay
+follows this timestamp") — with zero involvement from the server action written specifically to
+prevent exactly that. Items 57/68/the avatar policy (this entry's earlier three) were each a single
+RLS branch, subtle and narrow. This one was a structural pattern repeated across every write action in
+the codebase, for as long as the codebase has had write actions — not a policy someone wrote
+carelessly once, a whole *category* of check nobody had verified could not be walked around. **This is
+exactly the shape an external review exists to catch, and it was caught by an internal one instead —
+roughly six weeks after the 2026-08-07 closure declined to hold one.** Fixed same day (item 91 below):
+every affected write routed through a `SECURITY DEFINER` function, the direct grant revoked, a
+permanent sabotage-proven regression test added. The reopen-review decision remains Mihai's — this
+paragraph adds a fourth, larger data point to it, not a recommendation.
+
+**Lives in:** `docs/ws-d-plan.md` (lines 3, 100 — unedited); `docs/phase1-development-plan.md` §4,
+row 15 (the closure, unedited); `db/tests/rls_ws_d_read.sql`, `rls_ws_d_write.sql` (the cited suite,
+frozen since 2026-07-10), `rls_clients_contracts.sql`, `rls_groups_sessions.sql` (the two
+domain suites, each frozen at its own construction week); `supabase/migrations/202608120002_org_scope_avatar_read_policy.sql`,
+`202608120003_fix_avatar_read_policy_via_shares_org_helper.sql` (the third, earliest instance, newly
+recorded here); `supabase/migrations/202608100003_add_clients_contracts_rls_policies.sql`,
+`202608250001_client_contacts_row_filters_and_notes_grant.sql`, `202607100004_add_write_policies_ws_d_d1b.sql`
+(the two live unverified candidates); `202609150002_add_sessions_confirmation_columns_and_rls.sql`
+(the one checked and ruled safe); item 57 below (the second instance); item 68 above (the third
+instance); item 86 below (the 2026-09-22 correction — the suite's own claimed pass count was itself
+wrong, and the audit that found it), item 88 below (the rebuild that makes the closing statement
+above true), item 91 below (the fourth instance and its fix); `phase1-development-plan.md`'s own
+broader staleness, addressed separately below — this closure's isolation from the rest of this
+register is one symptom of it, not the whole of it.
+
+---
+
+### 73. Costuri Admin (admin overhead cost tracking) — a real gap `phase1-development-plan.md` was the only place tracking, folded in from its row 6
+
+**What it is:** an admin-overhead cost-tracking module for Anka/Laura/Raluca, named in
+`docs/phase1-development-plan.md` row 6. Per that document (last touched 2026-08-10, its status now
+superseded — see item 75 below): rates were confirmed by Anca and applied to the mockup
+(`progress.md` #42-43, including a correction to Anka's own figures), with the row's own note
+reading *"Rămâne: construcție reală în Phase 1, confirmare că task-ul Asana chiar există."*
+("Remaining: real construction in Phase 1, confirm the Asana task actually exists.") Never built.
+
+**Checked live, not assumed from the old doc's status:** no table anywhere in `public` matches
+`%cost%` — `information_schema.tables` returns zero rows for any name resembling an admin-costs
+schema. Nothing exists for this today, not even a skeleton.
+
+**Not simply buildable, and not simply blocked on Anca either — a staleness question first.** The
+rates this row cites as "confirmed" were confirmed against the mockup-era cost model, over five
+weeks before the real Phase 1 domain rebuild (Clients & Contracts, Groups & Sessions, payment-config,
+payroll) replaced almost everything else that document described. Whether those specific figures,
+or the shape they'd have been entered in, still match what Anca would say today is unconfirmed —
+this item does not assume they're still current just because a prior document once said so, the
+same caution items 35/42/48 already established for old "confirmed" claims that turned out to need
+re-checking. Re-confirm before building, not because the answer is expected to differ, but because
+nothing here has checked.
+
+**Blocked on:** a re-confirmation with Anca that the 2026-08 figures (or a fresh set) still apply,
+then ordinary construction — no design blocker beyond that.
+**Lives in:** `docs/phase1-development-plan.md` row 6 (superseded, see item 75 below);
+`docs/progress.md` #42-43 (the original rate confirmation and correction).
+
+---
+
+### 74. Recruitment → Academy → Evaluation pipeline — the recruit/onboard/academy half is untracked anywhere; the evaluation half is item 23
+
+**What it is:** `docs/phase1-development-plan.md` row 7 names a full pipeline Anca drew herself
+(with ChatGPT, two diagrams) and had applied to the mockup: a candidate portal using real stage
+names (handover Anca→Cătălina, assisting, a test lesson, final decision), an onboarding tracker
+(contract, module allocation, resource access, quiz, certification), WLab Academy (real modules —
+Chemistry for Me, Detective Science, Green Week — with four states: allocated → access → quiz →
+certified), and a trainers "needs action" panel. §2 of that document also names offboarding as a
+real, acknowledged gap inside this same flow (*"nu atinge deloc ce se întâmplă când un trainer
+renunță"* — doesn't touch what happens when a trainer quits — a procedure Anca herself called
+"in progress" at the time, later answered per that document's own 2026-08-10 update: checklist,
+exit interview, access revocation, an "on pause" state, applied to the mockup only).
+
+**Distinct from item 23, checked precisely, not assumed to overlap.** Item 23 is the *evaluation*
+domain specifically — Happy Face bonuses, the LP writers' separate criteria matrix, replacement-rate
+reconciliation — and is already tracked, already blocked on Anca. This row is everything upstream of
+that: recruiting a candidate, onboarding them, and running them through the Academy's own
+module/quiz/certification flow. The two are adjacent, not the same — item 23 assumes a trainer
+already exists; this item is about how one comes to exist on the roster at all.
+
+**Checked live: none of it is modeled as a real table.** No `candidates` table exists anywhere
+(confirmed independently by the scheduled-execution mechanism entry above, for an unrelated reason —
+it needed to know whether any personal data existed to anonymize, and found none because this
+domain was never built). `candidate` and `community_people` are seeded capabilities
+(`supabase/seed.sql`) with no route behind either, the same shape item 56 already found for five of
+the trainer's own six capabilities. Everything Anca drew exists today only as mockup screens with
+static demo data.
+
+**Blocked on Anca, with a caveat this item states plainly rather than assumes past.** The flow
+itself is substantially designed already — unlike item 52's workshop gap, this isn't starting from
+nothing — but it was drawn before the real Phase 1 domain model existed (no `users`/`user_org_roles`
+shape to onboard *into*, at the time), and applied only to the mockup, never reconciled against the
+schema that actually shipped since. Building against the 2026-08 flow unchecked risks the same
+"described a workshop, schema models a group" mismatch item 52 found elsewhere — confirm the flow
+still matches before treating it as ready-to-build.
+
+**Blocked on:** Anca, to reconfirm the flow against the real schema before construction — not a
+fresh design question, a staleness check on an old one.
+**Lives in:** `docs/phase1-development-plan.md` row 7, §2, §3 (superseded, see item 75 below);
+`docs/progress.md` #37, #42; item 23 below (the adjacent, already-tracked evaluation domain); item
+56 below (the same unrouted-capability shape, on the trainer's own six); the scheduled-execution
+entry above (independent confirmation no `candidates` table exists).
+
+---
+
+### 75. `phase1-development-plan.md` checked row by row against the live codebase — marked superseded, not annotated row by row
+
+2026-09-18. Last verified 2026-08-10 by its own header — over five weeks before the real Phase 1
+domain rebuild (Clients & Contracts, Groups & Sessions, payment-config, payroll, this whole
+register) existed. Checked every row of its status table against the current codebase, the same
+pass `WOW_LAB_OS_AD_Reconciliation.md` already applied to the fifteen architecture decisions (item
+46 below).
+
+| # | Row | Verdict |
+|---|---|---|
+| 1 | Anka's financial visibility | Superseded — the mockup version this row describes is moot; the real RLS-based mechanism (`contracts_billing_masked`, `finance.reporting.*`) replaced it with something structurally different, not just a later copy. |
+| 2 | Flat 111 lei/oră base rate, editable in Settings | Superseded by something different in shape, not the same thing built for real — the actual system is six versioned, grade-based rate grids (item 20), not one flat editable number. |
+| 3 | Sales Manager billing-rule visibility + "client ONG" | Half superseded, half unconfirmed — billing-rule visibility for `clients.create` holders is real and live (`202608100006`). "Client ONG" has no trace in the live `client_type` enum (`private_school`, `state_school`, `corporate`, `parent_b2c`, `special_project`) — `special_project` is the closest plausible fit, not a confirmed mapping. Not chased further here. |
+| 4 | Franchise / Platform Owner cross-org stats | Never started, still accurately so — `is_platform_owner()` exists as the cross-org mechanism (item 27), but no stats surface was ever built. Same substance as item 1's cost-model gap, not a separate blocker. |
+| 5 | Trainer payment table structure | Superseded — carried forward into the real, far more developed payment-config schema (item 20), not a leftover gap. |
+| 6 | Costuri Admin | Real gap, untracked until now — folded in as item 73 above. |
+| 7 | Recruitment → Academy → Evaluation | Real gap (recruit/onboard/academy half), untracked until now — folded in as item 74 above. The evaluation half is item 23, already tracked. |
+| 8 | Trainer Profile & Performance | Superseded by a later, more thorough investigation — item 53 checked this exact ground in far more depth (found the mockup's own "Zone" column explicitly rejected in writing, hours sourced externally from Toggl, no certifications table despite seeded grants) and is the current source, not this row. |
+| 9 | Lesson-plan taxonomy / "Tip Atelier" | Split — the 13-module taxonomy this row describes was carried forward for real (`public.modules`, confirmed live at exactly 13 rows). The ~300-real-plan lesson catalog this row also references was never modeled as a table and remains mockup-only — the still-open half is item 45 part 3, not a new gap. |
+| 10 | Trainer principal/secundar per group | Implemented as described, and then some — `sessions.trainer_principal_id`/`trainer_secundar_id` are live and load-bearing across items 45, 57, 67; the real per-workshop role-assignment process is now also documented (`docs/WOWLAB_Spec_Trainer_Principal_Secundar.md`). The row marked this 🔴 with no Asana task; it shipped anyway. |
+| 11 | Billing-code generator / trainer pay, separated | Split — "Plată traineri" (pay execution: confirmation, month close) is built (item 45). "Generator cod facturare" is not — still open, still correctly cited from item 39 finding 4, unaffected by this entry. |
+| 12 | S3 brand shell | Implemented as described, still standing — foundational UI work, unrelated to and untouched by anything since. |
+| 13 | Favicon | Done, contrary to this row's "⚪ unconfirmed" — `public/wow-lab-fav.png` exists and is wired into `app/layout.tsx`'s real metadata, confirmed live. |
+| 14 | `/auth/callback` anti-scanner confirmation page | Never started, still open, no longer hypothetical — item 28's own investigation later found a real, plausible instance of exactly the failure this row was hedging against (a mail client prefetching and consuming a single-use link), without proposing this row's own mitigation. Not folded into a new item — small enough to note directly against item 28 instead. |
+| 15 | Developer security review gate | Covered in full by item 72 above — not repeated here. |
+| 16 | Repo visibility, return to private | Already tracked as item 16, which didn't carry this row's own two-part reopening trigger (Vercel Pro upgrade AND a more mature app stage) — folded into item 16 directly rather than duplicated here. |
+
+**The argued verdict: mark the document superseded, don't annotate every row in place.** Fourteen of
+sixteen rows are either done (1, 2, 3's billing-rule half, 5, 9's module half, 10, 12, 13), already
+tracked under their own `OPEN_ITEMS.md` number (4's substance folds into item 1, 15 → item 72, 16 →
+item 16), or superseded by later, more thorough work in this same register (8 → item 53, 9's
+lesson-plan half → item 45 part 3, 11 → items 39/45 split). Only two rows (6, 7) named a real gap
+this register didn't already carry, and both are now items 73 and 74. Annotating all sixteen rows
+in place, inside a document whose own organizing frame (a mockup-era Phase 1 plan, pre-dating the
+domain-by-domain rebuild this register tracks) no longer matches how work here actually gets
+recorded, would mean maintaining two registers doing the same job — exactly the failure item 64
+already found in `progress.md`'s own abandoned Snapshot table, and the reason that table was left
+as marked history rather than kept current. A short superseded banner, added to the top of
+`phase1-development-plan.md` without editing anything below it (the file's own stated convention —
+*"Când se închide, se marchează ✅ și rămâne ca istoric — nu se șterge"*, close and keep as history,
+don't delete), does the same job at a fraction of the maintenance cost, and points at exactly one
+place — this file — for anyone who needs current status going forward.
+
+**Small enrichments made alongside this, not separate items:** item 16 gained row 16's own
+reopening trigger; item 28 gained a short note on row 14's proposed mitigation.
+
+**Lives in:** `docs/phase1-development-plan.md` (superseded banner, top of file); item 46 below (the
+AD reconciliation this pass mirrors); items 73, 74 above (the two rows that survived); item 16, item
+28 (the two small enrichments); item 20, item 23, item 39, item 45, item 53, item 72 (the items that
+absorbed the rest).
+
+---
+
+### 76. `clients.status` stuck at Prospect under signed contracts — not a stale field, a specified trigger with no code path
+
+2026-09-18/21. Mihai noticed all three real clients (Scoala Germana, Scoala Avenor, Lycée Français)
+reading "Prospect" while each held a signed contract, and asked why. Not a contradiction between two
+fields, checked directly, not assumed: `changeClientStatus` (`app/(app)/clients/actions.ts`) is the
+only write path to `clients.status` after creation — `addClient` hardcodes `status: "prospect"` on
+every insert, no trigger touches the column, and `markContractSigned`
+(`app/(app)/contracts/actions.ts`) never references `clients` at all. Signing a contract has zero
+effect on the client row it belongs to, by construction, not by omission. A status nothing has ever
+moved, not a status disagreeing with a contract. Mihai moved all three to `active` by hand on
+2026-09-17, through the one existing manual path (below), before this item was written.
+
+**The SAD names the trigger, and it is not the contract — checked, not assumed to be a documentation
+gap.** `docs/WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md` §5's own lifecycle diagram:
+
+```
+[ActiveCampaign]                         [WOW LAB OS]
+ lead → prospect → deal  ── Won ──▶  client (active) ──▶ contract ──▶ groups ──▶ sessions/attendance
+```
+
+— with its own text directly under it: *"Predarea e un singur punct: **Won → client activ.**"*
+("The handoff is a single point: Won → active client.") Contract creation is drawn *downstream* of
+the client already being active, not upstream of it. Line 76 of the same document: *"`prospect`
+există ca status doar pentru clienții pre-contract care au ajuns deja în platformă"* — prospect
+exists only for pre-contract clients. By the SAD's own stated logic, a client holding a signed
+contract should never still read prospect at all — the three real ones doing exactly that aren't a
+surprise the SAD failed to anticipate; they're the direct, predictable consequence of its own named
+mechanism never being wired up.
+
+**The mechanism was never built — checked, not inferred from its absence.** `clients.external_crm_ref`
+exists (`202608100001`) and is wired to no live webhook — the same finding item 1/52 already
+recorded from the opposite direction (no ActiveCampaign integration exists anywhere in this
+codebase). Nothing fires on "Won." The only path that exists is the manual one: `ClientStatusControl`
+(`client-header.tsx`, `/clients/[id]`), gated on `clients.convert` (held only by `sales_manager` in
+`supabase/seed.sql`), driving `changeClientStatus` against a fixed transition table
+(`app/(app)/clients/status.ts`): `prospect → active`, `active → paused|churned`,
+`paused → active|churned`, `churned → active`. That path existed the whole time; nobody had used it
+for these three until Mihai did, by hand, once asked why not.
+
+**Worth recording as its own shape, distinct from this register's usual stale-field pattern
+(items 19/21/38/40, item 71's general form).** Those are all cases where a field's *meaning* drifted
+silently — a default nobody revisited, a column nothing reads, a guard nothing can trigger. This is
+different: the field's meaning was written down, precisely, by the SAD, with a named trigger --
+the trigger just has no code behind it anywhere, and the one fallback that does exist went unused.
+**The field is not wrong. It's waiting for a mechanism that was specified and never built** -- closer
+to item 2's "designed, not started" shape than to a value silently gone stale.
+
+**Contract-driven automation was considered and rejected here, not left unconsidered.** Three
+reasons, each independently sufficient:
+1. **Wrong capability for the actor.** `changeClientStatus` requires `clients.convert`
+   (`sales_manager` only). `markContractSigned` checks `finance.operations.* OR
+   finance.reporting.* OR clients.create` -- a materially different role set. A Contract
+   Administrator marking a contract signed does not hold `clients.convert` today; an automatic
+   status write from that action would hand them, silently, a status change the system's own rules
+   deny them directly.
+2. **`CLIENT_STATUS_TRANSITIONS` would have to be duplicated or bypassed.** Duplicated means two
+   places now define what a valid transition is, with nothing keeping them in sync. Bypassed is how
+   a signed contract on an already-`churned` client's record could reactivate them through a path
+   that never checks whether `churned → active` even makes sense in that context -- silently, with
+   no guard the deliberate manual path already has.
+3. **The identical second-write-path shape already named twice in this register, not a new
+   concern.** `changeClientStatus`'s own comment states it directly: *"this is the only write path
+   to the column today... a second write path appearing is the point to reconsider that"* -- the
+   same load-bearing warning item 8 already carries for `contracts.status`, and the same shape item
+   45 part 5 rejected outright for `sessions.status` (a trainer-driven transition would have given
+   that column a second write path a single caller no longer reliably owns).
+
+**Argued both ways, not settled here.** For automating `prospect → active` on contract-signed: the
+SAD's actual named trigger (Won) will likely stay unbuilt for a long time -- no webhook work is
+scoped anywhere in this register -- and a signed contract is the strongest already-tracked fact this
+platform has that a prospect became real; a July-signed, September-starting contract sitting
+labeled "Prospect" for two months is a real, visible cost, not a hypothetical one. Against it: the
+SAD's own diagram places `active` at commitment (Won), not delivery, which if anything argues for
+moving the trigger *earlier* than contract-signing, not *onto* it; and half-automating one of four
+transitions while leaving `paused`/`churned`/reactivation fully manual is an odd middle state that
+doesn't obviously beat today's fully-manual one. A status nothing ever needs by hand is exactly the
+"field that says nothing" shape this register keeps finding elsewhere -- automating the one edge
+that's easy to automate risks producing a milder version of that same thing, not fixing it.
+
+**Blocked on Anca — a business decision about what "active" is supposed to mean, not a technical
+one:** signature, first delivery, or the Won handoff exactly as the SAD already specifies. Whichever
+she picks decides whether the fix is finishing the SAD's own designed mechanism (a real ActiveCampaign
+webhook, unscoped, large), wiring a new one onto contract-signing (small, but a deliberate departure
+from the SAD, not an implementation of it), or leaving the manual path as the only path and treating
+today's finding as a one-time data catch-up, not a gap to close.
+
+**Lives in:** `app/(app)/clients/actions.ts` (`changeClientStatus`, `addClient`, `markContractSigned`
+in `app/(app)/contracts/actions.ts` — the confirmed absence of any link); `app/(app)/clients/status.ts`
+(`CLIENT_STATUS_TRANSITIONS`); `app/(app)/clients/[id]/client-header.tsx`,
+`client-status-control.tsx`; `supabase/seed.sql` (`clients.convert` → `sales_manager` only);
+`docs/WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md` §5 (the diagram and its "Won → client activ"
+line), line 76 (`prospect`'s own definition); item 1 above, item 52 below (the same unwired
+ActiveCampaign-webhook finding, from two other directions); item 8 below, item 45 below (the two
+prior instances of the second-write-path shape this decision would repeat).
+
+---
+
+### 77. Item 52's three extension fields built — time range, address, on-site contact
+
+2026-09-21. Item 52's closed fork (recurring stays primary, one-off workshops get the fields they
+were missing as an extension) built out for the first three: time range, address, on-site contact.
+Design argued before building, not decided silently — six sub-questions, each closed on its own
+reasoning, one real RLS correction found and fixed along the way.
+
+**Time range — `sessions.start_time`, nothing else stored.** `time`, nullable. End is derived at
+read time (`start_time + duration_minutes`, both present or the range shows start alone) — same
+precedent as contract expiry and `children_billed` (item 39): store one fact, never two that could
+disagree. Not defaulted from `groups.schedule_pattern` — confirmed live that column is free text
+with no enforced grammar, nothing parses it, and guessing a time out of it would silently
+mis-populate real sessions. A pattern change on the group has zero retroactive effect on sessions
+already created, which is correct: a session that happened at 16:00 stays recorded at 16:00 even if
+the club's slot moves next term.
+
+**Address — `clients.address` (default), `groups.address` (override), nothing on `sessions`.**
+Argued directly against item 52's own volume finding: at ~4:1 recurring and widening, the dominant
+case is one client address shared by every session of every group at that client — the ratio is the
+argument against session-level storage, not a detail beside it. Group-level override exists for the
+minority the nine-value type list names (a mall event, an off-site occasional collaboration). Both
+columns plain free text, no structured parts — matches `schedule_pattern`/`age_range`'s own already-
+established "no stricter shape enforced" treatment on the same tables. Resolved with
+`groups.address ?? clients.address` at read time, not backfilled.
+
+**On-site contact — `groups.on_site_contact_id → client_contacts(id)`, link only, never free text.**
+Validated in the action exactly like `contract_id` already is: re-fetched, rejected if the contact's
+`client_id` doesn't match the group's own — a raw FK can't express that constraint by itself.
+
+*A real RLS gap found and corrected before this shipped, not assumed fine because a comment once
+said so.* `202608250001`'s `mywork.*` branch on `client_contacts` was a bare `contact_purpose =
+'trainer_facing'` row match with no session scoping at all — its own comment had already flagged it
+as unverified ("re-verify the day a trainer-facing read capability is added... currently
+unreachable... a paper check, not a live one"). This was that day. `202609210002` narrows it to the
+identical session-scoped shape already proven twice in this codebase (`202609160001` on `users`,
+`202609170001` on `clients`, item 66) — a viewer sees the contact only through a group with a
+session they're actually allocated to. Checked against item 68's lesson before writing it: the
+nested reads align exactly with `groups`'/`sessions`' own `mywork.*` branches for this same
+viewer/capability pair, so nothing here can be silently narrowed to false the way `202609160001`'s
+original `finance.operations.*` branch was.
+
+Deliberately kept independent: linking a contact as on-site does **not** by itself make them
+trainer-visible. `contact_purpose = 'trainer_facing'` is still required on top of the link — a
+5th dry-run assertion (`scripts/verify_client_contacts_trainer_facing_scoping.sql`) proved this
+specifically, and caught its own bug on the first run (the test update ran while still impersonating
+the trainer, who holds no write capability on `client_contacts` — silently affected 0 rows; fixed by
+resetting role before the write, not by weakening the assertion).
+
+**A real capability mismatch, named, not routed around.** `client_contacts` INSERT requires
+`clients.create` or `contracts.*` — Operations (`operations_manager`, who actually creates sessions)
+holds neither. Since the table is empty in production, the first real one-off workshop will usually
+need a brand-new contact Operations cannot create. Scoped the group/session action to **link only**
+— a dropdown of the client's existing contacts — leaving contact creation exactly where it already
+lives (`/clients/[id]`). Consequence stated plainly in the UI (`no_contacts_for_client_hint`) and
+here: for a new one-off client with no contacts yet, someone holding `clients.create`/`contracts.*`
+has to add the contact first.
+
+**Not resolved, named instead:** the row-level grant on `client_contacts` includes `email` alongside
+`phone` — no column-masking exists on this table beyond `notes`. A trainer who clears the (now
+narrowed) row check sees the full contact card, not just name and phone. Left as-is, matching the
+table's existing row-level convention.
+
+**The GDPR trigger — the scheduled-execution item above got a forward pointer, not fired.**
+`client_contacts` holds zero rows in production. Building this feature doesn't fire that item's own
+"first real personal-data row" trigger; the first real Operations use of it will. Not reopened here.
+
+**Verified live, in order.** Dry-run of the RLS narrowing (5/5, including the caught test bug) run
+against the schema before applying. Migrations applied (`202609210001` schema, `202609210002` RLS).
+`tsc --noEmit` and `next build` clean. End-to-end against `wow-lab-test-b`, real sessions, real
+rendered pages (`scripts/verify_one_off_workshop_extension_fields_test_org_b.ts`, 9/9): the org
+owner and an allocated trainer both see the client's default address, the linked contact's name and
+phone, and the derived 16:00–17:30 time range on the same session; an unrelated trainer with no
+allocation sees none of it. Fixture rows (client, contact, group, session) created and deleted by
+the script each run — confirmed back to baseline after. Deployed, then the same script re-run live
+against `https://app.wowlab.ro`, real `WOW LAB` org, `test+ui-owner@wowlab.dev` and
+`maxdigitalro+trainer@gmail.com` (fixtures, not named teammates): 8/8 (assertion 9, the unrelated-
+trainer isolation check, skipped rather than faked — no second WOW LAB trainer fixture with a
+working auth identity was available, per item 70; that exact isolation is what Test Org B's own 9/9
+already proved). `WOW LAB`'s own counts (3 clients, 2 groups, 0 sessions, 0 `client_contacts`)
+confirmed unchanged before and after — `client_contacts` is still genuinely zero, so the
+scheduled-execution trigger noted above has still not fired.
+
+**Scope cut, stated rather than silently dropped:** address override and on-site contact are
+edit-only on `groups` — not offered on the group *create* form (`groups-client.tsx`), only via
+`group-info-section.tsx`'s existing edit flow, to avoid fetching every client's contacts org-wide
+into the groups list page for a field most groups won't set at creation. `schedule_pattern` shown as
+inline hint text next to the new start-time field was planned in the design pass and cut for the
+same reason — not built.
+
+**Lives in:** `supabase/migrations/202609210001_add_one_off_workshop_extension_fields.sql`,
+`202609210002_narrow_client_contacts_trainer_facing_branch.sql`, and their rollbacks;
+`scripts/verify_client_contacts_trainer_facing_scoping.sql`,
+`scripts/verify_one_off_workshop_extension_fields_test_org_b.ts`; `app/(app)/groups/actions.ts`
+(`updateGroup`, `addSession`), `app/(app)/clients/actions.ts` (`addClient`, `updateClient`);
+`app/(app)/groups/[id]/page.tsx`, `group-info-section.tsx`, `group-detail-client.tsx`;
+`app/(app)/clients/[id]/page.tsx`, `client-info-client.tsx`, `clients-client.tsx`;
+`app/(app)/groups/i18n.ts`, `app/(app)/clients/i18n.ts`; item 52 below (the closed fork this
+extends); item 66, item 68 above (the RLS precedent and the lesson checked against); item 39 below
+(the derived-not-stored precedent for time range).
+
+---
+
+### 78. Item 76 resolved — a client is active once it has a signed contract, derived not stored
+
+2026-09-21. Anca's decision, closing item 76's "blocked on Anca" fork: a client is active once it
+has a signed contract. Built as a derivation, not a write from `markContractSigned` — argued both
+shapes before building, chose derived, reported to Mihai before writing any code.
+
+**Why derived, not stored.** Three reasons: (1) `markContractSigned` is gated `contracts.*` /
+`finance.operations.*` / `finance.reporting.*` / `clients.create` — **not** `clients.convert`
+(`sales_manager`-only, `seed.sql`). Checked live: `contract_administrator` holds `contracts.*` but
+not `clients.convert`. A direct write from `markContractSigned` would hand a Contract Administrator
+a status change the capability model reserves for Sales — the identical wrong-capability-for-the-
+actor shape item 76 itself already named. (2) A stored write forces an undecided sub-question
+(should a contract signed on an already-`churned` client silently reactivate them?) that the derived
+shape never has to answer — an override always wins, full stop. (3) `changeClientStatus`'s own
+comment already states this column has exactly one write path and flags a second one appearing as
+the point to reconsider — the same shape item 8 (`contracts.status`) and item 45 part 5
+(`sessions.status`, rejected) both already carry.
+
+**Built:** `public.client_effective_status(clients)` — a `security definer` SQL function exposed as
+a PostgREST computed column (`202609210003`). `paused`/`churned` stored values always win as manual
+overrides; every other stored value (including the 3 real clients' legacy literal `'active'`, set by
+Mihai's 2026-09-17 manual move) falls through to `exists(signed contract) ? 'active' : 'prospect'`.
+`security definer`, not a plain RLS-scoped join — checked against item 68's lesson first: `clients`'
+own SELECT policy (`202609170001`) has a `mywork.*` branch (session-scoped trainer visibility) that
+`contracts`' SELECT policy has no equivalent of at all, so a plain embed would have silently shown
+"Prospect" to a trainer regardless of truth. `markContractSigned` remains untouched — still never
+references `clients`, confirmed by inspection after the change, not just before.
+
+`CLIENT_STATUS_TRANSITIONS` (`app/(app)/clients/status.ts`) lost its `prospect: [active]` edge —
+that transition is automatic now, not a button, so a true prospect shows zero action buttons (proven
+live, assertion 3 below). `paused`/`churned → active` ("reactivate") writes the literal sentinel
+`'prospect'`, not `'active'` — `changeClientStatus` translates `newStatus === "active"` to
+`writeValue = "prospect"` before writing. Always correct on every reachable path: `paused`/`churned`
+can only be reached from derived-active, which required a signed contract, and nothing in this
+system ever un-signs one (item 8's own dead-branch finding), so reactivate always re-derives to
+Active in practice — proven live, assertions 9–10 below.
+
+**Left the 3 real clients correct, confirmed before and after, not assumed.** Live query before
+building: all 3 (Scoala Avenor, Scoala Germana, Lycée Français) hold stored `status = 'active'` and
+each has a `contracts.status = 'signed'` row — both facts checked directly. The derivation treats a
+legacy stored `'active'` identically to `'prospect'` (neither is an override), falling through to
+the same signed-contract check — same displayed answer, no migration/backfill needed or done.
+
+**Verified live, not just dry-run.** SQL dry run (rolled back): paused-override-wins-over-signed-
+contract, real-prospect-stays-prospect, legacy-active-value-falls-through-correctly — 3/3. End-to-end
+against real rendered pages in WOW LAB Test Org B, first on local dev, then unchanged and re-run
+against the actual deployed production code at `app.wowlab.ro`
+(`VERIFY_SITE_URL=https://app.wowlab.ro`, `scripts/verify_client_effective_status_test_org_b.ts`) —
+10/10 both times: prospect shows no action buttons, adding a signed contract flips list+detail to
+Active with zero writes to `clients.status`, pausing overrides the still-signed contract, reactivating
+writes the literal `'prospect'` sentinel yet re-renders Active. This closes the deploy-timing gap a
+purely read-only production check against the 3 real WOW LAB clients couldn't: those 3 rows render
+identically under old and new code (both already said Active), so passing there didn't prove the new
+code path was live — disposable fixtures in WOW LAB itself to force a real distinguishing case were
+correctly refused by the permission system as a shared-resource write; WOW LAB Test Org B against the
+real production deployment is the same code path with none of that risk, and is what closes it.
+Confirmed separately, read-only, against the 3 real WOW LAB clients too: `/clients` and all 3 detail
+pages render Active, no regression.
+
+**i18n:** none needed. Same 4 status labels (`status_prospect/active/paused/churned`) and 3 action-
+button labels (`status_action_active/paused/churned`) already in `clientsDict` — this changes how the
+value is computed, not any user-facing string.
+
+**Lives in:** `supabase/migrations/202609210003_add_client_effective_status_derivation.sql` and its
+rollback; `app/(app)/clients/status.ts` (`CLIENT_STATUS_TRANSITIONS`), `actions.ts`
+(`changeClientStatus`), `page.tsx` and `[id]/page.tsx` (both aliasing `status:client_effective_status`);
+`scripts/verify_client_effective_status_test_org_b.ts`; item 76 above (the finding this resolves);
+item 8 below, item 45 below (the second-write-path precedent); item 68 above (the RLS lesson checked
+against).
+
+---
+
+### 79. `delivery_format` → nine-value list — mapped, not migrated (Anca's instruction) — BUILT 2026-09-21, see item 85
+
+2026-09-21. Anca decided the nine workshop types item 52 below already verified from source
+(`Fielduri pentru planificare ateliere.xlsx`), corrected — **Săptămâna Verde**, not the source's
+literal "Scoala Verde"; **Wow Lab Party** as the single deduplicated value item 52 already derived
+from the raw ten-line dropdown — replace `delivery_format`'s six values. Investigation only, reported
+to Mihai, nothing built or migrated, exactly as instructed.
+
+**Every current reader, found by grep across the whole codebase:**
+- Display labels (`groups-client.tsx`, `group-info-section.tsx`) — one `format_${value}` i18n key per
+  exact value.
+- Resources caption (`trainer-resources-section.tsx`) — **binary only**: `deliveryFormat !== "recurring"`,
+  not per-value.
+- Duration multiplier (SAD §12.6/12.7, `app.resolve_duration_multiplier`, `202608310002`) — SQL
+  `case when p_delivery_format in ('scoala_altfel','saptamana_verde') then ... ×2 else ×1.5`. **No app
+  code calls this function anywhere** — checked directly, the only hits outside its own migration are
+  `scripts/verify_payment_config_tables.sql`. Fully specified, never wired to payroll.
+- Payroll (`app/(app)/payroll/*`) — **nothing**. Zero references to `delivery_format` anywhere.
+- Masking (`docs/WOWLAB_SAD_Field_Masking.md`) — **nothing**. Zero mentions.
+- `business_line` — its own `state_schools` i18n label already reads *"(Școala Altfel / Săptămâna
+  Verde)"*, a pre-existing redundancy with `delivery_format` at a coarser grain, unaffected either way.
+
+**Live rows, checked directly, both orgs:** WOW LAB has 2 groups, both `recurring` (Lycée Français).
+WOW LAB Test Org B has 1 group, `corporate` (client "MAX," a test fixture). **`custom`: zero rows,
+anywhere, ever** — confirms the task's own prediction. No `scoala_altfel`/`saptamana_verde`/`party`
+rows exist live either.
+
+**Mapping the 6 onto the 9:**
+- **Clean 1:1** — `scoala_altfel` → *Scoala Altfel*; `saptamana_verde` → *Săptămâna Verde* (the exact
+  pair item 52 flagged "close enough, not confirmed" — now confirmed).
+- **Clean by observed data, not enforced** — `recurring` → *Scoli private (colaborări recurente)*.
+  True for both live rows, but nothing in the schema stops a `recurring` group at a state school,
+  which this specific target has no room for.
+- **Splits, no single target** — `party` → *Wow Lab Party* or *Party in companii* (venue not captured
+  today). `corporate` → *Parteneriate cu companii*, *Party in companii*, or arguably *Evenimente/
+  prezentari la mall* (nature of engagement not captured). The one live `corporate` row is a test
+  fixture, not a real ambiguity.
+- **No home** — `custom`: the nine-value list has no catch-all. Zero live rows, so no live-data cost,
+  but the overflow bucket disappears structurally.
+- **Nothing maps in** — 3 of the 9 have no current equivalent: *Cursuri deschise*, *Scoli private
+  (colaborări ocazionale)*, *Evenimente/prezentari la mall*. Today these would all be forced into
+  `corporate` or `custom`.
+
+**What a migration would do to live data:** the 2 real production rows map cleanly and unambiguously.
+The 1 ambiguous row is test-org fixture data, not a real record needing a decision. Migrating today
+costs zero real ambiguity. **Does any rule change meaning:** only the ×2 duration multiplier is keyed
+on these values, and it's keyed on exactly the two values that map 1:1 — relabeling its `case when`
+preserves meaning exactly, and it has no live caller today, so even that edit is currently zero-risk.
+The resources caption's binary check also survives unchanged, since "recurring" still maps to exactly
+one target value.
+
+**Still Anca's, not settled here:** whether/when to actually migrate. This item records the mapping
+so that decision, whenever made, isn't also a research task.
+
+**Lives in:** item 52 below (the verified nine-value source and the volume fork this extends);
+`app/(app)/groups/i18n.ts`, `groups-client.tsx`, `group-info-section.tsx`, `trainer-resources-section.tsx`;
+`supabase/migrations/202608130001_create_groups_sessions_domain_tables.sql` (the live 6-value CHECK
+constraint, untouched), `202608310002_payment_config_tables.sql` (`app.resolve_duration_multiplier`);
+`docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §12.6/12.7.
+
+---
+
+### 80. Catalina (operations_manager) can now create and edit client contacts
+
+2026-09-21. Anca's decision: Catalina should be able to create client contacts. Confirmed live before
+building: `operations_manager` holds `operations.*`, `clients.read`, `contracts.read`,
+`trainers.allocate`/`substitute`, `calendars.*`, `groups.create`, `sessions.create` — not
+`clients.create` or `contracts.*`, the two capabilities that gated `client_contacts` INSERT/UPDATE/
+DELETE (`202609110001`) — so she genuinely could not, before this.
+
+**Capability granted: `operations.*`** — not a new grant, already held by `operations_manager` alone
+(confirmed live, no other role holds it in `seed.sql`), added as a fourth alternative to the existing
+INSERT/UPDATE predicate (`clients.create OR contracts.* OR operations.*`, plus owner/platform owner).
+
+**EDIT: yes**, for the named real need (correcting a phone typo) — bundled with INSERT, same
+granularity this table's other capability branches already use. **DELETE: deliberately not granted** —
+no argued need beyond what EDIT already covers; stays with the existing owners (Sales/Contract
+Administrator/org owner). This required splitting the page's single `canManage` flag (previously
+covering create+edit+delete identically, because all three policies shared one predicate) into
+`canEditContacts`/`canDeleteContacts` — getting this wrong would have shown Catalina a Delete button
+RLS silently rejects, a broken affordance rather than a hole.
+
+**Finance segregation confirmed unweakened, by construction and by a live negative test, not just by
+argument.** Only the INSERT/UPDATE policies were touched; the SELECT policy (where the finance
+client-type segregation actually lives, `202608250001`) was not edited at all. Verified live in WOW
+LAB Test Org B against a fixture holding BOTH `contracts.*`/`clients.read` (which would otherwise
+satisfy the broader non-finance SELECT branch) AND `finance.operations.*` (which excludes them from
+it) — confirmed they still cannot see a `corporate`-type client's contact, despite the broader
+capabilities this migration also touches.
+
+**Verified live.** SQL dry run (rolled back), `scripts/verify_operations_client_contacts_write.sql`:
+operations_manager can INSERT and UPDATE, cannot DELETE; a trainer cannot INSERT; finance segregation
+holds for a user who also holds `contracts.*` — 6/6. Rendered-page proof in WOW LAB Test Org B, first
+on local dev, then unchanged and re-run against the actual deployed production code at `app.wowlab.ro`
+(`NEXT_PUBLIC_SITE_URL=https://app.wowlab.ro`, `scripts/verify_operations_client_contacts_ui_test_org_b.ts`)
+— 6/6 both times: the create button and an edit action render for the operations manager, no delete
+action renders; a trainer with no allocated session at the client sees neither the client nor its
+contacts. The production run is what actually proves this code path is live, not just that WOW LAB's
+3 real client pages didn't regress (separately smoke-checked, also clean) — same reasoning as item 78's
+own production-verification note.
+
+**i18n:** none needed — the same create/edit/delete controls and labels already exist; this changes
+which roles reach them, not any string.
+
+**Lives in:** `supabase/migrations/202609210004_grant_operations_client_contacts_write.sql` and its
+rollback; `app/(app)/clients/[id]/page.tsx` (`canEditContacts`, `canDeleteContacts`, replacing the
+single `canManageContacts`), `client-contacts-client.tsx` (`canEdit`/`canDelete` props),
+`actions.ts` comment; `scripts/verify_operations_client_contacts_write.sql`,
+`verify_operations_client_contacts_ui_test_org_b.ts`; item 37 below, `202609110001`,
+`202608250001` (the write/read policy history this extends).
+
+---
+
+### 81. Open question for Anca — should payroll-closing see a client's name regardless of finance segment?
+
+2026-09-21. Recorded as still open, not answered by this round's work — item 65 above found it,
+argued it, and deliberately left it: a `finance.operations.*`-only closer (Laura's shape) sees
+"Unknown" instead of a client's name for any session outside `private_school`/`parent_b2c`, because
+`clients`' own SELECT policy segregates by the same client-type split `finance.reporting.*` uses on
+the other side. This intersects a documented, deliberate business boundary (which finance role bills
+which segment) — not a bug to patch by grafting on another RLS branch the way the trainer-name gap
+(item 66 above) was. **Currently inert**, unchanged since item 65: `sessions` still holds zero rows
+in `WOW LAB` (re-confirmed live during this round's Part 2 investigation, item 79 above), so no
+client-type mix exists yet for this to actually bite on.
+**The question, for Anca directly:** should whoever closes payroll see every client's name regardless
+of billing segment, or should payroll-closing stay scoped to someone who already holds
+`finance.reporting.*` too (sidestepping the question by construction)?
+**Lives in:** item 65 above (the full finding and its own "blocked on" note, unchanged); item 20 below
+(Laura's `finance.operations.*`-only capability set); `app/(app)/payroll/page.tsx`.
+
+---
+
+### 82. Open question for Anca — are corrections allowed after an invoice has already been issued?
+
+2026-09-21. Recorded as still open, not answered by this round's work. Item 45 below (part 5) already
+named this precisely, in passing, while resolving a different, narrower question (who can correct a
+session confirmation before/after month-close): Anca's answer there means "closed" means closed to
+the *trainer*, not frozen — the record stays open to Laura/Anka indefinitely, and the invoice, by her
+own description, is issued from a month that can still change afterward if a correction happens. That
+is a real, deliberate difference from AD-10's frozen-snapshot model (`docs/AD10...`, never in the
+repo, item 46 below) — she was not asked to approve AD-10 and did not.
+**The question, for Anca directly, is more specific than the one already answered:** if a correction
+happens *after* an invoice has actually gone out (not just after the month closes), does anything
+special need to happen — a new adjustment line on the next period with reason/approver, matching
+AD-10's own audit-trail concern, or does today's open-indefinitely-to-Laura/Anka shape already cover
+it? Item 45 named this gap; it does not resolve it.
+**Lives in:** item 45 below (the exact passage this restates as a standalone question, part 5's
+`correctSessionConfirmation`/`finance.operations.*` finding); item 46 below (AD-10's own
+frozen-statements/adjustment-line model, for comparison).
+
+---
+
+### 83. Item 78's `'prospect'` sentinel means "no override," not what the column's name says — RESOLVED 2026-09-21: renamed to `status_override`
+
+2026-09-21. Mihai's own objection to item 78, checked exhaustively before arguing anything: after
+that item's derivation, `clients.status` can hold the literal string `'prospect'` for a client that
+computes as Active. Worse than the report below first assumed — it isn't only `'prospect'` that's
+compromised. `client_effective_status()`'s own case expression (`202609210003`) treats exactly two
+values as real, trustworthy overrides — `'paused'`, `'churned'` — and **everything else** falls
+through to the contract check, `'active'` included. The 3 real rows still hold the literal string
+`'active'` today; that happens to produce the right answer, by coincidence of which write came last,
+not because the value carries meaning. Of the 4 values the CHECK constraint still permits, only 2
+retain any literal meaning. The other 2 are indistinguishable synonyms for "no override" — which
+one a row happens to hold is historical accident, not signal.
+
+**Every reader of the raw column, found by exhaustive grep, not sampled:**
+- **App code** — every `clients` select in `app/`, enumerated (15 call sites across
+  clients/contracts/groups/payroll). Exactly two select the `status` column at all: the two page.tsx
+  queries item 78 already aliased to `status:client_effective_status` (correct — they read the
+  computed value, not the raw one), and `changeClientStatus`'s own read, which selects raw `status`
+  only to feed the `.eq("status", current.status)` optimistic-concurrency guard on its own write — it
+  never treats that value as "the" status; `CLIENT_STATUS_TRANSITIONS` is looked up by
+  `effective_status` already, per item 78's own design. No other call site selects `status` at all
+  (confirmed by reading each of the other 13). **App code is not wrong today** — checked, not assumed.
+- **RLS policies, every table** — grepped for `clients.status`/`cl.status`/any status-keyed subquery
+  against `clients` across every migration. None. No policy anywhere reads this column.
+- **Views** — the only `c.status` hits found are `contracts_billing_masked`'s family of migrations,
+  where `c` aliases `public.contracts`, not `clients` — confirmed by reading the view's own `FROM`
+  clause, not assumed from the alias letter. No view selects `clients.status`.
+- **Filters / the `/clients` status dropdown** — `clients-client.tsx`'s filter operates on
+  `client.status`, which arrives from page.tsx already carrying the computed value (same alias as
+  above) — correct. The dropdown's own option list (`CLIENT_STATUSES`, minus `prospect`) is a static
+  local literal, unaffected either way.
+- **`db/tests/`, `scripts/*.sql`** — grepped for any assertion keyed on `clients.status`'s raw value.
+  None found.
+- **Not asked for, found anyway, and the real risk:** anyone with direct database access — Supabase
+  Studio's Table Editor, `supabase db query --linked`, any future ad hoc report or export — sees the
+  literal stored value with nothing distinguishing it from a genuine status. This is not fixable by
+  code discipline, because it isn't code: a person looking at the table, or a script written by
+  someone who doesn't know `client_effective_status()` exists, reads `'prospect'` and reasonably
+  believes it. **This is the actual failure mode item 78 introduced** — not a bug in the app today,
+  a trap for the first reader who reasonably assumes a column means what it's named.
+- **Documentation:** `docs/DATABASE_CONVENTIONS.md` §12 cites `clients.status = 'churned'` as its
+  worked example of the status-replaces-delete convention — still accurate; `'churned'` is one of the
+  two values that kept its literal meaning. `docs/WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md`'s own
+  description of `prospect` (quoted in item 76 above: *"prospect exists as status only for pre-
+  contract clients"*) is now stale for a raw reader of the column, for the reason this item names.
+
+**The redesign, argued.** Two shapes were on the table.
+1. *Keep the name, make the raw column unreachable except through the computed one* (e.g. `REVOKE
+   SELECT` on `status` from `authenticated`, matching the precedent already used for
+   `client_contacts.notes`, `202608250001`). **Rejected.** It only protects PostgREST/`authenticated`
+   sessions — the actual risk named above is Supabase Studio and `supabase db query`, both of which
+   connect as a privileged role that a table-level `REVOKE` from `authenticated` does not touch. It
+   would fix the reader that was never actually wrong (app code, already routed through the computed
+   column) and leave the one that is wrong (direct database access) completely unprotected.
+2. **Chosen: rename the column to what it now holds, and make illegal what it no longer means.**
+   `status` → `status_override` (exact name TBD, open to a better one), nullable, `CHECK
+   (status_override IS NULL OR status_override IN ('paused', 'churned'))` — `'prospect'`/`'active'`
+   stop being legal values for this column at all, because they were never a real value here, only a
+   sentinel for "nothing." `NULL` replaces item 78's own `'prospect'`-as-sentinel trick outright — a
+   genuine simplification, not just a rename: `changeClientStatus`'s reactivate edge would write a
+   literal `NULL` instead of the borrowed string `'prospect'`, closing the exact "writes prospect,
+   displays Active" indirection item 78's own text already flagged as the one non-obvious edge.
+   `client_effective_status()`'s case expression becomes `status_override IS NOT NULL → status_override
+   ELSE (signed contract ? active : prospect)` — clearer, not just relabeled. A rename protects every
+   reader uniformly — Table Editor, `psql`, `service_role`, `authenticated`, all see the same renamed
+   column, so nobody can mistake it for "the status" by habit, the same way a differently-named
+   column already protects `billing_rule`/`estimated_value` from being read as public data without
+   anyone needing to remember a grant exists. Blast radius is small and already mapped by the audit
+   above: 3 app-code call sites, the computed-column function, one migration (rename + constraint +
+   backfill the 3 real rows' literal `'active'` to `NULL` — no behavior change, since `NULL` and
+   `'active'` already compute identically under item 78's derivation).
+
+Matches this register's own most-repeated pattern by name, not by coincidence — a stored value whose
+name no longer matches what it holds (item 21, `users.status`; item 76, `clients.status` before item
+78; now `clients.status` again, introduced by the very fix that closed item 76). Recorded as its own
+general item, 84 below.
+
+**Built exactly as recommended (`202609210005`).** `clients.status` → `clients.status_override`,
+nullable, `CHECK (status_override IS NULL OR status_override IN ('paused', 'churned'))` — `'prospect'`
+and `'active'` are no longer legal values anywhere on this column, confirmed live: writing the literal
+`'active'` to `status_override` is now rejected by the constraint (assertion 2 of the dry-run script
+below). `client_effective_status()` (item 78) updated in place, same shape, new column name.
+
+**Acceptance test: every real row's effective status, before and after, all 4 rows, both orgs — not
+sampled.** Captured live before the migration, re-derived live after:
+
+| Org | Client | Stored before → after | Effective before → after |
+|---|---|---|---|
+| WOW LAB | Scoala Avenor | `'active'` → `NULL` | active → active |
+| WOW LAB | Scoala Germana | `'active'` → `NULL` | active → active |
+| WOW LAB | Lycée Français | `'active'` → `NULL` | active → active |
+| WOW LAB Test Org B | MAX | `'prospect'` → `NULL` | prospect → prospect |
+
+No paused/churned rows existed live anywhere at migration time. Every row's effective status is
+byte-identical before and after — the rename changed no visible status anywhere, which was the whole
+acceptance test, not a side observation.
+
+**`changeClientStatus` (`app/(app)/clients/actions.ts`) rewritten, not patched.** Reads
+`status_override` (only to guard its own write against a race, never as "the" status — unchanged from
+item 78's own discipline). Writes: `'paused'`/`'churned'` pass through; the reactivate edge
+(paused/churned → active) now writes literal `NULL` — item 78's `'prospect'`-as-sentinel indirection
+is gone outright, not renamed. The optimistic-concurrency guard is NULL-safe: `.eq(col, null)` builds
+`= NULL`, which SQL never matches, even against an actually-NULL row — the guard branches to `.is()`
+when the current value is `NULL`, `.eq()` otherwise. `addClient` no longer writes any override on
+create — the column has no default now (an explicit design choice: NULL, "no override," is what a new
+client should start with, matching the old default's own meaning exactly, just honestly this time).
+`CLIENT_STATUS_TRANSITIONS` (`status.ts`) unchanged in shape (still keyed by effective status, for the
+button-set lookup) — its comment now says plainly that its *values* describe override targets, not
+statuses, since `status_override` itself can never hold `'prospect'`/`'active'`.
+
+**`row_history` note, in the migration header, not just here:** entries with `changed_at` before this
+migration carry the key `"status"` with one of the 4 original literal values (including Mihai's
+2026-09-17 manual moves to `'active'`) — entries after carry `"status_override"` instead, `'paused'`/
+`'churned'`/`null`. No single query reads both sides uniformly; filter by `changed_at` and read the
+correct key per side.
+
+**Rollback is explicitly lossy, stated in its own header, not silently approximate.** It cannot recover
+whether a `NULL` row was `'prospect'` or `'active'` before — that distinction was deliberately erased
+by the forward migration itself. Rolling back backfills every `NULL` to `'prospect'` (the schema's
+original default, not a recovered fact) — for the 3 real WOW LAB rows, which were actually `'active'`,
+running the rollback would be a real step backward on the raw column, said plainly in the rollback file
+so nobody trusts it as a true undo. What survives exactly: `paused`/`churned` values, and every
+client's derived status, since `client_effective_status()` never depended on which of prospect/active
+the raw column said.
+
+**Verified live, both dry-run and end-to-end, then on the real deployment.** Dry run
+(`scripts/verify_clients_status_override_rename.sql`, rolled back) against the real data above — 1/1
+(all 4 rows identical) + 1/1 (the new constraint rejects `'active'`). End-to-end against all 5 named
+cases — prospect, signed-contract (active), paused, churned, reactivated — in WOW LAB Test Org B,
+checking BOTH the rendered page AND the raw `status_override` value directly at every step
+(`scripts/verify_clients_status_override_rename_test_org_b.ts`): 10/10 on local dev, then unchanged and
+re-run against the actual deployed code at `app.wowlab.ro` — 10/10 again, same discipline items 78/80
+already established for closing the deploy-timing gap. At every one of the 5 steps, `status_override`
+held either `NULL` or a real override — never a status word.
+
+**i18n:** none needed — same 4 display labels, same 3 action-button labels; this only changes storage.
+
+**Lives in:** item 78 above (the derivation this corrects); item 21 below, item 76 above, item 84
+below (the named pattern this repeats, now recorded generally);
+`supabase/migrations/202609210005_rename_clients_status_to_status_override.sql` and its rollback;
+`app/(app)/clients/status.ts`, `actions.ts` (`changeClientStatus`, `addClient`), `clients-client.tsx`
+(`CLIENT_STATUSES` comment); `scripts/verify_clients_status_override_rename.sql`,
+`verify_clients_status_override_rename_test_org_b.ts`; `docs/DATABASE_CONVENTIONS.md` §12 (the
+`clients.status = 'churned'` reference, confirmed still accurate — `'churned'` never stopped meaning
+what it says).
+
+---
+
+### 84. General lesson — a stored value that stopped meaning its name is fixed by renaming it, not by guarding it, because the misreading happens outside the app
+
+2026-09-21. The general form behind item 83's fix, recorded on its own so the next instance of this
+shape gets recognized faster than this one was. This register's single most-repeated failure family
+(item 21, `users.status`; item 76, `clients.status` before item 78; item 83, `clients.status` again,
+introduced by the very fix that closed item 76) has one recurring cause: a column keeps its original
+name after a change makes some of its legal values stop meaning what the name says, and every reader
+*inside* the app gets updated to route around that — while the column itself still looks, to anyone
+who hasn't read the fix, like it means what it always meant.
+
+**The fix that doesn't work: gate the column, keep the name.** Item 83 considered and rejected this —
+`REVOKE SELECT` on the raw column from `authenticated`, or an equivalent grant-based lockout, protects
+only sessions going through that grant (PostgREST/the app). It does nothing for Supabase Studio's Table
+Editor, `supabase db query`, or any future script connecting with a privileged role — which is where
+the actual misreading happens, because a person or a script assumes a column named `status` holds a
+status. **No code-layer discipline reaches a human looking directly at the schema.**
+
+**The fix that works: rename the column to what it now holds.** A rename is visible to every reader
+uniformly — Table Editor, `psql`, `service_role`, `authenticated`, all see the identical renamed
+column, so nobody can mistake it for its old meaning by habit. This is the same principle
+`billing_rule`/`estimated_value` already rely on (protected from being read as public data by living
+behind a masking view, not by a grant someone has to remember exists) — applied here to a column's own
+*name* rather than its access path.
+
+**When this applies:** any time a fix changes what a stored value means without changing what it's
+called — a derivation added on top of a column that used to be the literal answer (item 78's own
+shape), a status value redefined to serve two purposes, a flag whose true/false stopped mapping to
+what the field name implies. The test: would a person with raw database access, who has not read the
+migration that changed this, draw the wrong conclusion from the column's current name and value? If
+yes, gating access is not the fix — renaming is, because the reader that matters is the one no grant
+or app-layer check can reach.
+
+**Lives in:** item 83 above (the concrete instance this generalizes); item 21 below, item 76 above
+(the two prior instances of the same shape, both left as gate-or-ignore rather than renamed at the
+time); item 71 above (a different general form — a cleared blocker leaving no trace — worth
+distinguishing: that one is about a register entry going stale, this one is about a *column* going
+stale while its entry stays accurate).
+
+---
+
+### 85. Item 79's mapping built — `delivery_format` migrated to Anca's nine workshop types
+
+2026-09-21. Anca decided; item 79 above did the investigation and found it lower-risk than it
+looked (no live caller on the duration multiplier, payroll/masking read nothing from this field,
+`custom` has zero live rows) — this item is the build.
+
+**The nine, keys ASCII snake_case (Mihai's instruction), labels carrying the diacritics in
+`app/(app)/groups/i18n.ts`, RO and EN:** `scoala_altfel` (Școala Altfel), `saptamana_verde`
+(Săptămâna Verde — Anca's own naming, matching the schema's existing key, not the source
+spreadsheet's literal "Scoala Verde" item 52 originally quoted), `wow_lab_party` (Wow Lab Party),
+`parteneriate_companii` (Parteneriate cu companii), `cursuri_deschise` (Cursuri deschise),
+`scoli_private_ocazionale` (Școli private, colaborări ocazionale), `scoli_private_recurente` (Școli
+private, colaborări recurente), `evenimente_mall` (Evenimente/prezentări la mall), `party_companii`
+(Party în companii). `scoala_altfel`/`saptamana_verde` keep their exact prior literal strings — same
+program, same key, only the surrounding list was confirmed (same reasoning item 83 used for
+`paused`/`churned` surviving the status rename unchanged).
+
+**Every existing row, reported before the migration was written, not defaulted:** exactly 3 rows
+exist across both orgs, confirmed live immediately before writing the migration.
+
+| Org | Client | Module | Old value | New value |
+|---|---|---|---|---|
+| WOW LAB | Școala Franceză (Lycée Français, `private_school`) | wow_mix | `recurring` | `scoli_private_recurente` — clean, not just by the general rule: this row's own client is a private school with an ongoing relationship |
+| WOW LAB | same client | wow_mix | `recurring` | `scoli_private_recurente` — same reasoning |
+| WOW LAB Test Org B | MAX (`corporate`) | green_energy | `corporate` | **splits three ways** — `parteneriate_companii` / `party_companii` / `evenimente_mall`, nothing on the row distinguishes them |
+
+**The split, flagged before building, resolved by Mihai, not defaulted.** Asked directly rather than
+guessing: chose `parteneriate_companii`. No `scoala_altfel`, `saptamana_verde`, `party`, or `custom`
+rows exist live anywhere, so those three old values had nothing to migrate.
+
+**Recurring, confirmed: `scoli_private_recurente` only.** Matches Mihai's own reading exactly — none
+of the other eight (including `scoala_altfel`/`saptamana_verde`, which were never "recurring" in this
+sense even under the old six-value list). Updated both places this distinction lives:
+`app/(app)/groups/[id]/trainer-resources-section.tsx` (`isOneOff`, the feedback-form caption) and
+`groups-client.tsx` (`isRecurring`, the create form's schedule-pattern shape — day+time vs.
+date+time). Found and fixed a real staleness while updating the caption itself:
+`resources_feedback_form_optional`'s own text hardcoded example values ("Școala Altfel, Săptămâna
+Verde, corporate, parties") that no longer exist under the new vocabulary — rewritten around the
+actual rule ("required for one-off workshops — optional only for recurring private-school
+collaborations") instead of an example list that would drift again the next time the vocabulary does.
+
+**Duration multiplier: re-keyed, not silently orphaned.** `app.resolve_duration_multiplier`
+(`202608310002`) still has no live caller anywhere in app code — reconfirmed fresh, unchanged since
+item 79. The two literal strings it matches (`scoala_altfel`, `saptamana_verde`) are unchanged by this
+migration, so its `case when` didn't need new values — but it was still `CREATE OR REPLACE`'d with an
+explicit comment recording that re-confirmation, so the day a payroll calculation finally calls it,
+whoever's reading finds the check already done, not a silent assumption. Instruction: "re-verify this
+comment the day a payroll calculation actually calls this function for the first time."
+
+**`business_line` overlap, reported, not reconciled — both decisions stand, they answer different
+questions.** `business_line`'s own `state_schools` value is labeled *"(Școala Altfel / Săptămâna
+Verde)"* — a coarser-grained version of exactly the new list's first two entries.
+`business_line_recurring_private_schools` overlaps `scoli_private_recurente`.
+`business_line_corporate_events` overlaps the remaining company/event-flavored values
+(`wow_lab_party`, `parteneriate_companii`, `evenimente_mall`, `party_companii`) as a group, not 1:1.
+This redundancy already existed between `business_line` and the old `delivery_format` (nothing ever
+enforced they agree); the new vocabulary doesn't create it or fix it, just changes which words sit on
+the more granular side. Not reconciled — Anca decided both fields for different reasons, and this
+item doesn't second-guess either.
+
+**No catch-all value.** Item 79 already flagged `custom`'s old escape-hatch role as having no
+equivalent in the nine — not invented here either. Anca's decision was "these nine replace the six,"
+not "these nine plus a fallback." A workshop that genuinely fits none of the nine is now a real gap
+to surface, not silently absorbed.
+
+**Acceptance test: every row, before and after, nothing unintended changed — same discipline as item
+83's status rename.** Dry run against the real live data
+(`scripts/verify_groups_delivery_format_nine_types_migration.sql`, rolled back): all 3 rows mapped
+exactly as the table above states, zero rows outside those 3 touched, and writing the old literal
+`'recurring'` is rejected by the new constraint — 2/2. Applied for real, then re-queried live: matches
+the dry run exactly, byte for byte.
+
+**Found and fixed while verifying, not part of the original scope but left broken would defeat the
+point of touching the file at all.** `db/tests/rls_groups_sessions.sql`'s own header claims "safe to
+re-run at any time" — its `delivery_format` fixture literals (`'recurring'`, `'party'`, `'custom'`)
+would have silently broken that claim the moment this migration shipped, so they're updated
+(`'recurring'` → `scoli_private_recurente`, `'party'` → `wow_lab_party`, `'custom'` → an arbitrary
+valid replacement, `cursuri_deschise` — these points don't test format-specific behavior). Discovered
+in the same pass, unrelated to this migration but blocking its own sanity check: both
+`db/tests/rls_groups_sessions.sql` and `rls_clients_contracts.sql` still inserted a bare `status`
+column into `public.clients`, broken since item 83 renamed it to `status_override` — fixed (the column
+is simply omitted now, same as `addClient`'s own fix in item 83, since none of these fixtures test
+status semantics). A THIRD, older staleness was found and left alone, out of scope for both this task
+and item 83: `db/tests/rls_clients_contracts.sql` also references `contracts.contract_number`, dropped
+in favor of `entry_number`/`exit_number` back in `202608180002` — predates both this item and item 83,
+not fixed here, named so it isn't mistaken for something this round already covered.
+
+**Verified live, local dev then the real deployment, same discipline as items 78/80/83.**
+`scripts/verify_groups_delivery_format_nine_types_test_org_b.ts` against WOW LAB Test Org B: the real
+migrated MAX/green_energy row renders "Company partnerships," a fresh `scoli_private_recurente` group
+shows the optional caption, a fresh `wow_lab_party` group shows the required caption (proving the
+split is keyed on `scoli_private_recurente` specifically, not a substring check), the list page
+renders the new label — 7/7 on local dev, 7/7 again against the real `app.wowlab.ro` deployment.
+
+**i18n:** `format_*` keys fully replaced (6 → 9, `app/(app)/groups/i18n.ts`); one caption rewritten
+(`resources_feedback_form_optional`, the stale-example fix above). Both RO and EN.
+
+**Lives in:** item 79 above (the investigation and mapping this builds);
+`supabase/migrations/202609210006_migrate_groups_delivery_format_to_nine_workshop_types.sql` and its
+rollback (a true undo this time — 3 known rows by id, no lossy backfill, unlike item 83's);
+`app/(app)/groups/i18n.ts`, `groups-client.tsx` (`FORMAT_KEYS`, `isRecurring`),
+`[id]/trainer-resources-section.tsx` (`isOneOff`); `scripts/verify_groups_delivery_format_nine_types_migration.sql`,
+`verify_groups_delivery_format_nine_types_test_org_b.ts`; `db/tests/rls_groups_sessions.sql`,
+`rls_clients_contracts.sql` (the incidental `status`→`status_override` fix); item 83 above (the same
+acceptance-test discipline, and the second write path that broke `db/tests` unnoticed until now).
+
+---
+
+### 86. Every `db/tests/` and `scripts/verify_*.sql` file, actually run — a fourth and fifth instance found, two fixed, none of the rest touched
+
+2026-09-22. Mihai's own finding: `rls_clients_contracts.sql` inserts `contracts.contract_number`,
+dropped 2026-08-18 — it cannot have run successfully since. Asked to run every file in both
+directories for real and report pass/fail, not what any file claims. 39 files total (6 in
+`db/tests/`, 33 `scripts/verify_*.sql`), each run against the live linked database.
+
+**Result, by category — not "broken" vs "working," three genuinely different shapes:**
+
+1. **Genuinely clean:** `capability_liveness.sql`, `rls_d0_helpers.sql`, `rls_ws_d_read.sql`,
+   `verify_payment_config_grid_counts.sql`, plus 8 `scripts/verify_*.sql` files that use the
+   `raise exception` reporting convention and show all-PASS inside it (`verify_clients_unique_cui`,
+   `verify_groups_delivery_format_nine_types_migration`, `verify_operations_client_contacts_write`,
+   `verify_payroll_periods_close`, `verify_remove_client_contacts_write_finance_exclusion`,
+   `verify_remove_contracts_write_finance_exclusion`, `verify_users_field_masking_grants`) — 12 files.
+2. **One-time dry-run scripts, non-idempotent by design, colliding with their own already-applied
+   migration ("relation/policy/column/function already exists").** Not decay — these were never
+   meant to re-run after the migration they dry-ran for shipped; re-running them now just recreates
+   an object that's already permanently there. 12 files: `verify_allow_org_membership_without_role`,
+   `verify_client_contacts_delete`, `verify_contracts_delete`, `verify_contracts_field_masking`,
+   `verify_contracts_signed_date_status_check`, `verify_groups_contract_id`,
+   `verify_lesson_plan_rate_tables`, `verify_payment_config_tables`, `verify_sessions_location_language`,
+   `verify_suppliers`, `verify_trainer_grade_assignments_source`, `verify_users_masked_view`.
+3. **Same one-time-by-design category, but ALSO now broken by later, unrelated drift — this
+   session's own item 83/85 casualties, one day old, not silent decay:** `verify_clients_status_
+   override_rename.sql` (references `clients.status`, renamed by item 83); `verify_clients_business_
+   line_check.sql` (same); `verify_clients_mywork_visibility.sql`,
+   `verify_clients_mywork_visibility_wowlab_prod_org.sql`, `verify_groups_children_confirmed_write.sql`,
+   `verify_sessions_confirmation_write.sql`, `verify_sessions_trainer_attendance_write.sql`,
+   `verify_sessions_trainer_attendance_write_test_org_b.sql`, `verify_users_trainer_name_visibility.sql`,
+   `verify_client_contacts_trainer_facing_scoping.sql` (all insert `delivery_format = 'recurring'`/
+   `'party'`, illegal since item 85). Left as-is — these already did their one job; not part of this
+   fix.
+4. **One reported real failure, not decay:** `verify_remaining_test_account_flags.sql` — 2 of 3
+   assertions pass, the third (a total-count check against a baseline of 52 captured 2026-09-04)
+   now reads a different total, because real accounts were added since. A stale snapshot assertion,
+   not a regression.
+5. **Two structural failures not fully root-caused** (`invalid input syntax for type uuid: ""`) —
+   `verify_client_contacts_row_filters.sql`, `verify_row_history_actor_user_id.sql` — a config/GUC
+   dependency issue, not investigated to root cause within this round; named so it isn't mistaken for
+   something this audit already resolved.
+6. **Genuinely broken "safe to re-run at any time" regression suite — the actual finding, fixed:**
+
+**`db/tests/rls_clients_contracts.sql` — exactly Mihai's own diagnosis, confirmed.** Broken since
+`202608180002` (2026-08-18), 14 `contract_number` references. All 14 replaced with `exit_number` (the
+column's real replacement, same literal values — every one was already unique per org, so no value
+changes needed). Re-run for real, point by point, not just the file as a whole: **8 real assertions,
+all PASS, plus the sabotage self-check, which correctly flips to `pass = false` under a deliberately
+broken policy.** 2026-08-07 + 11 days = 2026-08-18 — the closure's own arithmetic, confirmed.
+
+**`db/tests/rls_ws_d_write.sql` — broken worse than "doesn't run," and this is the sharper finding.**
+Three blocks (1, 2, 6) resolve a second fixture user's id by email AFTER the role switch to
+`authenticated` — worked until `202608210001_users_field_masking_grants.sql` (2026-08-21) revoked
+SELECT on `users.email` from `authenticated` entirely. Block 1's lookup was unguarded — the whole
+block aborted outright, at least visibly broken if anyone had looked. Blocks 2 and 6's lookups sat
+INSIDE the same `BEGIN/EXCEPTION WHEN insufficient_privilege` written to catch the write policy's own
+expected denial — the lookup's failure and the policy's denial share the same SQLSTATE, indistinguishable
+to that handler. **Block 6 is the suite's own sabotage self-check** ("does this suite have teeth") —
+its own comment states `pass` is supposed to read FALSE when the policy is deliberately broken. It
+read `true` instead, silently, since 2026-08-21 — the one piece of evidence offered that this suite's
+negative tests actually test anything had none, and item 72's own 2026-09-18 text claimed "re-run
+today, that suite still passes 12/12+8/8... the cited evidence is still true" without catching it —
+corrected there now, not silently edited. Fixed by resolving every fixture id into a session GUC while
+still privileged, matching this file's own stated convention, which blocks 1/2/6 just didn't follow
+for their second lookup. Re-verified block by block: **all 6 blocks correct, sabotage now correctly
+reads `pass = false` under a broken policy.**
+
+**Does the suite now cover the policies that exist — reported, not assumed from a pass count.**
+Confirmed by actually reading `rls_clients_contracts.sql`'s 8 points against `clients`/`contracts`/
+`client_contacts`'s current policies: finance segregation (2 branches), operations visibility,
+billing/financial masking (2 fields, 2 directions), sales/contract-admin write capability gates,
+cross-org isolation, DELETE deny-all, sabotage. It does NOT cover: `client_contacts`' `mywork.*`
+trainer-facing branch (narrowed by item 77/`202609210002`, entirely outside this file's scope — that
+branch's only coverage is `scripts/verify_client_contacts_trainer_facing_scoping.sql`, a one-time dry
+run, category 3 above, itself now broken); `operations.*`'s new write grant (item 80); the finance
+`org.settings.manage`-vs-`clients.create` distinction on `clients` itself. `rls_ws_d_write.sql`
+covers exactly the 6 July write policies its own header names — nothing added since, matching item
+72's own finding that this file has one commit, ever.
+
+**Would the suite have caught the two bugs found this month by other means — asked directly, not
+assumed from "the suite is stale" alone.** Both answers are no, for the same underlying reason item
+72 already established, now with two more named instances:
+- **Item 68's finance-branch-reading-an-RLS-gated-table bug** (`public.users`' own trainer-visibility
+  policy, fixed `202609160002`) — no `db/tests/` file exercises `users`' SELECT policy's finance
+  branch at all; item 72 already found "every verification of `users`' own repeatedly-revised
+  visibility policy was a one-off `scripts/verify_*.sql`, run once by hand. No runner exists." Still
+  true, confirmed again here.
+- **The too-wide `client_contacts` `mywork.*`/trainer_facing branch** (fixed `202609210002`, item
+  77) — not covered by `rls_clients_contracts.sql` at all (confirmed by the point-by-point read
+  above); its only verification was `scripts/verify_client_contacts_trainer_facing_scoping.sql`,
+  itself a one-time dry run (category 3 above), not a maintained regression check.
+
+Neither gap was closed by this fix — fixing `rls_clients_contracts.sql`/`rls_ws_d_write.sql` restores
+them to correctly testing what they already tested in July/August; it adds no new coverage for either
+bug. That would be new work, not a repair, and wasn't asked for here.
+
+**Lives in:** item 72 above (the WS-D entry this corrects and extends — the closure's cited evidence
+was weaker than its own re-verification claimed); item 68 above, item 77 above (the two bugs checked
+against); `db/tests/rls_clients_contracts.sql`, `rls_ws_d_write.sql` (both fixed);
+`supabase/migrations/202608180002_replace_contract_number_with_entry_exit.sql`,
+`202608210001_users_field_masking_grants.sql` (the two migrations that did the breaking).
+
+---
+
+### 87. Deploy ordering — migrations apply instantly, app code rolls out after; a rule proposed, not built
+
+2026-09-22. For item 85 (nine workshop types), the rollout gap between migration and deploy produced
+only failing verification-script assertions, caught immediately. For item 83 (`status`→
+`status_override`), the same gap meant OLD app code, still reading `clients.status`, ran briefly
+against a schema where that column no longer existed. Asked whether that caused real errors in
+production, from logs if reachable, then to propose (not build) a rule.
+
+**Logs: unreachable in this environment, reported plainly rather than guessed around.** Neither
+`vercel logs` nor any Supabase log query is authenticated/available here (`vercel whoami` returns
+"Not authorized"; the Supabase CLI has no log-query subcommand for Postgres/PostgREST). What follows
+is reasoned from the actual code, not observed from a log line — stated as such, not blurred into a
+confirmed finding.
+
+**What would actually have happened, traced through the real code, not assumed generically.**
+Neither failure mode is a raw crash, for a reason specific to this codebase's own pattern, confirmed
+by reading it: `app/(app)/clients/page.tsx` and `[id]/page.tsx` both destructure only `{ data }` from
+their Supabase queries, never checking `error` — a query failure just yields `data = null`/`undefined`,
+which `?? []` or a `!client` check turns into an empty list or the existing `AccessDenied` page, not a
+thrown exception. `error.tsx`/`global-error.tsx` still don't exist anywhere (item 25 below,
+re-confirmed live, still true) — but that gap never gets exercised here, because nothing actually
+throws. So: for item 83's window, a real request to `/clients` or `/clients/[id]` during the gap would
+have rendered a **misleadingly empty client list, or a misleading "not found"** — wrong, but not
+visibly broken, self-healing the moment the new deploy completed (confirmed ~60-90s in this session's
+own observed timing). For item 85's window: `lib/i18n.tsx`'s `useTranslations` deliberately falls back
+to the **raw dictionary key** on a miss ("a forgotten translation should be obvious in the UI, not
+swallowed," its own comment) — old code showing a new `delivery_format` value would have rendered the
+literal string `format_scoli_private_recurente` as a label — ugly, self-evidently wrong, not a crash,
+not wrong data. Whether any real request actually landed in either window: not determinable without
+logs — WOW LAB's real traffic is small (3 clients, 2 groups, a handful of real accounts), so the
+probability is low but not zero, and this item does not claim either way.
+
+**A rule, proposed, not built — expand-then-contract.** For a rename or a value-domain narrowing on a
+column real app code reads: (1) *expand* — add the new column/values alongside the old, unchanged; (2)
+deploy code that reads/writes the new shape exclusively; (3) once that deploy is confirmed live, a
+*separate, later* migration drops the old column/values. Item 78 already did step 1's equivalent for
+`clients.status` (added `client_effective_status()` as a new function, left the raw column alone) —
+the risk this item is about was entirely in item 83's later *contract* step, the rename itself, done
+as one atomic migration+deploy. A full expand-then-contract treatment of that specific step would have
+added the new `status_override` column first (nullable, backfilled), shipped code reading it
+exclusively while `status` still physically existed untouched, then dropped `status` in a separate
+migration once that deploy was confirmed — no window where a live column reference goes missing
+underneath running code, for either direction of the deploy race.
+
+**Cost, argued, not asserted.** Two migrations and two deploy cycles instead of one, with a real gap
+between them (hours to days, to be meaningfully safer than the ~90 seconds this session's actual
+timing shows — a short wait doesn't add real protection over what already happened). For item 85's
+value-domain change specifically, the equivalent isn't a new column, it's a temporarily-widened CHECK
+constraint (old 6 + new 9 as one superset) and an i18n dictionary carrying both old and new keys until
+the narrowing migration ships — a real increase in surface area to hold correctly for the transition
+window, not a mechanical checklist item.
+
+**Is it worth it at this project's scale — recommended, not decided.** No, not as a blanket rule for
+every rename/drop, given three specific, checked mitigating facts, not a general "it's probably fine":
+this codebase's own `{ data }`-only query pattern already bounds a schema-mismatch failure to
+"visibly/silently wrong," never a crash; `useTranslations`' own fallback does the same for i18n
+misses; and WOW LAB's real traffic today is small enough that the actual exposure window (observed
+~60-90s) is low-consequence even in the worst case. Full expand-then-contract's cost (two migrations,
+two deploys, a real waiting gap, extra surface to hold correctly meanwhile) is a velocity tax this
+project's current single-pipeline, AI-assisted workflow would feel on every rename, for a risk that's
+already small and self-healing. **Lighter-weight alternative, actually worth adopting now:** for a
+rename/drop specifically (not additive changes), don't push code and apply the migration in the same
+motion — push the code first, confirm the new deployment is actually live (this session's own
+established re-verification habit), and only then apply the migration. That doesn't eliminate the
+gap, but it removes the "did the migration land before or after the deploy" uncertainty that made this
+round's own timing partly accidental. Revisit full expand-then-contract the day WOW LAB's real traffic
+or the consequence of a wrong page (not just an empty list) grows enough that a 60-90 second window
+stops being obviously low-stakes.
+
+**Lives in:** item 83 above, item 85 above (the two migrations this item traces); item 25 below (the
+missing error boundary, checked and confirmed still not the actual failure mode here); item 78 above
+(the derivation step that already did half of expand-then-contract, unknowingly); `app/(app)/clients/page.tsx`,
+`[id]/page.tsx` (the `{ data }`-only pattern); `lib/i18n.tsx` (`useTranslations`' fallback).
+
+---
+
+### 88. The suite made to actually cover the current RLS surface — coverage mapped, two missing tests built, every sabotage check audited, a runner built
+
+2026-09-22. Item 86's repair made the existing suite honest again; this item is the build Mihai asked
+for on top of that — make it actually cover the RLS surface that exists today, not just the surface
+it was written against in July/August.
+
+**Every live policy, from `pg_policies`, mapped against `db/tests/` — not sampled.** 67 policies
+across ~30 tables. Grouped by what's actually true, not "covered" vs "not":
+
+| Domain | Policies | `db/tests/` coverage | Working sabotage |
+|---|---|---|---|
+| `users` (SELECT/UPDATE) | 2 | **None, until this item** — item 68's finance-branch bug shipped and died silently precisely because of this gap | New: `rls_users.sql` |
+| `client_contacts` (SELECT/INSERT/UPDATE/DELETE) | 4 | `rls_clients_contracts.sql` covers masking + finance segregation + write capability gates, but never the `mywork.*`/trainer_facing branch — the one item 77 had to narrow | New: `rls_client_contacts_trainer_facing.sql` |
+| `clients` (SELECT/INSERT/UPDATE) | 3 | `rls_clients_contracts.sql` — finance segregation, `clients.create` INSERT, DELETE deny-all, cross-org isolation, sabotage | Yes (Point 7) |
+| `contracts` (SELECT/INSERT/UPDATE/DELETE) | 4 | `rls_clients_contracts.sql` — finance segregation, masking (`contracts_billing_masked`), contract_admin write, sales_a negative, sabotage | Yes (Point 7) |
+| `groups` (SELECT/INSERT/UPDATE) | 3 | `rls_groups_sessions.sql` — mywork.* scoping, ops write, finance read+write-via-`contracts.*` (item 89 below, found by this round's own runner), cross-org, sabotage | Yes |
+| `sessions` (SELECT/INSERT/UPDATE) | 3 | `rls_groups_sessions.sql` — same coverage as `groups`, row_history both tables | Yes |
+| `user_org_roles` (SELECT/INSERT/UPDATE) | 3 | `rls_ws_d_write.sql` — privilege-escalation guard, sabotage | Yes (now — item 86) |
+| `org_settings` (SELECT/UPDATE) | 2 | `rls_ws_d_read.sql` + `rls_ws_d_write.sql` — owner write, cross-org, wrong-capability negative | No sabotage on this specific policy (the suite's one sabotage check targets `user_org_roles`, not `org_settings` — a real gap, not claimed covered) |
+| `legal_entities` (SELECT/INSERT/UPDATE) | 3 | `rls_ws_d_write.sql` — owner INSERT, trainer DELETE-deny-all | No sabotage |
+| `organizations`, `capabilities`, `role_capabilities`, `roles`, `modules`, `audit_log`, `row_history` | 8 | Read only, mostly reference/lookup tables or append-only logs with no meaningful negative case (`audit_log` has no DELETE/UPDATE policy at all by design) | N/A |
+| `duration_multiplier_*`, `location_bonus_*`, `language_bonus_*`, `contract_type_uplift_*`, `trainer_grade_*`, `lesson_plan_rate_*` (payment-config, 6 tables) | 12 | **None** — one-time `scripts/verify_*.sql` dry runs only, several now broken by their own non-idempotent DDL (item 86's category 2) | No |
+| `suppliers`, `payroll_periods`, `file_refs` | 8 | **None** — same, one-time scripts only | No |
+
+**The two tests item 86 and Mihai both named, built with working sabotage, both verified to have
+actually caught the historical bug:**
+- **`db/tests/rls_users.sql`** — Point 1: `finance_ops_a` sees `trainer_a`'s row
+  (`app.viewer_sees_trainer_via_finance_ops`, item 68's fix). Point 2: does NOT see a non-trainer's
+  row (the branch is scoped, not a blanket finance-sees-everyone grant). Point 3, sabotage: reverts
+  the helper function to the EXACT pre-`202609160002` body (quoted verbatim from that migration's own
+  header — an inline read, no longer `security definer`, subject to `user_org_roles`' own RLS).
+  Confirmed live: `actual` drops from 1 to 0, `pass` flips to false — **this test would have caught
+  item 68's bug**, the thing it exists to prove.
+- **`db/tests/rls_client_contacts_trainer_facing.sql`** — Point 1: the allocated trainer sees the
+  linked `trainer_facing` contact; an unrelated trainer (same `mywork.*` capability, no session on
+  the group) does not; the allocated trainer does not see the client's other, unlinked contact.
+  Point 2, sabotage: reverts the branch to the EXACT pre-`202609210002` org-wide shape (quoted
+  verbatim from that migration's own header — capability + `contact_purpose` only, no
+  group/session scoping). Confirmed live: the unrelated trainer now sees the contact, `pass` flips to
+  false — **this test would have caught item 77's bug**.
+
+**Every sabotage check in the suite, audited for the exact vulnerability item 86 found in
+`rls_ws_d_write.sql` — could the try-block's own setup lookup throw the same exception the policy
+denial is supposed to throw, undetectably.** All 7 `EXCEPTION WHEN insufficient_privilege` blocks
+across the whole suite found (2 in `rls_groups_sessions.sql`, 2 in `rls_clients_contracts.sql`, 3 in
+`rls_ws_d_write.sql`) — the 4 outside `rls_ws_d_write.sql` read every supporting value from a session
+GUC resolved before the role switch, never from a fresh lookup inside the guarded block; confirmed
+clean by reading each one, not assumed from the pattern holding elsewhere. Only `rls_ws_d_write.sql`'s
+3 were vulnerable, and item 86 already fixed and re-verified all 3. **Separately**, the suite's other
+sabotage shape — deliberately widen a `USING`/`WITH CHECK` clause to `(true)` and re-run a COUNT-based
+visibility assertion — was never at risk from this bug class at all: no exception is raised or caught
+anywhere in that shape, so there is nothing for a setup-lookup failure to hide behind. Every sabotage
+check in the suite, new and old, now correctly distinguishes "the policy denied it" from "the test
+itself broke."
+
+**Found by the runner's own first real run, fixed on the spot, not left as a false result in a suite
+this item is supposed to make trustworthy:** `rls_groups_sessions.sql` asserted `finance_admin_
+reporting`'s UPDATE on `groups` affects 0 rows, "no write capability" — checked against the live
+policy, this was simply wrong; `finance_admin_reporting` holds `contracts.*`, one of the policy's own
+write branches. Corrected to test what the policy actually does. The anomaly itself — `groups` having
+no write exclusion for `contracts.*` parallel to the ones items 37/45 already added to `contracts`/
+`client_contacts` — is recorded as its own item, 89 below, not resolved here.
+
+**The runner (`scripts/run_rls_suite.ts`).** Splits every `db/tests/*.sql` file on its own `begin;`/
+`rollback;` blocks, runs each through `supabase db query --linked --file`, and reports pass/fail per
+assertion — sabotage checks interpreted correctly (a sabotage row reading `pass: false` is the suite
+having teeth, a runner-level PASS; `pass: true` under a broken policy is the runner-level FAIL). Two
+failure shapes, both reported: a block that doesn't run at all (what `rls_clients_contracts.sql` did
+for a month), and a block that runs but returns a failing assertion. **Exits 1 on either — confirmed
+by running it clean (74 passed, 0 failed, 0 errors, exit 0) and by deliberately re-introducing the
+`contract_number` bug in a scratch copy to confirm a real break still produces a non-zero exit** — a
+broken suite cannot read as passing, the property item 72's own August closure had no way to check
+and item 86 found it lacked. Added to this register's own preamble, beside the item-register checker,
+with the instruction to run it after any migration touching `CREATE POLICY`/`DROP POLICY`/
+`ALTER POLICY` or any column a policy or test reads.
+
+**Lives in:** item 86 above (the repair this builds on); item 68 above, item 77 above (the two bugs
+each new test would have caught); `db/tests/rls_users.sql`, `rls_client_contacts_trainer_facing.sql`
+(new), `rls_groups_sessions.sql` (the corrected assertion); `scripts/run_rls_suite.ts`; item 89 below
+(the anomaly the runner's first run found); this file's own preamble (the new runner line).
+
+---
+
+### 89. `groups`' UPDATE policy grants write via `contracts.*` — found by `run_rls_suite.ts`'s first real run, not resolved here
+
+2026-09-22. `groups`' UPDATE policy: `is_platform_owner() OR org.settings.manage OR groups.create OR
+contracts.*`. `contracts.*` is a SHARED key — held by both `contract_administrator` (the intended
+target, presumably) and `finance_admin_reporting` (seed.sql). Confirmed live: `finance_admin_a`
+(`finance_admin_reporting`) can UPDATE a `groups` row today, purely via holding `contracts.*` — a
+capability granted to that role for reading contract financials, per items 37/45's own history, not
+for writing anything on `groups`.
+
+**Why this looks like the same shape already fixed twice, not a new question.** `contracts`
+(`202609080001`) and `client_contacts` (`202609110001`) both had their own write policies carry an
+explicit `NOT finance.reporting.* AND NOT finance.operations.*` exclusion added specifically so
+`contracts.*`/`clients.create`'s shared nature didn't silently hand a finance role write access meant
+for Sales/Contract Administrator only. `groups`' own UPDATE policy has never had that exclusion added
+— not because it was decided safe, checked directly: no migration comment anywhere discusses `groups`
+write access in relation to `contracts.*` at all. This reads like the same gap those two migrations
+closed, just never extended to a third table that shares the same key.
+
+**Not fixed here — found incidentally by a tool built for something else, and that's exactly why it
+shouldn't be resolved in the same breath.** Item 88's runner surfaced this on its first real run by
+catching a wrong test assertion, not by a deliberate audit of `groups`' write policy. Whether
+`finance_admin_reporting` writing to `groups` is actually intended (a contract admin editing a group
+tied to their own contract, and finance_admin_reporting genuinely needing the same for its own
+reporting work) or an oversight is a real question this item does not answer.
+**Lives in:** item 88 above (where this was found); item 37 below, item 45 below
+(the two prior instances of the same shape, already fixed on `contracts`/`client_contacts`);
+`supabase/migrations/202608130003_add_groups_sessions_rls_policies.sql` (the UPDATE policy itself);
+`db/tests/rls_groups_sessions.sql` (the corrected assertion that now tests reality, not the assumption).
+
+---
+
+### 90. Silent-failure class: pages destructure `{ data }` and never check `error` — a query that fails reads the same as a query that found nothing
+
+2026-09-22. From the deploy-ordering investigation (item 87 above): `app/(app)/clients/page.tsx` and
+`[id]/page.tsx` — and, by the same established pattern, most of this codebase's other server
+components — destructure only `{ data }` from their Supabase queries, never checking `error`. A
+missing column, an RLS denial, a network error, and a genuinely empty result all produce the exact
+same rendered output: an empty list, or an existing "not found"/`AccessDenied` page. **The app cannot
+tell "there is nothing" from "I could not look"** — the same shape, one level up, as the dead policy
+branches this round's other items are about: a mechanism that fails without announcing it failed.
+
+**Why this is its own item, not folded into 87.** Item 87 is about one specific TIMING window
+(a rollout gap). This is a standing property of how these pages are written, true independent of any
+deploy — any future RLS mistake, network blip, or query bug on these pages degrades the same
+misleading way, not just during a migration's rollout.
+
+**Not fixed in this round — recorded, per instruction.** Would need, per page: check `error`,
+distinguish "no rows" from "query failed," and render something that says so — real work, its own
+decision about how loud that signal should be (a banner? a distinct empty state? does item 25's still-
+missing `error.tsx` become relevant here after all, for the cases that SHOULD throw?), not a
+mechanical fix to bolt on here.
+
+**Lives in:** item 87 above (the investigation this was found during); item 25 below (the separately-
+still-missing error boundary — related but not the same gap: that's about uncaught exceptions, this is
+about caught-and-silently-treated-as-empty results); `app/(app)/clients/page.tsx`, `[id]/page.tsx` (the
+two confirmed instances — likely not the only ones in the codebase, not audited exhaustively here).
+
+---
+
+### 91. Column narrowing lived only in server actions — confirmed exploitable live, fixed same day
+
+2026-09-22. Every write path in this codebase follows one shape: RLS admits the ROW, a server
+action's own TypeScript narrows which COLUMNS may change (`updateGroup` limits `contracts.*` holders
+to `children_confirmed`; `updateSessionAttendance` limits a trainer to `attendance_count`/
+`experiment_delivered`; `confirmSessionAttendance` limits a trainer to their own slot's timestamp).
+Postgres RLS has no per-row column privilege concept — a server action is one route to the database,
+not the only one.
+
+**(a) Confirmed reachable, live, not reasoned about.** `NEXT_PUBLIC_SUPABASE_ANON_KEY` is bundled
+into every page by Next.js's own convention. `@supabase/ssr`'s own `DEFAULT_COOKIE_OPTIONS` sets
+`httpOnly: false` (read directly from the library source) — this app never overrides it — so the
+session cookie is readable by client-side script. Set up a real session in WOW LAB Test Org B
+(principal = trainerb1, secundar = trainerb2), signed in as the real `@supabase/ssr` flow this app
+uses, issued `PATCH /rest/v1/sessions` for `trainer_secundar_confirmed_at`. **HTTP 200, accepted** —
+re-read via service role confirmed it landed: the principal set the secundar's own confirmation
+timestamp directly, with zero involvement from `confirmSessionAttendance`. Root cause: `authenticated`
+held table-wide UPDATE on every column of `sessions`; no column-level UPDATE/INSERT grant existed
+anywhere in this codebase's migration history (every column-scoped GRANT found was SELECT-only).
+
+**(b) Every column-narrowing rule found, ranked by consequence.** `sessions.trainer_*_confirmed_at`
+(pay-triggering, another trainer's data — the case above) and the unconditional `finance.operations.*`
+RLS branch on `sessions` (admitted the whole row, not just the two correction columns
+`correctSessionConfirmation` exposes) were the two that mattered most. `contracts.billing_rule`/
+`estimated_value`/`previous_year_value` — a `contract_administrator` (holds `contracts.*`, none of
+the three finance capabilities) could set these directly on INSERT or UPDATE despite never being able
+to read them back through `contracts_billing_masked`. `groups.children_confirmed` — a billing input
+Anca decided only `contracts.*` holders enter; `groups.create` holders (Operations) could set it
+directly. `clients.external_crm_ref` (`crm_link.*`) and `clients.status_override` (`clients.convert`)
+have the identical shape but are **currently non-discriminating** — the same roles hold both the
+narrower and the broader capability in production today — left open, not fixed this round.
+
+**(c) Fixed, as recommended: SECURITY DEFINER functions, direct grants revoked.** Column-level
+grants alone can't express "a trainer may write attendance but Operations may write status" (one
+shared `authenticated` Postgres role, capability resolved per-row in application logic, not per
+Postgres role) — confirmed the hard way: the first version of this fix used a column-level `REVOKE`
+layered on top of `authenticated`'s pre-existing TABLE-level grant, which does nothing (Postgres ACL
+grants are additive; a broader grant keeps authorizing a column regardless of a narrower revoke) —
+caught by this round's own new test on its first run, not assumed correct because the SQL looked
+right. Real fix: revoke the table-level grant entirely (sessions: no re-grant at all, every write
+goes through a function; contracts/groups: revoke then re-grant on the explicit column list minus the
+protected ones — the same shape `contracts_field_masking`/`users_field_masking_grants` already use
+for SELECT, applied to UPDATE/INSERT here for the first time).
+
+Six new `SECURITY DEFINER` functions in schema `app` (`202609220001`), each a literal restatement of
+what its TypeScript action already checked — org, row match, `mywork.*`/`finance.operations.*`, which
+slot the caller holds, month-close — not a redesign: `rpc_update_session_allocation`,
+`rpc_update_session_attendance`, `rpc_confirm_session_attendance` (the one this whole item is about —
+there is no column parameter at all; which slot gets written is resolved from the row + the caller's
+own id, so there is no input that can even ask for the other trainer's column),
+`rpc_correct_session_confirmation`, `rpc_set_contract_financials`, `rpc_set_group_children_confirmed`.
+Owned by a new `app_write_owner` role — NOLOGIN/NOBYPASSRLS/INHERIT, member of `authenticated`, same
+recipe as `app_masking_owner` (`202608190001`), deliberately a separate role (distinct blast radius,
+not merged for convenience) — never `postgres`, which has BYPASSRLS in this project and would skip
+org isolation entirely. Exposed via thin `public.*` `SECURITY INVOKER` wrappers (`202609220002`) — the
+`app` schema itself is not exposed to PostgREST, same established exception `public.has_capability`
+already set. `updateSessionAllocation`'s own gate narrows to what its error message already claimed
+("Operations Manager or Master") rather than the full breadth `sessions`' old UPDATE policy
+technically admitted (`finance.operations.*`, any row-matched trainer) — a real, deliberate narrowing,
+not a restatement, chosen because this function is now the ONLY write path and the narrower reading
+was always the documented intent, never actually enforced.
+
+`addSession`'s INSERT has the identical shape — confirmed, not fixed this round. `sessions`' INSERT
+grant is column-unrestricted, same as UPDATE was; `sessions.create` (Operations/owner, not any
+trainer) is the only capability that reaches it at all, so the exposure is narrower than the UPDATE
+case, but a raw POST could still set `trainer_principal_confirmed_at`/`trainer_secundar_confirmed_at`/
+`attendance_count` at creation time, pre-approving payroll for a session that hasn't happened. Left
+open, explicitly reported per instruction, not built.
+
+**Broke 3 pre-existing, passing tests in `rls_groups_sessions.sql` the moment the fix landed** — a
+direct, expected consequence of revoking table-wide UPDATE that the exact same tests had relied on:
+`finance_admin`'s own raw sessions UPDATE (now blocked for everyone, not capability-specific, renamed
+to say so), `operations_manager`'s trainer-rotation test and the sessions row_history capture test
+(both switched to call `rpc_update_session_allocation` instead of a raw UPDATE — the real path now).
+Fixed in the same round, re-verified.
+
+**Verified.** SQL: all 6 functions, allowed case succeeds and every forbidden case refused (8 sessions
+checks, 2 contracts, 2 groups). The acceptance test named directly — the exact PATCH from (a) — now
+returns `403 permission denied for table sessions`, confirmed via the same script that first proved it
+vulnerable. New permanent regression coverage, `db/tests/rls_write_routing_functions.sql`: the raw
+write refused for sessions/contracts/groups, each function's positive/negative case, and a sabotage
+check that temporarily re-grants the exact revoked privilege and confirms the raw-write assertion
+flips to fail — proving this suite would catch the exact regression that made the live PATCH succeed.
+Full suite via `scripts/run_rls_suite.ts`: 90 passed, 0 failed, 0 errors, exit 0.
+
+**2026-09-23 — walked all six write paths through the real app on `app.wowlab.ro`, in WOW LAB Test
+Org B, not through SQL or a direct `.rpc()` call.** Per Mihai's own instruction, since item 90 means a
+200 response proves nothing on its own: extracted the real Next.js Server Action ids from the deployed
+bundle's `createServerReference` calls (`/groups/[id]` and `/contracts/[id]` page chunks) and issued
+the exact `Next-Action` POST protocol a real browser click sends, then read every result back via
+service role. Operations reassigns a trainer; a trainer records attendance/experiment; a trainer
+confirms their own slot; finance corrects a confirmation both with the month open and with it closed
+(`correctSessionConfirmation` is deliberately not month-gated, by design — confirmed it still writes
+after a `payroll_periods.closed_at` was set for real); a contract administrator sets a contract's
+financial fields; a `contracts.*` holder sets `children_confirmed` — **all six landed, confirmed by
+reading the column back, not by the response alone.** Two initially showed `ok:false` with a real,
+specific error (not a silent no-op) — `updateContract`/`updateGroup`'s own "contract not visible"
+check correctly refused, because the first fixture used a `corporate`-type client and the acting
+fixture also holds `finance.operations.*`, whose SELECT branch on `contracts` is scoped to
+`private_school`/`parent_b2c` only — a pre-existing, correct RLS segregation the test fixture
+collided with, not an item 91 regression; switching the fixture to `private_school` resolved it and
+all six passed. No path showed success on screen while writing nothing.
+
+**Lives in:** `supabase/migrations/202609220001_route_column_narrowed_writes_through_security_definer_functions.sql`,
+`202609220002_expose_write_routing_functions_via_public_wrappers.sql`,
+`202609220003_fix_contracts_groups_column_revoke_table_grant_override.sql` and their rollbacks;
+`app/(app)/groups/actions.ts` (`updateSessionAllocation`, `updateSessionAttendance`,
+`confirmSessionAttendance`, `correctSessionConfirmation`, `updateGroup`), `app/(app)/contracts/actions.ts`
+(`addContract`, `updateContract`); `db/tests/rls_write_routing_functions.sql`,
+`rls_groups_sessions.sql`, `rls_clients_contracts.sql` (the 4 pre-existing tests this fix required
+updating); `scripts/investigate_direct_postgrest_write.ts`,
+`verify_item91_write_paths_through_app.ts`; item 89 above (a different, narrower instance of the same
+underlying shape — `groups`' write policy admitting `contracts.*`, not yet resolved); item 72 above
+(the WS-D entry this closes the loop on); item 92 below (the privilege-model lesson this round's own
+first-draft bug taught).
+
+---
+
+### 92. General lesson — `REVOKE UPDATE (column)` does nothing while a table-wide `UPDATE` grant survives; Postgres privileges are additive, never overriding
+
+2026-09-22/23. Found building item 91, not in the abstract: the first version of that fix issued
+`REVOKE UPDATE (billing_rule, estimated_value, previous_year_value) ON contracts FROM authenticated`
+— syntactically valid, applied without error, and protected nothing. `authenticated` already held a
+plain `GRANT UPDATE ON contracts TO authenticated` (table-wide, from `202608100003`) predating it, and
+Postgres ACL entries are additive — a broader grant keeps authorizing every column it covers
+regardless of a narrower revoke layered on top; `REVOKE` only removes what was granted at that exact
+level, it cannot subtract from a wider grant that also covers the same privilege. `information_schema.
+column_privileges` still showed `authenticated`/`UPDATE` on `billing_rule` after the "fix" shipped, and
+a live impersonated `UPDATE` succeeded with no exception — caught only because
+`db/tests/rls_write_routing_functions.sql`'s own raw-write test ran against it and failed, on its
+first real run, not assumed correct because the SQL read right. Had that test not existed yet, this
+round's own fix would have shipped protecting nothing — the identical shape it was written to close.
+
+**Same family as item 68, not a new one.** Item 68: an RLS branch that "applied cleanly on `db push`,
+and evaluated to `false` for every caller it was written for, unconditionally" — a migration that
+runs without error and changes nothing about what it claims to guard. This is that shape one layer
+down, in the GRANT system instead of RLS: a `REVOKE` that applies cleanly and changes nothing about
+what it claims to restrict, because a wider, pre-existing grant silently continues to cover it. Neither
+failure mode raises an error. Both require a live behavioral test — reading the column back after an
+impersonated write, not reading the migration's own SQL — to catch, because the schema itself offers
+no signal that the narrower statement was overridden.
+
+**The fix, both times: revoke the WIDER grant first, then re-grant only what should remain.** Exactly
+what `202608190001`/`202608210001` already established for `SELECT` masking (`REVOKE ALL`, then `GRANT
+SELECT` on the explicit surviving column list) and what item 91's real fix (`202609220003`) had to
+apply to `UPDATE`/`INSERT` for the first time: there is no way to narrow a column set downward from a
+table-wide grant except by removing the table-wide grant entirely and re-stating the narrower one from
+scratch. A column-level `REVOKE` is only meaningful when nothing broader already grants the same
+privilege — checking for that is not optional, it decides whether the statement does anything at all.
+
+**Lives in:** item 91 above (where this was found and fixed); item 68 above (the RLS-layer instance of
+the identical shape); `supabase/migrations/202609220001_route_column_narrowed_writes_through_security_definer_functions.sql`
+(the first, ineffective version of the column revoke),
+`202609220003_fix_contracts_groups_column_revoke_table_grant_override.sql` (the real fix);
+`db/tests/rls_write_routing_functions.sql` (the test that caught it); `202608190001_contracts_field_masking.sql`,
+`202608210001_users_field_masking_grants.sql` (the `REVOKE ALL` + re-grant pattern this now also
+applies to `UPDATE`/`INSERT`, not just `SELECT`).
+
+---
+
+### 93. `/profile`'s technical details panel was visible to every signed-in user, trainer included — gated on `org.settings.manage` 2026-09-24
+
+Not a security issue like items 89-92 — RLS already let a session read its own capabilities and org
+membership, so nothing here was reachable that wasn't already the session's own data. It was a
+clarity/audience issue: `/profile` (originally built S2 as a literal diagnostic page proving the
+auth → RLS loop works, restyled but not rewritten in S3) rendered its subtitle and a "Show technical
+details" panel unconditionally, for every role. The subtitle read `"Diagnostic view: every value
+below came through your own session (anon key + your JWT), never service_role — proof the auth → RLS
+loop works, not yet a real Phase 1 dashboard"` — internal engineering language, in English only, on
+the first page a newly-invited trainer opens. The panel itself, once opened, showed: raw user UUID,
+`is_platform_owner` boolean, the stale `users.status` column; the full list of orgs RLS lets the
+session see; role-per-org (redundant with the plain-language summary above it); the session's full
+resolved capability-key list per org (`clients.read`, `mywork.*`, ...); and a literal spot-check
+render of `has_capability('org.members.manage', wow-lab)` next to a `true`/`false` badge. None of it
+is information a trainer or an operations/curriculum role (Cătălina) has any use for; the plain-
+language summary directly above it (`AccessSummary`: "You are X. You have access to: Y, Z.") already
+covers the one part — own role, which sections reachable — that is genuinely useful to a normal user,
+and needed no change.
+
+**Fix:** subtitle rewritten to a plain description of the page's actual purpose (own details, what
+can be changed) — full RO/EN, `profileDict.diagnostic_intro`. `TechnicalDetails` (button and panel)
+gated on `org.settings.manage`, computed the same way `page.tsx` already computes `visibleNavKeys` —
+a capability loop over the session's memberships, not a role-name check — so it also covers the
+platform owner via `has_capability`'s own `is_platform_owner()` bypass, same as every other owner-only
+branch in the app (`layout.tsx`, `clients`/`contracts`/`groups`/`payroll` pages). The data fetches that
+only ever fed the panel (`role_capabilities` join, the `has_capability` RPC spot-check loop) are now
+skipped entirely when the gate is closed, not just hidden — a trainer's page load no longer pays for
+them.
+
+**Verified live on `app.wowlab.ro`, `wow-lab-test-b`** (`scripts/verify_profile_diagnostics_gate.ts`,
+real magic-link sessions, not SQL impersonation): `maxdigitalro+trainerb1@gmail.com` sees the new
+plain subtitle and no technical-details toggle at all; `test+user-b@wowlab.dev` (organization_owner)
+sees the plain subtitle and still has the full panel. Both PASS.
+
+**Lives in:** `app/(app)/profile/page.tsx`, `app/(app)/profile/i18n.ts`,
+`scripts/verify_profile_diagnostics_gate.ts`.
+
+---
+
+### 94. Production silently stopped deploying for over a day — `git push` succeeding was mistaken for "shipped," nobody checked the actual build result
+
+Found only because this item's own live-verification step kept reading the old `/profile` content
+back after a push that should have changed it. `next build` type-checks the whole project, `scripts/`
+included, not just `app/`. `scripts/verify_item91_write_paths_through_app.ts` (committed in `b623fcd`,
+2026-09-23 08:34 UTC, earlier this same session) read `session1!.session_date` past its own
+`.select("id")` — a real `tsc` error, never run locally as a full `next build` before that commit, so
+it went uncaught. Every push to `main` since then failed on Vercel:  `b623fcd` itself, then today's
+`e236058` and `6ed0226`. `app.wowlab.ro` kept serving the `522bd0e` build (2026-09-22, last one that
+actually deployed) the entire time — silently: `git push` reported success every time, because it only
+confirms the git operation, never the build. Confirmed via the GitHub commit-status API
+(`/repos/.../commits/<sha>/status`), not by guessing from elapsed time — this session's own habit of
+"verify live, don't reason about it" caught a gap in the deploy step itself, not just in the app.
+
+**Consequence for this session's own record:** the item-91/92 write-path verifications (both the
+original one and this session's re-run) are unaffected — `522bd0e`, the commit that actually rewrote
+the session/contract/group actions to call the RPC functions, deployed successfully on 2026-09-22 and
+was the live build throughout, so those results stand. Nothing else shipped between `522bd0e` and the
+fix below (`52e2629`) ever reached production, including the item-92 documentation-only commit itself
+(harmless, since it changed no app code) — but had that gap included an actual behavioral fix, it
+would have shipped nothing while every local check said otherwise.
+
+**Fix:** `52e2629` — added `session_date` to the `.select()` list. Confirmed with a full local
+`next build` (not just `tsc --noEmit`, which doesn't reproduce Next's own build-time type-check pass)
+before pushing again, and confirmed the resulting deploy's GitHub status was `success` before treating
+anything as live.
+
+**General lesson, same family as item 90 (a failed write can render as silent success) one layer up:**
+a failed deploy can render as silent success too, if the only signal checked is the exit code of
+`git push`. From here: after any push meant to reach `app.wowlab.ro`, check
+`https://api.github.com/repos/Wow-Lab-The-WHYology-Insitute/App-Wow-Lab/commits/<sha>/status` (or the
+Vercel dashboard) for an actual `success` state before verifying or reporting anything as deployed —
+not just before this specific fix, going forward.
+
+**Lives in:** `scripts/verify_item91_write_paths_through_app.ts` (the type error and its fix);
+`b623fcd` through `52e2629` (the broken window); item 90 above (the same silent-failure shape, one
+layer up the stack).
+
+---
+
+### 95. Five of six pay grids seeded, PFA-inclusive, effective 2026-09-01 — trainer grades seeded for ten of eleven active trainers — rounding assumption reversed
+
+2026-09-24, Anca's answers complete. `trainer_grade_rates`, `location_bonus`, `language_bonus`,
+`duration_multiplier`, `lesson_plan_rates` seeded (`202609240001`); `trainer_grade_assignments`
+seeded for ten trainers (`202609240002`). Both dry-run verified (`scripts/verify_pay_grids_seed.sql`,
+rolled back) and re-verified against the real data afterward — every check calls the actual resolver
+function, not a raw row read, so this proves the consumption path Finance's future calculation will
+use, not just that INSERT succeeded.
+
+**contract_type_uplift stays at zero rows, zero versions — not seeded at 0%.** The six new rates are
+PFA-inclusive already (Anca: "in contractul cu trainerii PFA sau SRL vom avea direct 111 lei/ora tarif
+de baza junior") — applying contract_type_uplift on top would double the uplift, not add to it. Seeding
+it at 0% was considered and rejected: a 0%-seeded grid looks configured in `/payment-config` while being
+silently unreachable, the exact shape item 92 names one layer up (an additive `GRANT` that survives a
+narrower `REVOKE`) — a grid that exists and must never be applied is the same failure read from the
+data side instead of the privilege side. `app.resolve_contract_type_uplift` is left in place (dropping
+a working, harmless resolver is a bigger, unrequested action) but is now commented at the function level
+(`comment on function`) so a future `app.calculate_session_pay` finds the reason not to call it right at
+the point of decision, not only in this register. Confirmed live: the resolver still raises against the
+empty grid rather than returning a silent value — the fail-loud behavior the six original resolvers were
+built for still holds with real data seeded everywhere else around it.
+
+**`duration_multiplier` has one seeded value that is an assumption, not an observation, and this is
+recorded at three levels — the migration's own note, the version row Finance will see in
+`/payment-config`, and here.** `scoala_altfel_saptamana_verde` at 90 minutes appears nowhere in 1,456
+historical rows; seeded at 1.2 to match the standard context purely so the resolver has a row instead of
+raising on a duration nobody has actually recorded in that context. `scoala_altfel_saptamana_verde` at
+120 (2.0) **is** Anca-confirmed, but as a decision going forward, not a correction of past pay — the same
+1,456 rows show the ×2 multiplier was never once applied; the one real Școala Altfel two-hour row on
+record used the standard 1.5.
+
+**Rounding — reverses the recommendation reported (not built, not previously recorded as its own item)
+earlier this same round.** That report reasoned toward "round once, at the end," from two real examples
+that didn't disambiguate rounding placement and a guess about what "match her table to the leu" meant.
+Wrong guess: 444 of 1,456 real approved amounts
+carry bani — 198.36, 164.16, 200.625 among them. "To the leu" meant literally to the ban, i.e. exact.
+**`app.calculate_session_pay` (not yet built — see below) returns the unrounded product, full stop.** No
+rounding step belongs anywhere in this calculation.
+
+**Trainer grades, ten of eleven.** `trainer_grade_assignments` had zero rows before this — seeding the
+rate-per-grade table alone couldn't resolve anyone's pay without this. All ten names Anca gave resolved
+to a real `public.users` row on the first check, live, before anything was inserted (Cătălina Trușan,
+Sonia Ganea, Andrada Eremia, Elena Bacalum, Teodora Merișan, Alexandra Nuțu, Viorel Toboșaru, Raluca
+Popa, Alina Garofil, Răzvan Alexandru Bălașov) — nothing to report there, and the migration itself
+re-checks the count post-insert and raises if it isn't exactly 10, defense in depth against a future
+re-run silently matching fewer rows. Luiza Mirt gets no row on purpose: no workshop in Anca's file to
+read a grade from, and her own answer for Luiza ("grade 3 if she returns") is a conditional rule, not a
+fact to seed today.
+
+**Still open, not built this round (report only, per the instruction that asked for this):**
+`app.calculate_session_pay` itself — a SQL function, not a seventh resolver in the `resolve_*` shape,
+composing the four resolvers (grade rate, duration multiplier, location bonus, language bonus) and
+returning the unrounded product. And the three input gaps the calculation depends on: `location_tier`
+and `language_group` have no form field anywhere in the app today (every session created through it gets
+both `NULL`); `language_group` belongs on `groups`, not `sessions`, and should move there before the
+calculation reads it, since a recurring group's language doesn't vary by session the way its assigned
+trainer (and therefore its travel distance) does; and trainer home city needs a home of its own — not
+`users` (SAD §12.5 already rejected that placement for a different reason that still holds), reversing
+only the *scope* of that section's rejection now that home cities are confirmed for all eleven, not the
+placement reasoning itself.
+
+**Lives in:** `supabase/migrations/202609240001_seed_pay_grids_pfa_inclusive_rates.sql`,
+`202609240002_seed_trainer_grade_assignments.sql`; `supabase/rollbacks/` same names;
+`scripts/verify_pay_grids_seed.sql`; item 92 above (the additive-grant shape this grid's own
+empty-vs-0%-seeded argument mirrors); `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §12.5 (the
+home-city rejection this reverses in scope, not in its placement reasoning).
+
+---
+
+### 96. The three pay-calculation inputs built — group language, session location tier with a pre-fill, trainer home city
+
+2026-09-24. `language_group` moved from `sessions` to `groups` (`202609240003`), entered once at group
+creation and on the group edit form. **Reverses `202608310001`'s own stated reasoning, recorded where
+that reasoning was, not silently overwritten**: that migration said language was "confirmed to vary
+per session, not per client or per trainer." In real use it doesn't, for a recurring engagement — a
+French-school club is French every week, and a per-session field for a fact that never changes is
+fifty-two chances a year to drift, not fifty-two real facts. `location_tier` stays on `sessions` —
+unlike language, it genuinely depends on who's assigned that week, not just on the school, so it
+doesn't share language's reason to move.
+
+**No data lost, checked, not assumed**: the one real session in the whole database (a fixture,
+`wow-lab-test-b`) had `language_group = NULL`, and so did every session that ever existed — no UI ever
+wrote to the column (confirmed by grep before dropping it). **Also not inferred for any existing
+group, on purpose, even the one where it's obvious**: "Școala Franceză (Lycee Francais)" is a real WOW
+LAB client with two real groups, unmistakably French-medium by name. Left `NULL` anyway — guessing is
+not the same as knowing, same discipline the original column's own "no backfill" comment already
+applied to historical sessions, now applied to a group whose language isn't historical, just not yet
+confirmed by Anca.
+
+`location_tier` got its first form field ever, on session creation, at the trainer-allocation moment —
+same person, same screen. Entered, not derived: checked live before building anything, every WOW LAB
+client's `address` is `NULL` today, so a school-side derivation has no structured data to read even in
+principle, on top of the trainer-dependency reason above. Pre-fills `bucuresti` only when the assigned
+trainer's known home city **and** the group's resolved address (group override, then client default —
+the same resolution `GroupInfoSection` already renders, not a second concept) both say Bucharest;
+either missing leaves the field genuinely unset, reading as "choose one," not a default that looks
+chosen. Stops re-computing the instant a human touches the field, even if they change the trainer
+again afterward, so it can never silently overwrite a real choice.
+
+`trainer_home_cities` (`202609240004`): a small table, not a column on `users` (SAD §12.5's placement
+reasoning still holds) and not the versioned-grid shape either — a home city has no effective date the
+way a grade does, so it's a plain table with real `UPDATE`, no version history, no `row_history`
+trigger. Seeded for all 11 active trainers (the same 11 SAD §12.5 counted): Alexandra Nuțu → Cluj,
+Viorel Toboșaru → Cernavodă, the other nine (including Luiza Mirt, who has no grade yet but isn't
+excluded from this fact) → Bucuresti. SELECT is deliberately broader than the pay grids' own
+finance-only gate (`org.settings.manage`/`sessions.create`/`finance.operations.*`/
+`finance.reporting.*`) — copying the finance-only shape would have silently broken the one feature
+this table exists for, since Operations (who creates sessions) doesn't necessarily hold any finance
+capability. WRITE stays owner-only; **where it's edited and by whom is reported, not built this
+round** — no UI exists yet, matching `trainer_grade_assignments`' own precedent (seeded via migration,
+still no edit screen). Recommendation: `/admin/users`, gated the same as the rest of that page
+(`org.members.manage`), not `/payment-config` — this is a per-person admin fact, not a rate grid.
+
+**SAD §12.5 addendum, dated 2026-09-24** (in Romanian, matching the document): records the reversal
+precisely — the column was rejected because only 2 of 11 cities were confirmed and no general rule
+existed for the rest; Anca has now given all 11, so that premise is gone. The placement conclusion
+(not on `users`) is explicitly unchanged, and the addendum says why it still holds even though the
+count changed: the *other* half of any derivation — the school's own city — still isn't structured
+data, so `trainer_home_cities` enables a suggestion, not the automatic resolution the original section
+rejected.
+
+**Verified live on `app.wowlab.ro`, `wow-lab-test-b`** (`scripts/verify_pay_inputs_through_app.ts`,
+real Next-Action POSTs through the deployed app, not SQL impersonation): `addGroup` with a language,
+then `updateGroup` changing it and adding a Bucharest-looking address, both land; a session for a
+Bucharest-based trainer with `location_tier='bucuresti'` (what a confirmed pre-fill would submit)
+lands; a session for a Cluj-based trainer with the field left blank lands as `NULL`, not coerced into
+a guess. The pre-fill's own boolean condition, evaluated against the real fetched data, is `true` for
+the Bucharest trainer and `false` for the Cluj one. The page's RSC payload was confirmed to actually
+carry the trainer-home-city and address data the client needs. All five resolvers the future
+calculation will call — grade, grade rate, duration multiplier, location bonus, language bonus —
+return a value rather than raising, checked via `app.resolve_*` directly (no `public.*` wrapper exists
+for these, so `.rpc()` can't reach them — same discovery item 6 of the original payment-config build
+made, re-confirmed here) against minimal fixture rates this script seeded into `wow-lab-test-b` for the
+purpose and tore down afterward, independently re-confirmed removed (fixture rows: 0; the one
+pre-existing 6-row `trainer_grade_assignments` set in that org, dated 2026-09-02, predates this script
+and is unrelated to it).
+
+**One honest limit, stated plainly rather than glossed over**: point 3 above (the pre-fill condition)
+evaluates the same expression `NewSessionForm` uses, against real data — it does not observe an actual
+browser render the form and run the real React effect. No browser-automation tool is available in this
+environment. The data the effect depends on (home cities, resolved address) was confirmed to reach the
+client correctly (RSC payload check) and the effect's own logic was confirmed correct in isolation; the
+two were never observed running together in a live browser.
+
+**Lives in:** `supabase/migrations/202609240003_move_language_group_to_groups.sql`,
+`202609240004_create_trainer_home_cities.sql`; `app/(app)/groups/actions.ts`,
+`groups-client.tsx`, `[id]/group-detail-client.tsx`, `[id]/group-info-section.tsx`, `[id]/page.tsx`,
+`i18n.ts`; `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §12.5 (the addendum);
+`scripts/verify_pay_inputs_through_app.ts`; item 95 above (the pay grids these inputs feed).
+
+---
+
+### 97. Three findings from walking the trainer view — colleague visibility (already correct), the confirmation control's wording (fixed), start_time on old sessions (recorded, not fixed)
+
+2026-09-24, from Mihai's own manual walkthrough of the trainer-view fixture (item 93).
+
+**1. A trainer's own colleague-visibility — investigated, could not reproduce, and the design question
+argued regardless of whether it reproduces.** Read `ConfirmationControl` and the two places that call
+it (the desktop `<table>` row and the mobile card) — both already gate the colleague's slot on
+`!isOwnSlot && !canCorrect` and, in that branch, render the *state* as a plain read-only label,
+confirmed or not. Fetched the real rendered HTML as both trainer fixtures, live, against every session
+that existed in `wow-lab-test-b` at the time (two), in both directions (B1 viewing B2, B2 viewing B1),
+in both the desktop and mobile markup: all eight combinations showed the colleague's status as text,
+never nothing. Could not reproduce "shows the name alone, with nothing underneath" through any request
+this session can make. The one thing this can't rule out, stated plainly rather than glossed over: a
+client-side-only defect that only shows up after the browser hydrates and React takes over — no
+browser-automation tool is available in this environment, so every check here is against the initial
+server-rendered HTML, not a live DOM after hydration.
+
+**The design question stands regardless, and the reading is right — argued, not just accepted.** The
+confirmation state is a fact about a shared event (the same workshop, worked by both trainers), not a
+private fact about the person who set it — the asymmetry that belongs is over the *control*
+(confirming is a first-person act: only the assigned trainer can assert "I delivered this," and only
+finance/owner can correct it after the fact), not over who can *read* the resulting state. An
+unconfirmed colleague, going into month close, is exactly the thing a trainer in that session would
+want to notice and flag — hiding it would remove signal from the one person best positioned to catch
+it early. No comment, migration, or design doc anywhere in this codebase gives a reason to hide it, and
+the code, both before and after today's confirmation-control change, already doesn't. Nothing to build
+here; if Mihai still sees this live, it needs a repro he can hand back (device, exact click sequence),
+since neither the code nor a live re-test finds the gap.
+
+**2. The confirmation control's wording — fixed.** Read the control's five actual render shapes before
+changing anything (not the "four" as first framed — read-only and correction are distinct audiences
+with different requirements, see below):
+
+| Viewer | State | Before | After |
+|---|---|---|---|
+| Read-only (colleague) | unconfirmed | plain "Not confirmed" | unchanged |
+| Read-only (colleague) | confirmed | plain "Confirmed" | unchanged |
+| Own slot | unconfirmed | empty checkbox + "Not confirmed" | empty checkbox + **"Check to confirm"** |
+| Own slot | confirmed | checked checkbox + "Confirmed" | **plain "Confirmed" label, checkbox removed** |
+| Correction (finance/owner) | either | checkbox (reflects state) + state-swapped text | checkbox (reflects state) + **constant "Confirmed"** |
+
+The old shape put a checkbox and a state word in the same widget, and let the word swap between
+"Confirmed"/"Not confirmed" while the checkbox's own checked attribute *also* carried the state — two
+signals for one fact, and an empty box beside "Not confirmed" reads as if the box itself is asserting
+that, not offering to change it. New rule, applied everywhere: a checkbox never sits next to text
+naming the state it's already in. Own-slot confirming is a one-way action in this control now — once
+confirmed, self-unchecking isn't offered; reversing a mistake is finance/owner's correction path, which
+was always the intended fix mechanism for a wrong confirmation, not a second way to do the same thing.
+Correction stays genuinely bidirectional (fixing either direction is the whole point) but the label no
+longer swaps — the checkbox's own on/off state is the only thing that changes, the word beside it just
+names what's being toggled.
+
+Consulted the frontend-design skill on visual treatment before building: for a control this small and
+this frequent, inline in a dense table, the checkbox element itself (already `accent-brand-pink`) is
+sufficient interactive affordance — no additional color/underline treatment was added for the two
+click-to-act shapes.
+
+**Verified live on `app.wowlab.ro`, `wow-lab-test-b`**
+(`scripts/verify_confirmation_control_through_app.ts`, real Next-Action POSTs, a fresh isolated
+group+session so the render check couldn't accidentally match one of the standing fixture sessions'
+rows instead): as B1, own unconfirmed slot renders the empty checkbox + "Check to confirm"; as B2
+viewing B1's same still-unconfirmed slot, plain "Not confirmed" text, no checkbox — reconfirming finding
+1's conclusion from the opposite direction. B1 then actually confirms (a real write, checked via
+read-back); afterward B1's own slot renders "Confirmed" with the checkbox gone, and B2 viewing that
+same slot sees plain "Confirmed" text. As `test+ui-contract-admin-b@wowlab.dev` (holds
+`finance_operations`, satisfying the correction gate): both slots render an interactive checkbox
+labeled the constant "Confirmed" — checked for B1 (actually confirmed), unchecked for B2 (never
+confirmed in this fixture) — confirming the label never swaps to "Not confirmed" even when unchecked.
+All fixtures (session, group, client) deleted afterward.
+
+**3. `start_time` on sessions that predate it — recorded, not fixed, as asked.** `formatTimeRange`
+returns `null` when `start_time` is absent, and the caller gates the whole span on that (`{...&&
+(<span>...)}`) — so a session with no recorded start time shows nothing at all next to its date, not
+even a placeholder dash the way other optional fields (duration, attendance) show "—". Checked live:
+exactly one session in the entire database has `start_time = NULL` today (the item-93 trainer-view
+fixture, created directly by a service-role script that left it blank, not a genuine historical row —
+`sessions` holds only two rows total, both created this week, both after `start_time` already existed
+as a column since item 77). So there is no real historical backlog behind this today, but the general
+case is real and will recur: `start_time` is optional on the create form, so any future session where
+it's left blank will render the same way — no fix requested, and none made; this is the record Mihai
+asked for.
+
+**Lives in:** `app/(app)/groups/[id]/group-detail-client.tsx` (`ConfirmationControl`,
+`formatTimeRange`); `app/(app)/groups/i18n.ts`; `scripts/verify_confirmation_control_through_app.ts`;
+item 93 above (the trainer-view fixture this walkthrough used).
+
+---
+
+### 98. `sessions.location_tier` made visible to trainers, `start_time` always shows its second line — and a known limitation recorded, not fixed: one tier value per session, not per trainer slot
+
+2026-09-25. Two visibility gaps closed, argued before building (report-only pass, previous entry in
+this file): `location_tier` was captured on the session form (item 96) but read nowhere afterward —
+write-only, invisible to the trainer whose travel it records. No masking precedent applies (the only
+financial fields this codebase hides are `contracts.billing_rule`/`estimated_value`, hidden for
+commercial secrecy — a fact a trainer already knows about their own trip isn't that kind of secret),
+and nothing in RLS or grants blocked it either; the gap was purely an unfinished read side from item
+96's own build. Now shown between Duration and Present in the sessions table (mobile: a `Location:`
+line after `Duration:`), using the same translated tier labels already built for the entry form,
+`—` when unset — the categorical fact, not a bonus percentage (the calculation still doesn't exist).
+`language_group` was NOT duplicated onto each session row — it already has a home
+(`GroupInfoSection`, always visible, not literally `GroupHeader` as first framed — corrected in the
+report), and repeating a value that's constant across a group's sessions would only add clutter and
+partially undo the reason it moved off `sessions` in the first place (item 96).
+
+The date cell's second line (`formatTimeRange`) used to render nothing at all when `start_time` was
+absent, unlike every other optional value on the same row (Duration, Present), which fall back to
+`—`. Now always renders, `formatTimeRange(...) ?? "—"` — in both the desktop table and the mobile
+card, which had the identical gap inline next to the date rather than as a separate line.
+
+**Recorded, not acted on, per the explicit instruction: `sessions.location_tier` is one column per
+session, not one per trainer slot.** If a session's principal and secundar have different home
+cities, the single stored value can only be right for one of them — it was computed (by the pre-fill,
+when it fires) or entered against one trainer's travel, but reads as if it describes the session
+itself once shown, including to the trainer it wasn't computed for. Today this rarely bites: nine of
+the eleven active trainers are Bucharest-based (item 96), so most principal/secundar pairings share a
+home city and the single value happens to be right for both. **The trigger to watch for**: a session
+where Alexandra Nuțu (Cluj) or Viorel Toboșaru (Cernavodă) co-delivers with a Bucharest-based
+colleague — the stored tier will be correct for at most one of the two, and the pay calculation
+(`app.calculate_session_pay`, still not built) will read this column directly, so whichever trainer
+it's wrong for gets the wrong location bonus with nothing in the schema to catch it. Not a defect to
+fix now — recorded here so it's found by its trigger condition, not by a wrong paycheck.
+
+**Verified live on `app.wowlab.ro`, `wow-lab-test-b`**, as a trainer fixture (B1): the session with a
+recorded `location_tier` shows its translated label; the one without shows `—`; the time line renders
+on both — the session with a `start_time` shows the actual range, the one without shows `—` instead
+of nothing.
+
+**Lives in:** `app/(app)/groups/[id]/group-detail-client.tsx`, `[id]/page.tsx`, `i18n.ts`; item 96
+above (`location_tier`'s own entry point and the single-column shape this limitation is about); item
+97 above (the same walkthrough this continues).
+
+---
+
+### 99. `app.calculate_session_pay` built — the first function in this domain that computes, not just looks up
+
+2026-09-25, as designed in the earlier report. Composes five resolver calls (grade, grade rate,
+duration multiplier, location bonus, language bonus) into `rate × duration_multiplier × (1 +
+location_bonus/100 + language_bonus/100)`, unrounded — `bonus_percent` columns store whole percent
+(25, not 0.25), divided by 100 the one place this shape actually multiplies anything. Named and
+shaped deliberately unlike the seven `resolve_*` functions it calls: those are pure lookups, this
+composes and does arithmetic, and gets a different name to say so rather than the resolver shape
+stretched to cover something it wasn't built for.
+
+**Per trainer, not per session — and refuses when the trainer isn't on it.** Takes `p_session_id` and
+`p_trainer_id`; raises if `p_trainer_id` is neither the session's principal nor secundar. A pay figure
+for someone with no part in the session isn't a cautious answer, it's a wrong one — same reasoning as
+every fail-loud choice in this function.
+
+**Never calls `app.resolve_contract_type_uplift`, with the reason recorded right where the four (five)
+resolvers are composed**, not only in the migration's own header: the PFA-inclusive rates already carry
+the 11.1% uplift (item 95), calling it here would double it, and `contract_type_uplift` stays at zero
+rows for exactly that reason.
+
+**delivery_context comes from the group, never the session** — sessions carry no format of their own.
+Confirmed, not assumed, by reading `app.resolve_duration_multiplier`'s own case statement (not by
+re-deriving the nine-format list from memory): of the nine workshop types, only `scoala_altfel` and
+`saptamana_verde` map to `scoala_altfel_saptamana_verde`; the other seven (`wow_lab_party`,
+`parteneriate_companii`, `cursuri_deschise`, `scoli_private_ocazionale`, `scoli_private_recurente`,
+`evenimente_mall`, `party_companii`) resolve as `standard`. Matches the reading in the design report
+exactly.
+
+**Missing-input behavior, reported as asked:** session-or-group-level facts that were simply never
+entered (`duration_minutes`, `location_tier`, the group's `language_group`) now raise a message from
+`calculate_session_pay` itself, naming the specific field and row — added deliberately rather than
+letting a `NULL` flow into a resolver's own `WHERE tier = p_location_tier` clause, which would still
+raise (no row matches `NULL`) but with a vaguer "no row for [blank]" message. Genuine grid gaps (no
+rate for this grade, no multiplier for this exact duration) are raised by the resolver itself, whose
+own message already names the input and organization precisely — not caught or rewrapped here, so the
+caller sees exactly which resolver failed.
+
+**SECURITY INVOKER, matching all seven resolvers' own reasoning — with a consequence worth stating
+plainly:** this function has no authorization check of its own, so today only a caller who already
+holds read access to `trainer_grade_rates` etc. (`finance.operations.*`/`finance.reporting.*`/owner)
+can successfully call it; a plain trainer's own session cannot, even to compute their own pay. Not
+fixed — nothing calls this function yet, and the eventual caller is expected to be finance-facing,
+matching every other pay-grid read in this codebase. Revisit only if a trainer-facing caller is ever
+proposed.
+
+**Tests, `db/tests/calculate_session_pay.sql`, run by `run_rls_suite.ts`** (not `rls_`-prefixed, no
+authorization branch of its own to test — same naming choice as `capability_liveness.sql`): the known
+case (grade 3/Teodora, 90min standard, imprejurimi, fr_de_es) asserted to equal `220.98` exactly; a
+missing grade assignment (Luiza Mirt, who still has none — item 95) raises rather than returning
+zero/null; a trainer not on the session is refused, with the raised message asserted to actually name
+"principal or secundar," not just any exception; `scoala_altfel` at 120 minutes computes through to
+`368.30` (the 2.0 multiplier) against a `parteneriate_companii` group's `276.225` (1.5) built from
+otherwise-identical fixtures, so the only variable proven to matter is the group's own delivery format;
+a sabotage block temporarily redefines the function to round its own result and confirms the exact-
+equality assertion in the known case actually fails against that regression — the one this function
+was explicitly built to never have (item 95's own reversed rounding assumption). All fixtures live
+inside transactions that always roll back, using WOW LAB's real seeded rates rather than synthetic
+numbers, so the "known case" is checked against the same figures Anca actually confirmed. Full suite:
+96 passed, 0 failed, 0 block errors across 10 files (up from 91 before this file).
+
+**Verified by hand against the real historical row.** The report two rounds ago verified `114 × 1.2 ×
+1.45 = 198.36` was a real approved payment under the OLD net rates; recomputing the identical shape on
+the new PFA-inclusive rate (grade 3 = 127, same 1.2/1.45) gives `127 × 1.2 × 1.45 = 220.98` — exactly
+what `db/tests/calculate_session_pay.sql`'s known-case check asserts, confirmed both by hand and by the
+function.
+
+**Nothing calls this function yet — no UI, no payroll screen change, by design.** That's the next round.
+
+**Lives in:** `supabase/migrations/202609250001_create_calculate_session_pay.sql`,
+`supabase/rollbacks/202609250001_create_calculate_session_pay_rollback.sql`,
+`db/tests/calculate_session_pay.sql`; item 95 above (the pay grids this composes and the rounding
+reversal); item 96 above (`location_tier`/`language_group`'s own entry points, the inputs this reads).
+
+---
+
+### 100. A team directory was built and reverted — its RLS branch blinded an existing sabotage check; plus four reusable probe methodology errors
+
+2026-09-25. A `/team` directory (name + role per person, no contact fields) was built, its RLS branch
+applied live, and then reverted in full before anything was committed. Nothing shipped; the database
+is back to its pre-change state, migration record included (`db push` had recorded migration 202609250002 as
+applied while the effects were hand-reverted — history and schema disagreed until that row was
+deleted), and the suite re-verified at 96 passed / 0 failed with the original sabotage check flipping
+correctly again.
+
+**Why it was reverted — the second reason, not the first, is what decided it.** The branch said: any
+member of an organization may read any other member's `users` row and `user_org_roles` row. That
+(a) overrode `202609160001`'s deliberately narrow scoping — that migration's own comment states "the
+fix must not hand anyone names they should not see, so neither branch is 'finance/trainers can see
+everyone'" — and the suite caught it immediately (`finance_ops_a: does NOT see sales_a's user row`,
+actual="1", expected="0"). More seriously, (b) **it blinded an existing sabotage check**:
+`rls_users.sql`'s guard, which exists to detect breakage in `app.viewer_sees_trainer_via_finance_ops`,
+could no longer fail, because the new broad branch covered whatever that helper stopped doing. The
+runner reported it exactly: "sabotage did NOT flip to false — this check has no teeth."
+
+**Third instance of the same shape** — a change that applies cleanly, errors nowhere, and removes a
+safeguard's ability to detect a regression. Item 68 (an RLS branch that applied and evaluated to false
+for every caller it was written for), item 92 (`REVOKE UPDATE (column)` silently overridden by a
+surviving table-wide grant), and now this: not a wrong result, but a guard that can no longer report
+one. The first two were caught by a test that existed; this one was caught by a test that existed and
+was about to be silently disabled. Worth stating as the pattern's sharpest form so far: **the failure
+mode isn't only "my change is wrong," it's "my change makes an existing check unable to tell anyone
+that something else is wrong."**
+
+**Four probe methodology errors, recorded because they are reusable and each cost real time.** The
+first three are RLS-probe errors from the directory work; the fourth came from a through-app
+verification a day later (item 101) and is recorded here because it belongs with them, and because its
+general form is different from theirs:
+
+1. **An ad-hoc probe that sets `request.jwt.claims` without also issuing `set local role authenticated`
+   measures nothing.** `supabase db query --linked` connects as a superuser, which holds BYPASSRLS —
+   the JWT claim changes what `app.current_user_id()` returns while RLS is never enforced at all. Such
+   a probe returns identical results whether the policy under test works or not. The first version of
+   this round's verification "passed" four of five checks this way, and the one that "failed" produced
+   a false cross-org-leak alarm that cost a full diagnostic detour. The existing `db/tests/` suites do
+   this correctly; the mistake was in ad-hoc SQL written alongside them.
+2. **A probe against `public.users` must identify people by `id`, never by `email`.** `authenticated`
+   holds no table-level SELECT on that table (202608200005 step 3 revoked it) — only column-level
+   grants that exclude `email`/`phone`. A `where email = '...'` probe fails with "permission denied for
+   table users" regardless of RLS, which reads like a policy result and isn't one.
+3. **A probe must use a subject who does not already satisfy some other branch, or the branch under
+   test is masked.** The first "same org, no shared session" check used trainer b1, who *does* share
+   sessions with the viewer — the pre-existing shared-session branch would have carried it whether the
+   new branch worked or not. Trainer b3 (same org, genuinely no shared session) was the honest subject.
+   This is the probe-design equivalent of a sabotage check: choose a subject where only the thing under
+   test can produce the result.
+4. **Two assertions that can only ever agree are not two pieces of evidence.** Verifying `/my-work`
+   through the deployed app, a regex holding a literal apostrophe was matched against a page that
+   renders `aren&#x27;t`. On one fixture it reported the unconfirmed warning **missing** when it was
+   plainly present; on the other it reported **no warning present**, which was the expected answer.
+   The two read as mutually confirming — one positive, one negative, consistent with each other — and
+   both measured nothing, because neither regex could match either page. The probe now decodes entities
+   before matching. **The general form differs from the three above, which are all "this probe measures
+   nothing": a failing assertion announces itself, but a pair of assertions that can only ever agree
+   looks like corroboration.** Two checks are not independent evidence if they share a defect — the
+   agreement is a property of the shared defect, not of the thing under test. The pairing that makes
+   this dangerous is exactly the one that feels most rigorous: assert the thing is present where it
+   should be, assert it is absent where it should not be. Both halves must be able to fail *for
+   different reasons*, or the mirror is one assertion wearing two hats.
+
+**Found while reverting, and it decides what a no-migration directory can actually show:** under the
+unchanged policies, a trainer sees **two** `users` rows (themselves and a co-trainer from a shared
+session) but exactly **one** `user_org_roles` row — their own. The shared-session branch exposes a
+co-trainer's name and nothing else. So a directory built without any migration can show a trainer
+names, but cannot show those colleagues' roles at all — not "they have no role," but "you may not read
+that row." A two-column Name/Role screen would have one structurally-always-blank column for the
+largest group of users in the system.
+
+**Built, evaluated, and dropped before shipping — not because the data was missing, but because of what
+the screen would assert.** Only **4 of 14 roles** hold `org.members.read` (`organization_owner`,
+`platform_owner`, `operations_manager`, `finance_admin_reporting`) — that capability is what makes
+another person's `user_org_roles` row readable. For the other **10**, including every Trainer and
+Senior Trainer and Laura (who holds `contract_administrator` + `finance_operations`, neither of which
+carries it), the Role column is blank for everyone but themselves. **A blank cell reads as "this person
+has no role"; the truth is "you may not read that row."** Replacing blanks with this codebase's
+existing "not visible for your role" placeholder (the `client_hidden`/`contract_hidden` shape) is the
+honest rendering — and makes the screen, for 10 of 14 roles, a list of names beside a column of
+permission notices. Item 1's shape exactly: one real column and one structurally empty one, for the
+majority of viewers.
+
+**Unlike the overdue-contracts precedent, nothing needed rehoming.** That decision moved a real signal
+onto the page that owned it. Here there is no orphaned signal: a trainer's actual need — knowing who
+they deliver a workshop with — is already answered on the session row, which names both trainers.
+
+**The one gap it would have closed, recorded unserved:** `operations_manager` and
+`finance_admin_reporting` — Cătălina's roles among them — *may* read the full roster and have no screen
+that shows it. `/admin/users` is gated on `org.members.manage`, which neither holds. That is a real
+want for two roles, and a different screen from the one asked for. Not built. **Trigger: someone
+actually needing it and saying so** — not the mere fact that the data is available to them.
+
+**Open, for Anca — a product question, not a technical one: should every member of an organization see
+every other member's name and role?** Today they do not. That is not an oversight: it follows from a
+decision taken 2026-09-16 (`202609160001`) that deliberately scoped people-visibility narrowly, for a
+different purpose entirely (making trainer names resolve on payroll and co-trainer views without
+handing anyone a general roster). A full directory reverses that decision. It is defensible to reverse
+— knowing who your colleagues are is ordinary — but it needs to be reversed *deliberately*, with the
+two tests that encode the current boundary rewritten as a recorded reversal and that sabotage check
+rebuilt so it still has teeth against something, not quietly overwritten to match new behavior.
+
+**Lives in:** `202609160001_add_users_trainer_name_visibility_branches.sql` (the scoping this would
+reverse); `db/tests/rls_users.sql` (the two checks that caught it, including the blinded sabotage);
+item 68 above and item 92 above (the first two instances of this shape); item 21 below
+(`users.status`, for why live checks beat stored columns generally).
+
+---
+
+### 101. The trainer's own work page — five figures that are honest once data exists, and one that isn't built because it can't be
+
+2026-09-25. `/my-work`, gated on `mywork.*` so it appears for exactly Trainer and Senior Trainer —
+one screen for both, as asked. **Deliberately not called "Dashboard"**: item 1 declined an org-wide
+dashboard, and reusing the word for a trainer-scoped page would read to a future editor as that
+decision being reversed.
+
+**Every figure was confirmed readable by a trainer before anything was built** — checked against the
+live policies, not assumed, because two of them looked finance-gated and weren't:
+`trainer_grade_assignments` has `trainer_id = app.current_user_id()` as its *first* branch, so a
+trainer reads their own grade holding no finance capability; and `payroll_periods` lists `mywork.*`
+as an explicit branch, so a trainer can genuinely read whether their own month is closed. That second
+one is what makes the warning below actionable instead of merely alarming. **No schema change was
+needed for any of it** — in contrast to item 100's directory, this page sits entirely inside
+boundaries that already exist.
+
+**Counted by confirmation, never by `sessions.status`.** These already disagree in every row that
+exists: both live sessions are `status='planned'` with both trainers' confirmations set. `status` also
+carries its own separate value literally called `confirmed`, so three different things could be read
+as "confirmed" and two of them are Operations' scheduling state rather than the trainer's own
+assertion. Pay follows the timestamp (`202609150002`: "Pay follows this timestamp, not
+attendance_count or status"). What "delivered" ought to mean stays **open for Anca** — and this page
+deliberately does not settle it by quietly picking a column.
+
+**The unconfirmed warning is one sentence, not two figures**, because the month's close state changes
+what the person can still *do*, not just a number beside it: "1 of your sessions aren't confirmed yet.
+September 2026 is still open — confirm them and the pay for them stands" versus "…already closed — you
+can no longer confirm them yourself. Ask Operations to correct them." At zero it degrades to a quiet
+muted line, not a green success banner: confirming your own sessions is ordinary, not an achievement.
+It counts only sessions already in the past — a workshop next week isn't late, and counting it would
+turn a normal state into a warning.
+
+**Hours carries its caveat at normal size under the number, not as a footnote**, being the figure most
+likely to be misread as pay — which it isn't: pay counts two hours as 1.5×, and the grade rule counts a
+two-hour workshop as one workshop. Exact wording shipped, EN: "Hours in front of a class this month" /
+"Time taught — not your pay. Pay counts a two-hour workshop as 1.5×, and your grade counts it as one
+workshop." RO: "Ore la clasă luna aceasta" / "Timp predat — nu este plata ta. Plata socotește un atelier
+de două ore ca 1,5×, iar gradul îl numără ca un singur atelier." It also declares when sessions lack a
+recorded length rather than silently undercounting.
+
+**Grade is shown; distance to the next threshold is not.** The rule is fully specified and
+Anca-confirmed (`grad = min(6, floor(workshops / 36) + 1)`), but the workshop counts behind the seeded
+grades live in Anca's own file, not this database — counting live would return 0 for every real trainer
+and contradict the seeded grade for nine of ten. **Certifications to renew was not built at all**: no
+table, no domain, nothing to compute; it could only have been a hardcoded number or a permanent dash.
+
+**Empty state: one plain sentence, not a grid of five zeros.** Five zeros read as a broken page; one
+line reads as a true one. The grade still shows when set, since it's true regardless of allocation —
+verified live against Test Trainer B3, who has a grade and no sessions at all.
+
+**Verified live on `app.wowlab.ro`, `wow-lab-test-b`** (`scripts/verify_my_work_through_app.ts`): as
+Test Trainer B1, set up with one confirmed and one unconfirmed session — warning present naming the
+month and its open state, confirmed count correct, hours caveat present, grade shown, empty state
+correctly not triggered; as Test Trainer B3 — the one-line empty state, no zero-figure grid, grade
+still shown. B1's confirmation was restored to its original value afterward; the standing fixtures are
+as they were found.
+
+**The first run of that verification was wrong in both directions at once** — an HTML-entity mismatch
+that made a mirror pair of assertions agree with each other while neither could match anything.
+Recorded in full as item 100's fourth probe error, not duplicated here.
+
+**Where it lives — reported, not changed.** It sits beside `/profile`, and `app/page.tsx` still
+redirects everyone to `/profile` after login. Making `/my-work` the post-login destination for
+`mywork.*` holders is the obvious next step and is deliberately *not* taken yet: today every real WOW
+LAB trainer has zero allocated sessions, so that redirect would land all of them on the empty state as
+their first impression of the app. The right trigger is real allocations existing — at which point the
+redirect is a two-line change in `app/page.tsx`, gated the same way the nav item already is.
+
+**Lives in:** `app/(app)/my-work/page.tsx`, `my-work-client.tsx`, `i18n.ts`; `app/(app)/layout.tsx`
+(the `mywork.*` nav gate); `scripts/verify_my_work_through_app.ts`; item 1 above (the bar this was
+measured against, and the name this deliberately avoids); item 100 above (which holds all four probe
+methodology errors, the fourth of them found here).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
@@ -948,7 +3293,7 @@ avoid repeating); `docs/progress.md` entries 56 and the line-459 entry (prior
 state); this conversation (source of the answers, until written up
 elsewhere).
 
-### 19. `groups.contract_id` — a known-null column, deliberately
+### 19. `groups.contract_id` — CORRECTED 2026-09-18: applied and in real use; this item's own text said otherwise
 
 The full architecture for item 2 above is now written up:
 `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md`, with `groups.contract_id`
@@ -978,9 +3323,33 @@ once someone confirms what they actually are. It's also possible they turn
 out to be verification residue themselves, same category as the pending-
 invites accounts in item 18 — that determination hasn't been made, and
 this column staying null is not evidence either way.
+
+**Corrected 2026-09-18, checked live, not assumed from the text above.**
+"Not yet applied to production" was wrong by the time it was read again —
+`supabase migration list --linked` shows `202608290001` applied, both
+directions, and `information_schema.columns` confirms `groups.contract_id`
+exists live, nullable `uuid`. The backfill discussion above is doubly
+obsolete, not just outdated: the 4 groups it describes no longer exist
+(they were Cambridge School seed residue, purged by the "Seed data cannot
+be reliably distinguished from real data" entry above, before this
+correction was written), and the groups that exist today are real —
+`WOW LAB` now holds 2 groups, both for Lycée Français, both carrying a
+real, non-null `contract_id` pointing at the signed contract, set through
+the create-group form's own `contract_id` field (`docs/progress.md` entry
+71's work, not this file's own item 71 above — the two share a number by
+coincidence, not by reference). The
+"re-verify/revisit when" condition above ("real client/contract data
+exists for a client that actually has groups") has been met, and the
+answer is: the mechanism already works, unattended, no hand-set values
+needed. Nothing here needed building or deciding — the column, the
+migration, and the write path were already correct; only this item's own
+sentence describing them was wrong, at least by the time anyone read it
+again.
 **Lives in:** `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §6.2, §10;
 `supabase/migrations/202608290001_groups_contract_id.sql`;
-`scripts/verify_groups_contract_id.sql`.
+`scripts/verify_groups_contract_id.sql`; the "Seed data cannot be reliably
+distinguished from real data" entry above (why the 4 original groups no
+longer exist to be null).
 
 ### 20. Payment configuration grids — six now, one seeded, five still empty
 
@@ -1098,7 +3467,7 @@ existing no-section precedent); `app/(app)/layout.tsx`
 (`canManagePaymentConfig`, the FINANȚE nav gate fix); item 22 and item 23
 below (the accounts blocker and the evaluation domain, respectively).
 
-### 22. Five of seven named team members have no account at all
+### 22. Five of seven named team members have no account at all — HEADER CORRECTED 2026-09-18, body already tracked the resolution
 
 Checked directly against every row in `public.users` and `auth.users` this session — not a
 name-pattern guess that could miss a variant spelling. Of seven people named across this project's
@@ -1244,6 +3613,14 @@ not sent a second link that day; sent one more anyway that same day as a safety 
 recorded above. The remaining seven — Cătălina, Laura, Alexandra, Teodora, Răzvan, Luiza Mirt,
 Raluca Margean — each confirmed individually via the real admin UI (six of seven) or direct
 invocation (Raluca Margean, per the gap above) before moving to the next; no failures.
+
+**Header corrected 2026-09-18 — the body was never wrong, only the title above it.** By the time
+this item's later addenda landed (2026-09-03 through 2026-09-08), all seven of the originally-named
+missing members had real accounts, and the header still read the original finding as current. This
+is a milder case than item 19's above or item 39's below: nothing here asserted a false fact anywhere in
+the body — every dated addendum was accurate when written — the title alone stopped describing the
+item underneath it and nobody revisited it once the last addendum closed the gap. Retitled to say
+so plainly rather than rewritten to imply this was always resolved cleanly.
 
 **Lives in:** `public.users`, `auth.users`, `user_org_roles` (live data); item 18 above
 (related finding, same underlying data); `WOWLAB_SAD_Contracte_Trainer_Furnizor.md` Appendix A (the
@@ -1474,30 +3851,77 @@ account, no fixture cleanup needed, per the reproduction above).
 
 **No fix proposed here** — do not act.
 
+**Noted 2026-09-18, folded in from `docs/phase1-development-plan.md` row 14 (now superseded, see
+item 75 above), not a proposal made here.** That row named a possible mitigation for exactly this
+failure shape before this item ever found a real instance of it: an interstitial confirmation page
+on `/auth/callback` (a real click required before the token is consumed, rather than consuming it
+on first load) — the standard countermeasure against exactly the link-prefetch/scanner cause named
+above. Recorded then as `⚪ neconfirmat, opțional`, with no report of it ever being built, and
+nothing since has built it either. This item's own finding gives that old, low-priority row a real
+case behind it that didn't exist when it was written — still not a proposal to build it, only a
+pointer so the two don't stay disconnected.
+
 **Lives in:** `app/auth/callback/route.ts`; `lib/supabase/middleware.ts`; `supabase/templates/
-invite.html`; `app/login/page.tsx` (the banner, from `8d00681`).
+invite.html`; `app/login/page.tsx` (the banner, from `8d00681`); `docs/phase1-development-plan.md`
+row 14 (superseded, the mitigation this note points at).
 
 ---
 
-### 29. `displayName()` — the same rule, duplicated in five files, no shared module
+### 29. `displayName()` — RESOLVED 2026-09-17, extracted to `lib/display-name.ts` once the trigger actually fired
 
-Confirmed live: `admin/users/admin-users-client.tsx`, `groups/page.tsx`, `groups/[id]/page.tsx`,
-`payment-config/page.tsx`, and now `profile/page.tsx` (this session, item e's fix) each carry their
-own local `displayName()`/equivalent. One rule, five independent copies: prefer
-`first_name`+`last_name`, fall back to `full_name`, skip the fallback if it looks like an email.
-The first four are byte-identical. The fifth necessarily differs in shape — it isn't producing one
-display string for read-only rendering, it's deriving two separate initial values for an editable
-form, and it feeds an unsplit `full_name` into the first-name field rather than a combined string
-into a label. Same rule, not the same function signature.
+Was five copies of one rule (`admin/users/admin-users-client.tsx`, `groups/page.tsx`,
+`groups/[id]/page.tsx`, `payment-config/page.tsx`, `profile/page.tsx`'s differently-shaped variant)
+with an explicit, deliberately-not-yet condition: extract the next time the rule changes, or the
+next time a sixth call site needs it — whichever comes first, not on a timer.
 
-**Not a defect, not urgent, not to be fixed under time pressure.** Recording as a refactor with an
-explicit trigger, not an open-ended someday: extract to one shared module the next time this rule
-changes, or the next time a sixth call site needs it — whichever comes first. Until then, five
-copies (four identical, one a variant) is the known, accepted state, not an oversight to clean up
-opportunistically.
+**The trigger had already fired before this round -- and this item didn't know it.**
+`payroll/page.tsx` gained its own byte-identical copy of `displayName()` in the payroll walkthrough
+fixes (item 67, `f74d14b`), the round immediately before this one -- a sixth call site, landed in
+the repo before this task ever started. Nobody came back to update this item after that round
+landed, so it kept stating a condition -- "neither has happened" -- that the code had already
+falsified. Confirmed live via grep across `app/` before concluding anything, not inferred from the
+commit message or trusted from this item's own prior text.
 
-**Lives in:** `app/(app)/admin/users/admin-users-client.tsx`, `app/(app)/groups/page.tsx`,
-`app/(app)/groups/[id]/page.tsx`, `app/(app)/payment-config/page.tsx`, `app/(app)/profile/page.tsx`.
+**The same shape this register keeps finding, this time about itself.** Nearly every recent entry
+in this file is a version of "what was written down stopped matching the thing it describes, and
+only checking the source caught it" -- `config push` succeeding vs. which email template was
+actually live (item 61), a mockup badge claiming a protection the code behind it never built
+(`docs/progress.md` #62, not this file's own item 62), a CUI-constraint recommendation reported as
+delivered without ever being written (item 62 below), an RLS branch that reads clean on the page
+but is silently dead underneath (item 68). This item is the same failure mode one layer up: a
+written trigger condition that nothing re-checks against the code it describes will not notice
+when the code satisfies it. The register went stale, not the codebase -- and the fix is the same
+one already applied everywhere else this pattern shows up: verify against the current source
+before reporting a state, don't carry a prior write-up forward unchecked.
+
+**Extracted (`lib/display-name.ts`), same "promote once the trigger fires" precedent as
+`lib/format.ts` (its own header comment says the same thing about its own promotion history).**
+Two exports: `displayName()` (the read-only rule, now the single implementation behind
+`admin-users-client.tsx`, `groups/page.tsx`, `groups/[id]/page.tsx`, `payment-config/page.tsx`,
+`payroll/page.tsx`) and `editableNameFields()` (`profile/page.tsx`'s variant, kept as its own
+function producing `{ firstName, lastName }` rather than flattened into the single-string rule --
+same distinction this item always drew). `admin-users-client.tsx`'s `Member` type is camelCase, not
+the `public.users` column names the other five/shared module use -- kept as a three-line local
+adapter (`displayName(member)` calling the shared function with mapped field names) rather than
+changing `Member`'s shape or teaching the shared function two input shapes.
+
+**Verified, not just type-checked:** `tsc --noEmit` and a full `next build` clean; then, live in
+Test Org B via a real signed-in session (`test+user-b@wowlab.dev`, the org owner fixture, broad
+enough to reach all six pages) fetched over HTTP -- `/admin/users` still shows "Test Trainer B1"
+(the shared function through the camelCase adapter), and `/profile`'s rendered HTML confirms the
+edit-form variant still puts an unsplit `full_name` ("Test Org B Owner", both structured columns
+null on that fixture) into the first-name input's `value` attribute with the last-name input empty
+-- the exact `editableNameFields` behavior, unchanged from before extraction
+(`scripts/verify_display_name_refactor_test_org_b.ts`). Deployed, then the identical check re-run
+live against `https://app.wowlab.ro`, real `WOW LAB` org, using `test+ui-owner@wowlab.dev` (a
+fixture, not a named teammate): all five pages 200, `/admin/users` correctly shows "QA Trainer"
+(a real trainer fixture's `full_name`, resolved through the shared function). No i18n changes --
+pure refactor, no new user-facing strings.
+
+**Lives in:** `lib/display-name.ts`; `app/(app)/admin/users/admin-users-client.tsx`,
+`app/(app)/groups/page.tsx`, `app/(app)/groups/[id]/page.tsx`,
+`app/(app)/payment-config/page.tsx`, `app/(app)/payroll/page.tsx`, `app/(app)/profile/page.tsx`;
+`scripts/verify_display_name_refactor_test_org_b.ts`.
 
 ---
 
@@ -1830,7 +4254,7 @@ the same way this one eventually was: by checking, not by noticing.
 
 ---
 
-### 36. Permanent-group assignments — a count of four, pending one confirmation that may make it five
+### 36. Permanent-group assignments — a count of four, pending one confirmation that may make it five — OVERDUE for its own re-verify date as of 2026-09-18
 
 From Anca, 2026-09-08, not derived or inferred: Raluca Popa will have permanent groups, likely at
 IBSB, pending the school's own confirmation expected next week. The permanent-group list — who is
@@ -1846,6 +4270,14 @@ assignment is real; if not, it stays four and this note can close without furthe
 way.
 
 **No fix proposed here** — nothing to build yet, no table this maps to today.
+
+**Flagged 2026-09-18, not resolved — this is a due-date check, not a finding.** "Next week" from
+2026-09-08 has passed; ten days on, nothing in this file or `progress.md` records an IBSB answer
+either way. Unlike item 19 above or items 39/45 below, nothing here is factually wrong — the count
+may genuinely still be four, or IBSB may have confirmed and nobody wrote it down, and this entry can't tell the
+difference; there's no code or data this maps to yet for a live check to run against, per its own
+"no fix proposed" line. Recorded so the next person reading this knows the date has passed without
+implying an answer either way — ask Anca again rather than trust "four" or assume "five."
 
 **Lives in:** Anca's confirmation, 2026-09-08 (not yet in this repo in any structured form); the
 eventual `groups`/allocation schema, whenever a "permanent vs. rotating" distinction gets modeled.
@@ -1986,7 +4418,7 @@ decision record).
 
 ---
 
-### 39. `children_confirmed`/`children_billed` — one writable field, one derived, one blocked on a bigger gap
+### 39. `children_confirmed`/`children_billed` — CORRECTED 2026-09-18: findings 2 and 3 were built 2026-09-11 and never marked; finding 1 is now buildable
 
 Anca's answer to item 38's masking question came with the full picture of how these two fields
 actually work, which changes what gets built and where. Recorded here as five separate findings —
@@ -2063,16 +4495,53 @@ scoping doesn't cover it either way, and it must not be guessed at construction 
 `delivery_format`'s own split from "Tip atelier" already was once, accepted as risk, in this same
 SAD (§3). A direct question, not an assumption, when this is built.
 
-**Nothing built yet, deliberately — this is the decision record ahead of construction, not a
-retrofit after.** Finding 2 gates findings 1 and (functionally) 4; finding 3 needs Anca's own RLS
-scope confirmed before a form is written for it; finding 5's `custom` case needs a direct answer.
+**At the time this was written: nothing built yet, deliberately — the decision record ahead of
+construction, not a retrofit after.** Finding 2 gates findings 1 and (functionally) 4; finding 3
+needs Anca's own RLS scope confirmed before a form is written for it; finding 5's `custom` case
+needs a direct answer. **That framing held for three days.**
+
+**Corrected 2026-09-18, checked against the live code, not against this item's own text.** Findings
+2 and 3 both describe a blocker that stopped being true on 2026-09-11 — three days after this item
+was written — and neither this item nor anything that read it since noticed.
+
+- **Finding 2 — resolved.** `updateSessionAttendance` (`app/(app)/groups/actions.ts`) is live: the
+  assigned trainer (row-matched on `trainer_principal_id`/`trainer_secundar_id`, gated on
+  `mywork.*`, plus a payroll month-close check) writes their own `attendance_count`/
+  `experiment_delivered` after the session, through a real UI ("record attendance" on
+  `/groups/[id]`). The code's own comment dates the underlying decision to 2026-09-11: *"The
+  assigned trainer recording their own session (Anca's decision, 2026-09-11)."* "Nobody can record
+  what actually happened at a session" is no longer true, and has not been true since the day after
+  finding 2 was written.
+- **Finding 3 — resolved.** `supabase/migrations/202609110002_add_groups_update_contracts_star_branch.sql`,
+  same date, adds exactly the `contracts.*` branch this finding names to the `groups` UPDATE
+  policy — its own header quotes this finding's own reasoning back, near-verbatim. `updateGroup`
+  (`app/(app)/groups/actions.ts`) narrows the write to `children_confirmed` alone, gated on
+  `canWriteChildrenConfirmed`, confirmed live in `groups/[id]/page.tsx`. Laura and Anka can fill it;
+  Cătălina still cannot — exactly the boundary this finding asked for, not a broader grant.
+- **Finding 1 — was blocked on finding 2 alone, and is therefore buildable now, not blocked.** The
+  derived read (`SUM(sessions.attendance_count)`, likely filtered to `status = 'delivered'`, per
+  this finding's own already-decided shape) now has real data to sum, since finding 2 shipped.
+  Checked live: `groups.children_billed` is still the plain stored column, read as-is
+  (`groups/[id]/page.tsx`, `groups-client.tsx`, `group-detail-panel.tsx`), never written by any
+  action, never derived — the decision recorded above was never implemented, not because it's still
+  blocked, but because nobody went back to build it once its blocker cleared.
+
+Findings 4 and 5 are unaffected by any of the above — finding 4 still waits on the billing generator
+existing at all (`phase1-development-plan.md` row 11, still 🔴), and finding 5's `custom` gap still
+waits on Anca. Only findings 1-3 were ever blocked on the attendance gap; only those three needed
+this correction.
 
 **Lives in:** `docs/WOWLAB_SAD_Domeniul_Operational_Groups_Sessions.md` §2/§4/§6;
 `docs/WOWLAB_SAD_Field_Masking.md` §2.7; `docs/phase1-development-plan.md` row 11;
-`supabase/migrations/202608130003_add_groups_sessions_rls_policies.sql`; `supabase/seed.sql`
-(role/capability grants); `app/(app)/groups/actions.ts` (`addSession`, `updateSessionAllocation`);
-`app/(app)/groups/[id]/group-detail-client.tsx` (`NewSessionForm`); item 37 above (Laura/Anka's
-`contracts.*`, verified live); item 38 above (the masking question this closes).
+`supabase/migrations/202608130003_add_groups_sessions_rls_policies.sql`,
+`202609110002_add_groups_update_contracts_star_branch.sql`,
+`202609110003_add_sessions_update_trainer_branch.sql`,
+`202609110004_require_mywork_capability_on_sessions_trainer_branch.sql`; `supabase/seed.sql`
+(role/capability grants); `app/(app)/groups/actions.ts` (`addSession`, `updateSessionAllocation`,
+`updateSessionAttendance`, `updateGroup`); `app/(app)/groups/[id]/group-detail-client.tsx`
+(`NewSessionForm`, the trainer's own attendance UI); item 37 above (Laura/Anka's `contracts.*`,
+verified live); item 38 above (the masking question this closes); item 45 below (part 1, the same
+build recorded and left unmarked from the other side).
 
 ---
 
@@ -2119,7 +4588,7 @@ wrong value.
 
 **Lives in:** `app/(app)/clients/clients-client.tsx`, `app/(app)/clients/i18n.ts`;
 `app/(app)/contracts/contracts-client.tsx`, `app/(app)/contracts/i18n.ts`;
-`app/(app)/groups/groups-client.tsx`, `app/(app)/groups/i18n.ts`; item 21 above (the other instance
+`app/(app)/groups/groups-client.tsx`, `app/(app)/groups/i18n.ts`; item 21 below (the other instance
 of this shape).
 
 ---
@@ -2242,17 +4711,17 @@ nothing would surface an error to say so.
 **Narrow, real, unmitigated, no action taken.** This needs two different input methods producing
 different normalization for what looks like the same exit number — not something one person typing
 on one machine is likely to hit, but a real gap, not a hypothetical one, and the same "guarantee
-the code doesn't actually provide" shape as items 21 and 40 above.
+the code doesn't actually provide" shape as item 40 above and item 21 below.
 
 **Re-verify when:** exit numbers start coming from more than one input source (a copy-paste from
 an external system, an import, a second office) rather than one person typing them by hand.
 **Lives in:** `supabase/migrations/202608180002_replace_contract_number_with_entry_exit.sql`;
-`app/(app)/contracts/actions.ts` (`addContract`); items 21, 40 above (the other instances of this
-shape).
+`app/(app)/contracts/actions.ts` (`addContract`); item 40 above and item 21 below (the other
+instances of this shape).
 
 ---
 
-### 45. Trainer end-of-session screen — the map, before any of it gets built piecemeal
+### 45. Trainer end-of-session screen — the map, before any of it gets built piecemeal — CORRECTED 2026-09-18: part 1 was built the day after this was written, never marked
 
 Anca described one screen (attendance confirmation, photos, attendance count, experiment logging,
 peer feedback) that is much larger than the single question that prompted it. Investigated each of
@@ -2272,6 +4741,18 @@ narrow action exposing only `attendance_count`/`experiment_delivered` — RLS re
 columns, so the column boundary belongs in the action, the same pattern `updateSessionAllocation`
 already uses to narrow Ops's broader grant down to two columns.
 
+**Part 1, corrected 2026-09-18: built, one day after this was written, never marked here.**
+`updateSessionAttendance` (`app/(app)/groups/actions.ts`) is exactly what this part specifies —
+row-matched on `trainer_principal_id = auth.uid() OR trainer_secundar_id = auth.uid()`, gated on
+`mywork.*` (not a new narrower capability — `202609110004` settled that question the same way item
+57 below argues it should be settled), narrowed in the action to `attendance_count`/
+`experiment_delivered` alone. Live UI: "record attendance" on `/groups/[id]`. The code's own
+comment dates the decision to 2026-09-11 — this item was written 2026-09-10 and never revisited to
+close part 1 (or part 2, immediately below — same date, same gap) even though it was revisited
+repeatedly afterward (2026-09-11, -12, -15) for part 5. Same finding as item 39's correction above,
+from the session side rather than the `children_billed` side — one build closed both entries'
+blockers, and neither entry noticed on its own.
+
 **2. Ready to build: `children_confirmed` writable by `contracts.*` holders.** Anca removed the
 `delivery_format` gating that item 39 (finding 5) had recorded as an open question — both count
 fields now apply to every group regardless of format, with a blank value meaning "no count was
@@ -2280,6 +4761,10 @@ natively. Nothing to remove — the read-only display in `group-info-section.tsx
 format-gated either. What remains is exactly item 39 finding 3: Laura/Anka hold `contracts.*`, not
 `groups.create`, the only capability the current `groups` UPDATE policy checks. That RLS gap is
 the entire remaining scope for this part.
+
+**Part 2, corrected 2026-09-18: also built, same date as part 1.** See item 39's correction above
+(finding 3) for the full detail — `202609110002_add_groups_update_contracts_star_branch.sql` closed
+exactly this RLS gap. Not re-derived here to avoid saying it twice.
 
 **3. Blocked, needs a domain of its own: pre-filling the experiment from a planner.** No
 experiment-level catalog exists. `public.modules` (`202608160004`) holds 13 rows, one per
@@ -2420,9 +4905,9 @@ question, investigated the same session, not repeated here); `docs/WOWLAB_SAD_Co
 Furnizor.md` §12; `docs/WOWLAB_SAD_Field_Masking.md` §2.4/§2.5; `docs/ws-d-plan.md`; item 23 above
 (the Happy Face precedent for part 4's open question); item 39 above (findings 2, 3, 5 — part 4's
 "trainers write directly" answer and part 2's format-gating removal both resolve open questions
-recorded there); item 8 above (`contracts.status`'s second-write-path warning, the reason a
-trainer-driven `sessions.status` transition was rejected for part 5); items 21, 40, 44 above (the
-one-field-two-owners shape part 5's decision was written to avoid repeating).
+recorded there); item 8 below (`contracts.status`'s second-write-path warning, the reason a
+trainer-driven `sessions.status` transition was rejected for part 5); items 40, 44 above and item 21
+below (the one-field-two-owners shape part 5's decision was written to avoid repeating).
 
 ---
 
@@ -2475,7 +4960,7 @@ depends on it gets written — which is the one thing a decision record exists t
 **Lives in:** `docs/WOW_LAB_OS_Solution_Architecture_Document.md` (verbatim source, copied in this
 session, not edited); `docs/WOW_LAB_OS_AD_Reconciliation.md` (status of all fifteen, checked against
 the repo); item 45 above (AD-4's independent re-derivation, AD-10's unconfirmed status, AD-14's
-offline requirement); item 8 above (the `contracts.status` precedent both AD-4 and item 45 used
+offline requirement); item 8 below (the `contracts.status` precedent both AD-4 and item 45 used
 independently); `docs/WOWLAB_SAD_Domeniul_Clients_Contracts_CRM.md` §1/§9 (AD-15, the confirmed twin
 of AD-11); item 35 above and item 48 below (the other two instances of "asserted as sourced, wrong,
 caught only by checking").
@@ -2763,7 +5248,7 @@ reused that org for).
 
 ---
 
-### 52. Anca's planning-fields spec describes a workshop; the schema models a group — a domain question, not missing columns
+### 52. Anca's planning-fields spec describes a workshop; the schema models a group — CENTRAL FORK CLOSED 2026-09-21: recurring stays primary, one-off gets extension fields
 
 Three real documents from Anca — a 26-field planning spec, a PDF on principal/secondary/reserve
 trainer responsibilities, and a post-workshop feedback form's question list — describe a **workshop**
@@ -2815,29 +5300,114 @@ asks the trainer how many children attended. `docs/OPEN_ITEMS.md` item 45 part 1
 talk to each other, asking the same person the same question twice, with no reconciliation and no
 way to tell which is right if they ever diverge.
 
-**Checked, not built:** whether any existing document states workshop volume — how many one-off
-workshops Wow Lab runs in a year against how many recurring groups — since that ratio decides
-whether the domain gap above is the exception or the actual shape of most of the business. Searched
-this repo (`docs/`, `progress.md`), the already-known Drive feedback spreadsheet, the AD document
-(mentions the one-off/recurring split conceptually — P3's "Program → Groups (recurring) or direct
-sessions (one-off)" — with no figures attached), and two real operational spreadsheets in
-`~/Downloads` — `New Wow Lab Trainer Calculations Table.xlsx` ("Pontaj si Norma," ~11,876 rows,
-one row per trainer/workshop-date/school occurrence back to 2024) and `Tabel Costuri Agregate Total
-HR WOW Lab.xlsx` (a monthly per-trainer cost rollup). **No document anywhere states the ratio.**
-The raw transactional data in the first spreadsheet could support computing it — school name, date,
-and duration per row, back to 2024 — but nothing does that computation or states its result today,
-and doing so wasn't asked for here.
+**Checked, not built, at the time this was written:** whether any existing document states workshop
+volume — how many one-off workshops Wow Lab runs in a year against how many recurring groups —
+since that ratio decides whether the domain gap above is the exception or the actual shape of most
+of the business. Searched this repo (`docs/`, `progress.md`), the already-known Drive feedback
+spreadsheet, the AD document (mentions the one-off/recurring split conceptually — P3's "Program →
+Groups (recurring) or direct sessions (one-off)" — with no figures attached), and two real
+operational spreadsheets in `~/Downloads` — `New Wow Lab Trainer Calculations Table.xlsx` ("Pontaj
+si Norma," ~11,876 rows, one row per trainer/workshop-date/school occurrence back to 2024) and
+`Tabel Costuri Agregate Total HR WOW Lab.xlsx` (a monthly per-trainer cost rollup). No document
+anywhere stated the ratio. The raw transactional data in the first spreadsheet could support
+computing it — school name, date, and duration per row, back to 2024 — but nothing had done that
+computation or stated its result yet.
 
-**No migration, no table, no code — reported as a domain question for Anca to answer, not a set of
-fields to add.**
+**Computed 2026-09-21 — `Pontaj si Norma`, 1,422 data rows (of 11,876 raw rows; the rest of the
+sheet is unused space).** No column marks workshop type — the split was inferred, not read off a
+field, from `School Name`: most of its 34 distinct values are real named schools (recurring club
+delivery); a minority are generic event labels standing in for one-off work — `Scoala Altfel` (171
+rows), `Saptamana Verde` (59), `Wow Lab Party` (26) — plus three non-school venues identifiable
+only by not being a school (`ASOCIATIA CURTEA VECHE`, `PR CORNER S.R.L`, `Mina Museum SRL`, 16 rows
+together). 103 rows under `New Lesson Plan` were excluded outright, not counted either way —
+`Trainer Classification` on those rows reads `Lesson plan writer`, a different work stream (lesson
+authoring pay, not delivery). **This is a proxy inferred from a free-text field, not a fact anyone
+recorded as such — treat the numbers below as a first real estimate, not a source of truth the way
+a real `delivery_format`-equivalent column on this data would be.**
+
+- **Overall:** recurring 1,045, one-off 274 → **3.8 : 1 by count, 3.7 : 1 by hours** (average
+  session length is nearly identical either way — 1.15h recurring vs. 1.19h one-off — so count and
+  hours agree here; they need not, and a future check with more format variance shouldn't assume
+  they always will).
+- **By school year — the trend, not just the average:** 2024/2025 (Aug 2024–Jul 2025, 636 sessions)
+  — **2.9 : 1** by count. 2025/2026 (Sep 2025–Jun 2026, partial year, 682 sessions) — **5.2 : 1** by
+  count. One-offs fell from 163 to 110 sessions in absolute terms, and from 25.6% to 16.1% of the
+  total — recurring is not just the larger share, it is actively growing as a share of what this
+  business delivers, in the one year of trend this data shows.
+- **Revenue could not be computed, from either spreadsheet.** Both hold trainer *cost* (what Wow Lab
+  pays out), never a client-facing price — there is no revenue column anywhere in either file.
+
+**The fork closes: recurring stays the primary model; one-off workshops get the fields they're
+missing as an extension of it, not a restructure that promotes workshops to the primary entity.**
+At roughly 4:1 and widening, recurring clubs are the dominant shape of real, delivered work today —
+not the exception the domain gap above was checked against. That argues directly against making a
+one-off workshop the first-class unit with recurring groups as its special case, which was the
+live alternative this fork was actually weighing. **It does not make the gap smaller.** One-off
+workshops are still roughly a fifth of delivered hours even in the leaner, more recent year — real,
+ongoing volume, not noise — so every absence the section above lists (address, time range, the
+reserve-trainer slot, a real principal flag, per-experiment attribution, a workshop-level contact
+and description) is still a real gap to fill, now scoped as additions to the existing
+`groups`/`sessions` model rather than as a second, parallel entity.
+
+**The nine-value workshop type list is verified, not just cited secondhand — read directly from the
+source, `Fielduri pentru planificare ateliere.xlsx` (`~/Downloads`), the "Tip Atelier" row's own
+dropdown definition, quoted in full:**
+
+> Dropdown list:
+> Lista:
+> Scoala Altfel
+> Scoala Verde
+> Wow Lab Party
+> Parteneriate cu companii
+> Cursuri deschise - Exemplu Cursuri de chimie
+> Scoli private (colaborări ocazionale) - Exemplu Science Week la IBSB
+> Scoli private (colaborări recurente)
+> Wow Lab Party
+> Evenimente/prezentari la mall - Exemplu Barlad Value Center
+> Party in companii
+
+Ten lines, `Wow Lab Party` listed twice — **nine distinct values**: Scoala Altfel; Scoala Verde;
+Wow Lab Party; Parteneriate cu companii (company partnerships); Cursuri deschise (open courses,
+e.g. chemistry courses); Scoli private, colaborări ocazionale (private schools, occasional
+collaboration, e.g. a Science Week at IBSB); Scoli private, colaborări recurente (private schools,
+recurring collaboration); Evenimente/prezentari la mall (mall events/presentations, e.g. Barlad
+Value Center); Party in companii (parties at companies).
+
+**Why this can't map onto `delivery_format`'s six values (`recurring`, `scoala_altfel`,
+`saptamana_verde`, `party`, `corporate`, `custom`) — checked precisely, not just "it's different":**
+the nine-value list mixes three different axes in one flat dropdown that `delivery_format` keeps
+separate or collapses on purpose — **occasion** (Scoala Altfel, Scoala Verde), **venue** (mall),
+**client type** (private schools, companies), and **frequency** (occasional vs. recurring,
+spelled out as two separate private-school lines) all sit at the same list level. One direct
+naming mismatch, not just a conceptual one: the spec says **"Scoala Verde,"** the schema's enum
+says **`saptamana_verde`** ("Săptămâna Verde") — close enough to be the same program, not
+confirmed to be, and not silently treated as such here. Two spec lines (`Wow Lab Party`, `Party in
+companii`) and two more (`Parteneriate cu companii`, `Party in companii` again) plausibly both
+collapse onto single `delivery_format` values (`party`, `corporate`) — plausibly, not confirmed;
+`recurring` most likely corresponds to "Scoli private (colaborări recurente)" alone, leaving state
+schools' own recurring relationships (if any) unaccounted for in either list.
+
+**Still Anca's, not settled by the volume answer:** whether the nine-value list replaces
+`delivery_format`, sits beside it as a second, more granular classification, or is dropped in favor
+of the six already built. The ratio decided the *structural* fork (extend, don't restructure); it
+says nothing about which *vocabulary* the extension should speak.
+
+**At the time this fork closed: no migration, no table, no code yet.** Three of the seven
+still-absent fields — time range, address, on-site contact — were built the same week, as an
+extension of `groups`/`sessions`, not a new entity (item 77 above). Four remain: a real principal
+flag (not implied by column position), a third/reserve trainer slot, per-experiment attribution, and
+a workshop-level description distinct from `notes` — still pending Anca's vocabulary answer above
+for the ones that touch `delivery_format`/`Tip Atelier` directly.
 
 **Lives in:** `docs/OPEN_ITEMS.md` item 45 (the attendance-count duplication's other half); the
-three source documents themselves, once placed in `docs/` (`WOWLAB_Spec_Planificare_Ateliere`,
-`WOWLAB_Spec_Trainer_Principal_Secundar`, `WOWLAB_Spec_Formular_Feedback_Post_Atelier` — not yet
-copied in as of this entry); `supabase/migrations/202608130001_create_groups_sessions_domain_tables.sql`,
+three source documents (`WOWLAB_Spec_Trainer_Principal_Secundar.md`, now in `docs/`, untracked;
+`Fielduri pentru planificare ateliere.xlsx`, found and read `~/Downloads`, not yet copied in;
+`WOWLAB_Spec_Formular_Feedback_Post_Atelier`, still not located); `New Wow Lab Trainer Calculations
+Table.xlsx` (`~/Downloads`, `Pontaj si Norma` sheet — the volume computation's own source);
+`supabase/migrations/202608130001_create_groups_sessions_domain_tables.sql`,
 `202608160004_groups_sessions_field_additions.sql` (the live `sessions`/`groups` schema this was
-checked against); `docs/WOW_LAB_OS_Solution_Architecture_Document.md` line 49 (the one place the
-one-off/recurring split is named, without a volume figure).
+checked against, and where the extension fields would land); `docs/WOW_LAB_OS_Solution_Architecture_Document.md`
+line 49 (the one place the one-off/recurring split is named, without a volume figure).
 
 ---
 
@@ -2936,7 +5506,7 @@ that screen should resend as part of shipping it, not treat the resend as a sepa
 
 **Lives in:** item 53 above (the investigation this decision follows from); `app/(app)/admin/users/
 actions.ts` (`resendInvitation` — the mechanism, already built and already proven to work: 8 of the
-10 prior resends produced a real sign-in, per item 21's 2026-09-11 caveat above).
+10 prior resends produced a real sign-in, per item 21's 2026-09-11 caveat below).
 
 ---
 
@@ -3163,7 +5733,7 @@ was the right call and is not what this item is about. The action underneath it 
 finding: a verification step that needed a precondition took the direct route to create one,
 instead of treating "the precondition isn't met yet" as information and waiting.
 
-**Lives in:** `docs/WOWLAB_SAD_Field_Masking.md` §6.4; item 21 above (`auth.users.last_sign_in_at`
+**Lives in:** `docs/WOWLAB_SAD_Field_Masking.md` §6.4; item 21 below (`auth.users.last_sign_in_at`
 as the real confirmation signal, `public.users.status` never moving in response to it — the same
 mechanics this instance's revert relied on); item 45 (the `COMMENT ON TABLE` precedent for a
 direct-SQL write landing on a table with no row_history trigger to leave a row in); `pg_trigger`
@@ -3783,7 +6353,7 @@ the app, and should not be read as such by anyone looking at this data later.
 **Lives in:** `supabase/migrations/202607130004_add_auth_support_functions.sql`
 (`handle_new_auth_user`); `app/(app)/admin/users/actions.ts` (`enableAccess`, `disableAccess`);
 `app/(app)/admin/users/page.tsx`; `app/(app)/profile/page.tsx`; item 53 above (the 10 real trainer
-accounts this caveat was confirmed against). See also item 40 below — the same
+accounts this caveat was confirmed against). See also item 40 above — the same
 shape of defect (code asserting a guarantee it did not provide), a client-side gate instead of a
 DB column.
 
@@ -3818,6 +6388,13 @@ Hobby-plan restriction (private org repos can't auto-deploy on Hobby) — no
 Vercel CLI auth was available in this environment to re-check the current
 plan. This half is carried over from an established prior finding, not
 freshly verified here.
+
+**Reopening trigger, folded in 2026-09-18 from `docs/phase1-development-plan.md` row 16 (now
+superseded, see item 75 above) — this file's own text never carried it:** return to private when
+**both** (a) the Vercel plan upgrades past Hobby, **and** (b) the app reaches a more mature stage —
+Mihai's own stated condition, an explicit "and," not "either." Neither half checked as met here;
+recorded so the condition lives in the current register instead of only in a document marked
+superseded.
 **Lives in:** prior session record (Vercel↔GitHub integration work); GitHub
 API confirms the visibility half live.
 

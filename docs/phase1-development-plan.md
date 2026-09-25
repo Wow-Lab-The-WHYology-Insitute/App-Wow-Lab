@@ -8,6 +8,24 @@
 
 ---
 
+> **SUPERSEDED, 2026-09-18 — `docs/OPEN_ITEMS.md` is the live register now; this file is kept as
+> history, not deleted, per its own maintenance rule above.** Checked row by row against the
+> current codebase, the same pass applied to `WOW_LAB_OS_AD_Reconciliation.md`'s check of the
+> fifteen architecture decisions (`OPEN_ITEMS.md` item 46). Most rows are either done and carried
+> into the real build (often by something more developed than what this doc describes — rows 1, 2,
+> 3, 5, 9's module taxonomy, 10, 12, 13), already tracked as their own `OPEN_ITEMS.md` item (row 15
+> → item 72; row 16 → item 16, now carrying this file's own reopening trigger), or superseded by a
+> later, more thorough investigation (row 8 → item 53). Two rows named a real gap this file was the
+> only place tracking — row 6 (Costuri Admin) and row 7 (recruitment → Academy → evaluation,
+> distinct from the evaluation half already covered by item 23) — folded into `OPEN_ITEMS.md` as
+> items 73 and 74. Row 11 split: the "Plată traineri" half is built (item 45); "Generator cod
+> facturare" is not (still tracked, item 39 finding 4). Full row-by-row detail, and the reasoning
+> for marking this file superseded rather than annotating every row in place, is in `OPEN_ITEMS.md`
+> item 75. Nothing below this banner has been edited — read it as a dated snapshot, not as current
+> status.
+
+---
+
 ## 1. Rezumat status (dintr-o privire)
 
 | # | Workstream | Status | Sursă | Notă |

@@ -50,7 +50,18 @@ const MODULE_KEYS = [
   "astronomy",
   "doctor",
 ];
-const FORMAT_KEYS = ["recurring", "scoala_altfel", "saptamana_verde", "party", "corporate", "custom"];
+// Anca's nine workshop types (2026-09-21, item 79/85) -- see groups/i18n.ts.
+const FORMAT_KEYS = [
+  "scoala_altfel",
+  "saptamana_verde",
+  "wow_lab_party",
+  "parteneriate_companii",
+  "cursuri_deschise",
+  "scoli_private_ocazionale",
+  "scoli_private_recurente",
+  "evenimente_mall",
+  "party_companii",
+];
 const STATUS_KEYS = ["active", "paused", "ended"];
 
 // Nulls always sort last regardless of direction — same convention as
@@ -481,6 +492,7 @@ export function GroupsClient({
                 ageRange,
                 schoolYearCalendarLink,
                 contractId,
+                languageGroup,
               ) => {
                 setError(null);
                 startTransition(async () => {
@@ -495,6 +507,7 @@ export function GroupsClient({
                       ageRange,
                       schoolYearCalendarLink,
                       contractId,
+                      languageGroup,
                     );
                     if (!result.ok) setError(result.error);
                     else {
@@ -700,12 +713,14 @@ function NewGroupForm({
     ageRange: string,
     schoolYearCalendarLink: string,
     contractId: string,
+    languageGroup: string,
   ) => void;
 }) {
   const [clientId, setClientId] = useState("");
   const [module, setModule] = useState("");
   const [deliveryFormat, setDeliveryFormat] = useState("");
   const [status, setStatus] = useState("active");
+  const [languageGroup, setLanguageGroup] = useState("");
   const [ageRange, setAgeRange] = useState("");
   const [calendarLink, setCalendarLink] = useState("");
   // Nullable stays meaningful here -- always starts empty, never
@@ -727,7 +742,10 @@ function NewGroupForm({
     }
   }
 
-  const isRecurring = deliveryFormat === "recurring";
+  // "Recurring" means scoli_private_recurente specifically (item 79/85,
+  // confirmed with Mihai) -- not a substring check, and not any of the
+  // other eight values.
+  const isRecurring = deliveryFormat === "scoli_private_recurente";
   const [scheduleDay, setScheduleDay] = useState(DAYS_OF_WEEK[0]);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
@@ -801,6 +819,15 @@ function NewGroupForm({
           ))}
         </select>
         <select
+          value={languageGroup}
+          onChange={(e) => setLanguageGroup(e.target.value)}
+          className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+        >
+          <option value="">{t("select_language")}</option>
+          <option value="ro_en">{t("language_ro_en")}</option>
+          <option value="fr_de_es">{t("language_fr_de_es")}</option>
+        </select>
+        <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
@@ -866,7 +893,17 @@ function NewGroupForm({
         type="button"
         disabled={isPending || !clientId || !module || !deliveryFormat}
         onClick={() =>
-          onSubmit(clientId, module, deliveryFormat, schedulePattern, status, ageRange, calendarLink, contractId)
+          onSubmit(
+            clientId,
+            module,
+            deliveryFormat,
+            schedulePattern,
+            status,
+            ageRange,
+            calendarLink,
+            contractId,
+            languageGroup,
+          )
         }
         className="font-body focus-visible:ring-brand-pink mt-3 w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
       >

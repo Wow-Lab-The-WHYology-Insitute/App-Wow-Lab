@@ -51,12 +51,28 @@ export const groupsDict: Dictionary = {
   module_astronomy: { en: "Astronomy", ro: "Astronomy" },
   module_doctor: { en: "I Wanna Be a Doctor", ro: "I Wanna Be a Doctor" },
 
-  format_recurring: { en: "Recurring (school club)", ro: "Recurent (club școlar)" },
+  // Anca's nine workshop types (2026-09-21, item 79/85), replacing the
+  // prior six-value working list. Keys are ASCII snake_case (Mihai's
+  // instruction); labels carry the diacritics, RO and EN. scoala_altfel/
+  // saptamana_verde keep their old keys unchanged -- same program, same
+  // key, only the surrounding list was confirmed. "Recurring," wherever
+  // this app distinguishes it (the resources caption, the create form's
+  // schedule-pattern shape), means format_scoli_private_recurente ONLY.
   format_scoala_altfel: { en: "Școala Altfel", ro: "Școala Altfel" },
   format_saptamana_verde: { en: "Săptămâna Verde", ro: "Săptămâna Verde" },
-  format_party: { en: "Party", ro: "Party" },
-  format_corporate: { en: "Corporate", ro: "Corporate" },
-  format_custom: { en: "Custom", ro: "Custom" },
+  format_wow_lab_party: { en: "Wow Lab Party", ro: "Wow Lab Party" },
+  format_parteneriate_companii: { en: "Company partnerships", ro: "Parteneriate cu companii" },
+  format_cursuri_deschise: { en: "Open courses", ro: "Cursuri deschise" },
+  format_scoli_private_ocazionale: {
+    en: "Private schools (occasional collaboration)",
+    ro: "Școli private (colaborări ocazionale)",
+  },
+  format_scoli_private_recurente: {
+    en: "Private schools (recurring collaboration)",
+    ro: "Școli private (colaborări recurente)",
+  },
+  format_evenimente_mall: { en: "Mall events/presentations", ro: "Evenimente/prezentări la mall" },
+  format_party_companii: { en: "Company parties", ro: "Party în companii" },
 
   status_active: { en: "Active", ro: "Activă" },
   status_paused: { en: "Paused", ro: "Suspendată" },
@@ -86,6 +102,13 @@ export const groupsDict: Dictionary = {
   select_module: { en: "Select module…", ro: "Alege modulul…" },
   select_format: { en: "Select delivery format…", ro: "Alege formatul de livrare…" },
   contract_option_no_exit: { en: "(no exit number yet)", ro: "(fără număr de ieșire încă)" },
+  // Group-level (202609240003 -- moved off sessions, entered once at
+  // group creation and on the group edit form, not per session). Same
+  // vocabulary/keys as the payment-config language_bonus grid and the
+  // sessions.language_group column this replaced.
+  select_language: { en: "Select language…", ro: "Alege limba…" },
+  language_ro_en: { en: "Romanian / English", ro: "Română / Engleză" },
+  language_fr_de_es: { en: "French / German / Spanish", ro: "Franceză / Germană / Spaniolă" },
   status_label: { en: "Status", ro: "Status" },
   age_range_placeholder: { en: "Age range (e.g. 6-9 ani — optional)", ro: "Interval de vârstă (ex. 6-9 ani — opțional)" },
   calendar_link_placeholder: {
@@ -113,6 +136,7 @@ export const groupsDict: Dictionary = {
   col_principal: { en: "Principal", ro: "Principal" },
   col_secundar: { en: "Secundar", ro: "Secundar" },
   col_duration: { en: "Duration", ro: "Durată" },
+  col_location: { en: "Location", ro: "Locație" },
   col_present: { en: "Present", ro: "Prezenți" },
   col_experiment_delivered: { en: "Experiment delivered", ro: "Experiment livrat" },
   open_action: { en: "Open", ro: "Deschide" },
@@ -143,6 +167,12 @@ export const groupsDict: Dictionary = {
   // children_confirmed count, a different field entirely.
   session_confirmed_status: { en: "Confirmed", ro: "Confirmat" },
   session_not_confirmed_status: { en: "Not confirmed", ro: "Neconfirmat" },
+  // The action-worded case: an empty checkbox on the assigned trainer's
+  // own, not-yet-confirmed slot. Deliberately not "Not confirmed" --
+  // that's a state word sitting next to a box that hasn't been touched
+  // yet, easy to misread as if the box itself asserts the state rather
+  // than performs the action.
+  confirmation_check_to_confirm: { en: "Check to confirm", ro: "Bifează pentru a confirma" },
   confirmation_month_closed_error: {
     en: "This month is closed. You can no longer change your confirmation.",
     ro: "Luna este închisă. Nu îți mai poți modifica confirmarea.",
@@ -169,12 +199,30 @@ export const groupsDict: Dictionary = {
   mobile_principal_prefix: { en: "Principal: ", ro: "Principal: " },
   mobile_secundar_prefix: { en: "Secundar: ", ro: "Secundar: " },
   mobile_duration_prefix: { en: "Duration: ", ro: "Durată: " },
+  mobile_location_prefix: { en: "Location: ", ro: "Locație: " },
   mobile_present_prefix: { en: "Present: ", ro: "Prezenți: " },
   mobile_experiment_prefix: { en: "Experiment: ", ro: "Experiment: " },
 
   new_session_title: { en: "New session", ro: "Sesiune nouă" },
   trainer_principal_label: { en: "Trainer principal", ro: "Trainer principal" },
   trainer_secundar_label: { en: "Trainer secundar", ro: "Trainer secundar" },
+  // location_tier stays on the session (unlike language, above -- it
+  // genuinely varies with who's assigned, item 95/96 report). Entered
+  // here, at the same moment as trainer allocation; sometimes pre-filled
+  // from the principal's known home city, never auto-submitted.
+  location_tier_label: { en: "Location (travel)", ro: "Locație (deplasare)" },
+  location_tier_placeholder: { en: "Choose one…", ro: "Alege una…" },
+  location_tier_bucuresti: { en: "Bucharest", ro: "București" },
+  location_tier_imprejurimi: { en: "Surrounding areas", ro: "Împrejurimi" },
+  location_tier_alte_orase: { en: "Other cities", ro: "Alte orașe" },
+  // Shown only when the app pre-filled the value below from the
+  // principal's home city -- makes clear this is a suggestion, not a
+  // confirmed entry, so the person creating the session knows to check
+  // it rather than assume it was already verified.
+  location_tier_prefilled_hint: {
+    en: "Auto-suggested from the trainer's home city — confirm or change.",
+    ro: "Sugerat automat din orașul de domiciliu al trainerului — confirmă sau schimbă.",
+  },
   attendance_placeholder: { en: "Attendance count (optional)", ro: "Număr prezenți (opțional)" },
   experiment_placeholder: { en: "Experiment delivered (optional)", ro: "Experiment livrat (opțional)" },
   duration_placeholder: { en: "Duration (optional)", ro: "Durată (opțional)" },
@@ -190,6 +238,7 @@ export const groupsDict: Dictionary = {
   back_link: { en: "← Groups", ro: "← Grupe" },
   section_group_info_title: { en: "Group info", ro: "Informații grupă" },
   kv_delivery_format: { en: "Delivery format", ro: "Format livrare" },
+  kv_language: { en: "Language", ro: "Limbă" },
   kv_age_range: { en: "Age range", ro: "Interval de vârstă" },
   kv_calendar: { en: "School-year calendar", ro: "Calendar an școlar" },
   open_link: { en: "Open link", ro: "Deschide link" },
@@ -208,6 +257,49 @@ export const groupsDict: Dictionary = {
   contract_hidden: {
     en: "Linked (not visible to your role)",
     ro: "Legat (nevizibil pentru rolul tău)",
+  },
+  // Same shape as contract_hidden above -- a client is always linked
+  // (groups.client_id is not null), the id just isn't resolvable under
+  // the viewer's own RLS. Never falls back to the raw id (OPEN_ITEMS.md
+  // item 66). Reused as-is for on_site_contact_id below (contact_hidden
+  // would just repeat the identical phrase under a new key).
+  client_hidden: { en: "Not visible to your role", ro: "Nevizibil pentru rolul tău" },
+
+  // Item 52's one-off-workshop extension fields: time range, address,
+  // on-site contact.
+  kv_start_time: { en: "Start time", ro: "Ora de start" },
+  kv_address: { en: "Address", ro: "Adresă" },
+  // Shown only when the group has its own address override (not the
+  // client's default) -- see page.tsx's addressIsOverride.
+  address_override_hint: {
+    en: "Overrides the client's own address",
+    ro: "Suprascrie adresa clientului",
+  },
+  address_override_placeholder: {
+    en: "Address (leave blank to use the client's own)",
+    ro: "Adresă (lasă gol pentru adresa clientului)",
+  },
+  kv_onsite_contact: { en: "On-site contact", ro: "Persoană de contact la fața locului" },
+  select_onsite_contact: {
+    en: "No on-site contact",
+    ro: "Fără persoană de contact la fața locului",
+  },
+  // Shown next to the edit form's contact picker when the client has no
+  // contacts to choose from yet -- creating a new client_contacts row
+  // needs clients.create/contracts.* (item 52's design record), which
+  // groups.create holders (Operations) don't necessarily hold, so this
+  // form deliberately only links, never creates.
+  no_contacts_for_client_hint: {
+    en: "This client has no contacts yet -- add one from the client's own page first.",
+    ro: "Acest client nu are încă niciun contact -- adaugă unul din pagina clientului mai întâi.",
+  },
+  // Shown when a linked contact exists but its own contact_purpose isn't
+  // 'trainer_facing' yet -- the link and that flag are deliberately
+  // independent (202609210002), so linking alone doesn't make a contact
+  // trainer-visible.
+  contact_not_trainer_facing_hint: {
+    en: "Not yet visible to trainers -- mark this contact \"trainer-facing\" on the client's own page first.",
+    ro: "Încă nevizibil pentru traineri -- marchează acest contact „vizibil pentru traineri” din pagina clientului mai întâi.",
   },
 
   // group-info-section.tsx's edit form (updateGroup) -- mirrors
@@ -231,9 +323,16 @@ export const groupsDict: Dictionary = {
     en: "Required for this workshop.",
     ro: "Obligatoriu pentru acest atelier.",
   },
+  // Rewritten 2026-09-21 (item 79/85) -- the old text named specific
+  // examples ("Școala Altfel, Săptămâna Verde, corporate, parties") that
+  // no longer match the nine-value vocabulary (there is no "corporate" or
+  // "parties" value now). Rephrased around the actual rule instead of an
+  // example list that would drift again the next time the vocabulary
+  // does -- "one-off" here means "every delivery_format except
+  // scoli_private_recurente" (trainer-resources-section.tsx).
   resources_feedback_form_optional: {
-    en: "Only required for one-off workshops (Școala Altfel, Săptămâna Verde, corporate, parties) — optional for recurring groups.",
-    ro: "Obligatoriu doar pentru atelierele unice (Școala Altfel, Săptămâna Verde, corporate, petreceri) — opțional pentru grupele recurente.",
+    en: "Required for one-off workshops — optional only for recurring private-school collaborations.",
+    ro: "Obligatoriu pentru atelierele unice — opțional doar pentru colaborările recurente cu școli private.",
   },
   resources_responsibilities_label: {
     en: "Trainer responsibilities: principal vs secundar",

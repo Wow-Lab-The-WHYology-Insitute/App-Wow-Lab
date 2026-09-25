@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
+import { displayName } from "@/lib/display-name";
 import { GroupDetailClient } from "./group-detail-client";
 import { GroupHeader } from "./group-header";
 import { GroupInfoSection } from "./group-info-section";
@@ -20,10 +21,15 @@ type GroupRow = {
   age_range: string | null;
   school_year_calendar_link: string | null;
   contract_id: string | null;
+  address: string | null;
+  on_site_contact_id: string | null;
+  language_group: string | null;
 };
-type ClientLookupRow = { id: string; name: string };
+type ClientLookupRow = { id: string; name: string; address: string | null };
 type ContractLookupRow = { id: string; exit_number: string | null };
 type ContractOptionRow = { id: string; client_id: string; exit_number: string | null };
+type ContactLookupRow = { id: string; full_name: string; phone: string | null; contact_purpose: string | null };
+type ContactOptionRow = { id: string; client_id: string; full_name: string };
 type SessionRow = {
   id: string;
   session_date: string;
@@ -36,6 +42,8 @@ type SessionRow = {
   experiment_drive_link: string | null;
   trainer_principal_confirmed_at: string | null;
   trainer_secundar_confirmed_at: string | null;
+  start_time: string | null;
+  location_tier: string | null;
 };
 type UserLookupRow = {
   id: string;
@@ -45,22 +53,7 @@ type UserLookupRow = {
 };
 type RoleIdRow = { id: string };
 type UserOrgRoleRow = { user_id: string };
-
-// Same rule as groups/page.tsx's copy: never falls back to email (not even
-// selected below anymore). full_name is NOT NULL but can itself be a raw
-// email (handle_new_auth_user default) -- skipped, not trusted just for
-// being non-null. "" (not null) signals "nothing safe to show" -- module/
-// format/status labels now route through GroupHeader/GroupInfoSection's
-// own useTranslations() (group-header.tsx, group-info-section.tsx), but
-// this trainer-name fallback stays a plain "Unnamed" literal, unlike
-// groups/page.tsx's callers (groups-client.tsx, group-detail-panel.tsx),
-// which do translate it -- displayName() itself has no i18n wiring here.
-function displayName(u: Pick<UserLookupRow, "full_name" | "first_name" | "last_name">) {
-  const full = [u.first_name, u.last_name].filter(Boolean).join(" ");
-  if (full) return full;
-  if (u.full_name && !u.full_name.includes("@")) return u.full_name;
-  return "";
-}
+type HomeCityRow = { trainer_id: string; city: string };
 
 export default async function GroupDetailPage({
   params,
@@ -80,7 +73,7 @@ export default async function GroupDetailPage({
   const { data: group } = await supabase
     .from("groups")
     .select(
-      "id, organization_id, client_id, module, delivery_format, schedule_pattern, children_confirmed, children_billed, status, notes, age_range, school_year_calendar_link, contract_id",
+      "id, organization_id, client_id, module, delivery_format, schedule_pattern, children_confirmed, children_billed, status, notes, age_range, school_year_calendar_link, contract_id, address, on_site_contact_id, language_group",
     )
     .eq("id", id)
     .maybeSingle<GroupRow>();
@@ -95,9 +88,24 @@ export default async function GroupDetailPage({
 
   const { data: clientRow } = await supabase
     .from("clients")
-    .select("id, name")
+    .select("id, name, address")
     .eq("id", group.client_id)
     .maybeSingle<ClientLookupRow>();
+
+  // The group's own linked on-site contact, for the read view -- resolved
+  // the same way linkedContract is below: a null result here with
+  // group.on_site_contact_id set is "linked, but RLS filters it out for
+  // this viewer" (a trainer not allocated to any session in this group,
+  // or the contact's own contact_purpose isn't trainer_facing -- see
+  // 202609210002), not "no contact linked at all" -- same
+  // null-vs-masked-vs-zero distinction contractVisible already draws.
+  const { data: onSiteContact } = group.on_site_contact_id
+    ? await supabase
+        .from("client_contacts")
+        .select("id, full_name, phone, contact_purpose")
+        .eq("id", group.on_site_contact_id)
+        .maybeSingle<ContactLookupRow>()
+    : { data: null };
 
   // The group's own linked contract, for the read view -- resolved
   // separately from contractOptions below (which only exists for the
@@ -120,7 +128,7 @@ export default async function GroupDetailPage({
   const { data: sessions } = await supabase
     .from("sessions")
     .select(
-      "id, session_date, trainer_principal_id, trainer_secundar_id, status, attendance_count, experiment_delivered, duration_minutes, experiment_drive_link, trainer_principal_confirmed_at, trainer_secundar_confirmed_at",
+      "id, session_date, trainer_principal_id, trainer_secundar_id, status, attendance_count, experiment_delivered, duration_minutes, experiment_drive_link, trainer_principal_confirmed_at, trainer_secundar_confirmed_at, start_time, location_tier",
     )
     .eq("group_id", id)
     .order("session_date", { ascending: false })
@@ -205,6 +213,7 @@ export default async function GroupDetailPage({
   // filters this client-side to group.client_id, matching NewGroupForm's
   // (groups-client.tsx) filtering of the identical shape.
   let contractOptions: ContractOptionRow[] = [];
+  let contactOptions: ContactOptionRow[] = [];
   if (canManage) {
     const { data: cto } = await supabase
       .from("contracts")
@@ -212,6 +221,18 @@ export default async function GroupDetailPage({
       .eq("organization_id", group.organization_id)
       .returns<ContractOptionRow[]>();
     contractOptions = cto ?? [];
+
+    // Same "only fetch what the button needs" discipline as contractOptions
+    // just above, filtered client-side by GroupEditForm to this group's own
+    // client -- the on-site contact picker is deliberately link-only (item
+    // 52's on-site-contact design record): it offers whichever contacts
+    // already exist for the client, never creates a new one from this form.
+    const { data: cno } = await supabase
+      .from("client_contacts")
+      .select("id, client_id, full_name")
+      .eq("organization_id", group.organization_id)
+      .returns<ContactOptionRow[]>();
+    contactOptions = cno ?? [];
   }
 
   // Trainer picker options, only fetched when the form/edit controls will
@@ -248,7 +269,31 @@ export default async function GroupDetailPage({
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  const clientName = clientRow?.name ?? group.client_id;
+  // Pre-fill input for NewSessionForm's location_tier suggestion (item
+  // 95/96 report: entered, never derived -- this is a suggestion the
+  // form can offer, not a value this page computes and trusts). Same
+  // "only fetch what the button needs" discipline as trainerOptions just
+  // above -- only fetched when the form that uses it will actually
+  // render. trainer_home_cities' own SELECT RLS (202609240004) requires
+  // sessions.create or broader, which canManageSessions already confirms
+  // for this viewer.
+  let trainerHomeCities: Record<string, string> = {};
+  if (canManageSessions) {
+    const { data: homeCityRows } = await supabase
+      .from("trainer_home_cities")
+      .select("trainer_id, city")
+      .eq("organization_id", group.organization_id)
+      .returns<HomeCityRow[]>();
+    trainerHomeCities = Object.fromEntries((homeCityRows ?? []).map((r) => [r.trainer_id, r.city]));
+  }
+
+  // null, never group.client_id -- a raw id is not a display fallback
+  // (OPEN_ITEMS.md item 66: RLS legitimately filtering the client row is
+  // not the same fact as "no client", and must never render as an
+  // identifier). GroupHeader/GroupInfoSection translate null to a
+  // "not visible to your role" placeholder, same shape as contractVisible
+  // below.
+  const clientName = clientRow?.name ?? null;
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6">
@@ -274,9 +319,24 @@ export default async function GroupDetailPage({
         contractId={group.contract_id}
         contractExitNumber={linkedContract?.exit_number ?? null}
         contractVisible={group.contract_id ? linkedContract !== null : true}
+        // Group override, then the client's own default -- never null just
+        // because the group itself never set one (item 52's address design:
+        // client-level default, group-level override, COALESCE at read
+        // time). "" (not null) if truly neither is set anywhere.
+        address={group.address ?? clientRow?.address ?? null}
+        addressIsOverride={Boolean(group.address)}
+        onSiteContactId={group.on_site_contact_id}
+        onSiteContactName={onSiteContact?.full_name ?? null}
+        onSiteContactPhone={onSiteContact?.phone ?? null}
+        onSiteContactNotYetTrainerFacing={
+          Boolean(onSiteContact) && onSiteContact?.contact_purpose !== "trainer_facing"
+        }
+        onSiteContactVisible={group.on_site_contact_id ? onSiteContact !== null : true}
+        languageGroup={group.language_group}
         canManage={Boolean(canManage)}
         canWriteChildrenConfirmed={Boolean(canWriteChildrenConfirmed)}
         contractOptions={contractOptions}
+        contactOptions={contactOptions}
       />
 
       <GroupDetailClient
@@ -286,6 +346,12 @@ export default async function GroupDetailPage({
         canManageSessions={Boolean(canManageSessions)}
         canCorrectConfirmation={canCorrectConfirmation}
         trainerOptions={trainerOptions}
+        trainerHomeCities={trainerHomeCities}
+        // Same resolution GroupInfoSection already renders (group
+        // override, then the client's own default) -- reused, not a
+        // second address concept, for the location_tier pre-fill
+        // heuristic's "does this address look like Bucharest" check.
+        groupAddress={group.address ?? clientRow?.address ?? null}
         viewerId={user.id}
       />
 

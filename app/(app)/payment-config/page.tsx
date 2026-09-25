@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
+import { displayName } from "@/lib/display-name";
 import { PaymentConfigClient } from "./payment-config-client";
 import { AccessDenied } from "@/components/ui/access-denied";
 
@@ -16,16 +17,6 @@ type DurationVersion = { id: string; effective_date: string; created_by: string;
 type DurationRate = { version_id: string; duration_minutes: number; delivery_context: string; multiplier: number };
 type UpliftVersion = { id: string; effective_date: string; created_by: string; note: string | null };
 type UpliftRate = { version_id: string; contract_type: string; uplift_percent: number };
-
-// Same rule as groups/page.tsx's displayName(): never falls back to a raw
-// email. "" (not null) signals "nothing safe to show" -- resolved to
-// paymentConfigDict.unknown_user at the call site, not here.
-function displayName(u: Pick<UserLookupRow, "full_name" | "first_name" | "last_name">) {
-  const full = [u.first_name, u.last_name].filter(Boolean).join(" ");
-  if (full) return full;
-  if (u.full_name && !u.full_name.includes("@")) return u.full_name;
-  return "";
-}
 
 // S1-scoped, same pattern as admin/users/page.tsx: find one org where this
 // user holds the gating capability, rather than assuming a single global

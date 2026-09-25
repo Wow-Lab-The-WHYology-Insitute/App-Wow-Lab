@@ -8,8 +8,8 @@ export const profileDict: Dictionary = {
   page_title: { en: "Profile", ro: "Profil" },
 
   diagnostic_intro: {
-    en: "Diagnostic view: every value below came through your own session (anon key + your JWT), never service_role — proof the auth → RLS loop works, not yet a real Phase 1 dashboard.",
-    ro: "Vizualizare de diagnostic: fiecare valoare de mai jos a venit prin propria ta sesiune (cheie anon + JWT-ul tău), niciodată service_role — dovadă că bucla auth → RLS funcționează, nu încă un dashboard real de Faza 1.",
+    en: "Your account details. Update your name, phone, or photo below, and see what you have access to in WOW LAB.",
+    ro: "Detaliile contului tău. Actualizează-ți numele, telefonul sau poza mai jos și vezi la ce ai acces în WOW LAB.",
   },
   you_are_prefix: { en: "You are ", ro: "Ești " },
   unassigned_role_label: { en: "an unassigned user", ro: "un utilizator neasignat" },

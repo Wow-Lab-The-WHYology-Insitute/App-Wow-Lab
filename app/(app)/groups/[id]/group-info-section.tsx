@@ -6,6 +6,7 @@ import { groupsDict } from "../i18n";
 import { updateGroup } from "../actions";
 
 type ContractOption = { id: string; client_id: string; exit_number: string | null };
+type ContactOption = { id: string; client_id: string; full_name: string };
 
 // Same shape as clients/[id]/client-info-client.tsx and contracts/[id]/
 // contract-detail-client.tsx: one component, local isEditing state, an
@@ -26,13 +27,22 @@ export function GroupInfoSection({
   contractId,
   contractExitNumber,
   contractVisible,
+  address,
+  addressIsOverride,
+  onSiteContactId,
+  onSiteContactName,
+  onSiteContactPhone,
+  onSiteContactNotYetTrainerFacing,
+  onSiteContactVisible,
+  languageGroup,
   canManage,
   canWriteChildrenConfirmed,
   contractOptions,
+  contactOptions,
 }: {
   groupId: string;
   clientId: string;
-  clientName: string;
+  clientName: string | null;
   module: string;
   deliveryFormat: string;
   schedulePattern: string | null;
@@ -44,9 +54,18 @@ export function GroupInfoSection({
   contractId: string | null;
   contractExitNumber: string | null;
   contractVisible: boolean;
+  address: string | null;
+  addressIsOverride: boolean;
+  onSiteContactId: string | null;
+  onSiteContactName: string | null;
+  onSiteContactPhone: string | null;
+  onSiteContactNotYetTrainerFacing: boolean;
+  onSiteContactVisible: boolean;
+  languageGroup: string | null;
   canManage: boolean;
   canWriteChildrenConfirmed: boolean;
   contractOptions: ContractOption[];
+  contactOptions: ContactOption[];
 }) {
   const t = useTranslations(groupsDict);
   const [isEditing, setIsEditing] = useState(false);
@@ -59,9 +78,14 @@ export function GroupInfoSection({
         notes={notes}
         contractId={contractId}
         childrenConfirmed={childrenConfirmed}
+        address={address}
+        addressIsOverride={addressIsOverride}
+        onSiteContactId={onSiteContactId}
+        languageGroup={languageGroup}
         canManage={canManage}
         canWriteChildrenConfirmed={canWriteChildrenConfirmed}
         contractOptions={contractOptions}
+        contactOptions={contactOptions}
         onCancel={() => setIsEditing(false)}
         onSaved={() => setIsEditing(false)}
       />
@@ -83,11 +107,33 @@ export function GroupInfoSection({
         )
       }
     >
-      <Kv label={t("col_client")} value={clientName} />
+      <Kv label={t("col_client")} value={clientName ?? t("client_hidden")} />
       <Kv label={t("col_module")} value={t(`module_${module}`)} />
       <Kv label={t("kv_delivery_format")} value={t(`format_${deliveryFormat}`)} />
+      <Kv
+        label={t("kv_language")}
+        value={languageGroup ? t(`language_${languageGroup}`) : "—"}
+      />
       <Kv label={t("col_schedule")} value={schedulePattern || "—"} />
       <Kv label={t("kv_age_range")} value={ageRange || "—"} />
+      <Kv
+        label={t("kv_address")}
+        value={address || "—"}
+        sublabel={address && addressIsOverride ? t("address_override_hint") : undefined}
+      />
+      <Kv
+        label={t("kv_onsite_contact")}
+        value={
+          onSiteContactId === null
+            ? "—"
+            : !onSiteContactVisible
+              ? t("client_hidden")
+              : `${onSiteContactName}${onSiteContactPhone ? ` · ${onSiteContactPhone}` : ""}`
+        }
+        sublabel={
+          onSiteContactVisible && onSiteContactNotYetTrainerFacing ? t("contact_not_trainer_facing_hint") : undefined
+        }
+      />
       <Kv
         label={t("kv_calendar")}
         value={calendarLink ? t("open_link") : "—"}
@@ -134,9 +180,14 @@ function GroupEditForm({
   notes,
   contractId,
   childrenConfirmed,
+  address,
+  addressIsOverride,
+  onSiteContactId,
+  languageGroup,
   canManage,
   canWriteChildrenConfirmed,
   contractOptions,
+  contactOptions,
   onCancel,
   onSaved,
 }: {
@@ -145,9 +196,14 @@ function GroupEditForm({
   notes: string | null;
   contractId: string | null;
   childrenConfirmed: number | null;
+  address: string | null;
+  addressIsOverride: boolean;
+  onSiteContactId: string | null;
+  languageGroup: string | null;
   canManage: boolean;
   canWriteChildrenConfirmed: boolean;
   contractOptions: ContractOption[];
+  contactOptions: ContactOption[];
   onCancel: () => void;
   onSaved: () => void;
 }) {
@@ -165,13 +221,28 @@ function GroupEditForm({
   const [childrenConfirmedValue, setChildrenConfirmedValue] = useState(
     childrenConfirmed?.toString() ?? "",
   );
+  // Only the group's own override, never the resolved client-default value
+  // this form was passed -- editing this field must not accidentally save
+  // the client's address back onto the group as if it were an override.
+  const [addressValue, setAddressValue] = useState(addressIsOverride ? (address ?? "") : "");
+  const [onSiteContactIdValue, setOnSiteContactIdValue] = useState(onSiteContactId ?? "");
+  const [languageGroupValue, setLanguageGroupValue] = useState(languageGroup ?? "");
   const contractsForClient = contractOptions.filter((c) => c.client_id === clientId);
+  const contactsForClient = contactOptions.filter((c) => c.client_id === clientId);
 
   function doSave() {
     setError(null);
     startTransition(async () => {
       try {
-        const result = await updateGroup(groupId, notesValue, contractIdValue, childrenConfirmedValue);
+        const result = await updateGroup(
+          groupId,
+          notesValue,
+          contractIdValue,
+          childrenConfirmedValue,
+          addressValue,
+          onSiteContactIdValue,
+          languageGroupValue,
+        );
         if (!result.ok) setError(result.error);
         else onSaved();
       } catch {
@@ -202,6 +273,39 @@ function GroupEditForm({
                 </option>
               ))}
             </select>
+            <input
+              type="text"
+              value={addressValue}
+              onChange={(e) => setAddressValue(e.target.value)}
+              placeholder={t("address_override_placeholder")}
+              className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
+            />
+            <select
+              value={languageGroupValue}
+              onChange={(e) => setLanguageGroupValue(e.target.value)}
+              className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
+            >
+              <option value="">{t("select_language")}</option>
+              <option value="ro_en">{t("language_ro_en")}</option>
+              <option value="fr_de_es">{t("language_fr_de_es")}</option>
+            </select>
+            <select
+              value={onSiteContactIdValue}
+              onChange={(e) => setOnSiteContactIdValue(e.target.value)}
+              className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
+            >
+              <option value="">{t("select_onsite_contact")}</option>
+              {contactsForClient.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.full_name}
+                </option>
+              ))}
+            </select>
+            {contactsForClient.length === 0 && (
+              <p className="font-body text-muted -mt-2 text-xs md:col-span-2">
+                {t("no_contacts_for_client_hint")}
+              </p>
+            )}
             <textarea
               value={notesValue}
               onChange={(e) => setNotesValue(e.target.value)}
@@ -271,27 +375,32 @@ function Kv({
   value,
   href,
   external,
+  sublabel,
 }: {
   label: string;
   value: string;
   href?: string;
   external?: boolean;
+  sublabel?: string;
 }) {
   return (
-    <div className="flex items-baseline justify-between border-b border-black/5 py-2 text-sm last:border-0">
-      <span className="font-body text-muted">{label}</span>
-      {href ? (
-        <a
-          href={href}
-          target={external ? "_blank" : undefined}
-          rel={external ? "noreferrer" : undefined}
-          className="text-brand-pink font-body font-medium hover:underline"
-        >
-          {value}
-        </a>
-      ) : (
-        <span className="font-body text-ink font-medium">{value}</span>
-      )}
+    <div className="flex flex-col gap-0.5 border-b border-black/5 py-2 text-sm last:border-0">
+      <div className="flex items-baseline justify-between">
+        <span className="font-body text-muted">{label}</span>
+        {href ? (
+          <a
+            href={href}
+            target={external ? "_blank" : undefined}
+            rel={external ? "noreferrer" : undefined}
+            className="text-brand-pink font-body font-medium hover:underline"
+          >
+            {value}
+          </a>
+        ) : (
+          <span className="font-body text-ink font-medium">{value}</span>
+        )}
+      </div>
+      {sublabel && <span className="font-body text-muted self-end text-xs">{sublabel}</span>}
     </div>
   );
 }

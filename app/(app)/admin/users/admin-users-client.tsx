@@ -11,6 +11,7 @@ import {
 import { useTranslations } from "@/lib/i18n";
 import { adminUsersDict } from "./i18n";
 import { normalizeForSearch } from "@/lib/search";
+import { displayName as sharedDisplayName } from "@/lib/display-name";
 
 // Real values this app ever writes to users.status (no DB CHECK constraint
 // — 'invited' is the trigger-set default on auth signup, 'active'/
@@ -52,18 +53,18 @@ type Member = {
 // Never falls back to email — this is one of the two pages the users
 // field-masking work (docs/WOWLAB_SAD_Field_Masking.md §2.3) is being
 // built for; leaving a raw-email fallback here would leak it through the
-// UI regardless of what the column grants say. Same rule as groups/
-// page.tsx's displayName(): first+last, then full_name (skipped if it
-// looks like an email — handle_new_auth_user's old default, fixed at the
-// source in 202608200003, but pre-existing rows may still have it until
-// backfilled), then "" — resolved to adminUsersDict.unnamed_user
-// (shared with groups/i18n.ts) at the call site, not here (no locale
-// available in a plain helper function).
+// UI regardless of what the column grants say. Same shared rule as
+// everywhere else (lib/display-name.ts) — this is only a field-name
+// adapter, Member being camelCase where the shared function's shape is
+// the snake_case public.users column names. "" resolves to
+// adminUsersDict.unnamed_user (shared with groups/i18n.ts) at the call
+// site, not here (no locale available in a plain helper function).
 function displayName(member: Pick<Member, "firstName" | "lastName" | "fullName">) {
-  const full = [member.firstName, member.lastName].filter(Boolean).join(" ");
-  if (full) return full;
-  if (member.fullName && !member.fullName.includes("@")) return member.fullName;
-  return "";
+  return sharedDisplayName({
+    first_name: member.firstName,
+    last_name: member.lastName,
+    full_name: member.fullName,
+  });
 }
 
 export function AdminUsersClient({

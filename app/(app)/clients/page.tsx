@@ -60,9 +60,13 @@ export default async function ClientsPage() {
     ? await checkCapability(supabase, "crm_link.*", createOrgId)
     : false;
 
+  // status: item 78's computed column (public.client_effective_status),
+  // aliased back onto "status" -- the raw stored column is never needed
+  // downstream of this page (ClientsClient's filter/sort/badge logic
+  // already operates generically on whatever string is here).
   const { data: clients } = await supabase
     .from("clients")
-    .select("id, name, client_type, status, business_line, legal_name, cui, created_at")
+    .select("id, name, client_type, status:client_effective_status, business_line, legal_name, cui, created_at")
     .order("name")
     .returns<ClientRow[]>();
 

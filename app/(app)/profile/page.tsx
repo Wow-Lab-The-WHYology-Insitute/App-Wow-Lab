@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
+import { editableNameFields } from "@/lib/display-name";
 import { ProfileSection } from "./profile-section";
 import { TechnicalDetails } from "./technical-details";
 import { ProfileHeading } from "./profile-heading";
@@ -7,11 +8,15 @@ import { DiagnosticIntro } from "./diagnostic-intro";
 import { AccessSummary } from "./access-summary";
 import { AccessDenied } from "@/components/ui/access-denied";
 
-// S2: a diagnostic page proving the auth -> RLS loop works for a real
-// logged-in session, not SQL Editor impersonation. Every query below runs
-// through the session client (anon key + this user's own JWT) — there is
-// no service_role anywhere in this file. S3 (this pass) only restyled the
-// JSX below into the shared brand shell; the data-fetching is untouched.
+// S2: originally built as a diagnostic page proving the auth -> RLS loop
+// works for a real logged-in session, not SQL Editor impersonation --
+// every query below still runs through the session client (anon key +
+// this user's own JWT), never service_role. S3 restyled the JSX into the
+// shared brand shell. This pass (item 93) turned it into the real profile
+// page for everyone -- own details always visible, the original
+// diagnostic content (TechnicalDetails below) now gated on
+// org.settings.manage instead of rendering unconditionally for every
+// signed-in user, trainer included.
 
 type OrgRow = { id: string; name: string; slug: string };
 
@@ -56,25 +61,20 @@ export default async function ProfilePage() {
   // touches first_name/last_name (confirmed by reading it live — it isn't
   // in the INSERT's column list at all), so a freshly-invited account
   // reaches here with a real name in full_name and both structured columns
-  // still null. admin/users, groups, groups/[id] and payment-config all
-  // already fall back to full_name for READ-ONLY display in exactly this
-  // case (each with its own local displayName() — duplicated four times,
-  // not shared). This form is edit-only, not read-only, so the same
-  // fallback can't split full_name into the two inputs below: which word
-  // is the first name and which is the last is a guess this app has no
-  // basis for, and the admin invite form already offers first/last as an
-  // explicit optional step at invite time — guessing here would silently
-  // second-guess that. Instead, when both columns are null, the whole
-  // full_name goes into the first-name field, unsplit, exactly as the
-  // other four pages would render it as one atomic string — still
-  // editable, still no split invented. Same email-looking-value guard
-  // those four use, so a pre-202608200003 row whose full_name is a raw
-  // email never lands in the fields either.
-  const bothNamesUnset = !ownProfile?.first_name && !ownProfile?.last_name;
-  const fullNameFallback =
-    bothNamesUnset && ownProfile?.full_name && !ownProfile.full_name.includes("@")
-      ? ownProfile.full_name
-      : null;
+  // still null. This form is edit-only, not read-only, so the shared
+  // read-only displayName() rule (lib/display-name.ts) can't apply as-is:
+  // which word is the first name and which is the last is a guess this app
+  // has no basis for, and the admin invite form already offers first/last
+  // as an explicit optional step at invite time — guessing here would
+  // silently second-guess that. editableNameFields (same module) is the
+  // edit-form variant of the same rule: when both columns are null, the
+  // whole full_name goes into the first-name field, unsplit, still
+  // editable, still no split invented. Same email-looking-value guard.
+  const { firstName: initialFirstName, lastName: initialLastName } = editableNameFields({
+    full_name: ownProfile?.full_name ?? null,
+    first_name: ownProfile?.first_name ?? null,
+    last_name: ownProfile?.last_name ?? null,
+  });
 
   // avatar_url is a Storage PATH in the private `avatars` bucket, never a
   // public URL — resolved to a short-lived signed URL here, through this
@@ -137,6 +137,11 @@ export default async function ProfilePage() {
   let canReadClients = false;
   let canReadContracts = false;
   let canReadGroups = false;
+  // Gates the technical details panel below -- same capability every
+  // other owner-only branch in the app checks (layout.tsx, clients/
+  // contracts/groups/payroll pages), not a role-name check, so it also
+  // covers the platform owner via has_capability's own bypass.
+  let canSeeDiagnostics = false;
   for (const m of memberships ?? []) {
     if (!canManageUsers) {
       if (await checkCapability(supabase, "org.members.manage", m.organization_id)) {
@@ -160,64 +165,75 @@ export default async function ProfilePage() {
       ]);
       if (hasGroupsRead || hasMyWork) canReadGroups = true;
     }
-    if (canManageUsers && canReadClients && canReadContracts && canReadGroups) break;
+    if (!canSeeDiagnostics) {
+      if (await checkCapability(supabase, "org.settings.manage", m.organization_id)) {
+        canSeeDiagnostics = true;
+      }
+    }
+    if (canManageUsers && canReadClients && canReadContracts && canReadGroups && canSeeDiagnostics) break;
   }
   if (canManageUsers) visibleNavKeys.push("nav_users_roles");
   if (canReadClients) visibleNavKeys.push("nav_clients");
   if (canReadContracts) visibleNavKeys.push("nav_contracts");
   if (canReadGroups) visibleNavKeys.push("nav_groups_enrollment");
 
-  const roleIds = [
-    ...new Set(
-      (memberships ?? [])
-        .map((m) => m.roles?.id)
-        .filter((id): id is string => Boolean(id)),
-    ),
-  ];
-
-  // role_capabilities and capabilities both carry an open SELECT policy for
-  // any authenticated user (D1a) — this join is the exact same resolution
-  // app.has_capability() runs internally (see 202607090001), just fetching
-  // the full set instead of checking one key at a time.
-  const { data: roleCapRows } =
-    roleIds.length > 0
-      ? await supabase
-          .from("role_capabilities")
-          .select("role_id, capabilities(key)")
-          .in("role_id", roleIds)
-          .returns<RoleCapabilityRow[]>()
-      : { data: [] as RoleCapabilityRow[] };
-
+  // Everything from here down feeds TechnicalDetails only -- skipped
+  // entirely (not just hidden) when this session can't see that panel, so
+  // a trainer's page load doesn't pay for the extra role_capabilities join
+  // or the has_capability spot-check RPCs below.
   const capsByRole = new Map<string, string[]>();
-  for (const row of roleCapRows ?? []) {
-    if (!row.capabilities) continue;
-    const list = capsByRole.get(row.role_id) ?? [];
-    list.push(row.capabilities.key);
-    capsByRole.set(row.role_id, list);
-  }
+  const spotCheckResults: { cap: string; org: string; allowed: boolean }[] = [];
 
-  // Direct spot-check via the actual RPC path the real app uses
-  // (public.has_capability -> app.has_capability, 202607130004), for a
-  // couple of meaningful, well-known capabilities — this is the literal
-  // "existing capability resolver" the S2 task names, exercised through a
-  // real session rather than SQL impersonation. Deliberately NOT routed
-  // through checkCapability() like the nav-gating checks above: this block
-  // exists specifically to prove the raw RPC path works, and wrapping it
-  // in the retry/fail-closed helper would test the helper instead of the
-  // thing this diagnostic page says it's proving.
-  const spotCheckResults: { cap: string; org: string; allowed: boolean }[] =
-    [];
-  for (const membership of memberships ?? []) {
-    for (const cap of SPOT_CHECK_CAPABILITIES) {
-      const { data: allowed } = await supabase.rpc("has_capability", {
-        cap,
-        org: membership.organization_id,
-      });
-      spotCheckResults.push({
-        cap,
-        org: membership.organizations?.slug ?? membership.organization_id,
-        allowed: Boolean(allowed),
-      });
+  if (canSeeDiagnostics) {
+    const roleIds = [
+      ...new Set(
+        (memberships ?? [])
+          .map((m) => m.roles?.id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+
+    // role_capabilities and capabilities both carry an open SELECT policy for
+    // any authenticated user (D1a) — this join is the exact same resolution
+    // app.has_capability() runs internally (see 202607090001), just fetching
+    // the full set instead of checking one key at a time.
+    const { data: roleCapRows } =
+      roleIds.length > 0
+        ? await supabase
+            .from("role_capabilities")
+            .select("role_id, capabilities(key)")
+            .in("role_id", roleIds)
+            .returns<RoleCapabilityRow[]>()
+        : { data: [] as RoleCapabilityRow[] };
+
+    for (const row of roleCapRows ?? []) {
+      if (!row.capabilities) continue;
+      const list = capsByRole.get(row.role_id) ?? [];
+      list.push(row.capabilities.key);
+      capsByRole.set(row.role_id, list);
+    }
+
+    // Direct spot-check via the actual RPC path the real app uses
+    // (public.has_capability -> app.has_capability, 202607130004), for a
+    // couple of meaningful, well-known capabilities — this is the literal
+    // "existing capability resolver" the S2 task names, exercised through a
+    // real session rather than SQL impersonation. Deliberately NOT routed
+    // through checkCapability() like the nav-gating checks above: this block
+    // exists specifically to prove the raw RPC path works, and wrapping it
+    // in the retry/fail-closed helper would test the helper instead of the
+    // thing this diagnostic page says it's proving.
+    for (const membership of memberships ?? []) {
+      for (const cap of SPOT_CHECK_CAPABILITIES) {
+        const { data: allowed } = await supabase.rpc("has_capability", {
+          cap,
+          org: membership.organization_id,
+        });
+        spotCheckResults.push({
+          cap,
+          org: membership.organizations?.slug ?? membership.organization_id,
+          allowed: Boolean(allowed),
+        });
+      }
     }
   }
 
@@ -230,27 +246,29 @@ export default async function ProfilePage() {
 
       <ProfileSection
         email={ownProfile?.email ?? user.email ?? ""}
-        initialFirstName={ownProfile?.first_name ?? fullNameFallback}
-        initialLastName={ownProfile?.last_name ?? null}
+        initialFirstName={initialFirstName}
+        initialLastName={initialLastName}
         initialPhone={ownProfile?.phone ?? null}
         initialAvatarUrl={signedAvatarUrl}
       />
 
       <AccessSummary roleLabel={roleLabel} navKeys={visibleNavKeys} />
 
-      <TechnicalDetails
-        email={ownProfile?.email ?? user.email ?? ""}
-        userId={user.id}
-        isPlatformOwner={ownProfile?.is_platform_owner ?? false}
-        status={ownProfile?.status ?? "?"}
-        visibleOrgs={visibleOrgs ?? []}
-        memberships={(memberships ?? []).map((m) => ({
-          orgLabel: m.organizations?.slug ?? m.organization_id,
-          roleLabel: m.roles?.display_name ?? "?",
-          capabilities: m.roles ? (capsByRole.get(m.roles.id) ?? []) : [],
-        }))}
-        spotCheckResults={spotCheckResults}
-      />
+      {canSeeDiagnostics && (
+        <TechnicalDetails
+          email={ownProfile?.email ?? user.email ?? ""}
+          userId={user.id}
+          isPlatformOwner={ownProfile?.is_platform_owner ?? false}
+          status={ownProfile?.status ?? "?"}
+          visibleOrgs={visibleOrgs ?? []}
+          memberships={(memberships ?? []).map((m) => ({
+            orgLabel: m.organizations?.slug ?? m.organization_id,
+            roleLabel: m.roles?.display_name ?? "?",
+            capabilities: m.roles ? (capsByRole.get(m.roles.id) ?? []) : [],
+          }))}
+          spotCheckResults={spotCheckResults}
+        />
+      )}
     </div>
   );
 }

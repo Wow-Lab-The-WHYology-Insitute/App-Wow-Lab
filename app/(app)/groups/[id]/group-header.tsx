@@ -14,7 +14,7 @@ export function GroupHeader({
   deliveryFormat,
   status,
 }: {
-  clientName: string;
+  clientName: string | null;
   module: string;
   deliveryFormat: string;
   status: string;
@@ -26,7 +26,7 @@ export function GroupHeader({
         {t("back_link")}
       </Link>
       <h1 className="font-display text-2xl text-brand-pink">
-        {clientName} · {t(`module_${module}`)}
+        {clientName ?? t("client_hidden")} · {t(`module_${module}`)}
       </h1>
       <div className="mt-2 flex flex-wrap gap-1.5">
         <Badge>{t(`format_${deliveryFormat}`)}</Badge>

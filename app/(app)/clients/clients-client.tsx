@@ -41,8 +41,10 @@ const CLIENT_TYPES = ["private_school", "state_school", "corporate", "parent_b2c
 // belongs in this list; the placeholder option is what represents that.
 const BUSINESS_LINES = ["recurring_private_schools", "state_schools", "corporate_events"];
 
-// Matches the clients.status check constraint (202608100001) exactly —
-// keep in sync if that constraint ever changes.
+// The 4 possible EFFECTIVE statuses (public.client_effective_status(),
+// item 78) -- NOT the clients_status_override_check constraint (item 83),
+// which only permits 'paused'/'churned'/NULL on the raw column. This list
+// is the display/filter domain, unrelated to what's legal to store.
 const CLIENT_STATUSES = ["prospect", "active", "paused", "churned"];
 
 // Nulls always sort last regardless of direction — a missing legal_name/
@@ -365,7 +367,7 @@ export function ClientsClient({
               canWriteCrmLink={canWriteCrmLink}
               isPending={isPending}
               t={t}
-              onSubmit={(name, clientType, businessLine, legalName, cui, notes, externalCrmRef) => {
+              onSubmit={(name, clientType, businessLine, legalName, cui, notes, externalCrmRef, address) => {
                 setError(null);
                 startTransition(async () => {
                   try {
@@ -378,6 +380,7 @@ export function ClientsClient({
                       cui,
                       notes,
                       externalCrmRef,
+                      address,
                     );
                     if (!result.ok) {
                       setError(result.error === DUPLICATE_CUI_ERROR ? t("duplicate_cui_error") : result.error);
@@ -580,6 +583,7 @@ function NewClientForm({
     cui: string,
     notes: string,
     externalCrmRef: string,
+    address: string,
   ) => void;
 }) {
   const [name, setName] = useState("");
@@ -589,6 +593,7 @@ function NewClientForm({
   const [cui, setCui] = useState("");
   const [notes, setNotes] = useState("");
   const [externalCrmRef, setExternalCrmRef] = useState("");
+  const [address, setAddress] = useState("");
 
   return (
     <section className="mx-auto w-full max-w-4xl rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
@@ -645,6 +650,13 @@ function NewClientForm({
           placeholder={t("cui_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2"
         />
+        <input
+          type="text"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder={t("address_placeholder")}
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2 md:col-span-2"
+        />
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -665,7 +677,7 @@ function NewClientForm({
       <button
         type="button"
         disabled={isPending || !name.trim() || !clientType}
-        onClick={() => onSubmit(name, clientType, businessLine, legalName, cui, notes, externalCrmRef)}
+        onClick={() => onSubmit(name, clientType, businessLine, legalName, cui, notes, externalCrmRef, address)}
         className="font-body focus-visible:ring-brand-pink mt-3 w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
       >
         {t("create_client")}

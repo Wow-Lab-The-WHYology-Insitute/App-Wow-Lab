@@ -30,7 +30,26 @@ type Session = {
   experiment_drive_link: string | null;
   trainer_principal_confirmed_at: string | null;
   trainer_secundar_confirmed_at: string | null;
+  start_time: string | null;
+  location_tier: string | null;
 };
+
+// start_time is "HH:MM:SS" (Postgres time, no timezone -- local clock
+// time, matching session_date's own plain-date shape). End is derived
+// here, never stored (item 52's time-range design: same precedent as
+// contract expiry and children_billed) -- null whenever either half is
+// missing, not a guess.
+function formatTimeRange(startTime: string | null, durationMinutes: number | null): string | null {
+  if (!startTime) return null;
+  const start = startTime.slice(0, 5);
+  if (!durationMinutes) return start;
+  const [h, m] = startTime.split(":").map(Number);
+  const endTotalMinutes = h * 60 + m + durationMinutes;
+  const endH = Math.floor(endTotalMinutes / 60) % 24;
+  const endM = endTotalMinutes % 60;
+  const end = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+  return `${start} – ${end}`;
+}
 type TrainerOption = { id: string; name: string };
 
 // Matches the sessions.status check constraint (202608160004) exactly —
@@ -76,6 +95,8 @@ export function GroupDetailClient({
   canManageSessions,
   canCorrectConfirmation,
   trainerOptions,
+  trainerHomeCities,
+  groupAddress,
   viewerId,
 }: {
   groupId: string;
@@ -84,6 +105,8 @@ export function GroupDetailClient({
   canManageSessions: boolean;
   canCorrectConfirmation: boolean;
   trainerOptions: TrainerOption[];
+  trainerHomeCities: Record<string, string>;
+  groupAddress: string | null;
   viewerId: string;
 }) {
   const t = useTranslations(groupsDict);
@@ -293,8 +316,10 @@ export function GroupDetailClient({
           {isFormOpen && (
             <NewSessionForm
               trainerOptions={trainerOptions}
+              trainerHomeCities={trainerHomeCities}
+              groupAddress={groupAddress}
               isPending={isPending}
-              onSubmit={(date, principalId, secundarId, status, attendance, experiment, duration, experimentDriveLink) => {
+              onSubmit={(date, principalId, secundarId, status, attendance, experiment, duration, experimentDriveLink, startTime, locationTier) => {
                 setError(null);
                 startTransition(async () => {
                   try {
@@ -309,6 +334,8 @@ export function GroupDetailClient({
                       experiment,
                       duration,
                       experimentDriveLink,
+                      startTime,
+                      locationTier,
                     );
                     if (!result.ok) setError(result.error);
                     else setIsFormOpen(false);
@@ -343,6 +370,7 @@ export function GroupDetailClient({
                   <th className="py-2 pr-4 font-bold">{t("col_secundar")}</th>
                   <th className="py-2 pr-4 font-bold">{t("col_status")}</th>
                   <th className="py-2 pr-4 font-bold">{t("col_duration")}</th>
+                  <th className="py-2 pr-4 font-bold">{t("col_location")}</th>
                   {/* "Present" (not "Attendance") — the post-workshop
                       ACTUAL headcount for this occurrence, distinct from
                       the group's own "Children confirmed" (contract-time
@@ -460,25 +488,42 @@ type SessionRowProps = {
   onCorrectConfirmation: (slot: "principal" | "secundar", checked: boolean) => void;
 };
 
-// Beside each trainer's own name -- three cases, checked in this order:
-// (1) the row-matched trainer for that specific slot gets a live
-// checkbox (confirmSessionAttendance, respects the month-close gate); (2)
-// failing that, a finance.operations.*/org.settings.manage viewer gets
-// a live checkbox too, but through correctSessionConfirmation, which
-// does NOT respect the close gate -- that's the whole point of a
-// correction path. Order matters here, not just for readability: a
-// viewer who happens to be both the assigned trainer AND finance-capable
-// on the same session must hit case 1 first, or they could bypass their
-// own close-gate restriction through their own correction capability.
-// (3) anyone else who can see the row gets a read-only status word.
+// Beside each trainer's own name. Five render shapes, not three --
+// state and action used to share one widget (a checkbox whose CHECKED
+// attribute mirrored the state while its LABEL TEXT also swapped between
+// "Confirmed"/"Not confirmed" -- an empty box next to "Not confirmed"
+// reads as ambiguous: is checking it the action, or is the box itself
+// asserting "not confirmed" is already true?). Now state and action are
+// never both live in the same rendering: a checkbox never appears next
+// to text that names the state it's already in.
 //
-// isSaving covers the dead-zone gap for both live-checkbox cases: once
-// the action resolves, isPending ends before the revalidated `sessions`
-// prop actually lands, so the checkbox would otherwise flash back to
-// interactive with the OLD value for a real, multi-second window.
-// "Saving…" replaces the label (not just a disabled attribute) so that
-// window never reads as "confirmed" or "not confirmed" when it might
-// already be neither.
+// Checked in this order (same precedence as before -- a viewer who is
+// both the assigned trainer AND finance-capable on the same session
+// must hit their own-slot case first, or they could bypass their own
+// close-gate restriction through their own correction capability):
+//   1. Saving -- transient, covers the dead-zone gap where isPending
+//      ends before the revalidated `sessions` prop actually lands, so
+//      nothing here ever flashes a stale checked/unchecked value.
+//   2. Own slot, already confirmed -- a plain label, not a control
+//      anymore. Confirming your own delivery is a one-way action; a
+//      mistake is fixed through the correction path below (finance/
+//      owner), not by self-unchecking, so there is nothing left to
+//      offer here once it's done.
+//   3. Own slot, not yet confirmed -- the one real action this shape
+//      offers, worded as an action ("Check to confirm"), not as a
+//      state, so an empty box never sits next to a claim about what's
+//      already true.
+//   4. Correction (canCorrect, not the assigned trainer) -- genuinely
+//      bidirectional, fixing a wrong confirmation either way is the
+//      whole point, so this never collapses to a label. The checkbox's
+//      own checked/unchecked state carries the boolean; the text beside
+//      it stays the constant "Confirmed" (what's being toggled) instead
+//      of swapping to "Not confirmed", which is what made the box and
+//      the words redundant-but-conflicting in the old shape.
+//   5. Read-only (neither of the above) -- a plain state label, always,
+//      confirmed or not. Deliberately visible either way: the state
+//      isn't private between the two trainers on a session, only the
+//      control is.
 function ConfirmationControl({
   confirmedAt,
   isOwnSlot,
@@ -497,25 +542,38 @@ function ConfirmationControl({
   onCorrect: (checked: boolean) => void;
 }) {
   const t = useTranslations(groupsDict);
-  const statusLabel = confirmedAt ? t("session_confirmed_status") : t("session_not_confirmed_status");
+  const confirmed = Boolean(confirmedAt);
 
-  if (!isOwnSlot && !canCorrect) {
-    return <span className="font-body text-muted block text-[11px]">{statusLabel}</span>;
-  }
   if (isSaving) {
     return <span className="font-body text-muted mt-0.5 block text-[11px] italic">{t("saving_confirmation")}</span>;
   }
+
+  if (isOwnSlot && confirmed) {
+    return <span className="font-body text-muted mt-0.5 block text-[11px]">{t("session_confirmed_status")}</span>;
+  }
+
+  if (isOwnSlot) {
+    return (
+      <label className="font-body text-muted mt-0.5 flex items-center gap-1.5 text-[11px]">
+        <input type="checkbox" checked={false} disabled={isPending} onChange={(e) => onToggle(e.target.checked)} className="accent-brand-pink" />
+        {t("confirmation_check_to_confirm")}
+      </label>
+    );
+  }
+
+  if (canCorrect) {
+    return (
+      <label className="font-body text-muted mt-0.5 flex items-center gap-1.5 text-[11px]">
+        <input type="checkbox" checked={confirmed} disabled={isPending} onChange={(e) => onCorrect(e.target.checked)} className="accent-brand-pink" />
+        {t("session_confirmed_status")}
+      </label>
+    );
+  }
+
   return (
-    <label className="font-body text-muted mt-0.5 flex items-center gap-1.5 text-[11px]">
-      <input
-        type="checkbox"
-        checked={Boolean(confirmedAt)}
-        disabled={isPending}
-        onChange={(e) => (isOwnSlot ? onToggle : onCorrect)(e.target.checked)}
-        className="accent-brand-pink"
-      />
-      {statusLabel}
-    </label>
+    <span className="font-body text-muted block text-[11px]">
+      {confirmed ? t("session_confirmed_status") : t("session_not_confirmed_status")}
+    </span>
   );
 }
 
@@ -557,7 +615,12 @@ function SessionTableRow({
   const { locale } = useLocale();
   return (
     <tr className="font-body text-ink border-b border-black/5 align-top last:border-0">
-      <td className="py-3 pr-4 text-xs whitespace-nowrap">{formatShortDate(session.session_date, locale)}</td>
+      <td className="py-3 pr-4 text-xs whitespace-nowrap">
+        {formatShortDate(session.session_date, locale)}
+        <span className="text-muted block">
+          {formatTimeRange(session.start_time, session.duration_minutes) ?? "—"}
+        </span>
+      </td>
       {editing ? (
         <>
           <td className="py-3 pr-4">
@@ -614,6 +677,9 @@ function SessionTableRow({
       </td>
       <td className="text-muted py-3 pr-4">
         {session.duration_minutes ? `${session.duration_minutes} min` : "—"}
+      </td>
+      <td className="text-muted py-3 pr-4">
+        {session.location_tier ? t(`location_tier_${session.location_tier}`) : "—"}
       </td>
       <td className="text-muted py-3 pr-4">
         {editingAttendance ? (
@@ -759,6 +825,9 @@ function SessionCard({
       <div className="flex items-center justify-between">
         <p className="font-body text-ink text-sm font-semibold">
           {formatShortDate(session.session_date, locale)}
+          <span className="text-muted ml-1.5 text-xs font-normal">
+            {formatTimeRange(session.start_time, session.duration_minutes) ?? "—"}
+          </span>
         </p>
         <Badge tone={SESSION_STATUS_TONES[session.status]}>
           {SESSION_STATUS_KEYS[session.status] ? t(SESSION_STATUS_KEYS[session.status]) : session.status}
@@ -867,6 +936,9 @@ function SessionCard({
           <p className="font-body text-muted mt-1 text-xs">
             {t("mobile_duration_prefix")}{session.duration_minutes ? `${session.duration_minutes} min` : "—"}
           </p>
+          <p className="font-body text-muted mt-1 text-xs">
+            {t("mobile_location_prefix")}{session.location_tier ? t(`location_tier_${session.location_tier}`) : "—"}
+          </p>
           {isSavingAttendance ? (
             <p className="font-body text-muted mt-1 text-xs italic">{t("saving_attendance")}</p>
           ) : (
@@ -945,10 +1017,14 @@ function TrainerSelect({
 
 function NewSessionForm({
   trainerOptions,
+  trainerHomeCities,
+  groupAddress,
   isPending,
   onSubmit,
 }: {
   trainerOptions: TrainerOption[];
+  trainerHomeCities: Record<string, string>;
+  groupAddress: string | null;
   isPending: boolean;
   onSubmit: (
     date: string,
@@ -959,6 +1035,8 @@ function NewSessionForm({
     experiment: string,
     duration: string,
     experimentDriveLink: string,
+    startTime: string,
+    locationTier: string,
   ) => void;
 }) {
   const t = useTranslations(groupsDict);
@@ -970,6 +1048,38 @@ function NewSessionForm({
   const [experiment, setExperiment] = useState("");
   const [duration, setDuration] = useState("");
   const [experimentDriveLink, setExperimentDriveLink] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [locationTier, setLocationTier] = useState("");
+  const [locationTierTouched, setLocationTierTouched] = useState(false);
+  const [locationTierPrefilled, setLocationTierPrefilled] = useState(false);
+
+  // Entered, never derived (item 95/96 report) -- this only ever
+  // suggests. Fires while the principal is the only trainer picked so
+  // far and the person hasn't touched the field themselves; stops for
+  // good the moment they do, even if they change the trainer again
+  // afterward, so it never silently overwrites a real choice. Both the
+  // trainer's home city AND the resolved address need to say Bucharest
+  // -- the school side is free text with no structured city, so a
+  // missing or unrecognized address leaves this unset rather than
+  // guessed, reading as "choose one," not a default that looks chosen.
+  useEffect(() => {
+    if (locationTierTouched) return;
+    const homeCity = trainerHomeCities[principalId]?.trim().toLowerCase();
+    const addressLooksLikeBucharest = (groupAddress ?? "").toLowerCase().includes("bucur");
+    if (homeCity === "bucuresti" && addressLooksLikeBucharest) {
+      setLocationTier("bucuresti");
+      setLocationTierPrefilled(true);
+    } else {
+      setLocationTier("");
+      setLocationTierPrefilled(false);
+    }
+  }, [principalId, trainerHomeCities, groupAddress, locationTierTouched]);
+
+  function handleLocationTierChange(value: string) {
+    setLocationTier(value);
+    setLocationTierTouched(true);
+    setLocationTierPrefilled(false);
+  }
 
   return (
     <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
@@ -983,6 +1093,15 @@ function NewSessionForm({
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
+            className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+          />
+        </label>
+        <label className="font-body text-muted flex flex-col gap-1 text-xs">
+          {t("kv_start_time")}
+          <input
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
             className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
           />
         </label>
@@ -1060,12 +1179,41 @@ function NewSessionForm({
           placeholder={t("experiment_drive_link_placeholder")}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         />
+        <label className="font-body text-muted flex flex-col gap-1 text-xs">
+          {t("location_tier_label")}
+          <select
+            value={locationTier}
+            onChange={(e) => handleLocationTierChange(e.target.value)}
+            className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+          >
+            <option value="">{t("location_tier_placeholder")}</option>
+            <option value="bucuresti">{t("location_tier_bucuresti")}</option>
+            <option value="imprejurimi">{t("location_tier_imprejurimi")}</option>
+            <option value="alte_orase">{t("location_tier_alte_orase")}</option>
+          </select>
+          {locationTierPrefilled && (
+            <span className="font-body text-muted text-[11px] normal-case">
+              {t("location_tier_prefilled_hint")}
+            </span>
+          )}
+        </label>
       </div>
       <button
         type="button"
         disabled={isPending || !date}
         onClick={() =>
-          onSubmit(date, principalId, secundarId, status, attendance, experiment, duration, experimentDriveLink)
+          onSubmit(
+            date,
+            principalId,
+            secundarId,
+            status,
+            attendance,
+            experiment,
+            duration,
+            experimentDriveLink,
+            startTime,
+            locationTier,
+          )
         }
         className="font-body mt-3 w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity disabled:opacity-50"
       >

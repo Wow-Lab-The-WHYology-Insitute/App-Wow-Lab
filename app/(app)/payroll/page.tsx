@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
+import { displayName } from "@/lib/display-name";
 import { PayrollClient } from "./payroll-client";
 import { AccessDenied } from "@/components/ui/access-denied";
 
@@ -17,14 +18,6 @@ type SessionRow = {
 };
 type GroupRow = { id: string; client_id: string };
 type ClientRow = { id: string; name: string };
-
-// Same rule as groups/page.tsx's copy: never falls back to a raw email.
-function displayName(u: Pick<UserLookupRow, "full_name" | "first_name" | "last_name">) {
-  const full = [u.first_name, u.last_name].filter(Boolean).join(" ");
-  if (full) return full;
-  if (u.full_name && !u.full_name.includes("@")) return u.full_name;
-  return "";
-}
 
 // finance.operations.* OR org.settings.manage -- matches
 // closePayrollPeriod's own gate (app/(app)/payroll/actions.ts) exactly,

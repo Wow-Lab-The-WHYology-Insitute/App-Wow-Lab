@@ -33,12 +33,14 @@ export function ClientContactsClient({
   clientId,
   organizationId,
   contacts,
-  canManage,
+  canEdit,
+  canDelete,
 }: {
   clientId: string;
   organizationId: string;
   contacts: Contact[];
-  canManage: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
 }) {
   const t = useTranslations(clientsDict);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +68,7 @@ export function ClientContactsClient({
         <h2 className="font-body text-muted text-xs font-bold tracking-wide uppercase">
           {t("contacts_heading", { count: contacts.length })}
         </h2>
-        {canManage && (
+        {canEdit && (
           <button
             type="button"
             onClick={() => setIsFormOpen((open) => !open)}
@@ -175,22 +177,26 @@ export function ClientContactsClient({
                       {c.is_billing_contact && <Badge>{t("badge_billing_contact")}</Badge>}
                     </div>
                   </div>
-                  {canManage && (
+                  {(canEdit || canDelete) && (
                     <span className="flex shrink-0 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setEditingId(c.id)}
-                        className="text-brand-pink text-xs font-semibold underline"
-                      >
-                        {t("contact_edit_action")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmingDeleteId(c.id)}
-                        className="text-brand-pink text-xs font-semibold underline"
-                      >
-                        {t("contact_delete_action")}
-                      </button>
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingId(c.id)}
+                          className="text-brand-pink text-xs font-semibold underline"
+                        >
+                          {t("contact_edit_action")}
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingDeleteId(c.id)}
+                          className="text-brand-pink text-xs font-semibold underline"
+                        >
+                          {t("contact_delete_action")}
+                        </button>
+                      )}
                     </span>
                   )}
                 </div>
