@@ -3037,7 +3037,7 @@ reversal); item 96 above (`location_tier`/`language_group`'s own entry points, t
 
 ---
 
-### 100. A team directory was built and reverted — its RLS branch blinded an existing sabotage check; plus three reusable RLS-probe methodology errors
+### 100. A team directory was built and reverted — its RLS branch blinded an existing sabotage check; plus four reusable probe methodology errors
 
 2026-09-25. A `/team` directory (name + role per person, no contact fields) was built, its RLS branch
 applied live, and then reverted in full before anything was committed. Nothing shipped; the database
@@ -3065,7 +3065,10 @@ was about to be silently disabled. Worth stating as the pattern's sharpest form 
 mode isn't only "my change is wrong," it's "my change makes an existing check unable to tell anyone
 that something else is wrong."**
 
-**Three RLS-probe methodology errors, recorded because they are reusable and each cost real time:**
+**Four probe methodology errors, recorded because they are reusable and each cost real time.** The
+first three are RLS-probe errors from the directory work; the fourth came from a through-app
+verification a day later (item 101) and is recorded here because it belongs with them, and because its
+general form is different from theirs:
 
 1. **An ad-hoc probe that sets `request.jwt.claims` without also issuing `set local role authenticated`
    measures nothing.** `supabase db query --linked` connects as a superuser, which holds BYPASSRLS —
@@ -3084,6 +3087,19 @@ that something else is wrong."**
    new branch worked or not. Trainer b3 (same org, genuinely no shared session) was the honest subject.
    This is the probe-design equivalent of a sabotage check: choose a subject where only the thing under
    test can produce the result.
+4. **Two assertions that can only ever agree are not two pieces of evidence.** Verifying `/my-work`
+   through the deployed app, a regex holding a literal apostrophe was matched against a page that
+   renders `aren&#x27;t`. On one fixture it reported the unconfirmed warning **missing** when it was
+   plainly present; on the other it reported **no warning present**, which was the expected answer.
+   The two read as mutually confirming — one positive, one negative, consistent with each other — and
+   both measured nothing, because neither regex could match either page. The probe now decodes entities
+   before matching. **The general form differs from the three above, which are all "this probe measures
+   nothing": a failing assertion announces itself, but a pair of assertions that can only ever agree
+   looks like corroboration.** Two checks are not independent evidence if they share a defect — the
+   agreement is a property of the shared defect, not of the thing under test. The pairing that makes
+   this dangerous is exactly the one that feels most rigorous: assert the thing is present where it
+   should be, assert it is absent where it should not be. Both halves must be able to fail *for
+   different reasons*, or the mirror is one assertion wearing two hats.
 
 **Found while reverting, and it decides what a no-migration directory can actually show:** under the
 unchanged policies, a trainer sees **two** `users` rows (themselves and a co-trainer from a shared
@@ -3188,12 +3204,9 @@ correctly not triggered; as Test Trainer B3 — the one-line empty state, no zer
 still shown. B1's confirmation was restored to its original value afterward; the standing fixtures are
 as they were found.
 
-**A fourth methodology note, same family as item 100's three.** The first run of that verification
-reported the unconfirmed warning as missing when it was plainly present: the page renders `aren&#x27;t`
-and the probe's regex contained a literal apostrophe. The mirror-image assertion on the other fixture
-("no warning present") passed at the same time — **for the same wrong reason**, since it could not have
-matched either. An assertion that cannot fail is not evidence, and a pair of them can agree with each
-other while both measure nothing. The probe now decodes entities before matching.
+**The first run of that verification was wrong in both directions at once** — an HTML-entity mismatch
+that made a mirror pair of assertions agree with each other while neither could match anything.
+Recorded in full as item 100's fourth probe error, not duplicated here.
 
 **Where it lives — reported, not changed.** It sits beside `/profile`, and `app/page.tsx` still
 redirects everyone to `/profile` after login. Making `/my-work` the post-login destination for
@@ -3204,8 +3217,8 @@ redirect is a two-line change in `app/page.tsx`, gated the same way the nav item
 
 **Lives in:** `app/(app)/my-work/page.tsx`, `my-work-client.tsx`, `i18n.ts`; `app/(app)/layout.tsx`
 (the `mywork.*` nav gate); `scripts/verify_my_work_through_app.ts`; item 1 above (the bar this was
-measured against, and the name this deliberately avoids); item 100 above (the three earlier probe
-errors this adds a fourth to).
+measured against, and the name this deliberately avoids); item 100 above (which holds all four probe
+methodology errors, the fourth of them found here).
 
 ---
 
