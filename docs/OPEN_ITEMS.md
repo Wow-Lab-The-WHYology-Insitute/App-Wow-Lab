@@ -3037,6 +3037,78 @@ reversal); item 96 above (`location_tier`/`language_group`'s own entry points, t
 
 ---
 
+### 100. A team directory was built and reverted — its RLS branch blinded an existing sabotage check; plus three reusable RLS-probe methodology errors
+
+2026-09-25. A `/team` directory (name + role per person, no contact fields) was built, its RLS branch
+applied live, and then reverted in full before anything was committed. Nothing shipped; the database
+is back to its pre-change state, migration record included (`db push` had recorded migration 202609250002 as
+applied while the effects were hand-reverted — history and schema disagreed until that row was
+deleted), and the suite re-verified at 96 passed / 0 failed with the original sabotage check flipping
+correctly again.
+
+**Why it was reverted — the second reason, not the first, is what decided it.** The branch said: any
+member of an organization may read any other member's `users` row and `user_org_roles` row. That
+(a) overrode `202609160001`'s deliberately narrow scoping — that migration's own comment states "the
+fix must not hand anyone names they should not see, so neither branch is 'finance/trainers can see
+everyone'" — and the suite caught it immediately (`finance_ops_a: does NOT see sales_a's user row`,
+actual="1", expected="0"). More seriously, (b) **it blinded an existing sabotage check**:
+`rls_users.sql`'s guard, which exists to detect breakage in `app.viewer_sees_trainer_via_finance_ops`,
+could no longer fail, because the new broad branch covered whatever that helper stopped doing. The
+runner reported it exactly: "sabotage did NOT flip to false — this check has no teeth."
+
+**Third instance of the same shape** — a change that applies cleanly, errors nowhere, and removes a
+safeguard's ability to detect a regression. Item 68 (an RLS branch that applied and evaluated to false
+for every caller it was written for), item 92 (`REVOKE UPDATE (column)` silently overridden by a
+surviving table-wide grant), and now this: not a wrong result, but a guard that can no longer report
+one. The first two were caught by a test that existed; this one was caught by a test that existed and
+was about to be silently disabled. Worth stating as the pattern's sharpest form so far: **the failure
+mode isn't only "my change is wrong," it's "my change makes an existing check unable to tell anyone
+that something else is wrong."**
+
+**Three RLS-probe methodology errors, recorded because they are reusable and each cost real time:**
+
+1. **An ad-hoc probe that sets `request.jwt.claims` without also issuing `set local role authenticated`
+   measures nothing.** `supabase db query --linked` connects as a superuser, which holds BYPASSRLS —
+   the JWT claim changes what `app.current_user_id()` returns while RLS is never enforced at all. Such
+   a probe returns identical results whether the policy under test works or not. The first version of
+   this round's verification "passed" four of five checks this way, and the one that "failed" produced
+   a false cross-org-leak alarm that cost a full diagnostic detour. The existing `db/tests/` suites do
+   this correctly; the mistake was in ad-hoc SQL written alongside them.
+2. **A probe against `public.users` must identify people by `id`, never by `email`.** `authenticated`
+   holds no table-level SELECT on that table (202608200005 step 3 revoked it) — only column-level
+   grants that exclude `email`/`phone`. A `where email = '...'` probe fails with "permission denied for
+   table users" regardless of RLS, which reads like a policy result and isn't one.
+3. **A probe must use a subject who does not already satisfy some other branch, or the branch under
+   test is masked.** The first "same org, no shared session" check used trainer b1, who *does* share
+   sessions with the viewer — the pre-existing shared-session branch would have carried it whether the
+   new branch worked or not. Trainer b3 (same org, genuinely no shared session) was the honest subject.
+   This is the probe-design equivalent of a sabotage check: choose a subject where only the thing under
+   test can produce the result.
+
+**Found while reverting, and it decides what a no-migration directory can actually show:** under the
+unchanged policies, a trainer sees **two** `users` rows (themselves and a co-trainer from a shared
+session) but exactly **one** `user_org_roles` row — their own. The shared-session branch exposes a
+co-trainer's name and nothing else. So a directory built without any migration can show a trainer
+names, but cannot show those colleagues' roles at all — not "they have no role," but "you may not read
+that row." A two-column Name/Role screen would have one structurally-always-blank column for the
+largest group of users in the system.
+
+**Open, for Anca — a product question, not a technical one: should every member of an organization see
+every other member's name and role?** Today they do not. That is not an oversight: it follows from a
+decision taken 2026-09-16 (`202609160001`) that deliberately scoped people-visibility narrowly, for a
+different purpose entirely (making trainer names resolve on payroll and co-trainer views without
+handing anyone a general roster). A full directory reverses that decision. It is defensible to reverse
+— knowing who your colleagues are is ordinary — but it needs to be reversed *deliberately*, with the
+two tests that encode the current boundary rewritten as a recorded reversal and that sabotage check
+rebuilt so it still has teeth against something, not quietly overwritten to match new behavior.
+
+**Lives in:** `202609160001_add_users_trainer_name_visibility_branches.sql` (the scoping this would
+reverse); `db/tests/rls_users.sql` (the two checks that caught it, including the blinded sabotage);
+item 68 above and item 92 above (the first two instances of this shape); item 21 below
+(`users.status`, for why live checks beat stored columns generally).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
