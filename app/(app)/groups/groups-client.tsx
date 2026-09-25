@@ -50,7 +50,10 @@ const MODULE_KEYS = [
   "astronomy",
   "doctor",
 ];
-// Anca's nine workshop types (2026-09-21, item 79/85) -- see groups/i18n.ts.
+// Anca's nine workshop types (2026-09-21, item 79/85) plus custom,
+// restored as a tenth 2026-09-25 (item 102) -- see groups/i18n.ts.
+// Order matches the CHECK constraint in 202609260001: Anca's nine in her
+// own order, custom appended last as the later addition it is.
 const FORMAT_KEYS = [
   "scoala_altfel",
   "saptamana_verde",
@@ -61,6 +64,7 @@ const FORMAT_KEYS = [
   "scoli_private_recurente",
   "evenimente_mall",
   "party_companii",
+  "custom",
 ];
 const STATUS_KEYS = ["active", "paused", "ended"];
 

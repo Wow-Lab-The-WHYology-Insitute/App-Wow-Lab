@@ -3222,6 +3222,121 @@ methodology errors, the fourth of them found here).
 
 ---
 
+### 102. Custom restored as a tenth workshop type — plus what was quietly edited out of Anca's list at seed time
+
+2026-09-25. `custom` returns to `groups.delivery_format` as a tenth value (`202609260001`), four days
+after `202609210006` removed it. The removal was correct at the time and said so in writing: *"Anca's
+decision was 'these nine replace the six,' not 'these nine plus a fallback.' Not invented here; if a
+workshop genuinely doesn't fit any of the nine, that is now a real gap to surface, not silently
+absorbed."* **The gap was surfaced exactly as intended, and the person it was deferred to answered
+it.** This is that answer, not a reversal taken on our own authority.
+
+**Strictly additive, unlike its predecessor.** Widening a `CHECK` constraint cannot invalidate an
+existing row, so no data was rewritten — where `202609210006` remapped three live rows by id, this
+migration touches none.
+
+**Nothing behavioural needed changing, and that is a finding rather than an omission.** Both places
+this app branches on `delivery_format` are **positive** tests against explicit values, never negative
+or substring tests, so `custom` lands on the correct side of each by construction:
+- `app.resolve_duration_multiplier` — `case when p_delivery_format in ('scoala_altfel',
+  'saptamana_verde') then ... else 'standard' end`. `custom` → `standard`, which is right on two
+  independent grounds. Semantically, that context exists because those two **named national
+  programmes** pay ×2.0 at 120 minutes instead of ×1.5 — it is keyed to a programme schedule, not to
+  "bespoke," and `custom` is by definition neither programme. Structurally, `standard` is seeded with
+  a 30-minute row and `scoala_altfel_saptamana_verde` is **not**, so a 30-minute custom workshop
+  mapped to the programme context would raise *"no row for 30 minutes … incomplete version"*.
+  Standard is both correct and the only complete option.
+- The "recurring" distinction (`trainer-resources-section.tsx`, `groups-client.tsx`) — both are
+  `=== "scoli_private_recurente"`. `custom` is one-off on both, correctly: it has no recurring
+  schedule pattern. `202609210006`'s own comment already committed to this — *"means
+  scoli_private_recurente ONLY … not by a 'recurring' substring check"* — and `custom` is exactly the
+  case that rule was written to survive.
+
+**This is now a pay-affecting path, which it was not on 2026-09-21.** Item 79 measured
+`resolve_duration_multiplier` as having no caller anywhere. `app.calculate_session_pay`
+(`202609250001`) now calls it. Nothing calls `calculate_session_pay` yet, so no pay moves today — but
+the duration context stopped being dormant, which is why `db/tests/custom_workshop_type.sql` asserts
+`custom → standard` **by value** (1.5 at 120 minutes, against the real seeded WOW LAB grids) with the
+two programmes checked alongside as controls. Asserting behaviour this migration does *not* change is
+the point: it is the behaviour most likely to be broken later by someone who reads the ten-value list
+and assumes `custom` is special.
+
+**Three of Anca's own explanatory examples were dropped at seed time and exist nowhere else — recorded
+here verbatim, as meaning rather than as labels.** Her source dropdown in `Fielduri pentru planificare
+ateliere.xlsx` appended a worked example to three of the nine lines. None survived into the RO or EN
+labels, into the schema, or into this register until now. They are hers, and they say what each type
+means in practice better than the label does:
+
+| Type | Her line, verbatim |
+|---|---|
+| `cursuri_deschise` | `Cursuri deschise - Exemplu Cursuri de chimie` |
+| `scoli_private_ocazionale` | `Scoli private (colaborări ocazionale) - Exemplu Science Week la IBSB` |
+| `evenimente_mall` | `Evenimente/prezentari la mall - Exemplu Barlad Value Center` |
+
+They are **not** proposed as labels — a dropdown value should not carry a worked example. They are
+recorded so that the question "what did Anca actually mean by *Cursuri deschise*?" has an answer that
+is hers, not a later reconstruction.
+
+**The Romanian labels are her words with orthography repaired, not her words verbatim — stated plainly
+so nobody later reads "exactly as Anca wrote them" literally and concludes the labels are wrong.**
+Two separate edits sit between her source file and the shipped strings:
+1. **Diacritics were added by us.** Her dropdown reads `Scoala Altfel`, `Scoala Verde`,
+   `Evenimente/prezentari la mall`, `Party in companii` — no diacritics anywhere in the file. The
+   labels restore them (`Școala Altfel`, `Evenimente/prezentări la mall`, `Party în companii`).
+2. **`Scoala Verde` → `Săptămâna Verde` was her own later correction**, made on 2026-09-21, not a
+   transcription by us — `202609210006` records it as such. The key stayed `saptamana_verde`
+   throughout.
+
+Anyone diffing the shipped labels against `Fielduri pentru planificare ateliere.xlsx` will find
+mismatches on both counts. Both are intentional; neither is drift.
+
+**English labels, and the one that changed.** `party_companii` was `"Company parties"` and is now
+`"Wow Lab Party at a company"`. Anca's Romanian uses the English loanword *party* deliberately: this
+is the **same product** as `wow_lab_party` delivered at a company rather than for a child's birthday.
+The old label severed that link — an English reader saw *Company partnerships* / *Company parties* as
+the matched pair and *Wow Lab Party* as unrelated, which is backwards. `custom` is `"Custom"` in both
+languages: the word Anca confirmed, already a Romanian loanword, and the same label the pre-2026-09-21
+six-value list carried. *"Other"* would be clearer English and is not what she said.
+
+**`Școala Altfel` and `Săptămâna Verde` stay Romanian in the English UI, deliberately.** They are
+Ministry of Education national programmes — proper nouns, not descriptions. *"School Differently"* and
+*"Green Week"* would name nothing a user could look up, would not match the name on the school's own
+calendar or contract, and read as two variants of one thing when they are two distinct programmes the
+pay grid already treats as one shared ×2.0 context. **This is not a new rule: it is the rule the
+thirteen `module_*` labels already follow, in mirror** — those are English-origin proper nouns kept
+untranslated in the *Romanian* UI (`module_chem_me: { en: "Chemistry for Me", ro: "Chemistry for Me" }`).
+A proper noun has one name. An English-only gloss (`"Școala Altfel (national school programme)"`) was
+considered and rejected: it helps a first-time reader once, then pads a table cell and a filter
+dropdown forever, and would be the only explanatory text in a dictionary of ~100 labels.
+
+**Two uncleaned fixtures found while verifying this, both from interrupted verification runs earlier
+the same day, both still live at the time of writing:**
+1. **A closed payroll period in `wow-lab-test-b`** — `period = 2026-09-01`, `closed_at =
+   2026-09-25 10:46Z`, `closed_by = null`. `scripts/verify_item91_write_paths_through_app.ts` inserts
+   exactly this row and registers a cleanup to delete it; the cleanup did not run. **It breaks two
+   previously-passing suite checks** (`confirmSessionAttendance: own slot succeeds` and
+   `updateSessionAttendance: own row succeeds`, both now `actual="month_closed"`). Deleting it was
+   attempted and **denied by the permission layer**, so it is recorded here rather than fixed.
+2. **A fourth group in `wow-lab-test-b`** — MAX / `doctor` / `party_companii`, created
+   2026-09-25 10:50Z, `notes` null. Every document written before today, `202609210006` included,
+   says there are exactly three groups in this shared database. **There are four.**
+
+The general form is worth stating, because it is a different failure from item 100's four: **a
+verification script that mutates a standing fixture and cleans up in a `finally` leaves the fixture
+mutated whenever the run is interrupted, and nothing reports it.** The damage surfaces later, in an
+unrelated suite, as a failure that looks like a regression in code nobody touched. Both leftovers here
+were found only because a new test happened to assert a total row count — which is also why that
+assertion was then removed: coupling a test to a global count makes it fail for reasons unrelated to
+what it tests.
+
+**Lives in:** `supabase/migrations/202609260001_add_custom_workshop_type.sql` +
+`supabase/rollbacks/202609260001_add_custom_workshop_type_rollback.sql`;
+`db/tests/custom_workshop_type.sql`; `app/(app)/groups/i18n.ts`, `groups-client.tsx` (`FORMAT_KEYS`);
+item 79 and item 85 above (the mapping and the nine-value migration this extends); item 92 above (the
+last time a constraint/grant looked applied and was not).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,

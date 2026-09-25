@@ -52,12 +52,25 @@ export const groupsDict: Dictionary = {
   module_doctor: { en: "I Wanna Be a Doctor", ro: "I Wanna Be a Doctor" },
 
   // Anca's nine workshop types (2026-09-21, item 79/85), replacing the
-  // prior six-value working list. Keys are ASCII snake_case (Mihai's
+  // prior six-value working list, plus custom restored as a tenth on
+  // 2026-09-25 (item 102). Keys are ASCII snake_case (Mihai's
   // instruction); labels carry the diacritics, RO and EN. scoala_altfel/
   // saptamana_verde keep their old keys unchanged -- same program, same
   // key, only the surrounding list was confirmed. "Recurring," wherever
   // this app distinguishes it (the resources caption, the create form's
-  // schedule-pattern shape), means format_scoli_private_recurente ONLY.
+  // schedule-pattern shape), means format_scoli_private_recurente ONLY --
+  // not custom either.
+  //
+  // Școala Altfel and Săptămâna Verde are IDENTICAL in both languages on
+  // purpose, and this is not an untranslated string. They are Ministry of
+  // Education national programmes -- proper nouns, not descriptions.
+  // "School Differently" and "Green Week" would name nothing a user could
+  // look up, would not match the name on the school's own calendar or
+  // contract, and read as two variants of one thing when they are two
+  // distinct programmes the pay grid already treats as one shared x2.0
+  // context. This is the same rule the thirteen module_* labels above
+  // already follow, in mirror: those are English-origin proper nouns kept
+  // in the Romanian UI. A proper noun has one name.
   format_scoala_altfel: { en: "Școala Altfel", ro: "Școala Altfel" },
   format_saptamana_verde: { en: "Săptămâna Verde", ro: "Săptămâna Verde" },
   format_wow_lab_party: { en: "Wow Lab Party", ro: "Wow Lab Party" },
@@ -72,7 +85,20 @@ export const groupsDict: Dictionary = {
     ro: "Școli private (colaborări recurente)",
   },
   format_evenimente_mall: { en: "Mall events/presentations", ro: "Evenimente/prezentări la mall" },
-  format_party_companii: { en: "Company parties", ro: "Party în companii" },
+  // EN was "Company parties" until 2026-09-25. Anca's Romanian uses the
+  // English loanword "party" deliberately: this is the SAME product as
+  // wow_lab_party, delivered at a company instead of for a child's
+  // birthday. "Company parties" severed that link -- an English reader saw
+  // "Company partnerships" / "Company parties" as the matched pair and
+  // "Wow Lab Party" as unrelated, which is backwards.
+  format_party_companii: { en: "Wow Lab Party at a company", ro: "Party în companii" },
+  // The tenth type (item 102). Anca restored it 2026-09-25, four days
+  // after 202609210006 dropped it for having zero live rows. "Custom" in
+  // both languages -- it is the word she confirmed, it is already a
+  // Romanian loanword, and it is the same label the pre-2026-09-21
+  // six-value list carried. "Other" would be clearer English but it is
+  // not what she said.
+  format_custom: { en: "Custom", ro: "Custom" },
 
   status_active: { en: "Active", ro: "Activă" },
   status_paused: { en: "Paused", ro: "Suspendată" },
