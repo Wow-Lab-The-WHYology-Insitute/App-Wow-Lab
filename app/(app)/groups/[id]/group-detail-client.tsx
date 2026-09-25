@@ -31,6 +31,7 @@ type Session = {
   trainer_principal_confirmed_at: string | null;
   trainer_secundar_confirmed_at: string | null;
   start_time: string | null;
+  location_tier: string | null;
 };
 
 // start_time is "HH:MM:SS" (Postgres time, no timezone -- local clock
@@ -369,6 +370,7 @@ export function GroupDetailClient({
                   <th className="py-2 pr-4 font-bold">{t("col_secundar")}</th>
                   <th className="py-2 pr-4 font-bold">{t("col_status")}</th>
                   <th className="py-2 pr-4 font-bold">{t("col_duration")}</th>
+                  <th className="py-2 pr-4 font-bold">{t("col_location")}</th>
                   {/* "Present" (not "Attendance") — the post-workshop
                       ACTUAL headcount for this occurrence, distinct from
                       the group's own "Children confirmed" (contract-time
@@ -615,11 +617,9 @@ function SessionTableRow({
     <tr className="font-body text-ink border-b border-black/5 align-top last:border-0">
       <td className="py-3 pr-4 text-xs whitespace-nowrap">
         {formatShortDate(session.session_date, locale)}
-        {formatTimeRange(session.start_time, session.duration_minutes) && (
-          <span className="text-muted block">
-            {formatTimeRange(session.start_time, session.duration_minutes)}
-          </span>
-        )}
+        <span className="text-muted block">
+          {formatTimeRange(session.start_time, session.duration_minutes) ?? "—"}
+        </span>
       </td>
       {editing ? (
         <>
@@ -677,6 +677,9 @@ function SessionTableRow({
       </td>
       <td className="text-muted py-3 pr-4">
         {session.duration_minutes ? `${session.duration_minutes} min` : "—"}
+      </td>
+      <td className="text-muted py-3 pr-4">
+        {session.location_tier ? t(`location_tier_${session.location_tier}`) : "—"}
       </td>
       <td className="text-muted py-3 pr-4">
         {editingAttendance ? (
@@ -822,11 +825,9 @@ function SessionCard({
       <div className="flex items-center justify-between">
         <p className="font-body text-ink text-sm font-semibold">
           {formatShortDate(session.session_date, locale)}
-          {formatTimeRange(session.start_time, session.duration_minutes) && (
-            <span className="text-muted ml-1.5 text-xs font-normal">
-              {formatTimeRange(session.start_time, session.duration_minutes)}
-            </span>
-          )}
+          <span className="text-muted ml-1.5 text-xs font-normal">
+            {formatTimeRange(session.start_time, session.duration_minutes) ?? "—"}
+          </span>
         </p>
         <Badge tone={SESSION_STATUS_TONES[session.status]}>
           {SESSION_STATUS_KEYS[session.status] ? t(SESSION_STATUS_KEYS[session.status]) : session.status}
@@ -934,6 +935,9 @@ function SessionCard({
           )}
           <p className="font-body text-muted mt-1 text-xs">
             {t("mobile_duration_prefix")}{session.duration_minutes ? `${session.duration_minutes} min` : "—"}
+          </p>
+          <p className="font-body text-muted mt-1 text-xs">
+            {t("mobile_location_prefix")}{session.location_tier ? t(`location_tier_${session.location_tier}`) : "—"}
           </p>
           {isSavingAttendance ? (
             <p className="font-body text-muted mt-1 text-xs italic">{t("saving_attendance")}</p>

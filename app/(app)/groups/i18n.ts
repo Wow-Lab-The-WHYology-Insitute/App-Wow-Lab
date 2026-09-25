@@ -136,6 +136,7 @@ export const groupsDict: Dictionary = {
   col_principal: { en: "Principal", ro: "Principal" },
   col_secundar: { en: "Secundar", ro: "Secundar" },
   col_duration: { en: "Duration", ro: "Durată" },
+  col_location: { en: "Location", ro: "Locație" },
   col_present: { en: "Present", ro: "Prezenți" },
   col_experiment_delivered: { en: "Experiment delivered", ro: "Experiment livrat" },
   open_action: { en: "Open", ro: "Deschide" },
@@ -198,6 +199,7 @@ export const groupsDict: Dictionary = {
   mobile_principal_prefix: { en: "Principal: ", ro: "Principal: " },
   mobile_secundar_prefix: { en: "Secundar: ", ro: "Secundar: " },
   mobile_duration_prefix: { en: "Duration: ", ro: "Durată: " },
+  mobile_location_prefix: { en: "Location: ", ro: "Locație: " },
   mobile_present_prefix: { en: "Present: ", ro: "Prezenți: " },
   mobile_experiment_prefix: { en: "Experiment: ", ro: "Experiment: " },
 
