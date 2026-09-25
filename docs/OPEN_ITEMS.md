@@ -3109,6 +3109,84 @@ item 68 above and item 92 above (the first two instances of this shape); item 21
 
 ---
 
+### 101. The trainer's own work page — five figures that are honest once data exists, and one that isn't built because it can't be
+
+2026-09-25. `/my-work`, gated on `mywork.*` so it appears for exactly Trainer and Senior Trainer —
+one screen for both, as asked. **Deliberately not called "Dashboard"**: item 1 declined an org-wide
+dashboard, and reusing the word for a trainer-scoped page would read to a future editor as that
+decision being reversed.
+
+**Every figure was confirmed readable by a trainer before anything was built** — checked against the
+live policies, not assumed, because two of them looked finance-gated and weren't:
+`trainer_grade_assignments` has `trainer_id = app.current_user_id()` as its *first* branch, so a
+trainer reads their own grade holding no finance capability; and `payroll_periods` lists `mywork.*`
+as an explicit branch, so a trainer can genuinely read whether their own month is closed. That second
+one is what makes the warning below actionable instead of merely alarming. **No schema change was
+needed for any of it** — in contrast to item 100's directory, this page sits entirely inside
+boundaries that already exist.
+
+**Counted by confirmation, never by `sessions.status`.** These already disagree in every row that
+exists: both live sessions are `status='planned'` with both trainers' confirmations set. `status` also
+carries its own separate value literally called `confirmed`, so three different things could be read
+as "confirmed" and two of them are Operations' scheduling state rather than the trainer's own
+assertion. Pay follows the timestamp (`202609150002`: "Pay follows this timestamp, not
+attendance_count or status"). What "delivered" ought to mean stays **open for Anca** — and this page
+deliberately does not settle it by quietly picking a column.
+
+**The unconfirmed warning is one sentence, not two figures**, because the month's close state changes
+what the person can still *do*, not just a number beside it: "1 of your sessions aren't confirmed yet.
+September 2026 is still open — confirm them and the pay for them stands" versus "…already closed — you
+can no longer confirm them yourself. Ask Operations to correct them." At zero it degrades to a quiet
+muted line, not a green success banner: confirming your own sessions is ordinary, not an achievement.
+It counts only sessions already in the past — a workshop next week isn't late, and counting it would
+turn a normal state into a warning.
+
+**Hours carries its caveat at normal size under the number, not as a footnote**, being the figure most
+likely to be misread as pay — which it isn't: pay counts two hours as 1.5×, and the grade rule counts a
+two-hour workshop as one workshop. Exact wording shipped, EN: "Hours in front of a class this month" /
+"Time taught — not your pay. Pay counts a two-hour workshop as 1.5×, and your grade counts it as one
+workshop." RO: "Ore la clasă luna aceasta" / "Timp predat — nu este plata ta. Plata socotește un atelier
+de două ore ca 1,5×, iar gradul îl numără ca un singur atelier." It also declares when sessions lack a
+recorded length rather than silently undercounting.
+
+**Grade is shown; distance to the next threshold is not.** The rule is fully specified and
+Anca-confirmed (`grad = min(6, floor(workshops / 36) + 1)`), but the workshop counts behind the seeded
+grades live in Anca's own file, not this database — counting live would return 0 for every real trainer
+and contradict the seeded grade for nine of ten. **Certifications to renew was not built at all**: no
+table, no domain, nothing to compute; it could only have been a hardcoded number or a permanent dash.
+
+**Empty state: one plain sentence, not a grid of five zeros.** Five zeros read as a broken page; one
+line reads as a true one. The grade still shows when set, since it's true regardless of allocation —
+verified live against Test Trainer B3, who has a grade and no sessions at all.
+
+**Verified live on `app.wowlab.ro`, `wow-lab-test-b`** (`scripts/verify_my_work_through_app.ts`): as
+Test Trainer B1, set up with one confirmed and one unconfirmed session — warning present naming the
+month and its open state, confirmed count correct, hours caveat present, grade shown, empty state
+correctly not triggered; as Test Trainer B3 — the one-line empty state, no zero-figure grid, grade
+still shown. B1's confirmation was restored to its original value afterward; the standing fixtures are
+as they were found.
+
+**A fourth methodology note, same family as item 100's three.** The first run of that verification
+reported the unconfirmed warning as missing when it was plainly present: the page renders `aren&#x27;t`
+and the probe's regex contained a literal apostrophe. The mirror-image assertion on the other fixture
+("no warning present") passed at the same time — **for the same wrong reason**, since it could not have
+matched either. An assertion that cannot fail is not evidence, and a pair of them can agree with each
+other while both measure nothing. The probe now decodes entities before matching.
+
+**Where it lives — reported, not changed.** It sits beside `/profile`, and `app/page.tsx` still
+redirects everyone to `/profile` after login. Making `/my-work` the post-login destination for
+`mywork.*` holders is the obvious next step and is deliberately *not* taken yet: today every real WOW
+LAB trainer has zero allocated sessions, so that redirect would land all of them on the empty state as
+their first impression of the app. The right trigger is real allocations existing — at which point the
+redirect is a two-line change in `app/page.tsx`, gated the same way the nav item already is.
+
+**Lives in:** `app/(app)/my-work/page.tsx`, `my-work-client.tsx`, `i18n.ts`; `app/(app)/layout.tsx`
+(the `mywork.*` nav gate); `scripts/verify_my_work_through_app.ts`; item 1 above (the bar this was
+measured against, and the name this deliberately avoids); item 100 above (the three earlier probe
+errors this adds a fourth to).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
