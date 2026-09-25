@@ -2962,6 +2962,81 @@ above (`location_tier`'s own entry point and the single-column shape this limita
 
 ---
 
+### 99. `app.calculate_session_pay` built — the first function in this domain that computes, not just looks up
+
+2026-09-25, as designed in the earlier report. Composes five resolver calls (grade, grade rate,
+duration multiplier, location bonus, language bonus) into `rate × duration_multiplier × (1 +
+location_bonus/100 + language_bonus/100)`, unrounded — `bonus_percent` columns store whole percent
+(25, not 0.25), divided by 100 the one place this shape actually multiplies anything. Named and
+shaped deliberately unlike the seven `resolve_*` functions it calls: those are pure lookups, this
+composes and does arithmetic, and gets a different name to say so rather than the resolver shape
+stretched to cover something it wasn't built for.
+
+**Per trainer, not per session — and refuses when the trainer isn't on it.** Takes `p_session_id` and
+`p_trainer_id`; raises if `p_trainer_id` is neither the session's principal nor secundar. A pay figure
+for someone with no part in the session isn't a cautious answer, it's a wrong one — same reasoning as
+every fail-loud choice in this function.
+
+**Never calls `app.resolve_contract_type_uplift`, with the reason recorded right where the four (five)
+resolvers are composed**, not only in the migration's own header: the PFA-inclusive rates already carry
+the 11.1% uplift (item 95), calling it here would double it, and `contract_type_uplift` stays at zero
+rows for exactly that reason.
+
+**delivery_context comes from the group, never the session** — sessions carry no format of their own.
+Confirmed, not assumed, by reading `app.resolve_duration_multiplier`'s own case statement (not by
+re-deriving the nine-format list from memory): of the nine workshop types, only `scoala_altfel` and
+`saptamana_verde` map to `scoala_altfel_saptamana_verde`; the other seven (`wow_lab_party`,
+`parteneriate_companii`, `cursuri_deschise`, `scoli_private_ocazionale`, `scoli_private_recurente`,
+`evenimente_mall`, `party_companii`) resolve as `standard`. Matches the reading in the design report
+exactly.
+
+**Missing-input behavior, reported as asked:** session-or-group-level facts that were simply never
+entered (`duration_minutes`, `location_tier`, the group's `language_group`) now raise a message from
+`calculate_session_pay` itself, naming the specific field and row — added deliberately rather than
+letting a `NULL` flow into a resolver's own `WHERE tier = p_location_tier` clause, which would still
+raise (no row matches `NULL`) but with a vaguer "no row for [blank]" message. Genuine grid gaps (no
+rate for this grade, no multiplier for this exact duration) are raised by the resolver itself, whose
+own message already names the input and organization precisely — not caught or rewrapped here, so the
+caller sees exactly which resolver failed.
+
+**SECURITY INVOKER, matching all seven resolvers' own reasoning — with a consequence worth stating
+plainly:** this function has no authorization check of its own, so today only a caller who already
+holds read access to `trainer_grade_rates` etc. (`finance.operations.*`/`finance.reporting.*`/owner)
+can successfully call it; a plain trainer's own session cannot, even to compute their own pay. Not
+fixed — nothing calls this function yet, and the eventual caller is expected to be finance-facing,
+matching every other pay-grid read in this codebase. Revisit only if a trainer-facing caller is ever
+proposed.
+
+**Tests, `db/tests/calculate_session_pay.sql`, run by `run_rls_suite.ts`** (not `rls_`-prefixed, no
+authorization branch of its own to test — same naming choice as `capability_liveness.sql`): the known
+case (grade 3/Teodora, 90min standard, imprejurimi, fr_de_es) asserted to equal `220.98` exactly; a
+missing grade assignment (Luiza Mirt, who still has none — item 95) raises rather than returning
+zero/null; a trainer not on the session is refused, with the raised message asserted to actually name
+"principal or secundar," not just any exception; `scoala_altfel` at 120 minutes computes through to
+`368.30` (the 2.0 multiplier) against a `parteneriate_companii` group's `276.225` (1.5) built from
+otherwise-identical fixtures, so the only variable proven to matter is the group's own delivery format;
+a sabotage block temporarily redefines the function to round its own result and confirms the exact-
+equality assertion in the known case actually fails against that regression — the one this function
+was explicitly built to never have (item 95's own reversed rounding assumption). All fixtures live
+inside transactions that always roll back, using WOW LAB's real seeded rates rather than synthetic
+numbers, so the "known case" is checked against the same figures Anca actually confirmed. Full suite:
+96 passed, 0 failed, 0 block errors across 10 files (up from 91 before this file).
+
+**Verified by hand against the real historical row.** The report two rounds ago verified `114 × 1.2 ×
+1.45 = 198.36` was a real approved payment under the OLD net rates; recomputing the identical shape on
+the new PFA-inclusive rate (grade 3 = 127, same 1.2/1.45) gives `127 × 1.2 × 1.45 = 220.98` — exactly
+what `db/tests/calculate_session_pay.sql`'s known-case check asserts, confirmed both by hand and by the
+function.
+
+**Nothing calls this function yet — no UI, no payroll screen change, by design.** That's the next round.
+
+**Lives in:** `supabase/migrations/202609250001_create_calculate_session_pay.sql`,
+`supabase/rollbacks/202609250001_create_calculate_session_pay_rollback.sql`,
+`db/tests/calculate_session_pay.sql`; item 95 above (the pay grids this composes and the rounding
+reversal); item 96 above (`location_tier`/`language_group`'s own entry points, the inputs this reads).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
