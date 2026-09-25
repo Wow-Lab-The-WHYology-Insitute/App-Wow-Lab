@@ -77,6 +77,17 @@ export default async function AppLayout({
     }
   }
 
+  // mywork.* -- Trainer/Senior Trainer. Gates /my-work only; this is
+  // deliberately NOT the same check as canReadGroups below, which ORs
+  // mywork.* with groups.read so Operations sees the Groups nav too.
+  let hasMyWork = false;
+  for (const m of memberships ?? []) {
+    if (await checkCapability(supabase, "mywork.*", m.organization_id)) {
+      hasMyWork = true;
+      break;
+    }
+  }
+
   // Clients & Contracts (C2): each item gated independently on its own
   // capability (clients.read / contracts.read), not "both or nothing" — a
   // future role could plausibly hold only one. In the current C1 seed
@@ -171,6 +182,12 @@ export default async function AppLayout({
     {
       items: [
         { href: "/profile", labelKey: "nav_profile" },
+        // mywork.* is the capability that means "my own work" -- the
+        // same one gating the trainer's row-level access to sessions and
+        // groups, so the nav item appears exactly for the people whose
+        // page it is. Senior Trainer holds it too, which is why this is
+        // one screen for both roles rather than two.
+        ...(hasMyWork ? [{ href: "/my-work", labelKey: "nav_my_work" }] : []),
         ...(canManageUsers
           ? [{ href: "/admin/users", labelKey: "nav_users_roles" }]
           : []),
