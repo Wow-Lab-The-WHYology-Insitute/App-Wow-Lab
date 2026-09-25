@@ -3093,6 +3093,28 @@ names, but cannot show those colleagues' roles at all — not "they have no role
 that row." A two-column Name/Role screen would have one structurally-always-blank column for the
 largest group of users in the system.
 
+**Built, evaluated, and dropped before shipping — not because the data was missing, but because of what
+the screen would assert.** Only **4 of 14 roles** hold `org.members.read` (`organization_owner`,
+`platform_owner`, `operations_manager`, `finance_admin_reporting`) — that capability is what makes
+another person's `user_org_roles` row readable. For the other **10**, including every Trainer and
+Senior Trainer and Laura (who holds `contract_administrator` + `finance_operations`, neither of which
+carries it), the Role column is blank for everyone but themselves. **A blank cell reads as "this person
+has no role"; the truth is "you may not read that row."** Replacing blanks with this codebase's
+existing "not visible for your role" placeholder (the `client_hidden`/`contract_hidden` shape) is the
+honest rendering — and makes the screen, for 10 of 14 roles, a list of names beside a column of
+permission notices. Item 1's shape exactly: one real column and one structurally empty one, for the
+majority of viewers.
+
+**Unlike the overdue-contracts precedent, nothing needed rehoming.** That decision moved a real signal
+onto the page that owned it. Here there is no orphaned signal: a trainer's actual need — knowing who
+they deliver a workshop with — is already answered on the session row, which names both trainers.
+
+**The one gap it would have closed, recorded unserved:** `operations_manager` and
+`finance_admin_reporting` — Cătălina's roles among them — *may* read the full roster and have no screen
+that shows it. `/admin/users` is gated on `org.members.manage`, which neither holds. That is a real
+want for two roles, and a different screen from the one asked for. Not built. **Trigger: someone
+actually needing it and saying so** — not the mere fact that the data is available to them.
+
 **Open, for Anca — a product question, not a technical one: should every member of an organization see
 every other member's name and role?** Today they do not. That is not an oversight: it follows from a
 decision taken 2026-09-16 (`202609160001`) that deliberately scoped people-visibility narrowly, for a
