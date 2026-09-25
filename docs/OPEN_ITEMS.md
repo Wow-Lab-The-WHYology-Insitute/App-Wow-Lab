@@ -2917,6 +2917,51 @@ item 93 above (the trainer-view fixture this walkthrough used).
 
 ---
 
+### 98. `sessions.location_tier` made visible to trainers, `start_time` always shows its second line — and a known limitation recorded, not fixed: one tier value per session, not per trainer slot
+
+2026-09-25. Two visibility gaps closed, argued before building (report-only pass, previous entry in
+this file): `location_tier` was captured on the session form (item 96) but read nowhere afterward —
+write-only, invisible to the trainer whose travel it records. No masking precedent applies (the only
+financial fields this codebase hides are `contracts.billing_rule`/`estimated_value`, hidden for
+commercial secrecy — a fact a trainer already knows about their own trip isn't that kind of secret),
+and nothing in RLS or grants blocked it either; the gap was purely an unfinished read side from item
+96's own build. Now shown between Duration and Present in the sessions table (mobile: a `Location:`
+line after `Duration:`), using the same translated tier labels already built for the entry form,
+`—` when unset — the categorical fact, not a bonus percentage (the calculation still doesn't exist).
+`language_group` was NOT duplicated onto each session row — it already has a home
+(`GroupInfoSection`, always visible, not literally `GroupHeader` as first framed — corrected in the
+report), and repeating a value that's constant across a group's sessions would only add clutter and
+partially undo the reason it moved off `sessions` in the first place (item 96).
+
+The date cell's second line (`formatTimeRange`) used to render nothing at all when `start_time` was
+absent, unlike every other optional value on the same row (Duration, Present), which fall back to
+`—`. Now always renders, `formatTimeRange(...) ?? "—"` — in both the desktop table and the mobile
+card, which had the identical gap inline next to the date rather than as a separate line.
+
+**Recorded, not acted on, per the explicit instruction: `sessions.location_tier` is one column per
+session, not one per trainer slot.** If a session's principal and secundar have different home
+cities, the single stored value can only be right for one of them — it was computed (by the pre-fill,
+when it fires) or entered against one trainer's travel, but reads as if it describes the session
+itself once shown, including to the trainer it wasn't computed for. Today this rarely bites: nine of
+the eleven active trainers are Bucharest-based (item 96), so most principal/secundar pairings share a
+home city and the single value happens to be right for both. **The trigger to watch for**: a session
+where Alexandra Nuțu (Cluj) or Viorel Toboșaru (Cernavodă) co-delivers with a Bucharest-based
+colleague — the stored tier will be correct for at most one of the two, and the pay calculation
+(`app.calculate_session_pay`, still not built) will read this column directly, so whichever trainer
+it's wrong for gets the wrong location bonus with nothing in the schema to catch it. Not a defect to
+fix now — recorded here so it's found by its trigger condition, not by a wrong paycheck.
+
+**Verified live on `app.wowlab.ro`, `wow-lab-test-b`**, as a trainer fixture (B1): the session with a
+recorded `location_tier` shows its translated label; the one without shows `—`; the time line renders
+on both — the session with a `start_time` shows the actual range, the one without shows `—` instead
+of nothing.
+
+**Lives in:** `app/(app)/groups/[id]/group-detail-client.tsx`, `[id]/page.tsx`, `i18n.ts`; item 96
+above (`location_tier`'s own entry point and the single-column shape this limitation is about); item
+97 above (the same walkthrough this continues).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
