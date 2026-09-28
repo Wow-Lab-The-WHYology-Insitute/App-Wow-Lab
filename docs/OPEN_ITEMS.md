@@ -3309,31 +3309,191 @@ A proper noun has one name. An English-only gloss (`"Școala Altfel (national sc
 considered and rejected: it helps a first-time reader once, then pads a table cell and a filter
 dropdown forever, and would be the only explanatory text in a dictionary of ~100 labels.
 
-**Two uncleaned fixtures found while verifying this, both from interrupted verification runs earlier
-the same day, both still live at the time of writing:**
-1. **A closed payroll period in `wow-lab-test-b`** — `period = 2026-09-01`, `closed_at =
-   2026-09-25 10:46Z`, `closed_by = null`. `scripts/verify_item91_write_paths_through_app.ts` inserts
-   exactly this row and registers a cleanup to delete it; the cleanup did not run. **It breaks two
-   previously-passing suite checks** (`confirmSessionAttendance: own slot succeeds` and
-   `updateSessionAttendance: own row succeeds`, both now `actual="month_closed"`). Deleting it was
-   attempted and **denied by the permission layer**, so it is recorded here rather than fixed.
-2. **A fourth group in `wow-lab-test-b`** — MAX / `doctor` / `party_companii`, created
-   2026-09-25 10:50Z, `notes` null. Every document written before today, `202609210006` included,
-   says there are exactly three groups in this shared database. **There are four.**
+**Two unexplained rows in `wow-lab-test-b`, found while verifying this — and the first explanation
+recorded here was WRONG. Corrected 2026-09-28, in place, with the error left visible:**
 
-The general form is worth stating, because it is a different failure from item 100's four: **a
-verification script that mutates a standing fixture and cleans up in a `finally` leaves the fixture
-mutated whenever the run is interrupted, and nothing reports it.** The damage surfaces later, in an
-unrelated suite, as a failure that looks like a regression in code nobody touched. Both leftovers here
-were found only because a new test happened to assert a total row count — which is also why that
-assertion was then removed: coupling a test to a global count makes it fail for reasons unrelated to
-what it tests.
+**What was originally written here:** that both were leftovers from an interrupted
+`scripts/verify_item91_write_paths_through_app.ts` run, on the strength of the payroll period's
+`closed_by` being null — that script inserts a closed period without a `closed_by`, and registers a
+cleanup that evidently had not run.
+
+**`closed_by` was never null.** It is `3a228d95-ac3f-4b73-81d5-d57e1065f0f3` —
+`maxdigitalro+testorg@gmail.com`, an `organization_owner` of Test Org B. The original query selected
+`u.full_name` through a `left join public.users u on u.id = p.closed_by`, and that user's `full_name`
+column is itself null, so the result set showed `closed_by: null` for a row whose `closed_by` is a
+real uuid. **A joined column was read as if it were the base column.** Same family as item 100's four:
+the probe measured something other than what its result was labelled.
+
+**What the evidence actually says, re-checked directly:**
+- `app.closePayrollPeriod` (`app/(app)/payroll/actions.ts`) is the **only** path that writes
+  `closed_by`, and it writes the signed-in `user.id`. `verify_item91` inserts `{organization_id,
+  period, closed_at}` with no `closed_by` at all. A non-null `closed_by` therefore **excludes** the
+  script and **requires** a real signed-in session.
+- **No script anywhere in `scripts/` references `maxdigitalro+testorg@gmail.com`, and none calls
+  `closePayrollPeriod`.** Checked by grep across the whole directory.
+- `verify_item91`'s group fixture is `gaga` / `wow_lab_party` under a client named *"DRYRUN item91
+  through-app client"* — **not** the fourth group, which is `doctor` / `party_companii` under the
+  standing `MAX` client. No script in the repo creates that combination.
+- The group was created 2026-09-25 10:50:16Z, **3m48s after** the period was closed at 10:46:28Z, by
+  which time a person was demonstrably signed in and acting in that org.
+- `addGroup` writes `notes.trim() || null`, so a null `notes` is exactly what the create form produces
+  when the field is left empty — it is evidence of app use, not of script use.
+
+**Conclusion: both rows are deliberate human actions in the test org, not drift. Neither was deleted.**
+
+**No trail exists to check this against, which is its own finding.** `row_history` has a
+`groups_row_history` trigger, but it fires on **UPDATE and DELETE only** — never INSERT — so the
+absence of a history row for the fourth group proves nothing about its origin. `audit_log` holds 62
+rows, the last dated **2026-09-10**, and group creation never wrote to it at all. For "who created
+this row and when," this database currently has no answer for any table whose rows are only ever
+inserted.
+
+**What this leaves genuinely open:** two suite checks (`confirmSessionAttendance: own slot succeeds`,
+`updateSessionAttendance: own row succeeds`) fail with `actual="month_closed"` because Test Org B's
+September period is closed **on purpose**. That is not drift to clean up — it is **a suite that
+silently depends on the test org's payroll month being open**, and says so nowhere. The fix is in the
+suite (open its own period inside the transaction, or assert against a period it controls), not in the
+fixture. Recorded, not fixed.
 
 **Lives in:** `supabase/migrations/202609260001_add_custom_workshop_type.sql` +
 `supabase/rollbacks/202609260001_add_custom_workshop_type_rollback.sql`;
 `db/tests/custom_workshop_type.sql`; `app/(app)/groups/i18n.ts`, `groups-client.tsx` (`FORMAT_KEYS`);
 item 79 and item 85 above (the mapping and the nine-value migration this extends); item 92 above (the
-last time a constraint/grant looked applied and was not).
+last time a constraint/grant looked applied and was not); item 103 below (the three-axis model this
+vocabulary sits inside).
+
+---
+
+### 103. Three axes, not three competing lists — the eight-week-old "Tip atelier" question answered, and the one it leaves open
+
+2026-09-28. Two curriculum spreadsheets and a Phase 1 epic proposing a 19-value "Tip atelier" list
+were investigated together. **The headline: the epic does not supersede Anca's 2026-09-21 decision. It
+predates it by 52 days, and no live data was changed on a stale decision.**
+
+**The three lists are not three versions of one thing. Two are axes; the third is those two flattened
+into one field.**
+
+| | `groups.module` | `delivery_format` (the nine, +custom) | The epic's 19 |
+|---|---|---|---|
+| Question it answers | **what is taught** | **how / to whom it is sold** | both at once |
+| Source | `Centralizator module WOW LAB 2023-2024-2025.xlsx` | `Fielduri pentru planificare ateliere.xlsx`, the `Tip Atelier` dropdown | Anca's Phase 1 feedback |
+| Live | **13 keys** | 10 values, 3 real rows | nothing |
+
+A third axis exists below both and is **entirely unmodelled**: the **lesson plan** — which specific
+experiment was run. Today that is `sessions.experiment_delivered`, free text a trainer types.
+
+**The date, git-verified, because this was the load-bearing question:** the mockup commit `edfab8a`
+(**2026-07-31**, the file's first commit, `--diff-filter=A`) already carries the banner *"Feedback-ul
+Ancăi (Phase 1) cere … o taxonomie nouă «Tip atelier» pe module — de reconciliat înainte de
+construcția reală, nu taxonomie finală."* The feedback it names is dated **2026-07-30**. Anca's
+nine-value decision is **2026-09-21**. The epic is the older input; the decision is the newer one.
+
+**And the epic's commercial half is the vocabulary she replaced.** Its five non-module values
+(Săptămâna Altfel, Săptămâna Verde, Party, Custom, Corporate) are *exactly* the pre-decision
+`DELIVERY_FORMAT` object minus `recurring` (`wow_lab_os_mockup.html` line 434: `recurring`, `sa`
+Școala Altfel, `sv` Săptămâna Verde, `party`, `corporate`, `custom`). **Adopting the epic literally
+would be a rollback**, collapsing `scoli_private_ocazionale`, `scoli_private_recurente`,
+`cursuri_deschise`, `evenimente_mall`, `parteneriate_companii` and `party_companii` back into
+`Corporate`/`Party`. Its naming drift confirms the direction of travel: it says *Săptămâna* Altfel;
+the programme is *Școala* Altfel in the mockup and in Anca's own spec — a conflation of two programme
+names, i.e. a drafting-stage error, not a considered revision.
+
+**The strongest argument for keeping her nine is that they are not a new scheme at all — they match
+the historical billing codes one to one.** The mockup's `TIPS` object holds the codes the work has
+actually been invoiced under (`SP`, `SPCO`, `SA`, `SV`, `COM`, `EPC`, `EP`, `CD`, `WLP`), and the nine
+map onto them 1:1. Her list is a description of how this business already bills, written down. The
+epic's five are a coarser vocabulary that no invoice uses.
+
+**Two arithmetic/consistency facts worth keeping, because each is evidence about what the 19-value
+list is:**
+- **14 + 6 = 20, not 19.** The count closes only if `Chimie liceu` is one of the 14 — and it is:
+  `chem_hs`, "Chemistry for Highschool", already a module. **One value is simultaneously a curriculum
+  module and a commercial format**, which is the clearest possible demonstration that the list
+  flattens two axes.
+- **"Disciplină," the field the epic proposes to replace, does not exist.** Zero hits across the whole
+  codebase, and all 44 shared strings of `Fielduri pentru planificare ateliere.xlsx` were read
+  directly: 28 fields, `Tip Atelier` present at index 8, **no `Disciplină`**.
+
+**The question was asked for in writing three times and never actually asked.** `wow_lab_os_mockup.html`
+line 952 (*"de reconciliat înainte de construcția reală"*), line 767 (*"nu unul combinat «tip
+atelier», cum s-a sugerat inițial"*), and the `MODULES` comment from `d06e3a4` (*"interpretare de
+confirmat cu Anca, nu decizie finală"*). `202609210006`'s own column comment says the same from the
+other side: *"The module+delivery_format SPLIT itself (vs. a single 'Tip atelier' field) remains
+Mihai's own interpretation, unconfirmed by this decision — only the delivery_format vocabulary was
+decided."* **Anca settled the vocabulary of one axis. Whether there should be two axes at all has
+never been put to her.** That is the open question this entry closes the investigation on but does not
+resolve.
+
+**Caveat, stated because the conclusion rests on it:** the epic itself is not in this repo and was
+never read. The date bound does **not** depend on that — it rests on the mockup banner and its commit
+— but identifying "the banner's ask" with "the epic in hand" is an inference from a close shape match
+(both: replace one field with "Tip atelier", values are the modules). **The epic's created-date in
+Asana settles it in one minute** and is worth checking before anything is said to Anca.
+
+---
+
+**Genuinely open, and separable from the taxonomy argument entirely: do Anatomy and Vet become modules
+14 and 15?** This half of the epic is *not* superseded by anything, and the curriculum file
+corroborates it independently. It resolves the long-unexplained "13 din 15": 13 confirmed + Vet +
+Anatomy = 15. Crăciun is a third extra sheet and was never one of them — it holds **zero** lesson-plan
+filenames, no plan column at all, YouTube links under a `Link` header, a `feedback Cata` column, and
+two seasonal banners (`B1='Christmas /  Winter science experiments'`, `K1='Halloween themed
+experiements'`). It is an idea list, not a module.
+
+- **Anatomy — real, but being carved out of `doctor` mid-flight.** Only **6 of its 23** rows carry a
+  real filename; the other 17 are chapter pointers (`1. Lungs`, `17. Immune system`). **6 plans sit on
+  both sheets** — `ANAT_TourThroughTheCellCity_DC_1`, `TheInvisibleArmy_DC_2`,
+  `BuildingBlocksOfLife_DC_3`, `SeeingDNA_DC_4`, `MrBones_DC_5`, and `ANAT_Germes&Hygene_SG_18.xlsx`.
+  Two authors (DC, RP) split it. Adding it as a 14th value today would duplicate content that
+  `doctor` already carries.
+- **Vet — named, scoped, assigned, and empty.** The sheet has **0 non-empty cells** (`A1:A1`) and is
+  **the only hidden sheet in the workbook** — someone deliberately took it out of view. Yet file 2's
+  `Veterinar` sheet holds an allocation block headed `I WANT TO BE A VET` with 6 named lessons (Cow
+  digestive system, Ears and sounds, Vaccination, Birds, Animals nutrition, Animals in urban areas),
+  **all assigned to one person, `GABI`**, with not one plan written. Adding it to `public.modules`
+  today creates a module a trainer can select and find nothing behind.
+
+**The authorship reconciliation — the key the register has been missing.** Item 45 part 3 records 31
+plans Anca reported on 31.08.2026 with no way to attribute them. `Module noi 2025 - idei de
+lectii.xlsx` is that record: an `Alocare planuri de lectie` assignment register plus 10 per-person
+sheets carrying **author, lesson, module, completion date, review state, and whether it was paid and
+in which month**. **The two files join on author-initials + module-prefix + sequence number**, and the
+31 tie out exactly:
+
+| Person | Reported | Measured |
+|---|---|---|
+| Raluca Popa | 17 | her sheet numbers **1–17 contiguous**, plus 3 deliberately unnumbered |
+| Răzvan Bălașov | 4 | `GRE_`/`GGA_` are `RB_1..7`; `ASTRO_RB_8,9,10,11` — **exactly 4 astronomy plans** |
+| Teodora Merișan | 10 | her sheet numbers to **10** (with duplicate 5s, 7s, 9s across 14 rows) |
+
+**The join key is (prefix, initials, number), not (initials, number)** — measured, not assumed:
+`(initials, number)` collides for **51 of 225 keys (22.7%)**, `(prefix, initials, number)` for **4 of
+272 (1.5%)**. Author DC alone runs two parallel sequences both starting at 1 (`ANAT_*_DC_1..5` and
+`ASTRO_*_DC_1..12`).
+
+**But the attribution it supplies mostly points nowhere.** 18 distinct sets of initials appear across
+455 parsed filenames. **The two highest-volume authors resolve to no account in this system at all:
+`GS` with 118 plans and `DC` with 66** — together 184 plans, 40% of the catalogue, by two people the
+platform has never heard of. `RB` (Răzvan Bălașov) has no account either, which item 45 part 3 already
+records. `LM` is **ambiguous between two real users** — Laura Moale and Luiza Mirt. So the files close
+the "which plan did who write" gap and open a "who are these people" gap in its place; the data exists
+now, the accounts do not.
+
+**One more measurement that constrains any future import:** the `460` figure in circulation is an
+**occurrence count, not a plan count**. Measured strictly: **518 lesson rows, 500 carrying a plan
+reference, 515 plan-column strings, 455 matching the filename pattern, resolving to 276 distinct
+plans.** **115 of those 276 (41.7%) appear on more than one sheet**, one on five — and `Modul WOW LAB
+MIX` holds 85 distinct plans of which 80 also sit on another module sheet. **MIX is a curated re-cut
+of the other modules, not a module with its own content**, so a naive row-per-sheet import would
+multiply-count roughly half the catalogue.
+
+**Lives in:** `docs/mockup/wow_lab_os_mockup.html` (lines 434, 767, 952 — the three asks and the
+pre-decision vocabulary); commit `edfab8a` (2026-07-31, the date bound) and `d06e3a4` (2026-08-07, the
+split); `supabase/migrations/202609210006_migrate_groups_delivery_format_to_nine_workshop_types.sql`
+(its column comment states the split is unconfirmed); item 52, item 79 and item 85 above (the
+nine-value list's provenance and migration); item 102 above (the tenth value); item 45 part 3 below
+(the 31 plans this reconciles); `~/Downloads/Centralizator module WOW LAB 2023-2024-2025.xlsx` and
+`Module noi 2025 - idei de lectii.xlsx` (exports of a Google Sheet Mihai holds; **not in this repo**).
 
 ---
 
