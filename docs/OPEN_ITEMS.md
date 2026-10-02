@@ -3324,6 +3324,16 @@ column is itself null, so the result set showed `closed_by: null` for a row whos
 real uuid. **A joined column was read as if it were the base column.** Same family as item 100's four:
 the probe measured something other than what its result was labelled.
 
+**And it reached a committed register entry before anyone checked it.** This is the part worth keeping.
+The wrong claim was not a passing remark in conversation — it was written into this file, with a named
+script as its cause, committed, and pushed, on the strength of a single query whose output was never
+re-read against the column it claimed to show. **Nothing in this project's discipline caught it; the
+only reason it surfaced was that the next instruction was to act on it** (delete the rows), and acting
+required re-reading the row. Had the instruction been "leave them," the false attribution would still
+be sitting here, blaming a script that did nothing. **A committed register entry carries more
+authority than the evidence behind it, and this file has no mechanism that distinguishes the two** —
+`check_open_items_register.ts` validates cross-references and filenames, not claims.
+
 **What the evidence actually says, re-checked directly:**
 - `app.closePayrollPeriod` (`app/(app)/payroll/actions.ts`) is the **only** path that writes
   `closed_by`, and it writes the signed-in `user.id`. `verify_item91` inserts `{organization_id,
@@ -3341,19 +3351,54 @@ the probe measured something other than what its result was labelled.
 
 **Conclusion: both rows are deliberate human actions in the test org, not drift. Neither was deleted.**
 
-**No trail exists to check this against, which is its own finding.** `row_history` has a
-`groups_row_history` trigger, but it fires on **UPDATE and DELETE only** — never INSERT — so the
-absence of a history row for the fourth group proves nothing about its origin. `audit_log` holds 62
-rows, the last dated **2026-09-10**, and group creation never wrote to it at all. For "who created
-this row and when," this database currently has no answer for any table whose rows are only ever
-inserted.
+**No trail existed to check this against** — the absence of a `row_history` row for the fourth group
+proves nothing, because that trigger never fires on INSERT. Recorded separately as **item 104 below**,
+since it is a general limit of this database rather than a fact about these two rows.
 
-**What this leaves genuinely open:** two suite checks (`confirmSessionAttendance: own slot succeeds`,
-`updateSessionAttendance: own row succeeds`) fail with `actual="month_closed"` because Test Org B's
-September period is closed **on purpose**. That is not drift to clean up — it is **a suite that
-silently depends on the test org's payroll month being open**, and says so nowhere. The fix is in the
-suite (open its own period inside the transaction, or assert against a period it controls), not in the
-fixture. Recorded, not fixed.
+**The suite's hidden dependency on this fixture — FIXED 2026-10-02, in the suite, not the fixture.**
+Two checks (`confirmSessionAttendance: own slot succeeds`, `updateSessionAttendance: own row
+succeeds`) were failing with `actual="month_closed"` because Test Org B's September period is closed
+**on purpose**. The fixture was correct; the suite was wrong to assume anything about it.
+
+**It then self-healed on 2026-10-01, which is the more alarming half.** The fixture session was dated
+`current_date`, and both RPCs gate on the session's *own* month (`202609220001`: `pp.period =
+date_trunc('month', v_session_date)`). When the calendar rolled into October — a month with no closing
+row — the checks began passing again with no change to any code. **A check whose result depends on
+which month it is run in is not a check**, and for one week it was reporting green for a reason
+unrelated to what it tested.
+
+Both halves of the fix were needed because they remove different dependencies:
+1. **A pinned `session_date` (`2020-01-15`)** replaces `current_date`, so the block exercises the same
+   month on every run, forever — this is the "assert against a month it controls" shape.
+2. **A `delete from public.payroll_periods` for that pinned month inside the transaction** turns "this
+   month is open" from an assumption into an *enforced precondition*, so closing any month can never
+   break the block again. Isolated by the block's own rollback, and against a month that far from real
+   activity it will essentially never match a row — a guard, not a mutation.
+
+**The gate itself had no coverage anywhere in `db/tests/` and now does (Point 2b, 3 new checks).**
+Nothing asserted that the RPCs return `month_closed` when the month *is* closed. The gate has existed
+since `202609220001` and could have been deleted outright without one check noticing — Mihai closing
+September was, by accident, the first thing ever to exercise it. The new block closes the pinned month
+*inside* its transaction and asserts both refusals, plus a control that
+`rpc_correct_session_confirmation` is deliberately **not** month-gated (item 91 — Finance correcting a
+closed month is that path's whole purpose), which is what would catch a blanket gate added across all
+four. **This pairing is item 100's fourth probe error applied deliberately rather than tripped over:**
+Point 2's two `ok` checks pass both when the gate works and when it does not exist; paired with Point
+2b the two halves can only fail for different reasons.
+
+**Proven independent of the fixture, not argued.** A temporary block closed **both** the current month
+and September inside a rolled-back transaction and re-ran Point 2's two assertions — both still
+returned `ok`. Under the previous version, closing the current month is precisely what broke them.
+`public.payroll_periods` was re-read afterwards and still holds exactly the one real September row.
+Suite: **111 passed / 0 failed** (108 + 3), with September closed, and with the current month closed
+too.
+
+**One error on the way, and it was also one of item 100's four.** The first version of Point 2b looked
+up the finance fixture's id with `where email = '...'` *after* `set local role authenticated`, and the
+block died on `permission denied for table users` — `authenticated` holds no table-level SELECT on
+`public.users` (202608200005 step 3), only column grants excluding `email`. That is probe error #2,
+recorded in item 100 by me, reproduced by me, eleven days later. The id is now resolved in the
+superuser phase with the other fixtures.
 
 **Lives in:** `supabase/migrations/202609260001_add_custom_workshop_type.sql` +
 `supabase/rollbacks/202609260001_add_custom_workshop_type_rollback.sql`;
@@ -3494,6 +3539,52 @@ split); `supabase/migrations/202609210006_migrate_groups_delivery_format_to_nine
 nine-value list's provenance and migration); item 102 above (the tenth value); item 45 part 3 below
 (the 31 plans this reconciles); `~/Downloads/Centralizator module WOW LAB 2023-2024-2025.xlsx` and
 `Module noi 2025 - idei de lectii.xlsx` (exports of a Google Sheet Mihai holds; **not in this repo**).
+
+---
+
+### 104. This database cannot answer "who inserted this row" — for any table
+
+2026-10-02. Found incidentally while establishing the provenance of two rows in `wow-lab-test-b`
+(item 102 above). **Not a defect to fix now — a limit to know about, because the next provenance
+question will hit it too, and the last one produced a wrong answer that was committed.**
+
+**Two mechanisms exist, and neither covers INSERT:**
+
+1. **`row_history` fires on UPDATE and DELETE only.** Verified against `pg_trigger` directly rather
+   than read from a migration: `groups_row_history` has `tgtype` resolving to **`UPDATE DELETE`**, no
+   INSERT. Confirmed from the data as well — every `row_history` row for `table_name = 'groups'` has
+   `old_values is not null`, i.e. **not one is an insert record**, across every group the table has
+   ever held. So a row that is inserted and never touched again leaves no history at all, and *the
+   absence of a history row says nothing about where it came from.* That absence was briefly treated as
+   evidence in item 102; it is not.
+2. **`audit_log` stopped being written on 2026-09-10**, holds 62 rows across 7 event types, and
+   **never covered group creation at all** — `addGroup` writes no audit row. Its emptiness for any
+   given window is therefore also not evidence.
+
+**What this means in practice.** For every table whose rows are created and then left alone —
+`groups`, `clients`, `sessions`, `payroll_periods`, the pay-grid `*_versions`/`*_rates` — the questions
+*"who made this row"* and *"when, and through what"* have **no answer in the database.** They can
+sometimes be reconstructed from side-channels, which is what item 102 ended up doing: `created_at`
+timestamps, a `closed_by` on the one table that happens to carry one, the shape of the row compared
+against what each code path writes (`addGroup` writing `notes.trim() || null`), and grepping
+`scripts/` for anything that could have produced it. **That reconstruction worked, but only because
+`payroll_periods` carries `closed_by`.** Remove that one column and the same investigation would have
+had nothing.
+
+**Why it is worth knowing rather than fixing today.** Nothing in the product needs it yet, and the
+cost is not trivial — an INSERT branch on the existing trigger would start recording a full `new_values`
+snapshot for every row created, on tables that currently pay nothing for history. The trigger
+infrastructure already exists, so the change is small; the data-volume and GDPR questions are not
+(`row_history` would begin holding personal data at insert time for `users`-adjacent tables, which
+`WOWLAB_SAD_Field_Masking.md`'s model has never been applied to).
+
+**The trigger to build it:** the next time a provenance question is asked and cannot be answered — or
+the first time a real-org row's origin is disputed. Test-org rows are cheap to be wrong about; a
+`wow-lab` row is not.
+
+**Lives in:** item 102 above (the investigation that found this, and the wrong answer it first
+produced); item 100 above (the probe-methodology errors this belongs beside); `row_history` /
+`audit_log`; `docs/WOWLAB_SAD_Field_Masking.md` (the model an INSERT branch would need to respect).
 
 ---
 
