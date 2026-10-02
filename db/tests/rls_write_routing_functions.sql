@@ -89,18 +89,52 @@ begin;
   select set_config('app.fixture_ops', (select id::text from public.users where email = 'test+ui-ops-manager-b@wowlab.dev'), true);
   select set_config('app.fixture_finance', (select id::text from public.users where email = 'test+ui-contract-admin-b@wowlab.dev'), true);
 
+  -- ------------------------------------------------------------------
+  -- THE MONTH THIS BLOCK OWNS. Previously the fixture session was dated
+  -- current_date, which made two of the checks below depend on something
+  -- stated nowhere: that Test Org B's CURRENT month happens to be open.
+  --
+  -- rpc_update_session_attendance and rpc_confirm_session_attendance both
+  -- gate on the SESSION's month (202609220001: `pp.period =
+  -- date_trunc('month', v_session_date)` and `pp.closed_at is not null`),
+  -- returning 'month_closed' instead of 'ok'. Mihai closed Test Org B's
+  -- 2026-09 period deliberately through the app, and these two checks
+  -- began failing with actual="month_closed" -- not a regression in the
+  -- code, a precondition the suite had assumed and never asserted.
+  --
+  -- Worse than failing: it then SELF-HEALED on 2026-10-01, when
+  -- current_date rolled into a month with no closing row. A check whose
+  -- result depends on which month it is run in is not a check.
+  --
+  -- Both halves below are needed, and they fix different things:
+  --   1. A PINNED date removes the calendar dependency -- this block now
+  --      exercises the same month on every run, forever.
+  --   2. Deleting any closing row for that month, inside the transaction,
+  --      turns "this month is open" from an assumption into an ENFORCED
+  --      precondition, so closing any month can never break this block.
+  -- The delete is isolated by the block's own rollback, and against a
+  -- month this far from real activity it will essentially never match a
+  -- row -- it is a guard, not a mutation.
+  select set_config('app.fixture_session_month_date', '2020-01-15', true);
+
   do $$
   declare
     v_client uuid;
     v_group uuid;
     v_session uuid;
   begin
+    -- (2) Enforce the precondition rather than hoping for it.
+    delete from public.payroll_periods
+    where organization_id = current_setting('app.test_org_wow_lab_b')::uuid
+      and period = date_trunc('month', current_setting('app.fixture_session_month_date')::date::timestamptz)::date;
+
     insert into public.clients (organization_id, name, client_type)
       values (current_setting('app.test_org_wow_lab_b')::uuid, 'Fixture WriteRouting RPC Client', 'corporate') returning id into v_client;
     insert into public.groups (organization_id, client_id, module, delivery_format)
       values (current_setting('app.test_org_wow_lab_b')::uuid, v_client, 'gaga', 'wow_lab_party') returning id into v_group;
+    -- (1) Pinned, not current_date.
     insert into public.sessions (organization_id, group_id, session_date, trainer_principal_id, trainer_secundar_id, status)
-      values (current_setting('app.test_org_wow_lab_b')::uuid, v_group, current_date, current_setting('app.fixture_trainer_b1')::uuid, current_setting('app.fixture_trainer_b2')::uuid, 'planned')
+      values (current_setting('app.test_org_wow_lab_b')::uuid, v_group, current_setting('app.fixture_session_month_date')::date, current_setting('app.fixture_trainer_b1')::uuid, current_setting('app.fixture_trainer_b2')::uuid, 'planned')
       returning id into v_session;
     perform set_config('app.fixture_session_rpc', v_session::text, true);
   end $$;
@@ -142,6 +176,92 @@ begin;
   select 'correctSessionConfirmation: unrelated trainer refused (no finance.operations.*)', current_setting('test.correction_unrelated'), 'not_permitted', current_setting('test.correction_unrelated') = 'not_permitted'
   union all
   select 'correctSessionConfirmation: finance.operations.* succeeds', current_setting('test.correction_finance'), 'ok', current_setting('test.correction_finance') = 'ok';
+rollback;
+
+-- ============================================================================
+-- Point 2b — THE MONTH GATE ITSELF, which had no coverage anywhere in
+-- db/tests/ until now.
+-- ============================================================================
+-- Point 2 above asserts both attendance RPCs return 'ok' when the session's
+-- month is open. Nothing asserted the other side: that they return
+-- 'month_closed' when it is closed. The gate has existed since 202609220001
+-- and could have been deleted outright without a single check noticing --
+-- the production incident that prompted this (Mihai closing Test Org B's
+-- September) was in fact the first time anything exercised it, by accident.
+--
+-- This block is also what keeps Point 2's two 'ok' checks honest. On their
+-- own, they pass both when the gate works and when the gate does not exist
+-- at all. Paired with this block, the two halves fail for DIFFERENT reasons:
+-- delete the gate and this block fails; break the row-match or capability
+-- branch and Point 2 fails. That is item 100's fourth probe error applied
+-- deliberately rather than tripped over -- two assertions that can only ever
+-- agree are not two pieces of evidence.
+--
+-- Same pinned month as Point 2, closed here INSIDE the transaction rather
+-- than depending on any real period's state.
+begin;
+  select set_config('app.test_org_wow_lab_b', (select id::text from public.organizations where name = 'WOW LAB Test Org B'), true);
+  select set_config('app.fixture_trainer_b1', (select id::text from public.users where email = 'maxdigitalro+trainerb1@gmail.com'), true);
+  select set_config('app.fixture_trainer_b2', (select id::text from public.users where email = 'maxdigitalro+trainerb2@gmail.com'), true);
+  -- Resolved HERE, before `set local role authenticated`, not inline below.
+  -- `authenticated` holds no table-level SELECT on public.users (202608200005
+  -- step 3 revoked it, leaving only column grants that exclude email), so a
+  -- `where email = '...'` lookup after the role switch fails with "permission
+  -- denied for table users" -- which is item 100's second probe error, and is
+  -- exactly what the first version of this block did.
+  select set_config('app.fixture_finance', (select id::text from public.users where email = 'test+ui-contract-admin-b@wowlab.dev'), true);
+  select set_config('app.fixture_session_month_date', '2020-01-15', true);
+
+  do $$
+  declare
+    v_client uuid;
+    v_group uuid;
+    v_session uuid;
+  begin
+    insert into public.clients (organization_id, name, client_type)
+      values (current_setting('app.test_org_wow_lab_b')::uuid, 'Fixture WriteRouting MonthGate Client', 'corporate') returning id into v_client;
+    insert into public.groups (organization_id, client_id, module, delivery_format)
+      values (current_setting('app.test_org_wow_lab_b')::uuid, v_client, 'gaga', 'wow_lab_party') returning id into v_group;
+    insert into public.sessions (organization_id, group_id, session_date, trainer_principal_id, trainer_secundar_id, status)
+      values (current_setting('app.test_org_wow_lab_b')::uuid, v_group, current_setting('app.fixture_session_month_date')::date, current_setting('app.fixture_trainer_b1')::uuid, current_setting('app.fixture_trainer_b2')::uuid, 'planned')
+      returning id into v_session;
+    perform set_config('app.fixture_session_rpc_mg', v_session::text, true);
+
+    -- Close the pinned month, here, for this transaction only. Deleted
+    -- first so this is an insert rather than a conflict if one exists.
+    delete from public.payroll_periods
+    where organization_id = current_setting('app.test_org_wow_lab_b')::uuid
+      and period = date_trunc('month', current_setting('app.fixture_session_month_date')::date::timestamptz)::date;
+    insert into public.payroll_periods (organization_id, period, closed_at)
+      values (current_setting('app.test_org_wow_lab_b')::uuid,
+              date_trunc('month', current_setting('app.fixture_session_month_date')::date::timestamptz)::date,
+              now());
+  end $$;
+
+  set local role authenticated;
+
+  select set_config('request.jwt.claims', json_build_object('sub', current_setting('app.fixture_trainer_b1')::text, 'role', 'authenticated')::text, true);
+  select set_config('test.mg_confirm', app.rpc_confirm_session_attendance(current_setting('app.fixture_session_rpc_mg')::uuid, true), true);
+  select set_config('test.mg_attendance', app.rpc_update_session_attendance(current_setting('app.fixture_session_rpc_mg')::uuid, 10, 'gaga'), true);
+
+  -- correctSessionConfirmation is deliberately NOT month-gated (item 91 --
+  -- Finance correcting a closed month is the whole point of that path), so
+  -- it is checked here too, as the control: if a blanket month gate were
+  -- ever added across all four RPCs, this is the check that would catch it.
+  select set_config('request.jwt.claims', json_build_object('sub', current_setting('app.fixture_finance')::text, 'role', 'authenticated')::text, true);
+  select set_config('test.mg_correction', app.rpc_correct_session_confirmation(current_setting('app.fixture_session_rpc_mg')::uuid, true, true), true);
+
+  select 'MONTH GATE: confirmSessionAttendance refuses a closed month' as check_name,
+         current_setting('test.mg_confirm') as actual, 'month_closed' as expected,
+         current_setting('test.mg_confirm') = 'month_closed' as pass
+  union all
+  select 'MONTH GATE: updateSessionAttendance refuses a closed month',
+         current_setting('test.mg_attendance'), 'month_closed',
+         current_setting('test.mg_attendance') = 'month_closed'
+  union all
+  select 'CONTROL: correctSessionConfirmation is NOT month-gated, by design',
+         current_setting('test.mg_correction'), 'ok',
+         current_setting('test.mg_correction') = 'ok';
 rollback;
 
 -- ============================================================================
