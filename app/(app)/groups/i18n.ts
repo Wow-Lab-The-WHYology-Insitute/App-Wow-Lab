@@ -50,6 +50,12 @@ export const groupsDict: Dictionary = {
   module_detective: { en: "Detective Science", ro: "Detective Science" },
   module_astronomy: { en: "Astronomy", ro: "Astronomy" },
   module_doctor: { en: "I Wanna Be a Doctor", ro: "I Wanna Be a Doctor" },
+  // Module 14, added 2026-10-07 (item 105) once its six lesson plans
+  // actually existed -- item 103 had recorded Vet as a module with zero
+  // plans and a hidden sheet. Identical in both languages, the same rule
+  // the other thirteen follow. Label mirrors its sibling `doctor`; the
+  // source sheet's own "I want to be a VET" is not the house style.
+  module_vet: { en: "I Wanna Be a Vet", ro: "I Wanna Be a Vet" },
 
   // Anca's nine workshop types (2026-09-21, item 79/85), replacing the
   // prior six-value working list, plus custom restored as a tenth on
