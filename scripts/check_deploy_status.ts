@@ -26,9 +26,20 @@
  * That is item 94's own failure mode -- a deploy that never happened
  * reading as something other than failure -- reappearing INSIDE the
  * script written to catch item 94. `total_count` is the discriminator: a
- * real pending build has at least one context. Zero contexts now reports
- * "no deployment reported -- check the Vercel integration" and exits
+ * real pending build has at least one context. Zero contexts now exits
  * non-zero after ~30s rather than ~5min.
+ *
+ * AND ZERO CONTEXTS HAS TWO CAUSES, which GitHub cannot distinguish and
+ * this script now can. The endpoint answers 200 with `total_count: 0` for
+ * a well-formed 40-char sha it has NEVER SEEN, exactly as it does for a
+ * pushed commit nothing reported on. On 2026-10-08 the real cause turned
+ * out to be the first: `main`'s remote tip was still the previous day's
+ * commit and the two new commits were on no remote branch -- they had
+ * never been pushed, so nothing was ever queued. The first diagnosis
+ * written here ("the integration stopped posting") was wrong. So the zero-
+ * context path now asks git whether the sha is on any remote branch, after
+ * fetching, and says which of the two it is -- "never pushed, run git
+ * push" versus "pushed, nothing reported, check the integration".
  *
  * Run by hand, same as check_open_items_register.ts and run_rls_suite.ts
  * -- no CI exists in this repo to run it automatically. Run it after any
@@ -62,6 +73,36 @@ function resolveSha(arg: string | undefined): string {
     return execSync(`git rev-parse ${rev}`, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch {
     throw new Error(`not a revision this repo knows: ${rev}`);
+  }
+}
+
+// Is this commit on ANY remote branch? Zero status contexts has two causes
+// and they need completely different actions: the commit was never pushed, or
+// it was pushed and nothing reported. Asked locally because GitHub's combined-
+// status endpoint does NOT distinguish them -- it answers 200 with
+// total_count 0 for a well-formed 40-char sha it has never seen, which is how
+// a never-pushed commit masqueraded as a reporting failure on 2026-10-08
+// (item 108). Fetches first, because a stale remote-tracking ref would answer
+// from yesterday; tolerates being offline by saying so rather than guessing.
+function remoteBranchesContaining(sha: string): { known: boolean; branches: string[] } {
+  try {
+    execSync("git fetch --quiet origin", { stdio: "ignore" });
+  } catch {
+    return { known: false, branches: [] };
+  }
+  try {
+    const out = execSync(`git branch -r --contains ${sha}`, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    const branches = out
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && !l.includes("->"));
+    return { known: true, branches };
+  } catch {
+    // `--contains` exits non-zero when the object is missing locally.
+    return { known: true, branches: [] };
   }
 }
 
@@ -112,14 +153,35 @@ async function main() {
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
         continue;
       }
-      console.error(
-        `no deployment reported -- check the Vercel integration.\n` +
-          `  GitHub has ZERO status contexts for ${sha} after ${ZERO_CONTEXT_GRACE_ATTEMPTS} checks, ` +
-          `which means nothing was queued or Vercel stopped posting -- not that a build is running.\n` +
-          `  Compare a known-good commit: ` +
-          `https://api.github.com/repos/${REPO}/commits/<older-sha>/status should show total_count 1.\n` +
-          `  Treat as NOT deployed.`,
-      );
+      // Zero contexts, so this is NOT a build in progress. Which of the two
+      // causes it is can be settled locally, and they need different actions.
+      const { known, branches } = remoteBranchesContaining(sha);
+      if (known && branches.length === 0) {
+        console.error(
+          `commit is NOT on the remote -- it was never pushed.\n` +
+            `  ${sha} is on no remote branch, so nothing was ever queued to build and no status ` +
+            `will ever appear. GitHub answers 200 with total_count 0 for a sha it has never seen, ` +
+            `which is why this looks identical to a reporting failure.\n` +
+            `  Run: git push origin <branch>   then re-run this.\n` +
+            `  Treat as NOT deployed.`,
+        );
+      } else if (known) {
+        console.error(
+          `no deployment reported -- check the Vercel integration.\n` +
+            `  ${sha} IS on the remote (${branches.join(", ")}) but GitHub has ZERO status contexts ` +
+            `for it after ${ZERO_CONTEXT_GRACE_ATTEMPTS} checks -- so it was pushed and nothing reported, ` +
+            `which is a permanent condition, not a build in progress.\n` +
+            `  Compare a known-good commit: ` +
+            `https://api.github.com/repos/${REPO}/commits/<older-full-sha>/status should show total_count 1.\n` +
+            `  Treat as NOT deployed.`,
+        );
+      } else {
+        console.error(
+          `no status context for ${sha}, and could not reach the remote to tell why.\n` +
+            `  Either it was never pushed or nothing reported -- re-run with network access to ` +
+            `distinguish them.\n  Treat as NOT deployed.`,
+        );
+      }
       process.exit(1);
     }
 

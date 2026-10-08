@@ -3999,12 +3999,27 @@ picture was unambiguous:
 
 | commit | state | contexts |
 |---|---|---|
-| `311cddc`, `773f69f` (2026-10-08) | pending | **0 — nothing posted** |
+| `311cddc`, `773f69f` (2026-10-08) | pending | **0 — nothing reported** |
 | `7dc5af2`, `c37901d` (2026-10-07) | success | 1 |
 | `28842d8` (2026-10-02) | success | 1 |
 
-The Vercel↔GitHub integration had stopped posting statuses. Nothing was queued; nothing was going
-to resolve. Five minutes of polling was spent on a condition that is permanent by nature.
+Nothing was queued; nothing was going to resolve. Five minutes of polling was spent on a condition
+that is permanent by nature.
+
+**THE FIRST DIAGNOSIS OF *WHY* WAS WRONG, and the correction is the more useful half of this entry.**
+From that table I concluded the Vercel↔GitHub integration had stopped posting — a plausible reading,
+and this project has had that exact desync before. It was not what happened. `git ls-remote origin
+refs/heads/main` showed the remote tip of `main` still at **`7dc5af2`**, yesterday's commit, and
+`git branch -r --contains 311cddc` returned nothing: **both commits were on no remote branch. They
+had never been pushed.** No deployment was queued because there was no deployable commit. The
+integration was fine.
+
+**What made that mistake available: GitHub's endpoint does not distinguish the two cases.** It
+answers **200 with `total_count: 0` for a well-formed 40-char sha it has never seen**, byte-identical
+to its answer for a pushed commit nothing reported on. (It *does* 404 on an abbreviated sha — which
+is how the full-vs-short behaviour below first looked like a contradiction.) So "zero contexts" was
+read as "pushed but unreported" when it equally meant "not pushed". A remote-state question was
+answered with a status-API call, which cannot answer it.
 
 **Why this is item 94 recursing.** Item 94's lesson was that **a failed deploy can read as silent
 success** when the only signal checked is `git push`'s exit code, and this script was written as the
@@ -4014,10 +4029,14 @@ lesson — "a failed X can render as silent success one layer up" — applies to
 the part worth remembering: a check is a piece of code and can be wrong in the same shape as the
 thing it checks.
 
-**The discriminator, and the fix.** `total_count` separates them: **a real pending build has at
-least one context.** Zero contexts now reports `no deployment reported -- check the Vercel
-integration`, names the comparison to run against a known-good commit, and exits non-zero in ~30s
-instead of ~5min.
+**The discriminator, and the fix — now two of them.** `total_count` separates a running build from
+no build: **a real pending build has at least one context.** Zero contexts then exits non-zero in
+~30s instead of ~5min. And because zero contexts has the two causes above, the script now settles
+which by asking **git** rather than GitHub: it fetches, runs `git branch -r --contains <sha>`, and
+reports either `commit is NOT on the remote -- it was never pushed` (with `git push` as the action)
+or `no deployment reported -- check the Vercel integration`, naming the remote branches it did find.
+If the fetch fails it says it could not tell, rather than guessing — the mistake this entry records
+was precisely a guess presented as a finding.
 
 **Not literally immediate, deliberately.** Run within seconds of a push, Vercel legitimately has not
 posted yet, so failing on the first observation would cry wolf on every fast run.
@@ -4037,12 +4056,20 @@ unnoticed. Fixed by routing every input through `git rev-parse`, which also acce
 known-good commit (`7dc5af2`) → `success`, exit 0; unknown revision → `not a revision this repo
 knows`, exit 1. `npx tsc --noEmit` clean.
 
-**Still open, and not something this script can fix: the integration is not reporting.** As of
-2026-10-08 commits `773f69f` and `311cddc` have no status, and the app-side supplier change
-(`user_id` in the edit form) is **not deployed** — confirmed independently by
+**Still open: nothing is pushed, so nothing is deployed.** As of 2026-10-08 the remote tip of `main`
+is `7dc5af2` and four local commits sit ahead of it, so the app-side supplier change (`user_id` in
+the edit form) is **not deployed**. Confirmed independently of any git reasoning by
 `scripts/verify_suppliers_user_id_form_test_org_b.ts`, whose four UI assertions all failed while its
-four database-path assertions all passed. The split is itself the evidence: the migration is live,
-the app code is not. This is the second time this integration has desynced on this project.
+four database-path assertions all passed — the migration is live, the app code is not. That split is
+the strongest evidence in this entry, and it is the one piece that never depended on reading the
+status API correctly.
+
+**The lesson worth keeping, separate from the script.** Two independent signals agreed that the
+change was not live (the status API and the app probe), and that agreement made a *third* claim — the
+reason why — feel equally established when it had never been checked at all. "Not deployed" was
+verified twice; "because the integration stopped posting" was verified zero times and asserted in
+the same breath. Same family as item 104's warning that the absence of a history row is not evidence
+of origin: a confirmed symptom licenses no particular cause.
 
 **Lives in:** `scripts/check_deploy_status.ts` (the fix, and the reasoning in its header); item 94
 above (the original failure and this script's reason for existing); item 90 (the same
