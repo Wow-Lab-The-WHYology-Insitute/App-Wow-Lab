@@ -8,10 +8,23 @@
  *     resolved name appear in the real server-rendered HTML.
  *   - The PICKER is verified by SHIPMENT, not by rendering. The edit form sits
  *     behind `isEditing` React state, so a server fetch never renders it. What
- *     a fetch CAN prove is that `memberOptions` crossed the server/client
- *     boundary -- the names are serialized into the RSC flight payload -- and
- *     that the "No linked person" option label ships. That is strictly weaker
- *     than seeing the <select>, and is labelled as such.
+ *     a fetch CAN prove is that the picker's inputs reached the client. That is
+ *     strictly weaker than seeing the <select>, and is labelled as such.
+ *
+ *     TWO KINDS OF SHIPMENT, which the first version of this script conflated
+ *     and got a false MISS for (2026-10-08):
+ *       - `memberOptions` is a PROP, server component -> client component, so
+ *         it is serialized into the RSC flight payload and IS in the page HTML.
+ *       - the option LABELS come from `suppliersDict`, a module-level constant
+ *         imported by a "use client" file. Those are compiled into the client
+ *         JS chunk and are NOT in the HTML unless something renders them. The
+ *         read view renders `detail_linked_user` ("Linked person"), so that one
+ *         appears; `linked_user_none` is used only inside the unrendered edit
+ *         form, so it never does.
+ *     So label shipment is checked against the actual deployed chunks -- the
+ *     page's own <script src> list, fetched -- which is a stronger proof than
+ *     a payload grep anyway. Both EN and RO are asserted, matching
+ *     verify_vet_module_test_org_b.ts's RO-by-shipment convention.
  *   - PERSISTENCE is verified through the real authorization path: the update
  *     runs through a USER-SCOPED client carrying the signed-in owner's
  *     cookies, which is the identical RLS path `updateSupplier` takes. Not via
@@ -74,6 +87,21 @@ async function signIn(a: ReturnType<typeof admin>, email: string) {
   });
   if (vErr) throw new Error(`verifyOtp failed for ${email}: ${vErr.message}`);
   return { cookie: [...jar.entries()].map(([n, v]) => `${n}=${v}`).join("; "), client: c };
+}
+
+// Every distinct <script src> the page loads, fetched and concatenated. This
+// is where a client component's module-level constants actually live -- see
+// the header on the two kinds of shipment.
+async function fetchClientChunks(html: string, siteUrl: string): Promise<string> {
+  const srcs = [...new Set([...html.matchAll(/src="([^"]+\.js[^"]*)"/g)].map((m) => m[1]))];
+  const bodies = await Promise.all(
+    srcs.map(async (src) => {
+      const url = src.startsWith("http") ? src : `${siteUrl}${src}`;
+      const res = await fetch(url);
+      return res.ok ? res.text() : "";
+    }),
+  );
+  return bodies.join("\n");
 }
 
 function visibleText(html: string): string {
@@ -145,10 +173,17 @@ async function main() {
     } else {
       fail.push(`MISS "${targetName}" absent from the payload -- memberOptions not reaching the client`);
     }
-    if (html1.includes("No linked person")) {
-      report.push('OK   "No linked person" option label shipped (the selectable no-link value)');
+    // Labels live in the client chunk, not the payload -- see the header.
+    const chunks = await fetchClientChunks(html1, SITE_URL);
+    if (chunks.includes("No linked person")) {
+      report.push('OK   "No linked person" option label shipped in the client chunk (EN, the selectable no-link value)');
     } else {
-      fail.push('MISS "No linked person" absent -- the i18n key did not ship');
+      fail.push('MISS "No linked person" absent from every client chunk -- the i18n key did not ship');
+    }
+    if (chunks.includes("Fără persoană asociată")) {
+      report.push('OK   the RO side of that label shipped too (shipment, not rendering -- the locale is client-only)');
+    } else {
+      fail.push('MISS the RO label "Fără persoană asociată" absent from every client chunk');
     }
 
     // ---- 3. PERSISTENCE through the real RLS path ----------------------

@@ -983,6 +983,13 @@ server needs to be stopped: kill the exact PID returned when the process was sta
 <pid>`), or resolve by the port it's actually bound to (`lsof -ti:3001 | xargs kill`) rather than by
 matching on a command string that every same-framework project on the machine shares.
 
+**Paired note, 2026-10-08 — item 109 below**, and the same unrelated project, `maxdigital-dashboard`,
+is involved again. There the problem was a command matching too widely; here it was a command
+running in the wrong directory: three `git push`es executed inside that repo instead of this one,
+succeeded on their own terms, and landed nothing here. Same family — a command whose scope is
+implicit (a process name, the current directory) succeeds against the wrong target without
+complaint.
+
 ---
 
 ### 70. Working note: `test+trainer-a@wowlab.dev` and `test+trainer-b@wowlab.dev` (WOW LAB) have no `auth.users` row
@@ -3616,11 +3623,28 @@ matching rollback in `supabase/rollbacks/`.
   links resolve to the right accounts; `groups` 4 and `contracts` 3, untouched.
 
 The app-side change that depends on the applied column (`user_id` in the supplier edit form,
-`app/(app)/suppliers/`) is **committed (`773f69f`) but not yet pushed or deployed** as of
-2026-10-08 — the push was blocked in the authoring environment, not declined on the merits. The
-ordering constraint it was waiting on is satisfied (the column is live), so it is safe to deploy;
-`scripts/verify_suppliers_user_id_form_test_org_b.ts` is the committed verification for it and has
-**not run**, because it asserts against the deployed page.
+`app/(app)/suppliers/`) is **deployed and verified, 2026-10-08.** `773f69f` reached `origin/main`
+only on the third attempt — the first two `git push`es ran in a different repo, see item 109 below —
+and `scripts/check_deploy_status.ts` then confirmed `success` on `ab7d6fd`.
+
+`scripts/verify_suppliers_user_id_form_test_org_b.ts` passes all nine assertions against
+`app.wowlab.ro` in Test Org B. **Six are rendering or the real RLS write path; three are shipment
+only**, and the distinction is not cosmetic: the edit form sits behind `isEditing` React state, so
+no server fetch ever renders the `<select>`. Shipment means its inputs reached the client, not that
+it drew. Specifically — rendering: the "Linked person" row, the Edit control, the persisted link
+resolving to a name, and no raw uuid in rendered text. Real RLS path (stronger than rendering): the
+link saved, and cleared back to NULL, through the signed-in owner's own session rather than the
+service role. Shipment: `memberOptions` in the RSC payload, and the EN and RO option labels in the
+deployed client chunks.
+
+**One assertion was wrong before it was right, and the fix was to the test.** The label check first
+grepped the page HTML and reported a false MISS. Props and module constants ship differently:
+`memberOptions` is a server→client prop and lands in the flight payload, but `suppliersDict` is a
+module-level constant inside a `"use client"` file, so its strings compile into the JS chunk and
+appear in HTML only if something renders them — and `linked_user_none` is used only inside the
+unrendered edit form. Confirmed by fetching the page's own `<script src>` list: all four labels
+present in `page-8b68bc9ce036a943.js`, both languages. The script now checks the chunks, which is a
+stronger proof than a payload grep, and asserts the RO side too.
 
 **Numbering collision, flagged rather than silently resolved.** Two commits from 2026-10-07
 (`c37901d`, `7dc5af2`) and the header of `scripts/verify_vet_module_test_org_b.ts` all cite
@@ -4012,7 +4036,9 @@ and this project has had that exact desync before. It was not what happened. `gi
 refs/heads/main` showed the remote tip of `main` still at **`7dc5af2`**, yesterday's commit, and
 `git branch -r --contains 311cddc` returned nothing: **both commits were on no remote branch. They
 had never been pushed.** No deployment was queued because there was no deployable commit. The
-integration was fine.
+integration was fine — confirmed afterwards: once `ab7d6fd` actually reached `origin/main`, this
+script reported `pending (1 context reporting)` and then `success` in 21s. **Why the pushes did not
+land is item 109 below: they ran in a different repo.**
 
 **What made that mistake available: GitHub's endpoint does not distinguish the two cases.** It
 answers **200 with `total_count: 0` for a well-formed 40-char sha it has never seen**, byte-identical
@@ -4075,6 +4101,53 @@ of origin: a confirmed symptom licenses no particular cause.
 above (the original failure and this script's reason for existing); item 90 (the same
 "failure renders as success" family, one layer down, on writes); item 105 above (the supplier change
 still waiting on a deploy).
+
+---
+
+### 109. Working note: a command that succeeds in the wrong directory reports success — three `git push`es ran in `maxdigital-dashboard`, not this repo
+
+2026-10-08. Pairs with item 69 above, and involves **the same unrelated project**:
+`maxdigital-dashboard`. There, a `pkill -f "next dev"` matched beyond this repo's process; here,
+`git push origin main` ran *inside* that repo instead of this one.
+
+**What happened.** "Pushed" was reported three times across this session. Twice nothing landed:
+`git ls-remote origin refs/heads/main` stayed at `7dc5af2` while five commits sat ahead of it
+locally. The push itself did not fail — it ran in a different working directory
+(`maxdigital-dashboard`), where it was a legitimate no-op or a push of that project's own state, and
+reported success on its own terms. `git` has no way to know it was the wrong repo; there is nothing
+to warn about.
+
+**Why it cost two wrong reports, not just a delay.** The missing deploy was real and confirmed twice
+over — by `check_deploy_status.ts` and independently by the app probe's four failing UI assertions —
+so the symptom was never in doubt. The *cause* was, and I asserted one anyway: that the
+Vercel↔GitHub integration had stopped posting statuses (item 108). It had not. The actual cause was
+that GitHub had never seen the commits, because the push had happened somewhere else. A confirmed
+symptom plus a plausible mechanism is still a guess, and this is the second shape of that mistake
+recorded this session — see item 108's own closing note and item 104's "absence of a history row is
+not evidence of origin".
+
+**What makes this class of error quiet.** A wrong-directory command does not error, does not warn,
+and often produces output indistinguishable from the intended one — `Everything up-to-date` from a
+no-op push reads exactly like a successful re-push of already-pushed work. The same is true of
+`npm install`, `supabase db push`, `git status` and anything else driven by cwd.
+
+**What actually caught it:** asking the remote rather than trusting a local or reported state —
+`git ls-remote origin refs/heads/main`, which queries the server and ignores stale tracking refs.
+`git branch -r --contains <sha>` confirmed the same from the other direction. Both are now wired
+into `scripts/check_deploy_status.ts`, which reports "commit is NOT on the remote -- it was never
+pushed" rather than waiting out a build that was never queued.
+
+**For next time, two habits rather than one rule.** Before trusting a push: `git ls-remote origin
+refs/heads/<branch>` and compare to the sha you intended — one command, no inference. And when a
+command's effect is expected somewhere specific, have it print where it ran (`pwd`, or
+`git rev-parse --show-toplevel`) in the same breath, so "it succeeded" and "it succeeded *here*" are
+the same observation. `git -C <path> push` makes the directory explicit and immune to cwd drift.
+
+**Also worth knowing, found while diagnosing this:** GitHub's two endpoints disagree about unknown
+commits, and only one of them is a usable existence check. `/commits/<sha>/status` returns **200
+with `total_count: 0`** for a sha it has never seen — identical to its answer for a pushed commit
+nothing reported on. `/commits/<sha>` returns **422**. The status endpoint cannot tell you whether a
+commit exists; the commit endpoint can.
 
 ---
 
