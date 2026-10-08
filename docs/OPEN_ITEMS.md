@@ -3808,11 +3808,33 @@ evidence about their origin. That is precisely the inference item 104 records as
 produced one wrong answer that got committed (item 102). First real-org instance; the 22 rows are
 also exactly the kind of row item 104 predicted would hit this: created once and then left alone.
 
-**Still open.** Whether the 22 rows load by migration or get typed in by hand through the screen
-that does exist; the rate-vs-value contradiction blocking `supplier_contracts` (§3.3 specifies
-`contract_value numeric` and no `rate`/`rate_unit`, but most register rows carry a rate, not a
-value); Raluca Margean's newsletter rate and whether her article tiers survived two amendments;
-which of Anka's three task types maps to 80, 80 and 90.
+**STILL OPEN — the whole list, so the next session does not rediscover it.** Step 2 of SAD §10 is
+done: 22 suppliers, five linked, screen deployed and verified. Nothing below is buildable today, and
+each is blocked on a decision rather than on effort.
+
+1. **`supplier_contracts` — the 30 non-trainer rows have no table.** Blocked on the rate-vs-value
+   decision, not on writing the migration: §3.3 specifies `contract_value numeric` with **no**
+   `rate`/`rate_unit`, on the reasoning that "un contract de servicii are valoare, nu tarif orar" —
+   but most priced rows in the register carry a *rate* (`80 RON/ORA`, `400 euro/luna`,
+   `1000 ron/trimestru`, `14.08 Euro/Ora`, `10099.87 ron/curs`), not a value. The spec's assumption
+   is contradicted by the source it was written for. Precedent if the answer is "keep it as text":
+   `contracts.billing_rule` already holds exactly this shape (`770 RON + TVA/ grupă/ ședință`).
+2. **`trainer_contracts` — the 9 rows (Trușan ×3, Popa ×3, Merișan ×3)** — blocked twice over.
+   `initial_grade_level` is `NOT NULL`, constrained 1–6, and **the register carries no grade for
+   anyone**, so building the table does not unblock the import; only Anca or Cătălina can supply
+   grade-at-signing. And the own-row predicate shape from **item 107 below** has to be decided here
+   rather than inherited — `trainer_contracts` will be the second table with an org-scoped row
+   carrying a bare pointer to a person, and the row it would leak cross-org carries
+   `initial_grade_level`, which §5 treats as being as sensitive as a rate.
+3. **Five frozen values Anka can close in the form, no engineering needed** — `service_type` for
+   **BOLT**, **CENTRUL MEDICAL UNIREA SRL**, **PIDGIN HOST SRL**, **POSITIVE PROJECTS SRL**, and
+   `cui` for **PIDGIN HOST SRL**. The register has none of them. Pidgin Host's empty `cui` must not
+   be confused with the two deliberately withheld CNPs (Berea, Raluca Margean) — different reason,
+   different resolution, and the `notes` on each row say which.
+
+Open but not supplier-shaped, carried from the register for whoever picks up admin pay: Raluca
+Margean's newsletter rate (the contract lists article tiers only) and whether her article tiers
+survived two amendments; and which of Anka's three task types maps to 80, 80 and 90.
 
 **Lives in:** `supabase/migrations/202610070002`, `202610070003` and their rollbacks (both applied);
 `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §3.2/§3.3/§5/§10 (the trainer/supplier split, the
