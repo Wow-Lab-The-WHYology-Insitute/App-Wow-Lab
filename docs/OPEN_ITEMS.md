@@ -3883,10 +3883,15 @@ org where she holds no membership at all. A plain test-b trainer saw nothing; th
 branch is correctly org-scoped and that only the own-row branch crosses. All transaction-scoped and
 rolled back; both orgs verified back to zero rows.
 
-The impersonation was necessary rather than ceremonial: `public.suppliers` has
-`relrowsecurity = true` but **`relforcerowsecurity = false`** and is owned by `postgres`, so the
-service connection bypasses RLS entirely and an unimpersonated query proves nothing. Worth knowing
-for every future RLS check on this table, not just this one.
+The impersonation was necessary rather than ceremonial — but **the mechanism first recorded here was
+wrong, corrected 2026-10-08.** It said the bypass came from `suppliers` having
+`relforcerowsecurity = false`. The real cause is broader: the connection runs as **`postgres`, which
+has `rolbypassrls = true`** (so does `service_role`), and `BYPASSRLS` overrides `FORCE`. Measured:
+`users` and `client_contacts` both have `relforcerowsecurity = true` and are bypassed by this
+connection just the same. So **impersonation is mandatory for every RLS probe on this database, on
+every table, regardless of FORCE** — not a quirk of one table. An unimpersonated query against any
+of them proves nothing. (`suppliers` being the only one of the four without `FORCE` is still true and
+still worth tidying one day; it just isn't why the probe needed a role switch.)
 
 **Exposure today: zero.** There is one real organization (`wow-lab`), `wow-lab-test-b` is a test
 org, and all five `suppliers.user_id` links point at `wow-lab`'s own members. No one can currently
@@ -3925,10 +3930,47 @@ identity (name, CUI, notes), while a trainer contract carries a grade. **Whoever
 and inheriting the property unexamined** — and can now cite a measurement rather than a hypothesis,
 since `suppliers` proves the branch behaves exactly as written.
 
-The same question applies to the two places this branch already exists — `users_masked` and the
-`client_contacts` predicate (§5 names both as the precedent for building it). Neither was measured
-for cross-org behaviour here; whether they have the same shape is unverified and worth one probe
-each before the second real org exists, not after.
+**The two precedents were then probed, 2026-10-08, and NEITHER has the property. `suppliers` is
+alone.** §5 names `users_masked` and `client_contacts` as the precedent for the own-row branch, so
+the natural assumption was that all three shared it. Measured, impersonated, transaction-scoped,
+rolled back (test-b left verified at 0 contacts and 12 memberships afterwards):
+
+**`users_masked` — does not cross, and structurally cannot.** It is a view with
+`security_invoker = true` over `public.users`, so `users`' own RLS applies to the invoker. Its
+own-row branch is `id = app.current_user_id()`, and **`public.users` has no `organization_id` column
+at all** — there is no org for the branch to cross. Every *other* branch is org-scoped: the
+`org.members.read` branch requires the target to hold a role in an org where the viewer has the
+capability; `app.viewer_sees_trainer_via_finance_ops` checks `finance.operations.*` in the *target's*
+own org; the shared-session branch checks `mywork.*` in that session's org. Measured: the test-b
+owner sees 11 users — her own org — and **0** rows for a `wow-lab`-only user. A user with **zero**
+memberships (`hello@maxdigital.ro`) sees **exactly 1 row: themselves**, which isolates the own-row
+branch and confirms it is self-only.
+
+**The dual-org case, measured rather than reasoned about, because it is the normal case this app
+expects.** Sonia Ganea (a `wow-lab` trainer) was given a test-b membership inside the transaction.
+The test-b owner's visible users went 11 → 12 and she saw `Sonia Ganea`. That is correct by design,
+not a leak: Sonia is now a member of her org, and what becomes visible is Sonia's *global* identity
+— name and email — with nothing about `wow-lab` disclosed. The semantics of a non-org-scoped `users`
+table are that joining an org makes your identity visible to that org's members. Worth having
+measured, since "a person in two orgs" will stop being hypothetical.
+
+**`client_contacts` — does not cross, because its equivalent branch is org-guarded.** The branch §5
+points at is the trainer-facing one, and its *first conjunct* is
+`app.has_capability('mywork.*', organization_id)` on the row's own org — which requires membership.
+No live row could exercise it (all 4 contacts are `wow-lab`, all `contact_purpose = 'general'`), so
+the linkage was constructed: a test-b trainer-facing contact, set as a test-b group's
+`on_site_contact_id`, with a session whose **principal** trainer is Sonia (not a test-b member) and
+whose **secundar** is Test Trainer B1 (a test-b member). Result: Sonia, the principal trainer on that
+very session, has `mywork.*` in test-b = **false** and sees **0** contacts. Trainer B1 sees
+`ZZ PROBE trainer-facing contact`. The positive control is what makes it conclusive — the branch
+works, and the *only* thing excluding Sonia is org membership.
+
+**So this is one decision about one predicate, not three patches.** The difference is structural and
+worth stating precisely: on `users` the own-row branch points at a row that has no org; on
+`client_contacts` the "connected to me" branch is ANDed with an org-scoped capability. `suppliers` is
+the first table where a row **is** org-scoped **and** carries a direct pointer to a person, with
+nothing org-scoped in the same conjunct. `trainer_contracts` (§3.2) will be the second, by the same
+shape — which is why the decision belongs at step 3 and not in a patch to `suppliers` alone.
 
 **Lives in:** `supabase/migrations/202610070002_add_suppliers_user_id_and_self_read.sql` (the branch,
 and its own comment on why the guard is absent); `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §5
