@@ -2671,6 +2671,13 @@ a failed deploy can render as silent success too, if the only signal checked is 
 Vercel dashboard) for an actual `success` state before verifying or reporting anything as deployed —
 not just before this specific fix, going forward.
 
+**Update 2026-10-08: the mitigation inherited the defect — see item 108 below.**
+`scripts/check_deploy_status.ts`, written to automate the check this entry prescribes, treated
+GitHub's `state: "pending"` as "still building" when it also means "no context has reported at all".
+It therefore spent five minutes waiting out a deploy that had never been queued, and reported the
+wait rather than the absence. Same shape as this entry, one layer up: here a failed deploy read as
+success; there a deploy that never started read as one in progress. Fixed via `total_count`.
+
 **Lives in:** `scripts/verify_item91_write_paths_through_app.ts` (the type error and its fix);
 `b623fcd` through `52e2629` (the broken window); item 90 above (the same silent-failure shape, one
 layer up the stack).
@@ -3864,7 +3871,7 @@ file is the only provenance for a seeded row); item 105 above (the seed that sur
 
 ---
 
-### 107. The "own row" RLS branch crosses organization boundaries — measured on `suppliers`, unmeasured but identical on `trainer_contracts`
+### 107. The "own row" RLS branch crosses organization boundaries — measured on `suppliers`, which turns out to be the only table with the property; `trainer_contracts` will be the second
 
 2026-10-08. A deliberate, specified property that had never been measured. Recorded with its trigger
 and its fix so that whoever hits it does not re-derive either.
@@ -3976,6 +3983,71 @@ shape — which is why the decision belongs at step 3 and not in a patch to `sup
 and its own comment on why the guard is absent); `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §5
 (the specified predicate, for both tables); item 105 above (the column and seed that made this
 measurable); `app.belongs_to_org` / `app.current_user_id` (`docs/ws-d-plan.md` D0).
+
+---
+
+### 108. The script written to catch item 94 had item 94's own failure mode inside it — "pending" meant two different things, and only one was worth waiting for
+
+2026-10-08. Found by using it, not by reading it.
+
+**What happened.** `scripts/check_deploy_status.ts` was run after a push and reported `pending`
+thirty times over five minutes, then exited 1 with "Still pending after 30 checks — not confirmed,
+treat as not deployed." The verdict was right. The reasoning behind it was not: there was no build
+to wait for. GitHub's `/commits/<sha>/status` returned **`state: "pending"` with `total_count: 0`**
+the whole time — meaning **no status context had reported at all.** Compared across commits, the
+picture was unambiguous:
+
+| commit | state | contexts |
+|---|---|---|
+| `311cddc`, `773f69f` (2026-10-08) | pending | **0 — nothing posted** |
+| `7dc5af2`, `c37901d` (2026-10-07) | success | 1 |
+| `28842d8` (2026-10-02) | success | 1 |
+
+The Vercel↔GitHub integration had stopped posting statuses. Nothing was queued; nothing was going
+to resolve. Five minutes of polling was spent on a condition that is permanent by nature.
+
+**Why this is item 94 recursing.** Item 94's lesson was that **a failed deploy can read as silent
+success** when the only signal checked is `git push`'s exit code, and this script was written as the
+mitigation. The mitigation then carried a variant of the same defect: **a deploy that never started
+read as a deploy in progress.** The null result wore the costume of patience. Item 94's general
+lesson — "a failed X can render as silent success one layer up" — applies to its own fix, which is
+the part worth remembering: a check is a piece of code and can be wrong in the same shape as the
+thing it checks.
+
+**The discriminator, and the fix.** `total_count` separates them: **a real pending build has at
+least one context.** Zero contexts now reports `no deployment reported -- check the Vercel
+integration`, names the comparison to run against a known-good commit, and exits non-zero in ~30s
+instead of ~5min.
+
+**Not literally immediate, deliberately.** Run within seconds of a push, Vercel legitimately has not
+posted yet, so failing on the first observation would cry wolf on every fast run.
+`ZERO_CONTEXT_GRACE_ATTEMPTS = 3` (~30s) allows for the first status to appear and no longer. The
+instruction was "exit immediately"; three checks is the smallest window that does not manufacture
+false alarms, and the deviation is named in the code rather than silently taken.
+
+**A second blind spot, found while testing the first.** The script's own usage line documents
+`check_deploy_status.ts <sha>`, and **GitHub's status endpoint 404s on an abbreviated sha** —
+verified directly: `/commits/311cddc/status` → 404, `/commits/311cddc1a9d…e/status` → 200. So anyone
+pasting the short form from `git log --oneline` got `GitHub API returned HTTP 404`, which reads as
+"that commit does not exist" rather than "use the full sha". The no-argument path never hit it,
+because `git rev-parse HEAD` already returns the long form — which is exactly why it survived
+unnoticed. Fixed by routing every input through `git rev-parse`, which also accepts a branch or tag.
+
+**Verified after the change**, all three paths: zero-context commit → the new message, exit 1, **31s**;
+known-good commit (`7dc5af2`) → `success`, exit 0; unknown revision → `not a revision this repo
+knows`, exit 1. `npx tsc --noEmit` clean.
+
+**Still open, and not something this script can fix: the integration is not reporting.** As of
+2026-10-08 commits `773f69f` and `311cddc` have no status, and the app-side supplier change
+(`user_id` in the edit form) is **not deployed** — confirmed independently by
+`scripts/verify_suppliers_user_id_form_test_org_b.ts`, whose four UI assertions all failed while its
+four database-path assertions all passed. The split is itself the evidence: the migration is live,
+the app code is not. This is the second time this integration has desynced on this project.
+
+**Lives in:** `scripts/check_deploy_status.ts` (the fix, and the reasoning in its header); item 94
+above (the original failure and this script's reason for existing); item 90 (the same
+"failure renders as success" family, one layer down, on writes); item 105 above (the supplier change
+still waiting on a deploy).
 
 ---
 
