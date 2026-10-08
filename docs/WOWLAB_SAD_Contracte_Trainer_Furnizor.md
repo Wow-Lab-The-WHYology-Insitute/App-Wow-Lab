@@ -221,6 +221,16 @@ then tc.initial_grade_level
 else null
 ```
 
+> **Măsurat 2026-10-07, vezi `docs/OPEN_ITEMS.md` item 107.** `belongs_to_org` e pe ramura de
+> capabilități și **nu** pe ramura „propriul rând" — deci ramura „propriul rând" **trece peste
+> granița de organizație**: un trainer ar citi un contract înregistrat de un org în care nu e
+> membru, cu `initial_grade_level` inclus. Proprietatea a fost măsurată live pe `suppliers`
+> (`202610070002`, aceeași formă de predicat) prin impersonare în `wow-lab-test-b`: utilizatorul a
+> văzut rândul din `wow-lab` legat de el, fără a avea vreun rol acolo. Azi expunerea e zero (un
+> singur org real). Declanșatorul: al doilea org real. Fixul, o clauză:
+> `and app.belongs_to_org(tc.organization_id)` pe ramura „propriul rând" — dar asta **se abate de la
+> specificația de mai sus**, deci e o decizie de luat explicit la pasul 3, nu un patch tăcut.
+
 `organization_id` se citește din rând, niciodată din parametru — capcana de oracol din
 Field Masking §5.3.
 

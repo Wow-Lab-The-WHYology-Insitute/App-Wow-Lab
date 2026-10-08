@@ -3588,6 +3588,355 @@ produced); item 100 above (the probe-methodology errors this belongs beside); `r
 
 ---
 
+### 105. The supplier→user link did not exist — five identity matches were made by reading emails; plus what still blocks `trainer_contracts`, and one principle
+
+2026-10-07. Mihai's correction opened this: the three trainer PFAs in the supplier contract register
+**are** suppliers, because they invoice Wow Lab. The SAD's `trainer_contracts` / `supplier_contracts`
+split decides *which table a contract row lives on*; it does not decide *who counts as a supplier*.
+An earlier reply in this session read the first as settling the second — it does not.
+
+**Status, stated precisely because the two halves differ.** Both migrations are written, each with a
+matching rollback in `supabase/rollbacks/`.
+
+- **`202610070002_add_suppliers_user_id_and_self_read.sql` — APPLIED 2026-10-07**, by Mihai in the
+  SQL Editor, and verified: `user_id` uuid nullable, `suppliers_user_id_idx` present, exactly three
+  policies, the three-branch SELECT predicate ending `user_id = app.current_user_id()`, and
+  INSERT/UPDATE unchanged at two branches on both `qual` and `with_check`. Behaviour then verified
+  by impersonation in `wow-lab-test-b` — see the table further down.
+- **`202610070003_seed_suppliers_from_contract_register.sql` — APPLIED 2026-10-08**, by Mihai in
+  the SQL Editor, and verified: **22 suppliers, 5 with `user_id`, 3 with a null `cui`**; the two
+  withheld CNPs and Pidgin Host's absent value read differently in `notes`, as intended; all five
+  links resolve to the right accounts; `groups` 4 and `contracts` 3, untouched.
+
+The app-side change that depends on the applied column (`user_id` in the supplier edit form,
+`app/(app)/suppliers/`) is **committed (`773f69f`) but not yet pushed or deployed** as of
+2026-10-08 — the push was blocked in the authoring environment, not declined on the merits. The
+ordering constraint it was waiting on is satisfied (the column is live), so it is safe to deploy;
+`scripts/verify_suppliers_user_id_form_test_org_b.ts` is the committed verification for it and has
+**not run**, because it asserts against the deployed page.
+
+**Numbering collision, flagged rather than silently resolved.** Two commits from 2026-10-07
+(`c37901d`, `7dc5af2`) and the header of `scripts/verify_vet_module_test_org_b.ts` all cite
+"item 105" for the **Vet / module 14** work, which has no entry of its own — its findings live in
+**item 103**. This entry took 105 before that was noticed. Not renumbered, deliberately: the number
+is baked into `202610070002`, which is **already applied**, and this repo's own practice is not to
+edit an applied migration (§9 of `DATABASE_CONVENTIONS.md` was corrected in the document rather
+than in the applied migration that stated it; same reasoning). So a reader following those three
+Vet references to "item 105" lands here — and should read item 103 instead. Renumbering remains
+Mihai's call; it would mean an `UPDATE` to two live DB object comments as well as the files.
+
+**1. What the `user_id` column fixes — the matches were an observation, not a fact the schema held.**
+
+`public.suppliers` (`202608300001`) has no link to `public.users`. The register
+(`Tabel contracte furnizori Wow Lab.xlsx`, `~/Downloads`, sheet misnamed `Tabel Clienti Wow Lab`;
+39 contracts → 22 suppliers) contains five counterparties who are already people in this app. They
+were identified **by reading the spreadsheet's `Adresa de email` column against `users.email` by
+eye** — all five are exact matches, confirmed live:
+
+| Register supplier | Email | `public.users` |
+|---|---|---|
+| ASISMART SRL (rows 2–4) | `anka@asismart.ro` | Anka Orban |
+| RALUCA MARGEAN (26–28) | `ralucamargean@yahoo.com` | Raluca Margean |
+| TRUȘAN FLORINA CĂTĂLINA PFA (32–34) | `catalina_moale@yahoo.com` | Cătălina Trușan |
+| POPA C. RALUCA-MARIA-DIETETICIAN (35–37) | `popar216@gmail.com` | Raluca Popa |
+| MERIȘAN IOANA-TEODORA PFA (38–40) | `merisanteodora@gmail.com` | Teodora Merișan |
+
+Nothing in the schema recorded, enforced, or could re-derive those five. **That is the gap**: a
+one-off eyeball match, repeated by hand every time someone needs it, with nothing to catch a renamed
+PFA or a second similarly-named one. A nullable `suppliers.user_id` turns it into a stored fact.
+
+**It also fixes something that was not merely unbuilt but unexpressible.** The "own row" SELECT
+branch this codebase has already built twice (`users_masked`, `client_contacts`) and that
+`WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §5 recommends for `trainer_contracts` (`tc.user_id =
+app.current_user_id()`) had **no supplier-side equivalent available**: `app.current_user_id()`
+returns a `users.id`, and neither `suppliers` nor (per §3.3) the future `supplier_contracts` had any
+column to compare it against. Confirmed live: `suppliers`' three policies (SELECT/INSERT/UPDATE) all
+carry the identical predicate `app.is_platform_owner() OR app.has_capability('finance.reporting.*',
+organization_id)`, and that capability is held by exactly three roles — `finance_admin_reporting`,
+`organization_owner`, `platform_owner` — i.e. three accounts today. **Cătălina Trușan holds
+`curriculum_manager`, `evaluator`, `operations_manager` and none of them**, so once her PFA exists as
+a supplier row she could not see the row that *is* her. Not her contract — her identity record.
+Laura Moale is also excluded (she holds `finance_operations`), which is deliberate and matches §5.
+
+**2. `trainer_contracts` cannot take its nine rows even once the table is built.** `initial_grade_level`
+is `NOT NULL` and constrained 1–6 (§3.2), and **the register carries no grade for anyone.** The nine
+rows — Trușan ×3, Popa ×3, Merișan ×3, one per legal entity, all `2026-09-01 → 2027-06-30` — are
+blocked on a grade-at-signing per person, which only Anca or Cătălina can supply. Building the table
+does not unblock the import. Related and confirmed: all nine rows carry **no price at all** (both
+the price and `Valoarea Contract` columns are empty), which is correct per §3.2's "Tariful nu e pe
+acest rând" — the rate resolves through the versioned grid, which is seeded live at 111/119/127/134/142/150
+RON/hour for grades 1–6.
+
+**3. A contract and a role are unrelated — recorded as a principle, not a discrepancy.** Cătălina
+invoices as a trainer (three rows noted `Onorarii trainer`) and holds **no** `trainer` role, and
+**that is correct**: she does not record her own sessions. An earlier reply in this session called
+this "worth reconciling before she holds a trainer contract" — that inference is wrong and is
+withdrawn. **Do not treat a contract type as evidence of what roles someone should hold.** The two
+describe different things: what someone invoices for, and what the application lets them do. The
+same principle cuts the other way for Anka Orban, who holds eleven roles and whose supplier contract
+says only "asistență administrativă".
+
+**The CNP decision (Mihai, 2026-10-07).** Two individual suppliers carry a 13-digit CNP — a national
+identity number — in the register's `CUI` column: BEREA ALEXANDRU-VALENTIN and RALUCA MARGEAN. Every
+other identifier there is a 7–8-digit company CUI. **Decided: not imported, `cui` left NULL, reason
+recorded on the row.** Nothing in this app computes from a CNP, nothing joins on it, no screen shows
+it; its only use is invoicing, which happens in SmartBill. Importing it would add the most sensitive
+identifier a person holds to a table three accounts can read, for no capability. The alternatives —
+import plus masking rules, or a separate classified column — were rejected: masking protects values
+that have a legitimate reader, and this one has none, while a dedicated column would make the schema
+assert that storing CNPs is intended.
+
+**A third row has a NULL `cui` for an unrelated reason, and the two must not be conflated.**
+PIDGIN HOST SRL (register row 18) has an **empty** CUI cell in the source. That one is missing data
+and may be filled later; the withheld pair must not be. So the acceptance test is **three** null
+`cui`, not two — two withheld, one absent — and the migration asserts exactly that.
+
+**Confirmed live, and it closes a question before it was asked: `service_type` has no CHECK
+constraint.** `public.suppliers` carries exactly three constraints — the primary key, the
+`organization_id` FK, and `suppliers_status_check` (`active` | `inactive`). So the 17 distinct Note
+values the register supplies are all accepted by definition. They are taken verbatim, with two
+deliberate substitutions where the source note names a *document* rather than a service (ROMAN V.
+ANDRA's "ACT ADITIONAL LA CONTRACTUL DE ASISTENȚĂ JURIDICĂ" → `Asistenta juridica`; RALUCA MARGEAN's
+"CONTRACT DE CESIUNE A DREPTURILOR DE AUTOR" → `Cesiune drepturi de autor`), and four NULLs where the
+register has no note at all (BOLT, CENTRUL MEDICAL UNIREA, PIDGIN HOST, POSITIVE PROJECTS) rather
+than a service guessed from the company name. Casing is left inconsistent on purpose — there is no
+consumer and no constraint, so normalising would mean inventing a taxonomy nobody has asked for.
+
+**One deviation from the instruction, flagged rather than done quietly:** `legal_name` is left NULL
+for all 22. The register carries exactly one name per supplier, and for 20 of 22 that name is already
+the registered legal form; copying it into both columns would assert a trade-name/legal-name
+distinction the source does not make, and deriving a short trade name would be invention. The two
+that genuinely *are* trade names (`BOLT`, probably `PIDGIN HOST SRL`) are the two whose legal name we
+do not have. One `UPDATE` reverses this if a second source appears.
+
+**CORRECTION, 2026-10-07: there IS a supplier screen, and it is complete.** This session asserted
+twice that there was none — carried forward from the prompt's own premise and never checked against
+the repo. Wrong. `app/(app)/suppliers/` (list + create form, `page.tsx` + `suppliers-client.tsx`)
+and `app/(app)/suppliers/[id]/` (detail + edit, `supplier-info-client.tsx`) are committed and live,
+dated 2026-08-27 and 2026-09-09, with a nav entry in `layout.tsx` gated on `finance.reporting.*`.
+**`updateSupplier` (`app/(app)/suppliers/actions.ts`) edits name, legal_name, cui, service_type,
+status and notes** — every column the seed populates except `user_id`.
+
+**So the correction path for a loaded row is: Anka, in the app, today.** Not a follow-up migration,
+not a hand-written production write. Holders of `finance.reporting.*` — `finance_admin_reporting`
+(Anka Orban), `organization_owner` (`maxdigitalro@gmail.com`), `platform_owner` (Anca Tanasescu) —
+can read, create and edit. **Laura Moale cannot** (she holds `finance_operations`), which is
+deliberate and matches SAD §5. And `suppliers_row_history` fires `BEFORE UPDATE OR DELETE`
+(confirmed live via `pg_trigger`), so every correction is captured with `old_values` — it is only
+the INSERT that is not.
+
+**Consequence for the self-read branch, also corrected:** `202610070002` was justified in part as
+"a policy branch with no reader costs nothing". It has a reader the moment `user_id` is populated.
+`suppliers/page.tsx` guards only that a user is signed in; its capability check computes the create
+form and the edit gate, **not read access**, which is left to RLS. So Cătălina Trușan visiting
+`/suppliers` by URL will see a one-row list — herself — with no create form and no edit button. The
+nav link is gated so she is not led there. That is the branch working as intended, recorded here so
+the one-row list is never mistaken for a leak.
+
+**The self-read branch was verified live in `wow-lab-test-b` on 2026-10-07, by impersonation, and
+one measured property is worth knowing: it crosses org boundaries by design.** Cătălina is not a
+member of `wow-lab-test-b`, so the fixture was `test+ui-ops-manager-b@wowlab.dev` — `operations_manager`
+only, which is the one of her three roles that matters and which lacks `finance.reporting.*` exactly
+as she does. All assertions ran as role `authenticated` (necessary, not cosmetic: `suppliers` has
+`relrowsecurity = true` but `relforcerowsecurity = false` and is owned by `postgres`, so the
+service connection bypasses RLS entirely and an unimpersonated test proves nothing). Everything was
+transaction-scoped and rolled back; both orgs verified back to zero rows afterwards.
+
+| Viewer | Sees | Why |
+|---|---|---|
+| ops manager, linked | her own row **and** a `wow-lab` row linked to her | self-read branch, **no org guard** |
+| ops manager | *not* the unlinked test-b supplier | no `finance.reporting.*` (confirmed false) |
+| plain test-b trainer | nothing | neither branch matches |
+| test-b `organization_owner` | both test-b rows, **not** the `wow-lab` one | capability branch is org-scoped |
+| ops manager, UPDATE on her own row | **0 rows changed**, value unchanged | UPDATE policy deliberately not widened |
+
+**The cross-org read is intended, and now has its own entry — see item 107 below**, which records
+the property, its trigger (the first time a second real organization records a supplier linked to a
+non-member), the one-clause fix, and the fact that the same property holds unexamined on
+`trainer_contracts`. Zero exposure today: one real org, and all five links point at its own members.
+
+**The five values the import freezes, by name, so they are a list to ask about rather than a gap to
+discover.** The register does not carry them and we do not know them:
+
+| Supplier | Missing |
+|---|---|
+| BOLT | `service_type` |
+| CENTRUL MEDICAL UNIREA SRL | `service_type` |
+| PIDGIN HOST SRL | `service_type` **and** `cui` (source cell empty) |
+| POSITIVE PROJECTS SRL | `service_type` |
+
+All five are editable in the app by Anka, so these are closeable gaps, not wrong values. PIDGIN
+HOST's empty `cui` must not be confused with the two deliberately withheld CNPs — different reason,
+different resolution.
+
+**This seed will be the only provenance record for its 22 rows — item 104 biting on real data for
+the first time.** `suppliers_row_history` does not fire on INSERT, and `audit_log` stopped being
+written on 2026-09-10 and never covered this table. So "where did this supplier row come from" has
+exactly one answer — `202610070003` — and the **absence** of a history row for any of the 22 is not
+evidence about their origin. That is precisely the inference item 104 records as having already
+produced one wrong answer that got committed (item 102). First real-org instance; the 22 rows are
+also exactly the kind of row item 104 predicted would hit this: created once and then left alone.
+
+**Still open.** Whether the 22 rows load by migration or get typed in by hand through the screen
+that does exist; the rate-vs-value contradiction blocking `supplier_contracts` (§3.3 specifies
+`contract_value numeric` and no `rate`/`rate_unit`, but most register rows carry a rate, not a
+value); Raluca Margean's newsletter rate and whether her article tiers survived two amendments;
+which of Anka's three task types maps to 80, 80 and 90.
+
+**Lives in:** `supabase/migrations/202610070002`, `202610070003` and their rollbacks (both applied);
+`docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §3.2/§3.3/§5/§10 (the trainer/supplier split, the
+own-row branch, the four-step order); `202608300001_suppliers.sql` (the table and the policy this
+changes); `docs/WOWLAB_SAD_Field_Masking.md` (the model the CNP decision declines to extend); item
+107 below (the cross-org property of the branch this added); item 20 below (the pay grids the
+trainer rate resolves through); item 23 below (the per-article writing still with no table on either
+side); `docs/progress.md` §128/§230 (the admin rate structures and Anca's 2026-08-10 "80/80/90 is
+final" correction).
+
+---
+
+### 106. Two conventions out of step with practice — one written rule that no longer describes what we do, and one habit I kept citing as a rule
+
+2026-10-07. Both surfaced while writing the supplier seed (item 105 above). Neither is a defect in
+any migration — the practice in both cases is settled and reasonable. The gap is in the documents.
+
+**1. `DATABASE_CONVENTIONS.md` §10 does not describe how real data is actually seeded.**
+
+What it says, verbatim: *"Schema changes live in ordered migration files under
+`supabase/migrations/`. Seed data lives separately (`supabase/seed.sql`) and must be idempotent —
+re-running it must not create duplicates or otherwise change the outcome of a prior run."*
+
+What we do, in three precedents:
+
+| Migration | Seeds | Re-run behaviour |
+|---|---|---|
+| `202609240001_seed_pay_grids_pfa_inclusive_rates` | the real pay-grid rates | guarded |
+| `202609240002_seed_trainer_grade_assignments` | ten trainers' grades from Anca's record | guarded, raises on missing user |
+| `202610070003_seed_suppliers_from_contract_register` (written, not applied) | 22 real suppliers | raises if the org already has rows |
+
+All three put **real production data in a migration, not in `seed.sql`**, and all three **raise on
+re-run rather than being idempotent no-ops.**
+
+**The practice is right and the document should change — agreed, and the reason is stronger than
+"three precedents".** `seed.sql` is for fixtures: §11 of the same document records that its users
+cannot even authenticate, because they exist in `public.users` with no `auth.users` row. It is a
+local-development convenience, re-run freely against a throwaway database. Real production
+reference data has the opposite requirements — it needs to be ordered relative to the schema it
+depends on, applied exactly once, reviewable in a diff, and attached to the reasoning for every
+judgement in it. That is a migration. And for such data **idempotency is the wrong property**:
+silently doing nothing on a second apply hides that someone tried to load it twice, which for 22
+real suppliers is something you want to hear about, not absorb. Raising is the safer default, and
+it is what all three do.
+
+**What to change:** §10 should distinguish *fixtures* (`seed.sql`, idempotent, non-authenticating,
+local) from *real reference data* (an ordered migration, applied once, guarded so a re-apply fails
+loudly, with a matching rollback). Not done in this pass — recorded so it is a deliberate edit to
+that document rather than a drift nobody wrote down.
+
+**2. There is no written prohibition on ad-hoc production writes. I cited one repeatedly as though
+there were.**
+
+Searched `DATABASE_CONVENTIONS.md` and `docs/` for it: nothing. §10 constrains *where schema and
+seed data live*; it says nothing about writing to production by hand. What actually exists is a
+**habit**, visible in `docs/ws-d-plan.md` §2 and §3: Claude writes the `.sql` into the repo, Mihai
+runs it block-by-block in the SQL Editor and reports the results — described there as *"automatizat
+(fișier versionat) + rulat manual de tine"*. That is a workflow for RLS verification, which got
+generalised in conversation into a rule about production writes that was never stated anywhere.
+
+**Worth writing down, because it is a good rule being followed for good reasons:** every write to
+`wow-lab` that is not a user action through the app should exist as a versioned file with a rollback
+before it runs, so that what happened is reconstructible afterwards. Item 104 is exactly why this
+matters — `row_history` does not capture INSERT, so for a seeded row the migration file is the only
+provenance that will ever exist (see item 105, where that lands on 22 real rows for the first time).
+An unversioned hand-written INSERT against production leaves **no** trace anywhere, not even a bad
+one.
+
+**Why it is being recorded rather than fixed here:** both are edits to `DATABASE_CONVENTIONS.md`,
+and that document has been wrong in a load-bearing way once already — §9's claim that 36-month
+anonymization "is automatic and scheduled" was false and had to be corrected *in the document*
+after the migration asserting it had already been applied (noted in §9 itself, and in item 3). A
+convention document that gets edited casually is how that happens. These two edits should be made
+deliberately, together, by someone who has read both sections.
+
+**Lives in:** `docs/DATABASE_CONVENTIONS.md` §9 (the precedent for a convention doc stating
+something untrue), §10 (the rule to split), §11 (why `seed.sql` is fixtures-only);
+`docs/ws-d-plan.md` §2/§3 (the habit worth promoting to a rule); item 104 above (why the versioned
+file is the only provenance for a seeded row); item 105 above (the seed that surfaced both).
+
+---
+
+### 107. The "own row" RLS branch crosses organization boundaries — measured on `suppliers`, unmeasured but identical on `trainer_contracts`
+
+2026-10-08. A deliberate, specified property that had never been measured. Recorded with its trigger
+and its fix so that whoever hits it does not re-derive either.
+
+**The property.** A policy branch of the form `user_id = app.current_user_id()`, standing alone with
+no org guard, lets a user read a row **in an organization they are not a member of**, provided the
+row points at them. The org check in these predicates lives only on the *capability* branch; the
+own-row branch is unqualified by design — "the row is yours because it is yours."
+
+**Measured live, 2026-10-07, in `wow-lab-test-b`, by impersonation as role `authenticated`.** The
+fixture was `test+ui-ops-manager-b@wowlab.dev` (`operations_manager` only, no `finance.reporting.*`).
+Three supplier rows were inserted: one in test-b linked to her, one in test-b linked to nobody, and
+one in **`wow-lab`** linked to her. She saw **two** — her test-b row *and* the `wow-lab` row, in an
+org where she holds no membership at all. A plain test-b trainer saw nothing; the test-b
+`organization_owner` saw both test-b rows and **not** the `wow-lab` one, confirming the capability
+branch is correctly org-scoped and that only the own-row branch crosses. All transaction-scoped and
+rolled back; both orgs verified back to zero rows.
+
+The impersonation was necessary rather than ceremonial: `public.suppliers` has
+`relrowsecurity = true` but **`relforcerowsecurity = false`** and is owned by `postgres`, so the
+service connection bypasses RLS entirely and an unimpersonated query proves nothing. Worth knowing
+for every future RLS check on this table, not just this one.
+
+**Exposure today: zero.** There is one real organization (`wow-lab`), `wow-lab-test-b` is a test
+org, and all five `suppliers.user_id` links point at `wow-lab`'s own members. No one can currently
+reach a row they could not otherwise reach.
+
+**THE TRIGGER — the first time a second real organization records a supplier linked to someone who
+is not its member.** That person will see a row belonging to an org they do not belong to. Nothing
+will warn anyone; the query simply returns an extra row. This is the moment to come back to this
+entry, and it has nothing to do with suppliers specifically — any second real tenant does it.
+
+**THE FIX, one clause**, if the tenancy boundary should hold absolutely instead:
+
+```sql
+or (user_id = app.current_user_id() and app.belongs_to_org(organization_id))
+```
+
+on `suppliers`' SELECT policy (currently `202610070002`'s third branch). Note what this costs: it
+**diverges from `WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §5**, which specifies the unqualified
+form. Divergence may well be right — but it should be a decision taken against the SAD, not a patch
+that quietly contradicts it.
+
+**The same property holds on `trainer_contracts`, by identical reasoning, and has never been
+measured** — because the table does not exist yet. SAD §5 specifies its predicate as:
+
+```sql
+when tc.user_id = app.current_user_id()                       -- propriul contract
+  or (app.belongs_to_org(tc.organization_id) and (... capabilities ...))
+```
+
+`belongs_to_org` appears on the capability branch and **not** on the own-row branch — the same shape
+`suppliers` now demonstrably has. So a trainer with a contract recorded by an org they are not a
+member of would read it, including its masked `initial_grade_level`, which §5 treats as being as
+sensitive as a rate. That is a sharper consequence than the supplier case: a supplier row is
+identity (name, CUI, notes), while a trainer contract carries a grade. **Whoever builds
+`trainer_contracts` (step 3 of §10) should decide this explicitly rather than copying the predicate
+and inheriting the property unexamined** — and can now cite a measurement rather than a hypothesis,
+since `suppliers` proves the branch behaves exactly as written.
+
+The same question applies to the two places this branch already exists — `users_masked` and the
+`client_contacts` predicate (§5 names both as the precedent for building it). Neither was measured
+for cross-org behaviour here; whether they have the same shape is unverified and worth one probe
+each before the second real org exists, not after.
+
+**Lives in:** `supabase/migrations/202610070002_add_suppliers_user_id_and_self_read.sql` (the branch,
+and its own comment on why the guard is absent); `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §5
+(the specified predicate, for both tables); item 105 above (the column and seed that made this
+measurable); `app.belongs_to_org` / `app.current_user_id` (`docs/ws-d-plan.md` D0).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
