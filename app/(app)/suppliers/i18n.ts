@@ -29,6 +29,19 @@ export const suppliersDict: Dictionary = {
   detail_notes: { en: "Notes", ro: "Note" },
   edit: { en: "Edit", ro: "Editează" },
 
+  // suppliers.user_id (202610070002) — the platform account belonging to
+  // the same legal person as this supplier. "Linked person", not "user":
+  // the field says who this supplier IS, and says nothing about what roles
+  // they hold (OPEN_ITEMS item 105 — a contract and a role are unrelated).
+  detail_linked_user: { en: "Linked person", ro: "Persoană asociată" },
+  // The selectable "no link" value, not a prompt — correct for every
+  // supplier that is only a company.
+  linked_user_none: { en: "No linked person", ro: "Fără persoană asociată" },
+  // A link exists but this viewer cannot read that person's row under
+  // users' own SELECT RLS, which is narrower than this page's gate. Shown
+  // instead of the raw uuid on purpose.
+  linked_user_hidden: { en: "Linked (name not visible to you)", ro: "Asociată (nume nevizibil pentru tine)" },
+
   // supplier-info-client.tsx's own section titles, distinct from
   // page_title ("Suppliers") and new_supplier_form_title ("New supplier").
   supplier_info_title: { en: "Supplier info", ro: "Informații furnizor" },

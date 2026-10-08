@@ -19,14 +19,24 @@ type Supplier = {
   service_type: string | null;
   status: string;
   notes: string | null;
+  user_id: string | null;
 };
+
+export type MemberOption = { id: string; name: string };
 
 export function SupplierInfoClient({
   supplier,
   canEdit,
+  linkedUserName,
+  memberOptions,
 }: {
   supplier: Supplier;
   canEdit: boolean;
+  // Resolved by the server component, not looked up out of memberOptions:
+  // the read view renders for viewers who get no memberOptions at all,
+  // including the supplier themselves via the self-read branch.
+  linkedUserName: string | null;
+  memberOptions: MemberOption[];
 }) {
   const t = useTranslations(suppliersDict);
   const [isEditing, setIsEditing] = useState(false);
@@ -35,6 +45,7 @@ export function SupplierInfoClient({
     return (
       <SupplierEditForm
         supplier={supplier}
+        memberOptions={memberOptions}
         onCancel={() => setIsEditing(false)}
         onSaved={() => setIsEditing(false)}
       />
@@ -59,6 +70,16 @@ export function SupplierInfoClient({
       <Kv label={t("detail_legal_name")} value={supplier.legal_name || "—"} />
       <Kv label={t("detail_cui")} value={supplier.cui || "—"} />
       <Kv label={t("detail_service_type")} value={supplier.service_type || "—"} />
+      {/* Three distinct states, deliberately not collapsed into two: no
+          link at all ("—"), a link whose person this viewer may not see
+          (linked_user_hidden), and a resolved name. The middle case is
+          real -- users' own SELECT RLS is narrower than this page's gate. */}
+      <Kv
+        label={t("detail_linked_user")}
+        value={
+          !supplier.user_id ? "—" : (linkedUserName ?? t("linked_user_hidden"))
+        }
+      />
       <Kv label={t("detail_notes")} value={supplier.notes || "—"} />
     </Section>
   );
@@ -66,10 +87,12 @@ export function SupplierInfoClient({
 
 function SupplierEditForm({
   supplier,
+  memberOptions,
   onCancel,
   onSaved,
 }: {
   supplier: Supplier;
+  memberOptions: MemberOption[];
   onCancel: () => void;
   onSaved: () => void;
 }) {
@@ -83,12 +106,13 @@ function SupplierEditForm({
   const [serviceType, setServiceType] = useState(supplier.service_type ?? "");
   const [status, setStatus] = useState(supplier.status);
   const [notes, setNotes] = useState(supplier.notes ?? "");
+  const [userId, setUserId] = useState(supplier.user_id ?? "");
 
   function doSave() {
     setError(null);
     startTransition(async () => {
       try {
-        const result = await updateSupplier(supplier.id, name, legalName, cui, serviceType, status, notes);
+        const result = await updateSupplier(supplier.id, name, legalName, cui, serviceType, status, notes, userId);
         if (!result.ok) setError(result.error);
         else onSaved();
       } catch {
@@ -144,6 +168,28 @@ function SupplierEditForm({
           placeholder={t("service_type_edit_placeholder")}
           className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
+        {/* Linked person. The empty option is not a placeholder -- it is the
+            correct, selectable value for the 17 suppliers that are companies
+            and for undoing a wrong link, which is the whole reason this
+            field is here (OPEN_ITEMS item 105: the five seeded links were
+            matched by eye). If the current link points at someone this
+            viewer cannot resolve, the saved value is still preserved as an
+            option so saving the form does not silently clear it. */}
+        <select
+          value={userId}
+          onChange={(e) => setUserId(e.target.value)}
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
+        >
+          <option value="">{t("linked_user_none")}</option>
+          {userId && !memberOptions.some((m) => m.id === userId) && (
+            <option value={userId}>{t("linked_user_hidden")}</option>
+          )}
+          {memberOptions.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+            </option>
+          ))}
+        </select>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}

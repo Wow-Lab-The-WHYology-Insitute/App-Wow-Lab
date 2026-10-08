@@ -61,6 +61,23 @@ export type VoidActionResult = { ok: true } | { ok: false; error: string };
 // Gated by the table's own UPDATE policy alone (identical to INSERT/
 // SELECT: is_platform_owner() OR finance.reporting.*) -- same relationship
 // updateClient has to the clients UPDATE policy for its own general fields.
+// user_id added 2026-10-07. It is the one column 202610070003 populates
+// that this form could not reach, and that asymmetry was the problem:
+// the five links it seeds were identified by matching the contract
+// register's email column against users.email BY EYE (OPEN_ITEMS item
+// 105), so a wrong link is entirely possible -- and before this, fixing
+// one needed a migration. An eyeball match that only a migration can
+// correct is the worst combination of the two. Empty string clears the
+// link to NULL, which is the correct value for the 17 suppliers that are
+// companies, so "none" has to be reachable and not just an initial state.
+//
+// No separate capability: gated by the table's own UPDATE policy like
+// every other field here (is_platform_owner() OR finance.reporting.*).
+// Confirmed live before writing this -- the picker that feeds this cannot
+// come back empty for anyone who can reach the form: reading another
+// user's row needs `org.members.read`, held by finance_admin_reporting,
+// operations_manager, organization_owner and platform_owner, which is a
+// strict superset of finance.reporting.*'s three holders.
 export async function updateSupplier(
   supplierId: string,
   name: string,
@@ -69,6 +86,7 @@ export async function updateSupplier(
   serviceType: string,
   status: string,
   notes: string,
+  userId: string,
 ): Promise<VoidActionResult> {
   if (!name.trim()) {
     return { ok: false, error: "Name is required." };
@@ -84,6 +102,7 @@ export async function updateSupplier(
       service_type: serviceType.trim() || null,
       status,
       notes: notes.trim() || null,
+      user_id: userId.trim() || null,
     })
     .eq("id", supplierId)
     .select("id");
