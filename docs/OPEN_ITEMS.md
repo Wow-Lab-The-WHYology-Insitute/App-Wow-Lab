@@ -4992,6 +4992,26 @@ groups/sessions prefixes the payroll question needed, and reads as her whole set
 them carries `finance.operations.*`, `finance.reporting.*` or `org.settings.manage`, so she still
 cannot reach `/payroll`. Corrected in place in item 110 above as well.
 
+**BUILT 2026-10-12, database layer verified live, UI verification blocked on a deploy that never
+happened (item 118 below).** Five migrations applied (`202610120003`-`202610120007`): the catalogue
+(312 plans, 498 placements), `session_lesson_plans` with the three states and `decision_seen_at`,
+three SECURITY DEFINER routing functions with their wrappers, and `sessions.experiment_delivered`'s
+comment restated. `db/tests/lesson_plan_catalogue.sql` adds 52 assertions including a sabotage check
+that replaces the SELECT policy's scoping clause with `using (true)` and confirms the
+unrelated-trainer assertion flips; the suite runs **171 passed, 0 failed**. UI: a searchable
+selector and Catalina's validate/request-changes controls on the group page, the notification on
+`/my-work`, and `lib/landing.ts` resolving the post-login destination for both entry points.
+
+**Two things in the preceding report were wrong and are corrected in the code's own comments.**
+(1) The link is `unique (session_id, trainer_id)` -- ONE row per trainer per session -- not the
+`(session, trainer, plan)` triple that report recommended: update-in-place with the history in
+`row_history` needs a stable address for "this trainer's experiment", and the triple is not one.
+The document's own wording ("propriul experiment", singular) is the evidence; the two-hour-workshop
+case was speculation. (2) A finance-only account **does** see proposals, because `finance_operations`
+holds `sessions.read` -- the branch the policy keys on. The test asserted otherwise and failed; the
+policy was right and the assertion was wrong, since finance already reads that session's trainers,
+duration and location tier as pay inputs. Both recorded where they will be read.
+
 **Reported, not built — two designs, 2026-10-12.** (a) the approval state on `session_lesson_plans`
 (which states, who moves between them, who may approve, and what happens to a session delivered
 without approval); (b) the in-app notification (whether it needs a table of its own, and where it
@@ -5013,6 +5033,69 @@ link it needs); item 116 above (closed the same day, the other half of this roun
 `app/auth/callback/route.ts` (the two `/profile` defaults, only one of which real sign-ins pass
 through); `public.capabilities` / `public.role_capabilities` (where `curriculum.validate` already
 sits); `app.is_platform_owner()` (the predicate that excludes Anca).
+
+---
+
+### 118. `18dec06` was pushed and Vercel never built it — the commit before it deployed fine, and my first explanation for this was wrong
+
+2026-10-12. `check_deploy_status.ts` reported, for the catalogue commit:
+
+> `18dec06… IS on the remote (origin/main) but GitHub has ZERO status contexts for it after 3 checks
+> -- so it was pushed and nothing reported, which is a permanent condition, not a build in
+> progress. Treat as NOT deployed.`
+
+**The script was right and this entry's first version was wrong.** It originally claimed the cause
+was Vercel queueing builds in commit order, with `18dec06` waiting behind `3c86f80` -- a commit
+pushed into the same branch minutes earlier by a parallel session (`regions: ["fra1"]` in
+`vercel.json`, moving functions to Frankfurt beside Supabase). That looked right: at the moment of
+checking, `3c86f80` was `pending` with 1 context and `18dec06` had 0.
+
+**Then `3c86f80` finished and the explanation collapsed.** Measured by hand, context names and all,
+rather than by total counts:
+
+| commit | state | contexts |
+|---|---|---|
+| `4df31c5` | success | 1 — **Vercel**, deployment `CYGXCgEtLgr4k` |
+| `3c86f80` | **success** | 1 — **Vercel**, deployment `3gY2EN9B9wJFH` |
+| `18dec06` | pending | **0** — no Vercel status at all; one `Supabase Preview` check-run, `skipped` |
+
+So the commit immediately before mine built and succeeded, and mine has no Vercel status minutes
+later. There is no queue to be behind. **This is item 108 above's condition for real** — pushed,
+nothing reported — and not the benign timing story this entry first told.
+
+**Recorded as a correction rather than quietly rewritten, because the mistake is the recurring one
+in this register.** A confirmed symptom plus a plausible mechanism is still a guess (item 109 above,
+item 104 above, item 108's own closing note). I had the symptom, found a mechanism that fit the
+single observation in front of me, and wrote it down as the cause; one more observation a few
+minutes later falsified it. The parallel session reporting the same outage is what prompted the
+re-check — it said the one context might be Supabase's rather than Vercel's, which turned out to be
+wrong too, but asking the question is what produced the table above.
+
+**What is actually known, and what is not.** Known: `18dec06` is on `origin/main`; Vercel created no
+deployment and posted no status for it; the preceding commit deployed normally; `app.wowlab.ro`
+answers 200 but serves the pre-`18dec06` build. Not known: why. The Vercel dashboard is not readable
+from this session (the CLI is not logged in and the Vercel MCP server is unauthenticated here), and
+every remaining hypothesis -- a skipped build, a stalled GitHub integration, something about the
+`vercel.json` region change in the commit underneath -- is a guess with nothing to separate it from
+the others. **Not retried and not nudged with an empty commit**, matching the parallel session's own
+choice: an infrastructure outage reported to the user beats two sessions poking at it from opposite
+ends.
+
+**Consequence for item 117 above, stated so nothing is read as verified when it is not.** The
+database layer IS verified against the live project: 5 migrations applied, 171 suite assertions
+passing including the sabotage check, every routing function exercised under impersonation. The
+**UI** is not -- `scripts/verify_lesson_plan_flow_test_org_b.ts` is written and ready, and cannot
+run until a build carrying `18dec06` is live. The local `next build` passed, which is evidence the
+code compiles and nothing more.
+
+**Blocked on:** the user, or whoever can read the Vercel dashboard for this project.
+**Re-verify when:** a deployment for `18dec06` or later exists -- then run
+`npx tsx scripts/check_deploy_status.ts` and the item 117 verification script, in that order.
+**Lives in:** `scripts/check_deploy_status.ts` (whose report was correct); item 108 above (the same
+condition, with the `total_count` discriminator that caught it); item 94 above (the 25h8m silent
+deploy failure these scripts exist for); item 109 above (the push that reported success from the
+wrong directory -- the other way a deploy can be believed and absent); item 117 above (the work
+waiting on it).
 
 ---
 
