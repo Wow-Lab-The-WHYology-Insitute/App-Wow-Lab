@@ -704,29 +704,52 @@ org today (confirmed live, matches item 53's own finding) — no client-type mix
 to bite on. The summary degrades the same way every other name-lookup miss in this app already
 does: falls back to "Unknown" per session, not an error.
 
-**Blocked on:** a decision on whether payroll-closing needs cross-segment client visibility, or
+~~**Blocked on:** a decision on whether payroll-closing needs cross-segment client visibility, or
 should stay scoped to whoever already holds `finance.reporting.*` too (sidestepping the question
-by construction) -- not a technical blocker.
-**Re-verify when:** real sessions exist across more than one client-type segment and someone holding
-only `finance.operations.*` is the one closing payroll.
+by construction) -- not a technical blocker.~~
+~~**Re-verify when:** real sessions exist across more than one client-type segment and someone holding
+only `finance.operations.*` is the one closing payroll.~~
+**Both struck 2026-10-12 and replaced at the end of this entry** — the question they state is
+broader than the facts support, and they rest on this entry naming the wrong person.
 
-**NARROWED 2026-10-12, and this entry named the wrong person — verified against the live policies,
-see item 110 below.** Anca: Anka closes the month, not Laura. Three accounts reach `/payroll` today
-(`finance.operations.*` OR `org.settings.manage`): **Anka**, **Laura Moale**, **Mihai**. Anka holds
-**both** `finance.operations.*` and `finance.reporting.*`, whose branches are exact complements, so
-she sees every client type and **can never see "Unknown"** — the closer this entry worried about is
-the one person it cannot affect. **Laura is the only account in the exposed state** (`finance.
-operations.*` with no `finance.reporting.*`). Also worth stating because the segment is easy to get
-backwards: `finance.operations.*` sees `private_school` + `parent_b2c`, **not** corporate and grants —
-so a private-school client reads as its name to her, and it is corporate/grant clients that read
-"Unknown". Still inert, now for two reasons rather than one: `wow-lab` holds zero sessions **and**
-all four of its real clients are `private_school`. The open decision is therefore narrower than this
-entry states: not "should payroll-closing see every client", but "should a `finance.operations.*`-only
-closer see corporate and grant client names" — live only once Laura closes a month containing a
-corporate session.
+**VERIFIED AND NARROWED 2026-10-12, against the live policies rather than the role names — see item
+110 below for the full round this came from.** Anca's correction: **Anka closes the month, not
+Laura.** This entry named Laura.
+
+- **Who reaches `/payroll` today:** exactly three accounts. The gate is `finance.operations.*` **OR**
+  `org.settings.manage` (`payroll/page.tsx`, matching `closePayrollPeriod`'s own gate) — **Anka**,
+  **Laura Moale**, **Mihai**. Nobody else holds either; Cătălina's `operations_manager` set carries
+  no finance capability at all.
+- **The segment this entry describes is the other one.** `finance.operations.*` sees
+  **`private_school` + `parent_b2c`** — *not* corporate and grants. So a private-school client reads
+  as its name to that holder, and it is **corporate and grant** clients that read `Unknown`. Easy to
+  get backwards, and worth stating in the direction the policy is written.
+- **Anka cannot hit this at all.** She holds **both** `finance.operations.*` and
+  `finance.reporting.*`, and the two branches are exact complements (`client_type = ANY (...)` /
+  `client_type <> ALL (...)`), so together they cover every client type. Her `clients.read` is
+  neutralised by that branch's own `not finance.operations.* and not finance.reporting.*` guard and
+  it makes no difference. **The one person who actually closes the month is the one person who can
+  never see "Unknown".** The "sidestep by construction" option this entry proposed is therefore
+  already the live state for the only closer there is.
+- **Laura is the whole exposure, and the only account in that state:** `finance.operations.*` with no
+  `finance.reporting.*`.
+- **Still inert, now for two reasons instead of one.** This entry's reason (zero sessions in
+  `wow-lab`) still holds, and additionally **all four real `wow-lab` clients are `private_school`**,
+  which Laura can see. The three sessions that do exist are in Test Org B on a `corporate` client —
+  the exact mix that would trigger it, in the one org where it does not matter.
+
+**Blocked on:** Anca — **"should a `finance.operations.*`-only closer see corporate and grant client
+names on the payroll screen?"** That is the question, and it is the whole question. Not "does
+payroll-closing need cross-segment client visibility": that framing survives only while the closer is
+assumed to hold one branch, and the actual closer holds both.
+**Re-verify when:** **Laura** closes a month containing a session for a client outside
+`private_school`/`parent_b2c`. Both halves have to become true — a non-`private_school` client with
+real sessions, *and* Laura rather than Anka doing the close.
 **Lives in:** the payroll walkthrough fixes entry below (the trainer-name gap this parallels);
-item 20 (Laura's `finance.operations.*`-only capability set); `app/(app)/payroll/page.tsx` (the
-join); the `clients` table's own SELECT policy (its client-type segregation branch).
+item 20 (Laura's `finance.operations.*`-only capability set); item 110 below (the 2026-10-12
+verification that narrowed this, with the capability tables); `app/(app)/payroll/page.tsx` (the gate,
+the join, and the `"Unknown"` fallback); the `clients` table's own SELECT policy (its client-type
+segregation branch).
 
 ---
 
@@ -4346,7 +4369,9 @@ Org B carries the same role keys against the same policies. The mechanism is row
 SELECT policy admits `mywork.*` scoped to the viewer's own sessions, RLS restricts rows and not
 columns, and `notes` has an ordinary column-level SELECT grant.
 
-**So the re-ask is not "does the field exist" but a policy question:** a note Cătălina writes on a
+**So the re-ask is not "does the field exist" but a policy question — carried as its own standing
+entry, item 116 below, so it is findable by someone asking "what do group notes do" rather than
+buried in a dated round:** a note Cătălina writes on a
 group is visible, verbatim, to every trainer allocated to a session in it, and to nobody else. That
 is current behaviour, not a proposal. If it is what she wants, nothing needs building. If notes are
 meant to be internal to Operations, the fix is a column-narrowed read (a masked column or a
@@ -4445,7 +4470,9 @@ shows); `app/(app)/payroll/page.tsx` (the gate and the `"Unknown"` fallback);
 the session↔plan link has to carry); item 103 above (the three-axis question this closes and the
 figures this corrects); item 65 above (the payroll gap this narrows); item 95 above (the language
 bonus percentages); item 105 above (the admin-rate questions this round also answered, now item 111
-below); commits `1bb1826`, `83ad84e`.
+below); item 116 below (group notes carried forward as current behaviour plus the one policy
+question left); item 65 above (whose Blocked-on question this round replaced); commits `1bb1826`,
+`83ad84e`.
 
 ---
 
@@ -4612,7 +4639,7 @@ file-tracked).
 
 ---
 
-### 114. The operator guide has been telling Anka and Cătălina to pick three workshop formats that no longer exist — for three weeks, and its own checker has been failing all along
+### 114. The operator guide has been telling Anka and Cătălina to pick three workshop formats that no longer exist — for three weeks, and its own checker has been failing all along — FIXED 2026-10-12
 
 2026-10-12, found incidentally: `scripts/check_operator_guide.ts` was run while confirming item 110
 above's address question, and reported **3 of 34 manifest claims failing** — `groupsDict.
@@ -4650,22 +4677,168 @@ exists in this repo; the cost of that choice is now measured at three weeks. It 
 item 86 above (the RLS suite silently broken by a migration, with nothing running it in between) and
 the same shape the register's own `scripts/check_open_items_register.ts` header warns about.
 
-**Not fixed here, deliberately.** Renaming three labels is not the fix: the nine formats are not
+**Why it was not fixed on sight.** Renaming three labels is not the fix: the nine formats are not
 renames of the six (`Corporate` split into `parteneriate_companii` and `party_companii`; `Recurent`
 became `scoli_private_recurente` alongside a new `scoli_private_ocazionale`), so rewriting line 110
 is a decision about what the operator should be told to pick for which engagement — procedure, not
-wording. That belongs to whoever owns the procedure, with Anca's nine in front of them.
+wording. It was reported with that mapping laid out, Mihai decided it, and the fix below is his
+mapping, not a reconstruction of it.
 
-**Blocked on:** nothing technical — a short rewrite of the guide's format list plus its three
-manifest rows, once someone decides the mapping the guide should describe.
+**FIXED 2026-10-12, same session.** Mihai supplied the six-to-ten mapping as a decision, so the
+rewrite stopped being a guess. Pasul 3 now lists all ten formats with one line each saying when to
+pick it, in Romanian, and carries a short old→new note for the two people who learned the list of
+six. **Anca's own three worked examples, recorded in item 102 above and dropped at seed time, are
+used as the explanation of the three options nobody had a reference for** — *cursuri de chimie*
+(Cursuri deschise), *Science Week la IBSB* (Școli private ocazionale), *Barlad Value Center*
+(Evenimente la mall), quoted as she wrote them. **Two further stale claims in the same section were
+found and fixed while rewriting it**, neither of them machine-checkable: *"cele 13 module"* (now 15,
+and this session's own `202610120001` is what made it staler), and *"pentru recurent: ziua și ora"*,
+where "recurent" no longer names one option — corrected to *Școli private (colaborări recurente)*,
+which `groups-client.tsx`'s `isRecurring` check confirms is the only format that takes a day-and-hour
+schedule. **The manifest grew from 34 rows to 38**, not back to 34: the three dead rows were replaced
+with all ten real formats, so the whole list in Pasul 3 is verifiable rather than half of it.
+`check_operator_guide.ts`: **38/38**.
+
+**Why nobody ran it for three weeks is recorded separately, in item 115 below** — the checker has no
+trigger anywhere a person would meet it, unlike the other three.
+
+**Blocked on:** nothing — fixed.
 **Re-verify when:** any `format_*` or `module_*` label changes again — run
 `npx tsx scripts/check_operator_guide.ts`.
-**Lives in:** `docs/WOWLAB_GHID_Operare_Clienti_Contracte_Grupe.md` (lines 58-62 the manifest rows,
-line 110 the wrong instruction); `scripts/check_operator_guide.ts`; commit `e0e8a1e` and
+**Lives in:** `docs/WOWLAB_GHID_Operare_Clienti_Contracte_Grupe.md` — the "Manifest" table (whose
+three dead rows became ten) and "Pasul 3 — Grupele" (the wrong instruction); cited by section rather
+than by line number, since this entry's own fix moved every line below it;
+`scripts/check_operator_guide.ts`; commit `e0e8a1e` and
 `supabase/migrations/202609210006_migrate_groups_delivery_format_to_nine_workshop_types.sql` (the
 change that invalidated it); item 41 below (the entry that created both guide and checker);
-item 102 above (`custom` restored as the tenth value); item 86 above (the same "a checker nobody
-runs" shape, one layer down).
+item 102 above (`custom` as the tenth value, **and the three Anca examples this fix finally puts in
+front of an operator**); item 86 above (the same "a checker nobody runs" shape, one layer down);
+item 115 below (why three weeks passed).
+
+---
+
+### 115. The operator-guide checker had no trigger — it is the only one of the four that doesn't, and the trigger it does have is written where the wrong person reads it
+
+2026-10-12, recorded separately from the fix (item 114 above) because the fix is three weeks of wrong
+instructions and this is why nobody noticed. The checker **worked**: it caught all three dead format
+keys on its first run after `202609210006`, and would have caught them on any run in between. It was
+not run for three weeks, and when it finally was, it was by accident — while confirming something
+else entirely.
+
+**Four hand-run checkers, and only one of them has nowhere to say when to run it.** Measured against
+this file's own preamble, not asserted:
+
+| Checker | Named in the preamble | Trigger stated there |
+|---|---|---|
+| `check_open_items_register.ts` | own block | "after any pass that edits several items at once" |
+| `run_rls_suite.ts` | own block | "after any migration that touches `CREATE POLICY`/`DROP POLICY`/`ALTER POLICY`, or that renames or drops a column any policy or test reads" |
+| `check_deploy_status.ts` | own block | "after any push meant to reach `app.wowlab.ro`, before trusting any verification done there" |
+| **`check_operator_guide.ts`** | **one passing clause inside another checker's block** | **none** |
+
+Its only mention in this register is the half-sentence *"Run by hand, same as
+`scripts/check_operator_guide.ts` and for the same reason — no CI exists in this repo to run it
+automatically"* — which says how it runs and why it isn't automated, and never says when.
+
+**It does have a trigger. It is written on the artifact being protected, which only the person
+already reading that artifact will see.** `docs/WOWLAB_GHID_Operare_Clienti_Contracte_Grupe.md`'s own
+"Obligație de întreținere" section is explicit: *"Orice schimbare la `clients-client.tsx`,
+`contracts-client.tsx`, `groups-client.tsx`, la `actions.ts`-urile lor, sau la `i18n.ts`-urile lor
+trebuie verificată împotriva acestui ghid — inclusiv manifestul de mai jos — înainte de a fi
+integrată."* That is exactly the change `e0e8a1e` made. **The obligation was already correct and
+already named the right files; the person making the change had no reason to open the document that
+carries it.** The other three checkers put their trigger in front of the actor — in the register
+everyone editing this register reads, next to the push, next to the migration. This one put it behind
+the door it was guarding.
+
+**And the obligation's wording would have missed it anyway, for a second reason.** It names UI files
+only. The change that invalidated the guide was a **migration** (`202609210006`) that replaced a
+CHECK-constrained vocabulary; the i18n edit rode along in the same commit. Someone who had read the
+obligation and was writing a migration would not have seen themselves in it.
+
+**Proposed trigger — proposed, not built.** A fourth preamble block, with the condition phrased as an
+action rather than as a document's self-defence:
+
+> **`scripts/check_operator_guide.ts`** diffs the operator guide's manifest against the live i18n
+> dictionaries. **Run it after any change to `clients`/`contracts`/`groups` `i18n.ts`,
+> `*-client.tsx` or `actions.ts`, and after any migration that changes a vocabulary those screens
+> render** — `delivery_format`, `module`, `client_type`, `business_line`, `contract_type`. The
+> migration half is the one that was missing: `202609210006` changed `delivery_format`'s nine values
+> and left the guide naming three that no longer existed, for three weeks (item 114 above).
+
+Two things deliberately **not** proposed. **CI**: this project has declined it on purpose, twice in
+writing, and one stale document in three weeks does not overturn that — a trigger the author reads is
+cheaper and this failure was an absence of prompting, not an absence of automation. **Folding it into
+`check_open_items_register.ts`**: they check different things for different reasons, and a checker
+that runs other checkers hides which one failed.
+
+**The limit of any trigger here, stated because it bounds the fix.** The same section of the guide
+carried a *second* wrong claim — *"Modulul — cele 13 module"*, stale since `202610070001` added vet
+and staler after `202610120001` added anatomy — and **no trigger would have caught it**. The
+manifest covers only literal i18n strings; the guide's own preamble says behavioural claims like
+"cele 13 module" are excluded by design and verified by hand. So one section held two defects of the
+same age, one machine-checkable and one not. Both were fixed in item 114 above's pass; only the first
+one could ever have been caught by running something.
+
+**Blocked on:** nothing — this is a four-line edit to this file's preamble, held back only so the
+trigger's wording is a decision rather than something slipped in alongside the fix it describes.
+**Re-verify when:** the next migration changes a rendered vocabulary. If the guide goes stale again
+with the trigger in place, the trigger is the wrong shape and CI becomes the honest answer.
+**Lives in:** item 114 above (the three weeks of wrong instruction this explains); this file's
+preamble (the three checker blocks this proposes a fourth alongside);
+`docs/WOWLAB_GHID_Operare_Clienti_Contracte_Grupe.md` ("Obligație de întreținere", the trigger in the
+wrong place); `scripts/check_operator_guide.ts`; item 86 above (a checker silently broken by a
+migration with nothing running it in between — the same shape one layer down).
+
+---
+
+### 116. Group notes are visible, verbatim, to every allocated trainer — current behaviour, measured, and the only open part is whether Anca wants it
+
+2026-10-12. Recorded on its own because the question that produced it was asked as "is there a Notes
+field", and the answer to *that* is yes — her own screenshot shows it. The question worth asking is
+the one underneath, and it is already answered in code: **a note Cătălina writes on a group is read
+back verbatim by every trainer allocated to a session in that group, and by nobody else.**
+
+**Current behaviour, all five halves proven against the live policies** — not read off the render
+code — by `scripts/verify_group_notes_trainer_visibility.sql`:
+
+1. an `operations_manager` (Cătălina's role) **can write** `groups.notes` — 1 row updated
+2. the allocated `trainer_principal` **reads it back verbatim**
+3. the allocated `trainer_secundar` **reads it back verbatim**
+4. a trainer with **no** session in that group sees **no row at all**, so no note
+5. the allocated trainer **cannot write** it — 0 rows updated, read-only to them
+
+The mechanism, so nobody re-derives it: `groups`' SELECT policy carries a `mywork.*` branch scoped to
+the viewer's own sessions; **RLS restricts rows, not columns**, and `notes` has an ordinary
+column-level SELECT grant to `authenticated`. There is no masking layer on this column and never
+was — so trainer visibility is not a feature that was built for notes, it is what any `groups` column
+gets once the row is visible. `groups`' UPDATE policy admits no `mywork.*` branch at all, which is
+why (5) holds.
+
+**Run in Test Org B, because the real org cannot answer it.** `wow-lab` holds **zero sessions**, so no
+trainer is allocated to anything there and the `mywork.*` branch is unreachable. Test Org B carries
+the same role keys against the same policies. Also measured: all four real `wow-lab` groups have
+`notes = NULL`, which is why the field renders `—` and reads as absent.
+
+**The open part is a policy question for Anca, not an engineering one.** If trainer-visible notes are
+what she wants, nothing needs building — this is already the behaviour. If notes are meant to be
+internal to Operations, the fix is a column-narrowed read (a masked column, or a trainer-facing
+split the way `client_contacts` got one in `202609210002`), and that is a real build that needs her
+answer first. **Nothing should be built either way until she answers**, because the two outcomes are
+"no change" and "a new masking surface", and guessing between them is how `children_billed` ended up
+settled by accident on the read side (item 39 below).
+
+**Blocked on:** Anca — "when Cătălina writes a note on a group, should the allocated trainer see
+it?", asked with the current answer stated so she is confirming or changing a behaviour rather than
+describing a wish.
+**Re-verify when:** any change to `groups`' SELECT policy or to column-level grants on
+`groups.notes`.
+**Lives in:** item 110 above (the round this came from, and the screenshot contradiction);
+`scripts/verify_group_notes_trainer_visibility.sql`;
+`app/(app)/groups/[id]/group-info-section.tsx` (the Notes `Kv`, last row of Group info);
+`app/(app)/groups/actions.ts` (`updateGroup` — `notes` gated on `groups.create`);
+`supabase/migrations/202609210002_narrow_client_contacts_trainer_facing_branch.sql` (the
+trainer-facing split that is the precedent if the answer is "hide it"); item 39 below (the adjacent
+field settled by omission, the outcome this entry is written to avoid).
 
 ---
 
