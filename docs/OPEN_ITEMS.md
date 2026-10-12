@@ -4628,11 +4628,21 @@ touched `FORMAT_KEYS` or any `format_*` label** — this is pre-existing, three 
 **The failing manifest rows are the smaller half. The guide's actual instruction to the operator is
 wrong.** `docs/WOWLAB_GHID_Operare_Clienti_Contracte_Grupe.md` line 110 reads:
 *"Formatul — Recurent (club școlar), Școala Altfel, Săptămâna Verde, Party, Corporate sau Custom"* —
-the pre-decision six-value list. The live create-group form offers Anca's nine plus `custom`, so the
-guide **names three formats that are not in the dropdown** and **omits six that are**
-(`scoli_private_ocazionale`, `scoli_private_recurente`, `cursuri_deschise`, `evenimente_mall`,
-`parteneriate_companii`, `party_companii`). An operator following it looks for "Recurent" and does
-not find it.
+the pre-decision six-value list. The live create-group form offers Anca's nine plus `custom`.
+Mapped option by option rather than counted:
+
+- **"Recurent (club școlar)"** — gone. The live pair is *Școli private (colaborări recurente)* and
+  *Școli private (colaborări ocazionale)*; an operator looking for "Recurent" does not find it.
+- **"Corporate"** — gone, and it **split in two**: *Parteneriate cu companii* and *Party în
+  companii*.
+- **"Party"** — no longer identifies one option. It now reads as either *Wow Lab Party* (the
+  birthday product) or *Party în companii* (the same product at a company), which
+  `format_party_companii`'s own comment says are deliberately the same product in two places. A
+  guide that says "Party" tells the operator to guess between them.
+- **Three names are still correct**: Școala Altfel, Săptămâna Verde, Custom.
+- **Six live options are absent from the list entirely**: *Parteneriate cu companii*, *Cursuri
+  deschise*, *Școli private (colaborări ocazionale)*, *Școli private (colaborări recurente)*,
+  *Evenimente/prezentări la mall*, *Party în companii*.
 
 **This is exactly the failure item 41 below was written to prevent, and the checker it built did
 catch it — nobody ran it.** That entry's own reasoning for not wiring it into CI was that no CI
