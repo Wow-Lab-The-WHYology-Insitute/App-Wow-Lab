@@ -768,13 +768,26 @@ Laura.** This entry named Laura.
   which Laura can see. The three sessions that do exist are in Test Org B on a `corporate` client —
   the exact mix that would trigger it, in the one org where it does not matter.
 
-**Blocked on:** Anca — **"should a `finance.operations.*`-only closer see corporate and grant client
-names on the payroll screen?"** That is the question, and it is the whole question. Not "does
-payroll-closing need cross-segment client visibility": that framing survives only while the closer is
-assumed to hold one branch, and the actual closer holds both.
-**Re-verify when:** **Laura** closes a month containing a session for a client outside
-`private_school`/`parent_b2c`. Both halves have to become true — a non-`private_school` client with
-real sessions, *and* Laura rather than Anka doing the close.
+**CLOSED 2026-10-12 — ACCEPTED, not resolved.** Anca: not a concern. Her reasoning is the
+measurement above, reached independently — **Anka closes the month and holds both finance branches,
+so it cannot arise.** Nothing is built and nothing changes; the `"Unknown"` fallback stays as it is.
+
+**The distinction between accepted and resolved is why this entry is not deleted.** The defect is
+still in the code: a `finance.operations.*`-only viewer still reads `"Unknown"` for a client outside
+`private_school`/`parent_b2c`. What makes it a non-concern is **who holds which capability today** —
+four role assignments — and not any property of the join, the policy, or the fallback. That is the
+weakest kind of guarantee this project has: nothing in the schema enforces it, no constraint would
+fail if it changed, and `/payroll`'s own gate (`finance.operations.*` OR `org.settings.manage`)
+admits exactly the state that reopens it.
+
+**Reopens if:** **someone holding only `finance.operations.*` becomes the person who closes the
+month.** Today that is Laura Moale and only Laura — she already reaches `/payroll` and already lacks
+`finance.reporting.*`, so the reopen condition is one change of habit away, not one change of
+schema. It would also reopen on a new account provisioned with `finance_operations` alone, which is
+how Laura got there.
+**Blocked on:** nothing — closed as accepted.
+**Re-verify when:** the reopen condition above fires, i.e. before any month-close performed by
+anyone other than Anka or Mihai.
 **Lives in:** the payroll walkthrough fixes entry below (the trainer-name gap this parallels);
 item 20 (Laura's `finance.operations.*`-only capability set); item 110 below (the 2026-10-12
 verification that narrowed this, with the capability tables); `app/(app)/payroll/page.tsx` (the gate,
@@ -4414,9 +4427,12 @@ policies, as asked, not from role names:
 - **Who reaches `/payroll` today:** exactly three accounts. The gate is `finance.operations.*` **OR**
   `org.settings.manage` (`payroll/page.tsx`, matching `closePayrollPeriod`'s own gate). That is
   **Anka** and **Laura Moale** via `finance.operations.*`, and **Mihai** via `org.settings.manage`.
-  Nobody else holds either — Cătălina's `operations_manager` set is
-  `clients.read, groups.create, groups.read, org.members.read, sessions.create, sessions.read`, no
-  finance capability at all.
+  Nobody else holds either — **Cătălina holds three roles** (`curriculum_manager`, `evaluator`,
+  `operations_manager`, 22 capabilities between them), and **none of the three carries any finance
+  capability**, so she cannot reach `/payroll`. An earlier draft of this line listed six capabilities
+  and named one role: that was the output of a query filtered to the prefixes this question needed,
+  mistaken for her whole set, and corrected 2026-10-12 — see item 117 below. The conclusion it
+  supports is unchanged, re-checked against all three roles.
 - **Which client segment that capability covers:** `finance.operations.*` sees
   **`private_school` + `parent_b2c`** on `clients` — **not** corporate and grants. The question had
   it the other way round, and the inversion matters: a private-school client like Lycée Français is
@@ -4858,7 +4874,7 @@ migration with nothing running it in between — the same shape one layer down).
 
 ---
 
-### 116. Group notes are visible, verbatim, to every allocated trainer — current behaviour, measured, and the only open part is whether Anca wants it
+### 116. Group notes are visible, verbatim, to every allocated trainer — CLOSED 2026-10-12: Anca confirmed the current behaviour, nothing to build
 
 2026-10-12. Recorded on its own because the question that produced it was asked as "is there a Notes
 field", and the answer to *that* is yes — her own screenshot shows it. The question worth asking is
@@ -4894,11 +4910,21 @@ answer first. **Nothing should be built either way until she answers**, because 
 "no change" and "a new masking surface", and guessing between them is how `children_billed` ended up
 settled by accident on the read side (item 39 below).
 
-**Blocked on:** Anca — "when Cătălina writes a note on a group, should the allocated trainer see
-it?", asked with the current answer stated so she is confirming or changing a behaviour rather than
-describing a wish.
+**CLOSED 2026-10-12 — Anca confirmed it, the same day it was measured.** Group notes stay visible to
+allocated trainers. The behaviour above is the intended behaviour, not a gap that happened to be
+convenient: **nothing is built, nothing is narrowed, no masking surface is added.** The
+`client_contacts`-style trainer-facing split named below as the precedent is explicitly *not* taken.
+
+This closes as **confirmed**, which is a different and stronger outcome than either of the two it
+could have had: not "resolved" (nothing was broken) and not "accepted" (she did not tolerate a known
+gap). What made that possible was the question reaching her as *"this is what happens today, is it
+what you want"* rather than as *"is there a Notes field"*, which is what her first answer had been
+asked.
+
+**Blocked on:** nothing — closed.
 **Re-verify when:** any change to `groups`' SELECT policy or to column-level grants on
-`groups.notes`.
+`groups.notes` — the confirmation is of today's behaviour, so it stops applying if that behaviour
+changes underneath it.
 **Lives in:** item 110 above (the round this came from, and the screenshot contradiction);
 `scripts/verify_group_notes_trainer_visibility.sql`;
 `app/(app)/groups/[id]/group-info-section.tsx` (the Notes `Kv`, last row of Group info);
@@ -4906,6 +4932,87 @@ describing a wish.
 `supabase/migrations/202609210002_narrow_client_contacts_trainer_facing_branch.sql` (the
 trainer-facing split that is the precedent if the answer is "hide it"); item 39 below (the adjacent
 field settled by omission, the outcome this entry is written to avoid).
+
+---
+
+### 117. Experiment validation moves out of WhatsApp and into the app — Anca's decision, plus the capability that already exists for it and the predicate that would have locked her out
+
+2026-10-12, Anca. Recorded as a decision with its measured preconditions; **nothing built**, and the
+two designs it implies were reported the same date rather than written (see "Reported, not built"
+below).
+
+**The decision, in four parts:**
+
+1. **The trainer picks a lesson plan in the app.** Which is the selector she asked for in item 110
+   above — the same screen, now with a second job.
+2. **Cătălina approves it in the app**, not on WhatsApp.
+3. **The trainer is told.**
+4. **"Told" means a notification the trainer meets on entering the app, which can be marked seen** —
+   explicitly more than a line on `/my-work`. **Email later, if at all**, and only once it is clear
+   people are not opening the app often enough. So email is conditional on an observation nobody has
+   made yet, not scheduled.
+
+**What this replaces, from the responsibilities document rather than from a description of it.**
+`docs/WOWLAB_Spec_Trainer_Principal_Secundar.md` sets out the real process, and the app version
+collapses one step of it:
+
+| When | Who | What the document says |
+|---|---|---|
+| min. 8–10 days before | each trainer | *"Alege experimentul pe care îl va susține"* — the secundar also *"Comunică propunerea Trainerului Principal"* |
+| min. 7 days before | **principal** | *"Trimite Cătălinei propunerile de experimente ale ambilor traineri. Obține validarea celor două experimente. Transmite confirmarea Trainerului Secundar."* |
+| min. 7 days before | **secundar** | *"Primește confirmarea validării experimentului de la Trainerul Principal. **Face eventualele modificări solicitate.**"* |
+
+**The principal's courier role disappears if each trainer is told directly** — *"Trimite Cătălinei
+propunerile ... ale ambilor traineri"* and *"Transmite confirmarea Trainerului Secundar"* are both
+message-passing that an app with per-trainer rows does not need. Anca's decision implies that but
+does not say it, so it is flagged rather than assumed settled.
+
+**`curriculum.validate` already exists, and the four people who hold it are the four who should.**
+Measured live, not proposed: the capability is defined (`"Validate curriculum content."`), carried by
+the roles `curriculum_manager`, `organization_owner` and `platform_owner`, and held today by exactly
+**Anca Tanasescu, Anka Orban, Cătălina Trușan and Mihai** — nobody else, no trainer, no finance role.
+**No new capability and no role change is needed for the approval gate.**
+
+**And the predicate most policies in this schema reach for first would have locked Anca out of her
+own app.** `app.is_platform_owner()` reads the `users.is_platform_owner` **column**, not the
+`platform_owner` **role** — and for Anca that column is **`false`**, despite her holding the role.
+Her access comes entirely through `app.has_capability(...)`. So an approval policy written as
+`app.is_platform_owner() OR app.has_capability('curriculum.validate', organization_id)` works by
+accident of the second clause, and one written on the owner predicate alone would admit Mihai and
+refuse Anca. Stated here because this register has already recorded the inverse surprise once (the
+preamble's own correction: *"Anca's actual permission state corrected (platform_owner and
+sales_manager, not organization_owner; `is_platform_owner` false)"*), and it is the kind of thing a
+policy author re-derives wrongly at speed.
+
+**Cătălina holds three roles, not one** — `curriculum_manager`, `evaluator`, `operations_manager`,
+22 distinct capabilities. Worth stating because item 110 above describes her as `operations_manager`
+and lists six capabilities: that list came from a capability query filtered to the finance/clients/
+groups/sessions prefixes the payroll question needed, and reads as her whole set when it is not.
+**The payroll conclusion it supports is unaffected** — re-checked against all three roles, none of
+them carries `finance.operations.*`, `finance.reporting.*` or `org.settings.manage`, so she still
+cannot reach `/payroll`. Corrected in place in item 110 above as well.
+
+**Reported, not built — two designs, 2026-10-12.** (a) the approval state on `session_lesson_plans`
+(which states, who moves between them, who may approve, and what happens to a session delivered
+without approval); (b) the in-app notification (whether it needs a table of its own, and where it
+appears). **Where they meet is the one thing that has to be settled in the same pass as the
+catalogue:** the approval row is itself the notification, so the "seen" marker is one more nullable
+timestamp on `session_lesson_plans` rather than a notifications table — free to add while that table
+does not exist, and a backfill across live link rows once it does. Both were reported for decision;
+neither is recorded here as decided, deliberately.
+
+**Blocked on:** Mihai/Anca — the two reported designs, in particular whether `changes_requested` is
+a state (the document's *"Face eventualele modificări solicitate"* argues it is) and whether
+`/my-work` becomes the trainer's landing surface.
+**Re-verify when:** before writing `session_lesson_plans` — re-check `curriculum.validate`'s holders,
+since the whole gate rests on four role assignments that nothing prevents from changing.
+**Lives in:** `docs/WOWLAB_Spec_Trainer_Principal_Secundar.md` (the process this replaces, quoted
+above); item 110 above (the catalogue and the selector this attaches to, and the session↔plan↔trainer
+link it needs); item 116 above (closed the same day, the other half of this round);
+`app/(app)/my-work/page.tsx` (where the notification would surface); `app/page.tsx` and
+`app/auth/callback/route.ts` (the two `/profile` defaults, only one of which real sign-ins pass
+through); `public.capabilities` / `public.role_capabilities` (where `curriculum.validate` already
+sits); `app.is_platform_owner()` (the predicate that excludes Anca).
 
 ---
 
