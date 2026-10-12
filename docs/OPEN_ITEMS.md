@@ -5056,11 +5056,20 @@ sits); `app.is_platform_owner()` (the predicate that excludes Anca).
 **It deployed. The conclusion was wrong, and so were my first two explanations of it.** What
 actually happened, measured rather than reasoned:
 
-| | |
-|---|---|
-| push → first Vercel status on `18dec06` | **several minutes** (the script gives up after ~30s of zero contexts) |
-| every other commit today | first status within seconds |
-| final state | `success`, Vercel deployment, verified by the item 117 script against the real deployment |
+Measured afterwards from GitHub's own status timestamps, so the window is a number rather than an
+impression — and the two slow ones are the two that were pushed within two minutes of each other:
+
+| commit | committed (UTC) | Vercel `success` | first-status lag |
+|---|---|---|---|
+| `4df31c5` | 09:01:09 | 09:02:03 | 54s |
+| `3c86f80` (fra1) | 09:41:30 | 09:44:55 | **3m25s** |
+| `18dec06` (catalogue) | 09:43:30 | 09:47:07 | **3m37s** |
+| `519b114` | 09:46:53 | 09:48:18 | 85s |
+| `c4fbb0b` | 09:53:16 | 09:54:28 | 72s |
+
+**So the script's patience (~30s) is shorter than this project's own normal first-status lag on a
+busy minute, by a factor of four.** A parallel session measured `3c86f80` independently and got the
+same ~2.5-3 minutes.
 
 **The finding is the give-up window, not the discriminator.** Item 108 above added `total_count` to
 tell "genuinely building" from "nothing reported", and that distinction is still right -- a pending
@@ -5081,20 +5090,37 @@ reporting the same symptom from the other side is what forced the first re-check
 (that the one context might be Supabase's rather than Vercel's) was also wrong, and asking produced
 the table that settled it.
 
-**The fix, scoped and not applied here:** keep polling while `total_count` is 0 for a bounded but
-much longer window -- the script already polls up to 30 times when a context exists, so the
-asymmetry is the bug -- and distinguish the report, "no status yet after N minutes" rather than "was
-pushed and nothing reported." Held for its own pass: this is the one script that tells truth from
-silence about deploys, it has now been wrong in three different directions (item 94: failure read as
-success; item 108: non-report read as build-in-progress; this: slow report read as no-report), and
-each fix so far was written while chasing something else.
+**The fix, proposed and deliberately not applied: the asymmetry is backwards, and the discriminator
+it should key on is one the script already computes.** Zero contexts means two different things, and
+the script can already tell them apart -- it checks `/commits/<sha>` (422 for a commit GitHub has
+never seen) separately from `/commits/<sha>/status`, which is how its own message can say
+"IS on the remote." Today that knowledge only reaches the error text; it does not reach the polling
+decision. It should:
+
+- **Present on the remote, zero contexts → keep polling, the full thirty.** A commit GitHub
+  confirms it has is a commit a build is owed for. This is the case that gets three polls today and
+  deserves the patience.
+- **Absent from the remote → stop immediately, zero polls.** Nothing will ever report on a commit
+  that was never pushed; waiting thirty cycles for it is the useless half of the current behaviour,
+  and it is the half that currently gets all the patience. Item 109 above is exactly this case (a
+  push that ran in the wrong directory), and it wants a fast, specific failure: "not on the remote",
+  not thirty polls ending in an ambiguous verdict.
+- **Report the third state honestly:** "on the remote, no status after N minutes" is not
+  "NOT deployed". The verdict should name what was observed and what was not.
+
+Held for its own pass regardless of how small it is: this is the one script that tells truth from
+silence about deploys, it has now been wrong in three different directions (item 94 above: failure
+read as success; item 108 above: non-report read as build-in-progress; this: slow report read as
+no-report), and every fix so far was written while chasing something else -- which is how a script
+accumulates three failure modes.
 
 **Interim workaround, used today:** `until [ "$(…/status | total_count)" != "0" ]; do sleep 10; done`
 before running the script. Crude and correct.
 
 **Blocked on:** nothing — a scoped change to one script.
-**Re-verify when:** that change lands. The assertion to write: a commit whose first status has not
-arrived yet reports "no status yet", not "not deployed", and the script keeps waiting.
+**Re-verify when:** that change lands. Two assertions to write, one per branch: a commit present on
+the remote with no status yet keeps being polled and reports "no status yet", never "not deployed";
+a commit absent from the remote exits immediately saying so, without polling.
 **Lives in:** `scripts/check_deploy_status.ts`; item 108 above (the `total_count` discriminator this
 refines rather than replaces); item 94 above (the 25h8m silent failure these scripts exist for);
 item 109 above (the mistake class this entry repeated twice); item 117 above (the work this briefly
