@@ -4644,6 +4644,55 @@ not.
 describes existing behaviour there and does not reopen anything built. It is purely a constraint on
 the admin-hours screen that does not exist yet.
 
+---
+
+**RE-EXAMINED 2026-10-12, per side, now that the rate tables exist (item 128 below). The two halves
+are not the same problem, and only one of them is a question for Anca.**
+
+**The trainer half is already answerable, and this is checkable rather than asserted.** A session
+reaches an entity by `sessions → groups.contract_id → contracts.legal_entity_id`, and every link in
+that chain exists today: `groups.contract_id` was added by `202608290001`, `contracts.legal_entity_id`
+is `NOT NULL`, and the three real `wow-lab` groups all carry a non-null `contract_id` pointing at a
+signed contract (item 71's own correction records that). `app.calculate_session_pay` already walks
+part of this path for `delivery_format`. **So the trainer half needs no column and no decision — it
+needs a function that follows the path, plus one honest failure case: a group with
+`contract_id` null has no entity, and the correct behaviour is to raise rather than to pick one.**
+That is the same fail-loud discipline the six resolvers already use, and `groups.contract_id` is
+nullable on purpose (a group can exist before its contract is signed), so the case is real rather
+than theoretical.
+
+**The admin half is a question for Anca, and a column cannot answer it.** Anka's hour spent on sales
+belongs to an entity by a rule nobody has written down. The three task categories make the shape of
+the problem visible:
+
+| category | is it project-attributable? |
+|---|---|
+| **Ateliere** (workshop organisation, sales, ActiveCampaign) | plausibly yes — a workshop belongs to a group, which reaches an entity the same way a session does |
+| **Admin** (everything administrative but not financial) | sometimes. Some of it is per-project, some is the business as a whole |
+| **Financiar** (accounting, financial statements) | **almost certainly not.** Accounting for three entities is work for all three |
+
+**So the answer is BOTH a question and a column, in that order.** The question first, because it
+decides which column: if she attributes by project, the admin-hours row carries an optional
+project/group reference and derives the entity the way a session does — and must raise, not default,
+when the reference is absent. If she attributes directly, the row carries `legal_entity_id` as a
+required field and the entry form asks her every time. **Those are different screens, not different
+defaults**, which is why building either before asking would be a guess dressed as a schema.
+
+**And whichever shape wins, `Financiar` needs its own answer.** Business-wide work has no project to
+inherit from, so it needs a nominated default entity, a split rule, or an explicit
+"not project-attributable" value. **An entity that silently defaults is a wrong invoice, not a
+smaller one** — the same reasoning that keeps `contract_type_uplift` at zero rows rather than seeded
+at 0% (item 95 above).
+
+**The question to put to her, in one sentence:** *when you spend an hour on sales, or on the monthly
+accounts, which of the three entities does it belong to — and do you decide that per hour, per
+project, or by a standing rule per kind of work?*
+
+**Blocked on:** that answer. The trainer half can be built without it; the admin half cannot.
+**Lives in (addendum):** item 128 below (the rates these hours will price); item 130 below (the
+other thing the same hour needs — its kind); `202608290001` (`groups.contract_id`, the trainer-side
+path); `app.calculate_session_pay` (which already walks part of it).
+
 **Lives in:** item 111 above (the rates these hours carry, and Anka's three categories); item 20
 below (the pay grids, which hold no entity dimension); `public.legal_entities` (the three rows);
 `app/(app)/payroll/page.tsx` and `supabase/migrations/202609250001_create_calculate_session_pay.sql`
@@ -5869,6 +5918,194 @@ The project and team ids live in `.vercel/project.json`.
 item 125 above (the work this blocked, and its measurement once unblocked); item 118 above (the
 deploy-reporting entry and the warning against naming an unseen cause); `scripts/check_deploy_status.ts`
 (which reported the failures correctly throughout).
+
+---
+
+### 127. `supplier_contracts` — SAD step 4 built, with §3.3's price assumption overruled by §3.3's own source
+
+2026-10-12. Item 105 above recorded this as "blocked on the rate-vs-value decision, not on writing
+the migration". The decision is taken, and both halves are applied and verified live:
+`202610120009` (schema) and `202610120010` (the 30 rows).
+
+**THE DEVIATION FROM §3.3, which is the substance of the entry.** §3.3 specifies
+`contract_value numeric` and **no** `rate`/`rate_unit`, reasoning *"un contract de servicii are
+valoare, nu tarif orar"*. Measured against the register the spec was written for, that does not
+hold: most priced rows carry a **rate** (`80 RON/ORA`, `400 euro/luna`, `1000 ron/trimestru`,
+`14.08 Euro/Ora`, `10099.87 ron/curs`, `12 Eur/luna`, `80 EUR/ORA`, `75 eur/ora`), and **two cannot
+be structured at all** — ASISMART carries `80 RON/ORA, 90 RON/ORA`, two rates with no stated rule
+for which applies when, and Raluca Margean carries three word-count tiers in one cell as a bulleted
+list. `180 EURO +TVA` adds a tax qualifier and Margean's tiers are stated `net`; a numeric parse
+loses the +TVA, the net, the tiering and the unit, which are the parts that decide what gets paid.
+
+So **price is free text in one column (`price_text`), verbatim**, with
+`contracts.billing_rule` as the precedent — it holds exactly this shape for client contracts
+(`105 lei/copil/ședință`, `770 RON + TVA/ grupă/ ședință`) and is read by people, parsed by nothing.
+
+**`contract_value` is kept for the TEN rows with a clean bare number — not eleven.** United Media's
+`1928 EUR` is excluded on purpose: none of the ten carries a currency, so they are implicitly RON,
+and coercing a euro figure into a unitless column leaves nothing able to tell them apart. It stays
+in `price_text`, where the currency survives.
+
+**`is_open_ended` beside a nullable `period_end`, because the register states two facts a null
+collapses** — five rows say `nedeterminat` (open-ended by agreement), three say `N/A` (not
+recorded). **A fourth shape turned up that the brief did not list:** CENTRUL MEDICAL UNIREA says
+`1 AN`, a duration in words. It imports as unknown with the words preserved in `notes`, because
+deriving 2024-09-28 from prose is inventing a date. Three more rows are blank. So: 5 open-ended,
+7 end-dateless for three different reasons, 18 real dates.
+
+**`amends_contract_id` — FIVE chains resolve, not the two expected:**
+
+| amendment | chains to | effect |
+|---|---|---|
+| CERISEO `ANEXA 2` | CERISEO `152` | expiry 2026-07-02 → 2027-09-17 |
+| FLEXIBLE `ACT ADITIONAL 1/ 5881…` | FLEXIBLE `5881` | the text names its own parent |
+| ROMAN `2388729/05.01.2026` | ROMAN `2388729` | **the amendment sits above its base in the file** |
+| RALUCA `Act aditional 1` | RALUCA `83` | → 2026-06-30 |
+| RALUCA `Act aditional 2` | `Act aditional 1` | → **2026-12-31** |
+
+**Four amendment-shaped rows name a base contract that was never entered** (FLEXIBLE ×2, ORANGE,
+ROMAN/Brandine) and keep the link null rather than pointing at a guess; the reference survives in
+`exit_number`. **And Roman V. Andra is base + ONE amendment, not three rows like Margean** — his
+third row is under a different legal entity whose base contract is absent.
+
+**Validity-in-months is not imported.** The register's formula errors (`#VALUE!`) on 8 rows and
+silently reads `0` on 5 more, and the silent zeros are the worse half: a 0 looks like an answer. It
+is derivable from the two dates whenever both exist.
+
+**RLS: `finance.reporting.*` and the platform owner. NOT `finance.operations.*`** — §5 and §7 are
+explicit that Laura does not see supplier contracts at all, so not their values either.
+
+**NO own-row branch from `suppliers.user_id`, argued rather than skipped** (the symmetry with
+`trainer_contracts` makes its absence look like an oversight, so the reasons live in the policy's
+own comment): Anca closed supplier-contract access 2026-10-12 (item 110 above); it would be the
+second instance of item 107 above's measured cross-org leak and here the leaked row carries the
+masked `contract_value`, which §5 itself flags as needing an explicit decision; §5's trainer
+argument does not transfer, since a supplier holds their own countersigned copy and `drive_ref`
+points at it; and 5 of 22 suppliers have a `user_id` at all, none of whom has asked. If ever wanted,
+it ships with `and app.belongs_to_org(...)` on that branch from the first line.
+
+**Verified live: 30 rows, 22/5/3 by entity, 5 chains, Margean's expiry at 2026-12-31, 5 open-ended,
+10 values, 3 signed-with-no-date.** 25 suite assertions including a sabotage that adds
+`finance.operations.*` to the policy and flips Laura's "reads nothing" — plus two controls proving
+the fixture account really holds `finance.operations.*` and really lacks `finance.reporting.*`,
+without which "sees zero" could be a mis-specified fixture rather than a working boundary.
+
+**Still blocked, unchanged:** `trainer_contracts` and its 9 rows. `initial_grade_level` is NOT NULL
+and the register carries no grade for anyone (item 105 above).
+**Lives in:** `supabase/migrations/202610120009`, `202610120010` and both rollbacks;
+`scripts/generate_supplier_contract_import.py`; `db/tests/supplier_contracts.sql`;
+`docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §3.3 (deviated from), §4, §5, §7; item 105 above
+(the blocker this clears, and the five frozen `service_type` values still open); item 107 above (the
+cross-org branch not replicated); item 110 above (Anca closing supplier-contract access).
+
+---
+
+### 128. Admin rates built — and the uplift is 11%, not the 11.1% this project has been writing down
+
+2026-10-12. `202610120011` (two tables and a resolver) and `202610120012` (the 12 rates), applied
+and verified. Closes the figures half of item 111 above.
+
+**THE ARITHMETIC FINDING, because it corrects several places at once.** Asked to set a tolerance on
+a CHECK that verifies the uplift, the obvious answer was "wide enough for both rows". Measured
+instead, in exact decimal:
+
+| net | ×1.11 (11%) | ×1.111 (11.1%) | stored |
+|---|---|---|---|
+| 50 | **55.50 — exact** | 55.550 | 55.50 |
+| 72 | **79.92 — exact** | 79.992 | 79.92 |
+| 100 | **111.00 — exact** | 111.100 | 111 (item 95 above's trainer grade 1) |
+
+**Three independent rate sets land on ×1.11 exactly and none lands on ×1.111.** So the uplift is
+**11%**, the two rows do **not** imply different rounding, and **the tolerance is zero** — a slack
+allowance would only stop the constraint catching what it exists for.
+
+**This project has been calling it 11.1% in writing throughout** — item 95 above, item 111 above,
+`202609240001`'s comments and `202609250001`'s. **The label is wrong; the data was always right.**
+Those migrations are not rewritten: they record what was believed when written. Anyone reading
+"11.1%" anywhere in this repo should read 11%.
+
+**Shape: ONE table with a discriminator, under one versioned header** — not one flat table, and not
+two tables. The two shapes are keyed differently rather than merely shaped differently (Anka's by
+`(person, task_category)`, Margean's by `(person, word band)`), so a flat table with both keys
+nullable admits four states of which two are meaningless — SAD §4's own objection to a polymorphic
+discriminator on `contracts`, at smaller scale. Two tables was the runner-up and would have cost two
+versioning headers, two resolvers and two policies that must stay identical. `rate_kind`
+(`hourly | per_article | per_newsletter`) plus a shape CHECK makes the wrong combinations
+**unrepresentable**.
+
+**The FINAL-vs-uplifted distinction is in the data, not a comment — three columns and two CHECKs:**
+
+| | `amount` (invoiced) | `net_amount` | `is_uplift_applied` |
+|---|---|---|---|
+| Anka: admin / ateliere / financiar | 80 / 80 / 90 | **null** | false |
+| Margean: 4 bands + newsletter | 100 / 150 / 250 / 350 / 150 | **null** | false |
+| Laura, Teodora, Alexandra | 55.50 | 50 | true |
+| Cătălina | 79.92 | 72 | true |
+
+`amount` is always the invoiced figure. `net_amount` is populated **only** where an uplift applied,
+which makes `is_uplift_applied` redundant by construction and therefore checkable:
+`is_uplift_applied = (net_amount is not null)` and `amount = round(net_amount * 1.11, 2)`.
+**That is what stops someone adding 11% to Anka's 80: her row has no net figure to uplift from, and
+a row claiming an uplift that does not reconcile is rejected.** Asserted both ways in the suite —
+`50 → 55.55` is refused, `50 → 55.50` accepted — with a sabotage that drops the reconcile CHECK and
+flips the refusal.
+
+The resolver returns the **invoiced** figure and never the net, so a caller cannot uplift by
+accident. Two-step like the six pay-grid resolvers, raising on an incomplete version instead of
+falling back to an older value. `SELECT`/`INSERT` grants only, no `UPDATE`: a correction is a new
+version.
+
+**Anka's three categories, her words, in the column comment:** admin = everything administrative but
+not financial; ateliere = workshop organisation plus sales and ActiveCampaign; financiar =
+accounting and financial statements. That is the mapping item 105 above recorded as open.
+
+**One miscount worth keeping:** the seed's own guard refused the first run — *"expected 13 rates,
+found 12"* — because 3 + 4 + 1 + 4 = 12 and the assertion said 13. The data was right and the
+assertion wrong, which is the guard doing its job on the migration that contains it.
+
+**Not built, deliberately:** the hours-entry screen. Rates first.
+**Lives in:** `supabase/migrations/202610120011`, `202610120012` and both rollbacks;
+`db/tests/admin_rates.sql`; `app.resolve_admin_rate`; item 111 above (the figures and their
+provenance); item 95 above (the trainer grid this mirrors, and the "11.1%" label it carries);
+item 112 above (the entity attribution these hours will also need); item 130 below (why the
+hours-entry screen cannot key pay on the person).
+
+---
+
+### 130. Cătălina is the first person with both a trainer grade and an admin rate — the hours-entry screen cannot key pay on the person
+
+2026-10-12, found while seeding item 128 above's rates and recorded rather than solved.
+
+**She has both.** A trainer grade since `202609240002` (one of the ten Anca supplied), and now an
+admin rate of 72 net / 79.92 invoiced — a figure that appears in no earlier record in this project
+(item 111 above). Nobody else is in both tables: the other three uplifted admins hold no trainer
+grade, and the ten graded trainers hold no admin rate.
+
+**So "what is this person paid" has no answer, and that is the constraint on the screen that does
+not exist yet.** An hours-entry form that resolves pay from the person alone would, for her, pick
+one of two correct rates arbitrarily — and the two resolvers disagree by design:
+`app.resolve_trainer_grade_rate` answers through her grade and `app.resolve_admin_rate` through her
+task category. **The hour has to carry its own kind**, and the rate resolves from the kind rather
+than from who worked it.
+
+Two further things that follow, so the shape is not rediscovered:
+
+- **Her admin rate is `task_category = 'admin'` only.** She has no `ateliere` or `financiar` rate,
+  so an admin hour of hers in either of those categories resolves to nothing —
+  `app.resolve_admin_rate` raises, correctly, rather than falling back to her one category. Whether
+  she should have the other two is a question for Anca, not a gap to fill by copying 79.92 across.
+- **The same hour also needs a legal entity** (item 112 above), and the entity question is
+  independent of the kind question. A screen that solves one and not the other produces a priced
+  hour nobody can invoice.
+
+**Blocked on:** nothing to decide yet — this is a constraint to honour when the hours-entry screen
+is specified, not an open question.
+**Re-verify when:** that screen is designed. The test to write first is Cătălina's: two hours, one
+trainer and one admin, on the same day, priced differently and correctly.
+**Lives in:** item 128 above (her admin rate); item 95 above (her trainer grade, seeded with nine
+others); item 111 above (the rate's provenance and the FINAL-vs-uplifted split); item 112 above (the
+entity half of the same hour); `app.resolve_admin_rate` and `app.resolve_trainer_grade_rate` (the
+two answers).
 
 ---
 
