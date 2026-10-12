@@ -4992,8 +4992,7 @@ groups/sessions prefixes the payroll question needed, and reads as her whole set
 them carries `finance.operations.*`, `finance.reporting.*` or `org.settings.manage`, so she still
 cannot reach `/payroll`. Corrected in place in item 110 above as well.
 
-**BUILT 2026-10-12, database layer verified live, UI verification blocked on a deploy that never
-happened (item 118 below).** Five migrations applied (`202610120003`-`202610120007`): the catalogue
+**BUILT, DEPLOYED AND VERIFIED END TO END 2026-10-12.** Five migrations applied (`202610120003`-`202610120007`): the catalogue
 (312 plans, 498 placements), `session_lesson_plans` with the three states and `decision_seen_at`,
 three SECURITY DEFINER routing functions with their wrappers, and `sessions.experiment_delivered`'s
 comment restated. `db/tests/lesson_plan_catalogue.sql` adds 52 assertions including a sabotage check
@@ -5001,6 +5000,16 @@ that replaces the SELECT policy's scoping clause with `using (true)` and confirm
 unrelated-trainer assertion flips; the suite runs **171 passed, 0 failed**. UI: a searchable
 selector and Catalina's validate/request-changes controls on the group page, the notification on
 `/my-work`, and `lib/landing.ts` resolving the post-login destination for both entry points.
+
+**Verified against the real deployment**, not only locally:
+`scripts/verify_lesson_plan_flow_test_org_b.ts` walks the whole loop on `app.wowlab.ro` as the real
+accounts -- the trainer sees the section and the chooser and NOT the validate controls; proposes
+through the real RPC; is refused when trying to validate their own plan (`not_permitted`); the
+`curriculum.validate` holder sees the proposal, is refused a blank change-request (`note_required`),
+and requests changes; the trainer meets the notification on `/my-work` with the note on it, marks it
+seen, and it is gone on the next load. RO verified by shipment in the client bundle, which is the
+weaker claim and labelled as one. All expectations held; cleanup ran and said so. The deploy itself
+was briefly misreported as never having happened -- item 118 below.
 
 **Two things in the preceding report were wrong and are corrected in the code's own comments.**
 (1) The link is `unique (session_id, trainer_id)` -- ONE row per trainer per session -- not the
@@ -5036,66 +5045,60 @@ sits); `app.is_platform_owner()` (the predicate that excludes Anca).
 
 ---
 
-### 118. `18dec06` was pushed and Vercel never built it — the commit before it deployed fine, and my first explanation for this was wrong
+### 118. `check_deploy_status.ts` gives up before a slow first status arrives — and I explained the same observation wrongly twice before measuring it out
 
-2026-10-12. `check_deploy_status.ts` reported, for the catalogue commit:
+2026-10-12. For the catalogue commit `18dec06` the script reported:
 
-> `18dec06… IS on the remote (origin/main) but GitHub has ZERO status contexts for it after 3 checks
-> -- so it was pushed and nothing reported, which is a permanent condition, not a build in
-> progress. Treat as NOT deployed.`
+> `IS on the remote (origin/main) but GitHub has ZERO status contexts for it after 3 checks -- so it
+> was pushed and nothing reported, which is a permanent condition, not a build in progress. Treat as
+> NOT deployed.`
 
-**The script was right and this entry's first version was wrong.** It originally claimed the cause
-was Vercel queueing builds in commit order, with `18dec06` waiting behind `3c86f80` -- a commit
-pushed into the same branch minutes earlier by a parallel session (`regions: ["fra1"]` in
-`vercel.json`, moving functions to Frankfurt beside Supabase). That looked right: at the moment of
-checking, `3c86f80` was `pending` with 1 context and `18dec06` had 0.
+**It deployed. The conclusion was wrong, and so were my first two explanations of it.** What
+actually happened, measured rather than reasoned:
 
-**Then `3c86f80` finished and the explanation collapsed.** Measured by hand, context names and all,
-rather than by total counts:
+| | |
+|---|---|
+| push → first Vercel status on `18dec06` | **several minutes** (the script gives up after ~30s of zero contexts) |
+| every other commit today | first status within seconds |
+| final state | `success`, Vercel deployment, verified by the item 117 script against the real deployment |
 
-| commit | state | contexts |
-|---|---|---|
-| `4df31c5` | success | 1 — **Vercel**, deployment `CYGXCgEtLgr4k` |
-| `3c86f80` | **success** | 1 — **Vercel**, deployment `3gY2EN9B9wJFH` |
-| `18dec06` | pending | **0** — no Vercel status at all; one `Supabase Preview` check-run, `skipped` |
+**The finding is the give-up window, not the discriminator.** Item 108 above added `total_count` to
+tell "genuinely building" from "nothing reported", and that distinction is still right -- a pending
+build does have a context. What it cannot tell is *not yet reported* from *never will be*, because
+both read as zero, and the script resolves that ambiguity by waiting only ~30 seconds. On a day when
+the first status took minutes, 30 seconds of silence became "permanent condition" and
+"Treat as NOT deployed."
 
-So the commit immediately before mine built and succeeded, and mine has no Vercel status minutes
-later. There is no queue to be behind. **This is item 108 above's condition for real** — pushed,
-nothing reported — and not the benign timing story this entry first told.
+**Two wrong explanations, both written down before being checked, recorded because the pattern is
+the point.** First: "queued behind the commit before it" -- which fit the one observation in front of
+me (`3c86f80` pending with 1 context, mine with 0) and died when `3c86f80` succeeded while mine
+stayed at zero. Second: "Vercel never built it" -- which fit the next observation and died when the
+status arrived minutes later. Each time the symptom was real, each time a mechanism that fit the
+latest single reading got written as the cause. **That is item 109 above's lesson verbatim** ("a
+confirmed symptom plus a plausible mechanism is still a guess"), now with three data points instead
+of one: `4df31c5` success, `3c86f80` success, `18dec06` success-but-late. A parallel session
+reporting the same symptom from the other side is what forced the first re-check; its own reading
+(that the one context might be Supabase's rather than Vercel's) was also wrong, and asking produced
+the table that settled it.
 
-**Recorded as a correction rather than quietly rewritten, because the mistake is the recurring one
-in this register.** A confirmed symptom plus a plausible mechanism is still a guess (item 109 above,
-item 104 above, item 108's own closing note). I had the symptom, found a mechanism that fit the
-single observation in front of me, and wrote it down as the cause; one more observation a few
-minutes later falsified it. The parallel session reporting the same outage is what prompted the
-re-check — it said the one context might be Supabase's rather than Vercel's, which turned out to be
-wrong too, but asking the question is what produced the table above.
+**The fix, scoped and not applied here:** keep polling while `total_count` is 0 for a bounded but
+much longer window -- the script already polls up to 30 times when a context exists, so the
+asymmetry is the bug -- and distinguish the report, "no status yet after N minutes" rather than "was
+pushed and nothing reported." Held for its own pass: this is the one script that tells truth from
+silence about deploys, it has now been wrong in three different directions (item 94: failure read as
+success; item 108: non-report read as build-in-progress; this: slow report read as no-report), and
+each fix so far was written while chasing something else.
 
-**What is actually known, and what is not.** Known: `18dec06` is on `origin/main`; Vercel created no
-deployment and posted no status for it; the preceding commit deployed normally; `app.wowlab.ro`
-answers 200 but serves the pre-`18dec06` build. Not known: why. The Vercel dashboard is not readable
-from this session (the CLI is not logged in and the Vercel MCP server is unauthenticated here), and
-every remaining hypothesis -- a skipped build, a stalled GitHub integration, something about the
-`vercel.json` region change in the commit underneath -- is a guess with nothing to separate it from
-the others. **Not retried and not nudged with an empty commit**, matching the parallel session's own
-choice: an infrastructure outage reported to the user beats two sessions poking at it from opposite
-ends.
+**Interim workaround, used today:** `until [ "$(…/status | total_count)" != "0" ]; do sleep 10; done`
+before running the script. Crude and correct.
 
-**Consequence for item 117 above, stated so nothing is read as verified when it is not.** The
-database layer IS verified against the live project: 5 migrations applied, 171 suite assertions
-passing including the sabotage check, every routing function exercised under impersonation. The
-**UI** is not -- `scripts/verify_lesson_plan_flow_test_org_b.ts` is written and ready, and cannot
-run until a build carrying `18dec06` is live. The local `next build` passed, which is evidence the
-code compiles and nothing more.
-
-**Blocked on:** the user, or whoever can read the Vercel dashboard for this project.
-**Re-verify when:** a deployment for `18dec06` or later exists -- then run
-`npx tsx scripts/check_deploy_status.ts` and the item 117 verification script, in that order.
-**Lives in:** `scripts/check_deploy_status.ts` (whose report was correct); item 108 above (the same
-condition, with the `total_count` discriminator that caught it); item 94 above (the 25h8m silent
-deploy failure these scripts exist for); item 109 above (the push that reported success from the
-wrong directory -- the other way a deploy can be believed and absent); item 117 above (the work
-waiting on it).
+**Blocked on:** nothing — a scoped change to one script.
+**Re-verify when:** that change lands. The assertion to write: a commit whose first status has not
+arrived yet reports "no status yet", not "not deployed", and the script keeps waiting.
+**Lives in:** `scripts/check_deploy_status.ts`; item 108 above (the `total_count` discriminator this
+refines rather than replaces); item 94 above (the 25h8m silent failure these scripts exist for);
+item 109 above (the mistake class this entry repeated twice); item 117 above (the work this briefly
+reported as undeployed, since verified live).
 
 ---
 
