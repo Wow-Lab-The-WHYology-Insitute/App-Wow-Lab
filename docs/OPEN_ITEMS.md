@@ -597,6 +597,24 @@ answered, not only what is outstanding.
 
 ---
 
+**9. Munca Ralucăi Margean — intră în aplicație sau nu?** — item 73 below. *New 2026-10-12.*
+
+> Raluca nu lucrează pe ore. E plătită pe articol și pe newsletter, prin drepturi de autor, nu pe
+> factură. Ecranul de ore nu are cum să o cuprindă.
+>
+> Vrei ca munca ei să intre în aplicație — cineva înregistrează fiecare articol cu numărul de
+> cuvinte, și tariful rezultă din asta — sau rămâne în afară, așa cum e și sistemul celor care scriu
+> planurile de lecție?
+
+Why it is hers to answer: it decides whether a second table exists at all. `admin_hours` cannot hold
+her work, and `admin_rates` already splits her into `per_article`/`per_newsletter` rows because her
+unit is not an hour. **Context worth sending with it:** her July request grouped Raluca with Anka
+and Laura as *"echipa admin-only"*, and that grouping has now turned out wrong for the second time —
+item 22 below records the first, where the same grouping was the evidence that correctly refuted
+calling her a trainer.
+
+---
+
 **4. Grila de evaluare a performanței** — item 23 below. Six points with no confirmed design.
 
 **5. Cele cinci sume rămase din grile** — item 20 below.
@@ -1463,8 +1481,87 @@ nothing here has checked.
 
 **Blocked on:** a re-confirmation with Anca that the 2026-08 figures (or a fresh set) still apply,
 then ordinary construction — no design blocker beyond that.
+
+---
+
+**UPDATED 2026-10-12. The rates now exist (item 128 below). Three things about the screen itself,
+none of which was visible when this entry was written.**
+
+**1. The grouping in the first line of this entry is wrong, and it is the SECOND time.**
+*"an admin-overhead cost-tracking module for Anka/Laura/Raluca"* comes from Anca's July request
+(`docs/progress.md` #128: *"echipa admin-only: Anka, Laura, Raluca Margean"*). **Raluca Margean is
+not admin overhead.** She is a content supplier: paid per article and per newsletter, through
+`drepturi de autor` rather than an invoice, with a `CONTRACT DE CESIUNE A DREPTURILOR DE AUTOR` in
+the supplier register — and this app already models her that way, with a `suppliers` row and three
+`supplier_contracts` rows (item 127 below).
+
+**The first time was item 22 below, and the two mistakes are linked in a way worth seeing.** Item 22
+records that the proposal to give her a `trainer` role *"was directly contradicted"* by the
+evidence — and the evidence used to refute it was **this very grouping**: she was *"grupată explicit
+ca «echipa admin-only», absentă din rosterul de traineri"*. So the admin-only grouping was the
+argument that correctly rejected "trainer", and it is now itself wrong. **She has been mis-filed
+twice, and the second mis-filing is what justified rejecting the first** — which is why the right
+response to "she is not X" is not "therefore Y", and why item 22's own decision (give her no role at
+all rather than guess one) was better than either label. That decision now reads as the only one of
+the three that has held.
+
+**What follows for the schema: `admin_hours` has no shape that holds her work.** Hours × a category
+× a rate does not describe an article with a word count, and `admin_rates` already splits her into
+`per_article`/`per_newsletter` rows precisely because her unit is not an hour (item 128 below). So
+either something records each article with its word count and the tier follows, or her work stays
+outside the app the way the lesson-plan writers' payments do. **That is a question for Anca —
+question 9 in "Questions waiting on Anca" above** — and it is hers rather than ours because it
+decides whether a second table exists at all.
+
+**2. Who the screen is actually for — for us to know, not to ask.** Of the three people this module
+was framed around, **two will not use it**: Anka works through Toggl plus a monthly PDF to Anca for
+approval (`progress.md` #128), and Anca herself is salaried (`progress.md` #128: *"Anca-salariat"*).
+Raluca is question 9. **So the first real users are Laura Moale, Teodora Merișan and Alexandra
+Nuțu** — the three people on the 50 → 55.50 uplifted rate (item 128 below), none of whom is named
+in the original request.
+
+**Does that change the screen, or only who to ask about it?** Mostly the second, and the distinction
+matters:
+
+- **It does not change the shape.** All three are on a single hourly rate in one category (`admin`),
+  so the row is the same row: person, date, minutes, category, a required `legal_entity_id`
+  (item 112 below), a note.
+- **It does change who to design it with.** The request was framed around Anka, whose workflow is
+  Toggl-shaped — detailed tracking elsewhere, a monthly summary for approval. Designing for that and
+  handing it to three people who have no Toggl habit is how a screen gets built for the wrong
+  motion. Laura, Teodora and Alexandra should be asked how they record hours today, before layout.
+- **And it changes the volume assumption.** Three occasional admin contributors generate far fewer
+  rows than one full-time administrator, which makes the simplest possible form adequate for longer
+  than the original framing implied.
+- **One thing it does change about the shape, slightly:** Anka remains the likeliest person to need
+  the `ateliere` and `financiar` categories, and she is the one who will not use the screen. So the
+  category select will, in practice, offer `admin` only to everyone who actually types into it. Worth
+  not over-building the category dimension for a population that has one.
+
+**3. The month-close gate is a DECISION, not an inheritance.** Trainer hours lock when payroll
+closes — `app.rpc_update_session_attendance` refuses on a closed month, and
+`202609150002` extended the same branch to confirmations because *"a trainer cannot modify anything
+afterwards"* is unqualified. **Admin hours sit next to that code and must not acquire the gate by
+proximity.** That exact failure nearly happened in the other direction: item 117 below's validator
+function was written beside the month-gated one and had to be given an explicit comment saying *do
+not copy the `payroll_periods` lookup into this function*, because validation precedes delivery and
+feeds no pay figure.
+
+**The reading, stated so it can be argued with rather than assumed: yes, admin hours should lock.**
+It is the same payroll month and the same invoice — these hours are billed by the same people
+through the same monthly cycle, and an hour added after the month closed either misses its invoice or
+forces a correction to one already sent. That is the thing the trainer gate exists to prevent, and
+the reason applies unchanged. **But it must be decided and written, not inherited**: the two
+functions will sit in the same file, the lookup is three lines, and "it was next to the other one" is
+not a reason.
+
+**Blocked on:** question 9 for Raluca's half; nothing for the Laura/Teodora/Alexandra half beyond a
+deployment (item 126 below).
 **Lives in:** `docs/phase1-development-plan.md` row 6 (superseded, see item 75 below);
-`docs/progress.md` #42-43 (the original rate confirmation and correction).
+`docs/progress.md` #42-43 (the original rate confirmation and correction) and #128 (the July request,
+the Toggl workflow and *"Anca-salariat"*); item 128 below (the rates); item 112 below (the required
+legal entity); item 130 below (the hour must carry its own kind); item 22 below (the first
+mis-filing); item 127 below (where she is modelled correctly, as a supplier).
 
 ---
 
