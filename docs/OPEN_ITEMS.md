@@ -5661,6 +5661,27 @@ mistakes them for a result.** `app.wowlab.ro` was still serving the previous bui
 spread (534–967). **No improvement has been measured. The function is proven; the path through it
 is not.**
 
+**It failed twice, deterministically, and in TEN SECONDS — which rules out the whole class of cause
+I would otherwise have guessed at.** Measured from GitHub's own timestamps:
+
+| commit | push → verdict | outcome |
+|---|---|---|
+| `674b238` | **63 s** | success — a real build of this app takes about a minute |
+| `767a479` | **10 s** | failure |
+| `d6883f3` | **~10 s** | failure (a docs-only commit, so not this change's code at all) |
+
+A build that compiles this app takes ~60 seconds; one that fails in 10 has not reached TypeScript or
+ESLint. **So the failure is not in the code being compiled** — which is independently corroborated
+by `d6883f3` failing identically while touching nothing but `docs/OPEN_ITEMS.md`, and by two clean
+local builds including one from a deleted `.next`. Something rejects the deployment before or very
+early in the build.
+
+**What it is remains unnamed on purpose.** A quota, a plan limit, a project setting and a billing
+state would all look exactly like this from here, and today saw an unusually high number of
+deployments — which is circumstantial and nothing more. Item 118 above is the entry about writing
+down a cause that fit the evidence in front of me and then watching it die twice; the 10-second
+figure is evidence, "therefore it is the daily deployment cap" would be a guess.
+
 **Blocked on:** a successful deployment of `767a479` or later — then re-run
 `npx tsx --env-file=.env.local scripts/measure_landing_path.ts "AFTER"` and the three-account UI
 verification. Whoever can open the Vercel dashboard can read why it failed in one click:
