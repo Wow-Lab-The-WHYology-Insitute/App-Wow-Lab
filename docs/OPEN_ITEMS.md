@@ -1547,16 +1547,39 @@ function was written beside the month-gated one and had to be given an explicit 
 not copy the `payroll_periods` lookup into this function*, because validation precedes delivery and
 feeds no pay figure.
 
-**The reading, stated so it can be argued with rather than assumed: yes, admin hours should lock.**
-It is the same payroll month and the same invoice — these hours are billed by the same people
-through the same monthly cycle, and an hour added after the month closed either misses its invoice or
-forces a correction to one already sent. That is the thing the trainer gate exists to prevent, and
-the reason applies unchanged. **But it must be decided and written, not inherited**: the two
-functions will sit in the same file, the lookup is three lines, and "it was next to the other one" is
-not a reason.
+**DECIDED 2026-10-12, Mihai: admin hours LOCK when the payroll month closes.** Same month, same
+invoice, same reason as the trainer gate — these hours are billed by the same people through the
+same monthly cycle, and an hour added after the month closed either misses its invoice or forces a
+correction to one already sent. That is precisely what the trainer gate prevents, and the reason
+transfers unchanged.
+
+**Written as a decision rather than inherited, and that distinction is the point of recording it.**
+The two functions will sit in the same file and the `payroll_periods` lookup is three lines, so the
+gate would have arrived by copy-paste whether or not anyone had thought about it. **Proximity is not
+an argument in either direction** — item 117 below's validator is the counter-example on the same
+file: it sits beside the month-gated function, needed the opposite answer, and carries an explicit
+*"do not copy the `payroll_periods` lookup into this function"* for exactly that reason. Two
+functions, adjacent, opposite answers, both correct — and neither derivable from where it sits.
+
+So when the hours-entry write path is built, its month-close refusal is implemented **because of
+this decision**, cited here, and not because the function above it has one.
 
 **Blocked on:** question 9 for Raluca's half; nothing for the Laura/Teodora/Alexandra half beyond a
 deployment (item 126 below).
+
+**BUILD ORDER once the Git link is repaired, decided 2026-10-12** — recorded because by then the
+reasons will have gone quiet:
+
+1. **The admin hours screen**, and *designed with Laura, Teodora and Alexandra* rather than for a
+   Toggl-shaped workflow. The request was framed around Anka, who will not use it; the three who
+   will have no Toggl habit, and building for the wrong motion is the specific risk this ordering
+   exists to avoid. Ask them how they record hours today, before layout.
+2. **The supplier contracts view** — 30 rows live since today with no screen (item 127 below).
+3. **The lesson-plan selector's next iteration** (item 110 below).
+
+First because it is the one with a decided shape, a decided gate and no open question for the people
+who will use it. Third because the selector already works and iterating it is improvement rather
+than absence.
 **Lives in:** `docs/phase1-development-plan.md` row 6 (superseded, see item 75 below);
 `docs/progress.md` #42-43 (the original rate confirmation and correction) and #128 (the July request,
 the Toggl workflow and *"Anca-salariat"*); item 128 below (the rates); item 112 below (the required
