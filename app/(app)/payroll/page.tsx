@@ -150,7 +150,18 @@ export default async function PayrollPage() {
     } else if (gradesReadable) {
       for (const trainerId of slots) {
         if (gradeOnDate(trainerId, s.session_date) === null) {
-          reasons.push({ key: "no_grade", name: nameById.get(trainerId) ?? "Unknown" });
+          // The name, or no name -- never "Unknown". A slot is a plain FK to
+          // users with no role requirement, and `users`' own SELECT policy
+          // only admits TRAINER names to finance/ops viewers (202609160001),
+          // so a non-trainer allocated to a workshop resolves to nothing here.
+          // Printed as "Unknown has no grade effective on this date" that
+          // sentence is worse than naming the column: it names nobody and
+          // tells the closer nothing. Item 66's rule, applied to a message
+          // rather than to a header: when the name is not readable, say what
+          // IS known and stop. Measured, not hypothetical -- this is what the
+          // first run of the verification script rendered.
+          const name = nameById.get(trainerId);
+          reasons.push(name ? { key: "no_grade", name } : { key: "no_grade_unnamed" });
         }
       }
     }

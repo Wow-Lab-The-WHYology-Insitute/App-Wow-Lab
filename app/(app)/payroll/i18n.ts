@@ -96,4 +96,11 @@ export const payrollDict: Dictionary = {
     en: "{{name}} has no grade effective on this date",
     ro: "{{name}} nu are un grad valabil la această dată",
   },
+  // The same fact when the viewer cannot read that person's name. Not
+  // "Unknown has no grade" -- that sentence names nobody and is less
+  // actionable than naming the column it was written to avoid naming.
+  unpriceable_no_grade_unnamed: {
+    en: "someone allocated to this workshop has no grade effective on this date, and their name is not visible to your role",
+    ro: "o persoană alocată acestui atelier nu are un grad valabil la această dată, iar numele ei nu este vizibil pentru rolul tău",
+  },
 };
