@@ -5596,6 +5596,83 @@ test this was); item 123 above (the guard that made the failure silent rather th
 
 ---
 
+### 125. The landing path cost nine round trips; it now costs one — and the deploy carrying it FAILED, so the after-measurement does not exist yet
+
+2026-10-12. The post-sign-in destination (the rule in item 114 above's sibling, `lib/landing.ts`)
+resolved by looking up the caller's memberships and then calling `has_capability` once per
+capability, sequentially, over the network.
+
+**Measured before building, warm median of five, against the real deployment**
+(`scripts/measure_landing_path.ts`, new — times `/auth/callback` with `redirect: "manual"`, so the
+destination page's own render is excluded):
+
+| account | before | destination | why |
+|---|---|---|---|
+| **trainer** | **660 ms** | `/my-work` | the only account that cannot short-circuit: `mywork.*` matches, then **all eight** "beyond own work" keys must come back false |
+| owner | 295 ms | `/profile` | exits on the first beyond-key |
+| ops manager | 274 ms | `/profile` | exits immediately — no `mywork.*` at all |
+
+**Built: two functions, and the rules do not change.** Both call the existing `app.has_capability`
+once per key, deliberately rather than expressing the same thing as one widened `IN` list —
+`app.has_capability` is where the wildcard rule and the `is_platform_owner` OR live, and a second
+query shaped like it would be a second definition of "has" that can drift from the first.
+
+- **`app.has_any_capability(caps[], org)`** — the primitive. Fails closed on a null array, an empty
+  array, a null organization and an unknown key, each asserted.
+- **`app.resolve_landing_flags(mywork_cap, beyond_caps)`** — both answers across **every**
+  organization the caller belongs to, which is what also removes the app's own `user_org_roles`
+  lookup. **It takes no user parameter**, and that is the security property: it is `SECURITY
+  DEFINER`, so a user-id argument would let any signed-in caller ask where somebody else lands and
+  probe another person's capabilities one array at a time. The subject is always
+  `app.current_user_id()`; with no session both answers are false and the app sends the caller to
+  `/profile`, the fail-closed direction.
+
+**The capability list stays in `lib/landing.ts` and is passed in**, rather than copied into SQL. It
+belongs beside the comment that says it must grow when a nav group is added — item 114 above's
+shape — and a copy in the database would be a second place to forget.
+
+**The callback's second `getUser` is gone.** `verifyOtp` already returns the user it just
+authenticated; the previous version asked the network again for an answer it was holding.
+
+**Verified, and precisely what is NOT.**
+
+- `db/tests/landing_flags.sql`: **13 assertions** over the three real account shapes and every
+  degenerate input, **with a sabotage that grants `clients.read` to the `trainer` role** and
+  confirms the trainer's "beyond" answer flips. Without it, "the trainer answers false" would pass
+  identically if the function ignored its argument and hardcoded false. Suite: **184 passed, 0
+  failed**.
+- Through PostgREST, with real magic-link tokens, as all three accounts: trainer
+  `{has_mywork: true, has_beyond: false}` → `/my-work`; owner `{true, true}` → `/profile`; ops
+  manager `{false, true}` → `/profile`. One round trip each.
+- **NOT verified: anything about the deployed app, and the after-measurement.**
+
+**The deploy failed, and this entry does not pretend otherwise.** Commit `767a479` built cleanly
+locally **twice**, including once from a deleted `.next`, and `check_deploy_status.ts` reported
+`failure` for deployment `dpl_CvmttRcMW8cVfcAnz4iGt7PXdmsi`. The two commits immediately before it
+(`8b85510`, `674b238`) both succeeded minutes earlier. The only check-run on the commit is
+`Supabase Preview / skipped`, which is not a cause. **The Vercel build log cannot be read from this
+session** — the CLI is not logged in and the Vercel MCP server is unauthenticated here — so every
+hypothesis about why is a guess, and item 118 above records what happens when one of those gets
+written down as a cause.
+
+**The after-numbers taken while that was true are void, and are recorded here only so nobody
+mistakes them for a result.** `app.wowlab.ro` was still serving the previous build, so the 588 /
+237 / 212 ms observed are the OLD code path: 588 ms for the trainer sits inside the before-run's own
+spread (534–967). **No improvement has been measured. The function is proven; the path through it
+is not.**
+
+**Blocked on:** a successful deployment of `767a479` or later — then re-run
+`npx tsx --env-file=.env.local scripts/measure_landing_path.ts "AFTER"` and the three-account UI
+verification. Whoever can open the Vercel dashboard can read why it failed in one click:
+`npx vercel inspect dpl_CvmttRcMW8cVfcAnz4iGt7PXdmsi --logs`.
+**Lives in:** `supabase/migrations/202610120008_add_has_any_capability_and_landing_flags.sql` and its
+rollback (applied); `lib/landing.ts`; `app/auth/callback/route.ts`; `app/page.tsx`;
+`db/tests/landing_flags.sql`; `scripts/measure_landing_path.ts`; item 114 above (the stale-list shape
+the capability list is commented against); item 118 above (the deploy-reporting entry, and the
+warning against naming a cause you cannot see).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
