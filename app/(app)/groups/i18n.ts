@@ -56,6 +56,15 @@ export const groupsDict: Dictionary = {
   // the other thirteen follow. Label mirrors its sibling `doctor`; the
   // source sheet's own "I want to be a VET" is not the house style.
   module_vet: { en: "I Wanna Be a Vet", ro: "I Wanna Be a Vet" },
+  // Module 15, added 2026-10-12 (item 110) -- the set is now complete.
+  // Anca closed the standing objection (its six plans are shared with
+  // `doctor`) by confirming that a plan belonging to several modules is
+  // the designed shape of this catalogue, not a duplicate. Label follows
+  // `Modul ANATOMY` -> "Anatomy", the same rule `module_astronomy` used,
+  // NOT its siblings doctor/vet -- their "I Wanna Be a ..." labels come
+  // from their sheets literally being that phrase. Identical in both
+  // languages, like every module label above.
+  module_anatomy: { en: "Anatomy", ro: "Anatomy" },
 
   // Anca's nine workshop types (2026-09-21, item 79/85), replacing the
   // prior six-value working list, plus custom restored as a tenth on

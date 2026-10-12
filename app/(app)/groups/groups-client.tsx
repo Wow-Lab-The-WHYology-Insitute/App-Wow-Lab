@@ -49,13 +49,17 @@ const MODULE_KEYS = [
   "detective",
   "astronomy",
   "doctor",
-  // Module 14 (item 105). Appended last, like `custom` in FORMAT_KEYS --
-  // the thirteen are the August-confirmed set in their own order; vet is
-  // the later addition and reads as one. Matches the CHECK constraint in
-  // 202610070001. NOTE: the module FILTER is data-driven
-  // (moduleOptions, line ~306), so vet appears there only once a group
-  // uses it -- this array drives the create form only.
+  // Modules 14 and 15 (items 105, 110). Appended last in the order they
+  // were confirmed, like `custom` in FORMAT_KEYS -- the thirteen are the
+  // August-confirmed set in their own order; vet (2026-10-07) and
+  // anatomy (2026-10-12) are the later additions and read as ones.
+  // Matches the CHECK constraint in 202610070001 and 202610120001. With
+  // anatomy the list is complete: 15 of 15, the count "13 din 15" has
+  // been pointing at since August. NOTE: the module FILTER is
+  // data-driven (moduleOptions, line ~306), so a key appears there only
+  // once a group uses it -- this array drives the create form only.
   "vet",
+  "anatomy",
 ];
 // Anca's nine workshop types (2026-09-21, item 79/85) plus custom,
 // restored as a tenth 2026-09-25 (item 102) -- see groups/i18n.ts.
