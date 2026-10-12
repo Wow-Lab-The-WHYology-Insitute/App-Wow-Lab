@@ -10,10 +10,21 @@ import {
 } from "./session-write-errors";
 
 export type ActionResult =
-  | { ok: true; id: string }
+  | { ok: true; id: string; firstWorkshopCreated?: boolean }
   | { ok: false; error: string };
 
 export type VoidActionResult = { ok: true } | { ok: false; error: string };
+
+// VOCABULARY, since this file says "workshop" to users and "sessions" to the
+// database in the same function. The interface was renamed 2026-10-12 (item
+// 120): RO atelier, EN workshop -- the words Anca and the trainers actually
+// use, and already the majority in both dictionaries before the rename.
+// public.sessions and everything keyed on it deliberately did NOT move: its
+// own RLS policies, four SECURITY DEFINER routing functions, row_history rows
+// already written under that table_name, app.calculate_session_pay and its
+// five resolvers, and 13 suite files all name it. A rename buys vocabulary
+// consistency and costs a migration touching every one of them, plus history
+// rows that would then disagree with the table they describe.
 
 // Same relationship as app/(app)/clients/actions.ts and app/(app)/contracts/
 // actions.ts: runs through the caller's own session client, so the G1 RLS
@@ -33,6 +44,10 @@ export async function addGroup(
   schoolYearCalendarLink: string,
   contractId: string,
   languageGroup: string,
+  // Opt-in, never silent. Defaulted ON by the form for the nine one-off
+  // formats (where schedulePattern IS a date) and OFF for
+  // scoli_private_recurente (where it is a weekly rhythm with no date in it).
+  createFirstWorkshop: boolean = false,
 ): Promise<ActionResult> {
   if (!clientId || !module || !deliveryFormat) {
     return { ok: false, error: "Client, module, and delivery format are required." };
@@ -79,8 +94,45 @@ export async function addGroup(
     return { ok: false, error: error?.message ?? "Could not create group." };
   }
 
+  // ---- The first workshop, if asked for (item 119) ----
+  // ONE workshop, never a series. A recurring club runs ~30 a year and
+  // generating those needs term dates, a holiday calendar and an end date,
+  // none of which exist here -- that is a scheduling feature nobody has
+  // specified. Generating the first one turns a field that produced nothing
+  // into a head start.
+  //
+  // Parsed, not trusted: schedulePattern is free text with no enforced
+  // grammar, and for a recurring group it holds "Tuesday 16:00", which has no
+  // date in it at all. If the leading token is not an ISO date this creates
+  // nothing and says so, rather than inventing "the next Tuesday" -- which
+  // would be a guess about when term starts.
+  let firstWorkshopCreated = false;
+  if (createFirstWorkshop) {
+    const trimmed = schedulePattern.trim();
+    const match = /^(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}))?$/.exec(trimmed);
+    if (match) {
+      const { error: sessionError } = await supabase.from("sessions").insert({
+        organization_id: orgId,
+        group_id: data.id,
+        session_date: match[1],
+        start_time: match[2] ?? null,
+        status: "planned",
+        // Everything else stays null on purpose. duration_minutes and
+        // location_tier are what the pay calculation needs and are NOT known
+        // at scheduling time -- location depends on which trainer is
+        // assigned, and nobody is assigned yet. /payroll's pre-close check
+        // (item 121) is where their absence surfaces, not here.
+      });
+      // A group that exists without its first workshop is a recoverable state
+      // (add the workshop by hand); a failed group creation is not. So this
+      // failure is reported through the flag, never by discarding the group.
+      firstWorkshopCreated = !sessionError;
+    }
+  }
+
   revalidatePath("/groups");
-  return { ok: true, id: data.id };
+  revalidatePath(`/groups/${data.id}`);
+  return { ok: true, id: data.id, firstWorkshopCreated };
 }
 
 // Same relationship as updateContract/updateClient: runs through the
@@ -119,6 +171,11 @@ export async function updateGroup(
   address: string,
   onSiteContactId: string,
   languageGroup: string,
+  // Added 2026-10-12 (item 119). It was writable at the database level all
+  // along -- authenticated has had UPDATE on this column since the table was
+  // created -- and simply had no control anywhere after creation, so a
+  // mistyped schedule could not be corrected without direct SQL.
+  schedulePattern: string = "",
 ): Promise<ActionResult> {
   const supabase = await createClient();
 
@@ -187,6 +244,7 @@ export async function updateGroup(
         address: address.trim() || null,
         on_site_contact_id: onSiteContactId || null,
         language_group: languageGroup || null,
+        schedule_pattern: schedulePattern.trim() || null,
       })
       .eq("id", groupId);
 
@@ -240,7 +298,7 @@ export async function addSession(
   locationTier: string,
 ): Promise<ActionResult> {
   if (!groupId || !sessionDate) {
-    return { ok: false, error: "Session date is required." };
+    return { ok: false, error: "Workshop date is required." };
   }
 
   const supabase = await createClient();
@@ -275,7 +333,7 @@ export async function addSession(
     .single();
 
   if (error || !data) {
-    return { ok: false, error: error?.message ?? "Could not create session." };
+    return { ok: false, error: error?.message ?? "Could not create workshop." };
   }
 
   revalidatePath(`/groups/${groupId}`);
@@ -381,7 +439,7 @@ export async function updateSessionAttendance(
     return { ok: false, error: error.message };
   }
   if (data === "not_found") {
-    return { ok: false, error: "Session not found, or not visible to your role." };
+    return { ok: false, error: "Workshop not found, or not visible to your role." };
   }
   if (data === "not_assigned") {
     return { ok: false, error: SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR };
@@ -448,7 +506,7 @@ export async function confirmSessionAttendance(
     return { ok: false, error: error.message };
   }
   if (data === "not_found") {
-    return { ok: false, error: "Session not found, or not visible to your role." };
+    return { ok: false, error: "Workshop not found, or not visible to your role." };
   }
   if (data === "not_assigned") {
     return { ok: false, error: SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR };
@@ -506,7 +564,7 @@ export async function correctSessionConfirmation(
     return { ok: false, error: error.message };
   }
   if (data === "not_found") {
-    return { ok: false, error: "Session not found, or not visible to your role." };
+    return { ok: false, error: "Workshop not found, or not visible to your role." };
   }
   if (data === "not_permitted") {
     return { ok: false, error: "Not permitted (requires finance.operations.*)." };
@@ -545,7 +603,7 @@ export async function proposeSessionLessonPlan(
     return { ok: false, error: error.message };
   }
   if (data === "not_found") {
-    return { ok: false, error: "Session not found, or not visible to your role." };
+    return { ok: false, error: "Workshop not found, or not visible to your role." };
   }
   if (data === "not_assigned") {
     return { ok: false, error: SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR };

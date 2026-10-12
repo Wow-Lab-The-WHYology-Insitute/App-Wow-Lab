@@ -64,8 +64,8 @@ export const paymentConfigDict: Dictionary = {
   // 2. location_bonuses
   section_location_bonuses_title: { en: "Location bonuses", ro: "Bonusuri de locație" },
   section_location_bonuses_subtitle: {
-    en: "Bonus percentage per tier. The tier itself is recorded per session by whoever enters it -- this grid only holds what each tier pays.",
-    ro: "Procentul de bonus per nivel. Nivelul se înregistrează per sesiune de către cine o introduce — grila asta ține doar cât plătește fiecare nivel.",
+    en: "Bonus percentage per tier. The tier itself is recorded per workshop by whoever enters it -- this grid only holds what each tier pays.",
+    ro: "Procentul de bonus per nivel. Nivelul se înregistrează per atelier de către cine o introduce — grila asta ține doar cât plătește fiecare nivel.",
   },
   tier_bucuresti: { en: "Bucharest", ro: "București" },
   tier_imprejurimi: { en: "Surroundings", ro: "Împrejurimi" },
@@ -75,8 +75,8 @@ export const paymentConfigDict: Dictionary = {
   // 3. language_bonuses
   section_language_bonuses_title: { en: "Language bonuses", ro: "Bonusuri de limbă" },
   section_language_bonuses_subtitle: {
-    en: "Bonus percentage per language group, recorded per session.",
-    ro: "Procentul de bonus per grup de limbă, înregistrat per sesiune.",
+    en: "Bonus percentage per language group, recorded per workshop.",
+    ro: "Procentul de bonus per grup de limbă, înregistrat per atelier.",
   },
   group_ro_en: { en: "Romanian or English", ro: "Română sau engleză" },
   group_fr_de_es: { en: "French, German, Spanish", ro: "Franceză, germană, spaniolă" },
@@ -84,8 +84,8 @@ export const paymentConfigDict: Dictionary = {
   // 4. duration_multipliers
   section_duration_multipliers_title: { en: "Duration multipliers", ro: "Coeficienți de durată" },
   section_duration_multipliers_subtitle: {
-    en: "Coefficient per session duration. 120 minutes has two rows -- standard, and the Scoala Altfel / Saptamana Verde exception, which uses ×2 instead of the standard ×1.5.",
-    ro: "Coeficientul per durata sesiunii. 120 de minute are două rânduri — standard, și excepția Școala Altfel / Săptămâna Verde, care folosește ×2 în loc de ×1.5 standard.",
+    en: "Coefficient per workshop duration. 120 minutes has two rows -- standard, and the Scoala Altfel / Saptamana Verde exception, which uses ×2 instead of the standard ×1.5.",
+    ro: "Coeficientul per durata atelierului. 120 de minute are două rânduri — standard, și excepția Școala Altfel / Săptămâna Verde, care folosește ×2 în loc de ×1.5 standard.",
   },
   duration_30: { en: "30 min", ro: "30 min" },
   duration_60: { en: "60 min", ro: "60 min" },

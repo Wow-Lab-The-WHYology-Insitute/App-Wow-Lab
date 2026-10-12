@@ -82,6 +82,8 @@ export function GroupInfoSection({
         addressIsOverride={addressIsOverride}
         onSiteContactId={onSiteContactId}
         languageGroup={languageGroup}
+        schedulePattern={schedulePattern}
+        deliveryFormat={deliveryFormat}
         canManage={canManage}
         canWriteChildrenConfirmed={canWriteChildrenConfirmed}
         contractOptions={contractOptions}
@@ -114,7 +116,18 @@ export function GroupInfoSection({
         label={t("kv_language")}
         value={languageGroup ? t(`language_${languageGroup}`) : "—"}
       />
-      <Kv label={t("col_schedule")} value={schedulePattern || "—"} />
+      {/* The sublabel is the honest half. For nine of the ten formats this
+          field holds a date someone picked expecting a workshop to exist;
+          saying what it is here costs nothing and is where it gets read. */}
+      <Kv
+        label={t("col_schedule")}
+        value={schedulePattern || "—"}
+        sublabel={
+          deliveryFormat === "scoli_private_recurente"
+            ? t("schedule_kv_hint_recurring")
+            : t("schedule_kv_hint_oneoff")
+        }
+      />
       <Kv label={t("kv_age_range")} value={ageRange || "—"} />
       <Kv
         label={t("kv_address")}
@@ -184,6 +197,8 @@ function GroupEditForm({
   addressIsOverride,
   onSiteContactId,
   languageGroup,
+  schedulePattern,
+  deliveryFormat,
   canManage,
   canWriteChildrenConfirmed,
   contractOptions,
@@ -200,6 +215,8 @@ function GroupEditForm({
   addressIsOverride: boolean;
   onSiteContactId: string | null;
   languageGroup: string | null;
+  schedulePattern: string | null;
+  deliveryFormat: string;
   canManage: boolean;
   canWriteChildrenConfirmed: boolean;
   contractOptions: ContractOption[];
@@ -227,6 +244,14 @@ function GroupEditForm({
   const [addressValue, setAddressValue] = useState(addressIsOverride ? (address ?? "") : "");
   const [onSiteContactIdValue, setOnSiteContactIdValue] = useState(onSiteContactId ?? "");
   const [languageGroupValue, setLanguageGroupValue] = useState(languageGroup ?? "");
+  // Editable for the first time as of 2026-10-12 (item 119). The column has
+  // always had an UPDATE grant; it simply had no control after creation, so a
+  // mistyped schedule could only be corrected with direct SQL. Kept as free
+  // text here rather than re-deriving the create form's day/time or date/time
+  // widgets: the existing values are in two different shapes ("Tuesday 16:00"
+  // and "2026-09-30 14:00") and a widget that could not represent one of them
+  // would silently destroy it on the next save.
+  const [schedulePatternValue, setSchedulePatternValue] = useState(schedulePattern ?? "");
   const contractsForClient = contractOptions.filter((c) => c.client_id === clientId);
   const contactsForClient = contactOptions.filter((c) => c.client_id === clientId);
 
@@ -242,6 +267,7 @@ function GroupEditForm({
           addressValue,
           onSiteContactIdValue,
           languageGroupValue,
+          schedulePatternValue,
         );
         if (!result.ok) setError(result.error);
         else onSaved();
@@ -280,6 +306,25 @@ function GroupEditForm({
               placeholder={t("address_override_placeholder")}
               className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
             />
+            <div className="md:col-span-2">
+              <p className="font-body text-ink text-xs font-bold">
+                {deliveryFormat === "scoli_private_recurente"
+                  ? t("schedule_recurring_label")
+                  : t("schedule_oneoff_label")}
+              </p>
+              <p className="text-muted font-body mb-1 text-xs">
+                {deliveryFormat === "scoli_private_recurente"
+                  ? t("schedule_recurring_hint")
+                  : t("schedule_kv_hint_oneoff")}
+              </p>
+              <input
+                type="text"
+                value={schedulePatternValue}
+                onChange={(e) => setSchedulePatternValue(e.target.value)}
+                placeholder={t("schedule_edit_placeholder")}
+                className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
+              />
+            </div>
             <select
               value={languageGroupValue}
               onChange={(e) => setLanguageGroupValue(e.target.value)}

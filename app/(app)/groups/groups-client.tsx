@@ -286,6 +286,9 @@ export function GroupsClient({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [extraColumns, setExtraColumns] = usePersistedColumns("groups", []);
   const [pendingCreate, setPendingCreate] = useState<{ id: string; label: string } | null>(null);
+  // Said out loud, because the checkbox promised it. null = the checkbox was
+  // not ticked and nothing was claimed either way.
+  const [firstWorkshopNotice, setFirstWorkshopNotice] = useState<boolean | null>(null);
 
   // Clears the moment the server-refreshed `groups` prop actually
   // contains the new row -- not on isPending, which ends before Next
@@ -508,6 +511,7 @@ export function GroupsClient({
                 schoolYearCalendarLink,
                 contractId,
                 languageGroup,
+                createFirstWorkshop,
               ) => {
                 setError(null);
                 startTransition(async () => {
@@ -523,12 +527,16 @@ export function GroupsClient({
                       schoolYearCalendarLink,
                       contractId,
                       languageGroup,
+                      createFirstWorkshop,
                     );
                     if (!result.ok) setError(result.error);
                     else {
                       const clientName =
                         clientOptions.find((o) => o.id === clientId)?.name ?? "";
                       setPendingCreate({ id: result.id, label: clientName });
+                      setFirstWorkshopNotice(
+                        createFirstWorkshop ? Boolean(result.firstWorkshopCreated) : null,
+                      );
                       setIsFormOpen(false);
                     }
                   } catch {
@@ -542,6 +550,11 @@ export function GroupsClient({
       )}
 
       <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+        {firstWorkshopNotice !== null && (
+          <p className="font-body text-ink bg-brand-pink/10 mb-4 rounded-lg px-4 py-3 text-sm">
+            {firstWorkshopNotice ? t("first_workshop_created") : t("first_workshop_not_created")}
+          </p>
+        )}
         {pendingCreate && (
           <p className="font-body text-muted bg-ink/5 mb-4 rounded-lg px-4 py-3 text-sm">
             {t("saving_row", { name: pendingCreate.label })}
@@ -729,6 +742,7 @@ function NewGroupForm({
     schoolYearCalendarLink: string,
     contractId: string,
     languageGroup: string,
+    createFirstWorkshop: boolean,
   ) => void;
 }) {
   const [clientId, setClientId] = useState("");
@@ -764,6 +778,12 @@ function NewGroupForm({
   const [scheduleDay, setScheduleDay] = useState(DAYS_OF_WEEK[0]);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
+  // Default ON, because the formats that reach this checkbox are the nine
+  // one-off ones and their schedule field IS a date. The recurring branch
+  // never renders it, and addGroup's own date parse refuses "Tuesday 16:00"
+  // regardless, so switching to recurring after ticking cannot silently
+  // create anything.
+  const [createFirstWorkshop, setCreateFirstWorkshop] = useState(true);
   const schedulePattern = isRecurring
     ? scheduleTime
       ? `${scheduleDay} ${scheduleTime}`
@@ -889,6 +909,36 @@ function NewGroupForm({
             />
           </>
         )}
+        {/* The label and the hint, spanning both inputs. Before 2026-10-12
+            these controls carried no label at all, and for the nine one-off
+            formats the date picker promised a dated thing the free-text field
+            never produced (item 119). */}
+        <div className="-mt-1 md:col-span-2">
+          <p className="font-body text-ink text-xs font-bold">
+            {isRecurring ? t("schedule_recurring_label") : t("schedule_oneoff_label")}
+          </p>
+          <p className="text-muted font-body text-xs">
+            {isRecurring ? t("schedule_recurring_hint") : t("schedule_oneoff_hint")}
+          </p>
+          {/* Off for a recurring club, whose pattern holds no date to create
+              anything on; on for the nine one-off formats, where the user has
+              just picked a date. Never silent either way. */}
+          {!isRecurring && (
+            <label className="font-body text-ink mt-2 flex items-start gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={createFirstWorkshop}
+                onChange={(e) => setCreateFirstWorkshop(e.target.checked)}
+                className="accent-brand-pink mt-0.5"
+              />
+              <span>
+                <span className="font-bold">{t("create_first_workshop_label")}</span>
+                <br />
+                <span className="text-muted">{t("create_first_workshop_hint")}</span>
+              </span>
+            </label>
+          )}
+        </div>
         <input
           type="text"
           value={ageRange}
@@ -918,6 +968,7 @@ function NewGroupForm({
             calendarLink,
             contractId,
             languageGroup,
+            !isRecurring && createFirstWorkshop,
           )
         }
         className="font-body focus-visible:ring-brand-pink mt-3 w-fit rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-5 py-2.5 text-xs font-bold tracking-wide text-white uppercase transition-opacity focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"

@@ -11,8 +11,8 @@ export const payrollDict: Dictionary = {
   close_section_heading: { en: "Close a month", ro: "Închide o lună" },
   close_month_button: { en: "Close {{month}}", ro: "Închide {{month}}" },
   confirm_prompt: {
-    en: "Close {{month}}? Trainers will no longer be able to change attendance or confirmation for sessions in this month.",
-    ro: "Închizi {{month}}? Trainerii nu vor mai putea modifica prezența sau confirmarea pentru sesiunile din această lună.",
+    en: "Close {{month}}? Trainers will no longer be able to change attendance or confirmation for workshops in this month.",
+    ro: "Închizi {{month}}? Trainerii nu vor mai putea modifica prezența sau confirmarea pentru atelierele din această lună.",
   },
   // Shown instead of confirm_prompt when at least one trainer slot this
   // month is unconfirmed -- states the pay consequence directly, not just
@@ -20,8 +20,8 @@ export const payrollDict: Dictionary = {
   // generic prompt said nothing about what closing does to an unconfirmed
   // trainer's pay.
   confirm_prompt_with_unconfirmed: {
-    en: "{{n}} trainer slots for {{month}} are not confirmed. Per policy, a trainer is not paid for a session they haven't confirmed — closing {{month}} locks that in, and also removes trainers' ability to confirm or change attendance.",
-    ro: "{{n}} sloturi de trainer pentru {{month}} nu sunt confirmate. Conform politicii, un trainer nu este plătit pentru o sesiune neconfirmată — închiderea lunii {{month}} blochează această situație și le ia trainerilor posibilitatea de a confirma sau modifica prezența.",
+    en: "{{n}} trainer slots for {{month}} are not confirmed. Per policy, a trainer is not paid for a workshop they haven't confirmed — closing {{month}} locks that in, and also removes trainers' ability to confirm or change attendance.",
+    ro: "{{n}} sloturi de trainer pentru {{month}} nu sunt confirmate. Conform politicii, un trainer nu este plătit pentru un atelier neconfirmat — închiderea lunii {{month}} blochează această situație și le ia trainerilor posibilitatea de a confirma sau modifica prezența.",
   },
   confirm_close_button: { en: "Yes, close it", ro: "Da, închide" },
   cancel: { en: "Cancel", ro: "Anulează" },
@@ -47,15 +47,53 @@ export const payrollDict: Dictionary = {
   // kind -- a suppressed copy of the warning box would just become the
   // box people learn to click past. Only the has-unconfirmed state gets
   // the orange treatment, and it's the only one anyone needs to act on.
-  summary_no_sessions: { en: "No sessions in {{month}}.", ro: "Nicio sesiune în {{month}}." },
+  summary_no_sessions: { en: "No workshops in {{month}}.", ro: "Niciun atelier în {{month}}." },
   summary_all_confirmed: {
-    en: "{{n}} sessions this month. All {{total}} trainer slots are confirmed.",
-    ro: "{{n}} sesiuni în această lună. Toate cele {{total}} sloturi de trainer sunt confirmate.",
+    en: "{{n}} workshops this month. All {{total}} trainer slots are confirmed.",
+    ro: "{{n}} ateliere în această lună. Toate cele {{total}} sloturi de trainer sunt confirmate.",
   },
-  summary_sessions_count: { en: "{{n}} sessions this month", ro: "{{n}} sesiuni în această lună" },
+  summary_sessions_count: { en: "{{n}} workshops this month", ro: "{{n}} ateliere în această lună" },
   summary_unconfirmed_heading: {
     en: "{{n}} of {{total}} trainer slots are not confirmed",
     ro: "{{n}} din {{total}} sloturi de trainer nu sunt confirmate",
   },
   summary_unconfirmed_list_heading: { en: "Not confirmed:", ro: "Neconfirmate:" },
+
+  // The pre-close completeness check (item 121). Wording follows
+  // app.calculate_session_pay's own five raise messages, so the closer reads
+  // the same sentence the calculation would produce -- translated, and with
+  // the trainer NAMED rather than the column, because the trainer is the
+  // actionable half. Luiza Mirt is the live instance: she has no grade by
+  // Anca's own conditional answer ("grade 3 if she returns", item 95), so the
+  // message has to say "Luiza Mirt has no grade on this date", not
+  // "trainer_grade_assignments is missing a row".
+  unpriceable_heading: {
+    en: "{{n}} workshop(s) in {{month}} cannot be priced yet",
+    ro: "{{n}} atelier(e) din {{month}} nu pot fi încă plătite",
+  },
+  unpriceable_hint: {
+    en: "Closing the month is still possible — but pay cannot be computed for these until the gaps are filled, and a trainer can no longer fix them afterwards.",
+    ro: "Luna poate fi închisă oricum — dar plata nu poate fi calculată pentru acestea până nu se completează, iar după închidere trainerul nu le mai poate corecta.",
+  },
+  unpriceable_list_heading: { en: "What is missing", ro: "Ce lipsește" },
+  unpriceable_no_duration: {
+    en: "no length recorded on the workshop",
+    ro: "atelierul nu are durata înregistrată",
+  },
+  unpriceable_no_location: {
+    en: "no location tier recorded on the workshop",
+    ro: "atelierul nu are nivelul de locație înregistrat",
+  },
+  unpriceable_no_language: {
+    en: "the group has no language recorded",
+    ro: "grupa nu are limba înregistrată",
+  },
+  unpriceable_no_trainer: {
+    en: "no trainer in either slot — there is nobody to pay",
+    ro: "niciun trainer în niciunul din sloturi — nu e cine să fie plătit",
+  },
+  unpriceable_no_grade: {
+    en: "{{name}} has no grade effective on this date",
+    ro: "{{name}} nu are un grad valabil la această dată",
+  },
 };

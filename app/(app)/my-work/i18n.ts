@@ -11,32 +11,32 @@ import type { Dictionary } from "@/lib/i18n";
 export const myWorkDict: Dictionary = {
   page_title: { en: "My work", ro: "Munca mea" },
   page_subtitle: {
-    en: "Your own sessions, groups and grade. Nobody else's.",
-    ro: "Sesiunile, grupele și gradul tale. Ale nimănui altcuiva.",
+    en: "Your own workshops, groups and grade. Nobody else's.",
+    ro: "Atelierele, grupele și gradul tale. Ale nimănui altcuiva.",
   },
 
   // The unconfirmed statement -- one sentence, never two figures. The
   // month's close state changes what the person can still DO, so it
   // changes the sentence, not just a number beside it.
   unconfirmed_open: {
-    en: "{{count}} of your sessions aren't confirmed yet. {{month}} is still open — confirm them and the pay for them stands.",
-    ro: "{{count}} dintre sesiunile tale nu sunt confirmate. {{month}} este încă deschisă — confirmă-le și plata pentru ele rămâne.",
+    en: "{{count}} of your workshops aren't confirmed yet. {{month}} is still open — confirm them and the pay for them stands.",
+    ro: "{{count}} dintre atelierele tale nu sunt confirmate. {{month}} este încă deschisă — confirmă-le și plata pentru ele rămâne.",
   },
   unconfirmed_closed: {
-    en: "{{count}} of your sessions aren't confirmed, and {{month}} is already closed — you can no longer confirm them yourself. Ask Operations to correct them.",
-    ro: "{{count}} dintre sesiunile tale nu sunt confirmate, iar {{month}} este deja închisă — nu le mai poți confirma singur. Cere-i Operațiunilor să le corecteze.",
+    en: "{{count}} of your workshops aren't confirmed, and {{month}} is already closed — you can no longer confirm them yourself. Ask Operations to correct them.",
+    ro: "{{count}} dintre atelierele tale nu sunt confirmate, iar {{month}} este deja închisă — nu le mai poți confirma singur. Cere-i Operațiunilor să le corecteze.",
   },
   unconfirmed_none: {
-    en: "Every session you've delivered is confirmed.",
-    ro: "Toate sesiunile pe care le-ai livrat sunt confirmate.",
+    en: "Every workshop you've delivered is confirmed.",
+    ro: "Toate atelierele pe care le-ai livrat sunt confirmate.",
   },
 
-  confirmed_this_month: { en: "Sessions confirmed this month", ro: "Sesiuni confirmate luna aceasta" },
+  confirmed_this_month: { en: "Workshops confirmed this month", ro: "Ateliere confirmate luna aceasta" },
   // Counted by the viewer's own confirmed_at, never sessions.status --
   // see page.tsx's own comment for why.
   confirmed_hint: {
-    en: "Counted from your own confirmation, not the session's status.",
-    ro: "Numărate după confirmarea ta, nu după statusul sesiunii.",
+    en: "Counted from your own confirmation, not the workshop's status.",
+    ro: "Numărate după confirmarea ta, nu după statusul atelierului.",
   },
 
   groups_assigned: { en: "Groups you're assigned to", ro: "Grupe la care ești alocat" },
@@ -51,8 +51,8 @@ export const myWorkDict: Dictionary = {
   // Shown only when at least one counted session has no recorded length,
   // so the total is never silently short.
   hours_incomplete: {
-    en: "{{count}} session(s) this month have no recorded length and aren't included.",
-    ro: "{{count}} sesiune/sesiuni din luna aceasta nu au durata înregistrată și nu sunt incluse.",
+    en: "{{count}} workshop(s) this month have no recorded length and aren't included.",
+    ro: "{{count}} atelier/ateliere din luna aceasta nu au durata înregistrată și nu sunt incluse.",
   },
 
   grade_label: { en: "Your grade", ro: "Gradul tău" },
@@ -71,8 +71,8 @@ export const myWorkDict: Dictionary = {
   // The no-allocations case: one plain line, not a grid of five zeros --
   // five zeros read as a broken page, one sentence reads as a true one.
   nothing_allocated: {
-    en: "You have no sessions allocated yet. When Operations schedules you onto a workshop, it will show up here.",
-    ro: "Nu ai încă nicio sesiune alocată. Când Operațiunile te programează la un atelier, va apărea aici.",
+    en: "You have no workshops allocated yet. When Operations schedules you onto a workshop, it will show up here.",
+    ro: "Nu ai încă niciun atelier alocat. Când Operațiunile te programează la un atelier, va apărea aici.",
   },
 
   // Lesson-plan decisions (item 117). The notification a trainer meets on

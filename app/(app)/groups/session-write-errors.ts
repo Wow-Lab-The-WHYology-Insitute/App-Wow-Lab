@@ -15,6 +15,6 @@
 export const SESSION_CONFIRMATION_MONTH_CLOSED_ERROR =
   "This month is closed. You can no longer change your confirmation.";
 export const SESSION_ATTENDANCE_MONTH_CLOSED_ERROR =
-  "This month is closed. You can no longer change attendance for this session.";
+  "This month is closed. You can no longer change attendance for this workshop.";
 export const SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR =
-  "Not permitted (requires being the assigned trainer for this session).";
+  "Not permitted (requires being the assigned trainer for this workshop).";

@@ -40,14 +40,24 @@ function formatShortDate(iso: string, locale: "en" | "ro") {
   });
 }
 
+export type UnpriceableReason = { key: string; name?: string };
+export type UnpriceableWorkshop = {
+  id: string;
+  sessionDate: string;
+  clientName: string;
+  reasons: UnpriceableReason[];
+};
+
 export function PayrollClient({
   orgId,
   periods,
   sessions,
+  unpriceable,
 }: {
   orgId: string;
   periods: Period[];
   sessions: Session[];
+  unpriceable: UnpriceableWorkshop[];
 }) {
   const t = useTranslations(payrollDict);
   const { locale } = useLocale();
@@ -92,6 +102,12 @@ export function PayrollClient({
   }, [sessions, monthValue]);
 
   const unconfirmedSlots = monthSlots.slots.filter(({ slot }) => !slot.confirmed);
+
+  // Scoped to the month on display, the same way monthSlots is -- the server
+  // sends the whole org and the month picker is local state.
+  const unpriceableThisMonth = unpriceable.filter((w) => w.sessionDate.slice(0, 7) === monthValue);
+  const reasonLabel = (r: UnpriceableReason) =>
+    r.key === "no_grade" ? t("unpriceable_no_grade", { name: r.name ?? "" }) : t(`unpriceable_${r.key}`);
 
   function handleClose() {
     setError(null);
@@ -172,6 +188,41 @@ export function PayrollClient({
                       <span className="text-orange-700">
                         {session.clientName} · {formatShortDate(session.sessionDate, locale)}
                       </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Rendered ONLY when something is missing. There is deliberately no
+              "everything can be priced" line: a line that is always there
+              becomes a line nobody reads, and this check earns attention by
+              being absent most of the time. The unconfirmed block above does
+              show a positive line (summary_all_confirmed) -- a difference on
+              purpose, because confirmation is a thing the closer is waiting
+              for, while an unpriceable workshop is an exception. */}
+          {unpriceableThisMonth.length > 0 && (
+            <div className="mt-3 flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4">
+              <span className="font-body text-sm font-semibold text-red-800">
+                {t("unpriceable_heading", { n: unpriceableThisMonth.length, month: monthLabel })}
+              </span>
+              <p className="font-body text-xs text-red-700">{t("unpriceable_hint")}</p>
+              <div className="flex flex-col gap-1.5 border-t border-red-200/70 pt-3">
+                <span className="font-body text-xs font-bold tracking-wide text-red-800 uppercase">
+                  {t("unpriceable_list_heading")}
+                </span>
+                <ul className="flex flex-col gap-2">
+                  {unpriceableThisMonth.map((w) => (
+                    <li key={w.id} className="font-body text-xs text-red-900">
+                      <span className="font-semibold">
+                        {w.clientName} · {formatShortDate(w.sessionDate, locale)}
+                      </span>
+                      <ul className="mt-0.5 ml-4 list-disc text-red-700">
+                        {w.reasons.map((r, i) => (
+                          <li key={i}>{reasonLabel(r)}</li>
+                        ))}
+                      </ul>
                     </li>
                   ))}
                 </ul>

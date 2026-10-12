@@ -104,6 +104,7 @@ Apeși „Creează clientul".
 - Număr intrare / Număr ieșire — opționale. Numărul de ieșire trebuie să fie unic; dacă se repetă, primești o eroare (în engleză, deocamdată).
 - Data început / Data sfârșit — opționale
 - Regulă de facturare — opțională, ex. „95 lei/copil/ședință"
+  - Interfața spune acum **atelier**, nu „ședință" (redenumire 2026-10-12). Exemplul de aici rămâne intenționat cu „ședință", pentru că asta scrie în contractele reale — `105 lei/copil/ședință`, `770 RON + TVA/ grupă/ ședință`. Indiciul trebuie să semene cu hârtia, nu cu meniul.
 - Valoare estimată / Valoare an anterior — opționale
 
 Apeși „Creează contractul". Se salvează ca ciornă.

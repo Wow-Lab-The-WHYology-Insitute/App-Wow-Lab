@@ -6,12 +6,12 @@ export const groupsDict: Dictionary = {
   page_title: { en: "Groups & Enrollment", ro: "Grupe și înscrieri" },
   page_title_trainer_view: { en: "Your Groups", ro: "Grupele tale" },
   page_subtitle: {
-    en: "Enrollment containers by client and module. Trainer allocation and delivery live on each group's sessions.",
-    ro: "Containere de înscriere pe client și modul. Alocarea trainerilor și livrarea se află pe sesiunile fiecărei grupe.",
+    en: "Enrollment containers by client and module. Trainer allocation and delivery live on each group's workshops.",
+    ro: "Containere de înscriere pe client și modul. Alocarea trainerilor și livrarea se află pe atelierele fiecărei grupe.",
   },
   page_subtitle_trainer_view: {
-    en: "Groups containing at least one session allocated to you, as principal or secundar trainer.",
-    ro: "Grupele care conțin cel puțin o sesiune alocată ție, ca trainer principal sau secundar.",
+    en: "Groups containing at least one workshop allocated to you, as principal or secundar trainer.",
+    ro: "Grupele care conțin cel puțin un atelier alocat ție, ca trainer principal sau secundar.",
   },
   search_placeholder: { en: "Search by client or trainer…", ro: "Caută după client sau trainer…" },
   filter_module_all: { en: "All modules", ro: "Toate modulele" },
@@ -33,6 +33,53 @@ export const groupsDict: Dictionary = {
   col_client: { en: "Client", ro: "Client" },
   col_module: { en: "Module", ro: "Modul" },
   col_schedule: { en: "Schedule", ro: "Program" },
+
+  // The schedule control, labelled. Until 2026-10-12 it was two unlabelled
+  // inputs -- and for the nine non-recurring formats one of them was a native
+  // date picker whose value went into free text and produced nothing. A group
+  // created 2026-09-25 still holds schedule_pattern = "2026-09-26 15:52" with
+  // zero workshops behind it, which is what a date picker promises and this
+  // field never delivered.
+  schedule_recurring_label: { en: "Weekly rhythm", ro: "Ritmul săptămânal" },
+  schedule_recurring_hint: {
+    en: "The day and time this club runs each week. It describes the rhythm only — it does not create workshops.",
+    ro: "Ziua și ora la care clubul se ține în fiecare săptămână. Descrie doar ritmul — nu creează ateliere.",
+  },
+  schedule_oneoff_label: { en: "Workshop date and time", ro: "Data și ora atelierului" },
+  schedule_oneoff_hint: {
+    en: "A one-off workshop happens on a date, so this is a date. Tick the box below and the workshop itself is created with the group.",
+    ro: "Un atelier unic are loc la o dată anume, deci acesta este o dată. Bifează mai jos și atelierul se creează împreună cu grupa.",
+  },
+  create_first_workshop_label: {
+    en: "Also create the first workshop on this date",
+    ro: "Creează și primul atelier la această dată",
+  },
+  create_first_workshop_hint: {
+    en: "One workshop, not a series. Everything else about it — trainers, length, location — is filled in afterwards.",
+    ro: "Un singur atelier, nu o serie. Restul — traineri, durată, locație — se completează după.",
+  },
+  // Sublabels under the group info panel's Schedule row, so the field says
+  // what it is where it is read, not only where it is typed.
+  schedule_kv_hint_recurring: {
+    en: "Weekly rhythm — creates no workshops on its own.",
+    ro: "Ritm săptămânal — nu creează ateliere de la sine.",
+  },
+  schedule_edit_placeholder: {
+    en: "e.g. Tuesday 16:00, or 2026-11-04 14:00",
+    ro: "ex. Tuesday 16:00, sau 2026-11-04 14:00",
+  },
+  schedule_kv_hint_oneoff: {
+    en: "Intended date. Workshops are listed below.",
+    ro: "Data prevăzută. Atelierele sunt listate mai jos.",
+  },
+  first_workshop_created: {
+    en: "Group created, and the first workshop with it.",
+    ro: "Grupa a fost creată, împreună cu primul atelier.",
+  },
+  first_workshop_not_created: {
+    en: "Group created. The date was not a date, so no workshop was created.",
+    ro: "Grupa a fost creată. Data nu era o dată, deci nu s-a creat niciun atelier.",
+  },
   col_trainers: { en: "Trainers", ro: "Traineri" },
   col_enrollment: { en: "Enrollment", ro: "Înscriere" },
   col_status: { en: "Status", ro: "Status" },
@@ -135,7 +182,7 @@ export const groupsDict: Dictionary = {
   // non-PII placeholder for any future account invited without a name.
   unnamed_user: { en: "Unnamed user", ro: "Utilizator fără nume" },
 
-  open_group: { en: "View sessions", ro: "Vezi sesiunile" },
+  open_group: { en: "View workshops", ro: "Vezi atelierele" },
 
   new_group_form_title: { en: "New group", ro: "Grupă nouă" },
   select_client: { en: "Select client…", ro: "Alege clientul…" },
@@ -165,12 +212,12 @@ export const groupsDict: Dictionary = {
   session_status_delivered: { en: "Delivered", ro: "Livrată" },
   session_status_cancelled: { en: "Cancelled", ro: "Anulată" },
 
-  new_session_button: { en: "+ New session", ro: "+ Sesiune nouă" },
-  sessions_heading: { en: "Sessions ({{count}})", ro: "Sesiuni ({{count}})" },
-  empty_no_sessions: { en: "No sessions yet.", ro: "Nicio sesiune încă." },
+  new_session_button: { en: "+ New workshop", ro: "+ Atelier nouă" },
+  sessions_heading: { en: "Workshops ({{count}})", ro: "Ateliere ({{count}})" },
+  empty_no_sessions: { en: "No workshops yet.", ro: "Niciun atelier încă." },
   empty_no_sessions_trainer: {
-    en: "No sessions allocated to you in this group.",
-    ro: "Nicio sesiune alocată ție în această grupă.",
+    en: "No workshops allocated to you in this group.",
+    ro: "Niciun atelier alocat ție în această grupă.",
   },
 
   col_date: { en: "Date", ro: "Data" },
@@ -219,15 +266,15 @@ export const groupsDict: Dictionary = {
     ro: "Luna este închisă. Nu îți mai poți modifica confirmarea.",
   },
   confirmation_not_assigned_error: {
-    en: "Not permitted (requires being the assigned trainer for this session).",
-    ro: "Nepermis (necesită să fii trainerul alocat acestei sesiuni).",
+    en: "Not permitted (requires being the assigned trainer for this workshop).",
+    ro: "Nepermis (necesită să fii trainerul alocat acestui atelier).",
   },
   // Recording attendance shares confirmation_not_assigned_error above (the
   // wording fits both writes) but needs its own month-closed message --
   // "your confirmation" doesn't describe attendance.
   attendance_month_closed_error: {
-    en: "This month is closed. You can no longer change attendance for this session.",
-    ro: "Luna este închisă. Nu mai poți modifica prezența pentru această sesiune.",
+    en: "This month is closed. You can no longer change attendance for this workshop.",
+    ro: "Luna este închisă. Nu mai poți modifica prezența pentru acest atelier.",
   },
   // Dead-zone cover, same reasoning as saving_row above: isPending ends
   // before the revalidated sessions prop actually reflects the write, so
@@ -244,7 +291,7 @@ export const groupsDict: Dictionary = {
   mobile_present_prefix: { en: "Present: ", ro: "Prezenți: " },
   mobile_experiment_prefix: { en: "Experiment: ", ro: "Experiment: " },
 
-  new_session_title: { en: "New session", ro: "Sesiune nouă" },
+  new_session_title: { en: "New workshop", ro: "Atelier nouă" },
   trainer_principal_label: { en: "Trainer principal", ro: "Trainer principal" },
   trainer_secundar_label: { en: "Trainer secundar", ro: "Trainer secundar" },
   // location_tier stays on the session (unlike language, above -- it
@@ -271,7 +318,7 @@ export const groupsDict: Dictionary = {
     en: "Experiment Drive link (optional)",
     ro: "Link Drive experiment (opțional)",
   },
-  create_session_button: { en: "Create session", ro: "Creează sesiunea" },
+  create_session_button: { en: "Create workshop", ro: "Creează atelierul" },
 
   // group-header.tsx / group-info-section.tsx (page.tsx's own markup,
   // closing the gap bucket C left open). col_client/col_module/col_schedule
@@ -299,8 +346,8 @@ export const groupsDict: Dictionary = {
   // are a trainer and Catalina.
   plans_section_title: { en: "Experiments and validation", ro: "Experimente și validare" },
   plans_empty: {
-    en: "No sessions yet — an experiment is chosen per session, per trainer.",
-    ro: "Încă nu există ședințe — experimentul se alege pe ședință, pentru fiecare trainer.",
+    en: "No workshops yet — an experiment is chosen per workshop, per trainer.",
+    ro: "Încă nu există ateliere — experimentul se alege pe atelier, pentru fiecare trainer.",
   },
   plans_slot_principal: { en: "Principal", ro: "Trainer Principal" },
   plans_slot_secundar: { en: "Secondary", ro: "Trainer Secundar" },
