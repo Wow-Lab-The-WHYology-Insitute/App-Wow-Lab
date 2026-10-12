@@ -555,7 +555,10 @@ Added, closed or re-asked here as items move. Nothing goes in without an item nu
 
 ---
 
-**1. Orele de administrare și entitatea juridică** — item 112 below. *New 2026-10-12.*
+**1. Orele de administrare și entitatea juridică** — item 112 below. **ANSWERED 2026-10-12: persoana
+alege entitatea de fiecare dată, iar Financiar se alege ca oricare alta.** Kept with its question
+text, because the answer retired four pieces of design and the question is why they were never
+built.
 
 > Ai spus că fiecare oră lucrată se atribuie unei entități, în funcție de proiect și de contractul cu
 > clientul. Dar cele trei categorii ale tale nu se comportă la fel: **Ateliere** se leagă clar de un
@@ -567,22 +570,24 @@ Added, closed or re-asked here as items move. Nothing goes in without an item nu
 >
 > Și, oricare dintre cele două: la **Financiar**, ce se alege?
 
-Why it cannot be guessed: the two answers are different screens, not different defaults — one asks
-for a project and derives the entity, the other asks for the entity directly. And an entity that
-silently defaults is a wrong invoice, not a smaller one.
+Why it could not be guessed, in hindsight more than in prospect: the two answers are different
+screens, and **the one she chose is the one that needs less** — no project reference, no second
+resolver, no default for business-wide work. Guessing would plausibly have produced the
+project-derived shape and all three.
 
 ---
 
-**2. Tarifele Cătălinei pe categorii** — item 130 below. *New 2026-10-12.*
+**2. Tarifele Cătălinei pe categorii** — item 130 below. **ANSWERED 2026-10-12: doar Admin. Nu face
+Ateliere sau Financiar**, deci absența celor două tarife e corectă, nu o lipsă.
 
 > Cătălina are un tarif de administrare doar pentru **Admin** (72 net / 79.92 facturat). Pentru
 > **Ateliere** și **Financiar** nu are niciun tarif.
 >
 > Ar trebui să aibă și pentru acestea două, sau pur și simplu nu face acel tip de muncă?
 
-Why it is asked rather than filled in: if she does that work, the rate is hers to state; if she does
-not, the absence is correct and the resolver raising on it is the right behaviour. Copying 79.92
-across would invent two rates nobody agreed.
+Why it was asked rather than filled in: she does not do that work, so the absence is correct and the
+resolver raising on it is the right behaviour. Copying 79.92 across would have invented two rates
+nobody agreed — the exact outcome asking avoided.
 
 ---
 
@@ -4402,6 +4407,14 @@ plans sit on more than one sheet, one of them on five — and that one is Anatom
 `ANAT_SeeingDNA_DC_4`.** `Modul WOW LAB MIX` is the same fact at ten times the scale (80 distinct
 plans, 75 of them also on another sheet) and nobody has ever proposed deleting MIX for it.
 
+**Her 2026-10-12 "da" confirms what was already built, and the count was checked rather than
+assumed.** She was asked again the same day and said yes to Anatomy as module 15 — but it had been
+built that morning on her earlier answer, so the risk was a second row rather than a missing one.
+Verified live: `public.modules` holds **15 rows and 15 distinct keys**, exactly **one** with
+`key = 'anatomy'`, and `groups_module_check` contains `'anatomy'` once. **Nothing was added twice,
+and the count is 15, not 16.** A confirmation arriving after the work is a reason to check for a
+duplicate, not a reason to repeat it.
+
 Key and label were **reported before being written**, as asked: key `anatomy`, label `Anatomy`,
 identical in EN and RO. The precedent splits and this one follows `astronomy`, not its siblings —
 `Modul ANATOMY` → `Anatomy` is the same rule as `Modul ASTRONOMY` → `Astronomy`; `doctor`/`vet` got
@@ -4656,7 +4669,32 @@ record with **both** a trainer rate and an admin rate — which means an admin-h
 pay on the person alone.
 
 **Her article tiers supersede the supplier contract's three tiers.** Hers are newer and post-date
-both amendments. Item 105 above asked "whether her article tiers survived two amendments" — they did
+both amendments.
+
+**RECONFIRMED 2026-10-12, by searching rather than by taking "verifică" at face value.** She said
+*"am confirmat azi, verifică"*. Searched for anything dated today that confirms or changes the
+figures, and found **nothing newer anywhere**:
+
+| searched | result |
+|---|---|
+| `docs/progress.md` | **zero** occurrences of `2026-10-12`; the file was not touched today at all. Its only Margean content is the original Phase-1 requirement (line 128), which describes *"tarif per-articol variabil"* and states **no figures** |
+| `docs/OPEN_ITEMS.md` | her figures appear only in this item, written today **from** her August message |
+| `docs/` files modified today | three, all edited by this session |
+| `~/Downloads` source files modified today | three PDFs, none a rate document |
+| commits today | all from this working tree |
+
+**So the August 2026-08-07 set is what she means, and the seeded values already are it** — 100 /
+150 / 250 / 350 plus 150 per newsletter, verified in `admin_rates` as `100/150/250/350/150` across
+five rows. **No new version is needed and the seeded rates were not touched**, which was the
+instruction and is also the right call: a reconfirmation of existing figures is not a rate change,
+and versioning it would create a second version identical to the first and imply a change that did
+not happen.
+
+**One honest limit on that conclusion:** this searched the repository and the local source files. Her
+2026-10-12 message itself is not in either — it reached this session as a relay. If she sent new
+numbers in a channel the repo does not hold, nothing here would show it, and the only way to know is
+to read that message. What can be said positively: **no artifact anywhere in this project carries a
+set of article tiers other than the August one.** Item 105 above asked "whether her article tiers survived two amendments" — they did
 not need to: these replace them. The newsletter rate (150 each) is the figure item 105 recorded as
 missing from the contract entirely.
 
@@ -4754,8 +4792,35 @@ at 0% (item 95 above).
 accounts, which of the three entities does it belong to — and do you decide that per hour, per
 project, or by a standing rule per kind of work?*
 
-**Blocked on:** that answer — question 1 in "Questions waiting on Anca" above, phrased as it would
-be sent. The trainer half can be built without it; the admin half cannot.
+---
+
+**ANSWERED 2026-10-12 — the admin half is settled, and she chose the simpler of the two shapes.**
+**The person picks the legal entity each time.** Not derived from a project, not inferred from
+anything. So the admin-hours row carries a **required `legal_entity_id`**, asked at entry, and there
+is no project reference on it at all.
+
+**And `Financiar` is picked like any other category, not special-cased.** That is the part worth
+recording loudest, because the analysis above treated it as the hard case — accounting for three
+entities looked like work with no single owner, needing a default, a split rule or a
+"not attributable" value. **None of those is needed.** Under her answer the question "which entity
+does this hour belong to" is always answered by the person entering it, and `Financiar` is simply one
+more hour where they answer it. The three categories stop differing in how they attribute; they
+differ only in what the work is.
+
+**What this retires:** the optional project/group reference, the second resolver that would have
+walked `group → contract → entity` for admin hours, the raise-on-absent-project failure case, and
+the nominated-default decision for business-wide work. Four pieces of design that her one-sentence
+answer makes unnecessary — and the reason to have asked rather than guessed, since guessing would
+plausibly have produced the project-derived shape and all four.
+
+**The trainer half is unchanged and still buildable without her:**
+`sessions → groups.contract_id → contracts.legal_entity_id`, every link present, needing a function
+and one honest failure case (a group with a null `contract_id` has no entity, and the right
+behaviour is to raise).
+
+**Blocked on:** nothing on the admin side. The trainer-side function is unblocked and unbuilt.
+**Lives in (addendum):** item 130 below (the other thing the same hour carries — its kind);
+`public.legal_entities` (the three rows the entry form will offer).
 **Lives in (addendum):** item 128 below (the rates these hours will price); item 130 below (the
 other thing the same hour needs — its kind); `202608290001` (`groups.contract_id`, the trainer-side
 path); `app.calculate_session_pay` (which already walks part of it).
@@ -6172,18 +6237,20 @@ than from who worked it.
 
 Two further things that follow, so the shape is not rediscovered:
 
-- **Her admin rate is `task_category = 'admin'` only.** She has no `ateliere` or `financiar` rate,
-  so an admin hour of hers in either of those categories resolves to nothing —
-  `app.resolve_admin_rate` raises, correctly, rather than falling back to her one category. Whether
-  she should have the other two is a question for Anca, not a gap to fill by copying 79.92 across.
+- **Her admin rate is `task_category = 'admin'` only — CONFIRMED 2026-10-12 as correct, not a gap.**
+  Anca: Cătălina keeps only the Admin category; no Ateliere rate, no Financiar rate. So
+  `app.resolve_admin_rate` raising for either of those two **is the intended behaviour**, and the
+  absence is an answer rather than missing data. **Nobody should fill it by copying 79.92 across** —
+  that would invent two rates she does not hold and silently price work she does not do. If an
+  `ateliere` or `financiar` hour is ever entered for her, the correct outcome is the raise, and the
+  correct response is to ask her again rather than to seed a third rate.
 - **The same hour also needs a legal entity** (item 112 above), and the entity question is
   independent of the kind question. A screen that solves one and not the other produces a priced
   hour nobody can invoice.
 
-**Blocked on:** nothing structural — this is a constraint to honour when the hours-entry screen is
-specified. One small question does go to Anca, as question 2 in "Questions waiting on Anca" above:
-whether Cătălina should also have an `ateliere` and a `financiar` rate, or simply does not do that
-work.
+**Blocked on:** nothing — both halves closed. The dual-rate constraint stands as a constraint on the
+hours-entry screen (the hour carries its own kind), and the category question is answered: Admin
+only, deliberately.
 **Re-verify when:** that screen is designed. The test to write first is Cătălina's: two hours, one
 trainer and one admin, on the same day, priced differently and correctly.
 **Lives in:** item 128 above (her admin rate); item 95 above (her trainer grade, seeded with nine
