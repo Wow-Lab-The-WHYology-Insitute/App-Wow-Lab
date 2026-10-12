@@ -247,12 +247,26 @@ it told the two people doing data entry to pick three formats that no longer exi
 below). This block is the trigger moved in front of the actor, where the other three already were.
 
 **What a green run does not mean, stated here so nobody reads 38/38 as "the guide is correct."** The
-manifest holds only claims that are literal i18n strings. Behavioural claims and **counts of what the
-database holds** are excluded by design — and the same stale section carried one: *"cele 13 module"*,
-wrong since vet and wronger after anatomy, which **no trigger would have caught**, because no trigger
-can. The guide's three legal entities, named by hand in Pasul 2, are the same class. So: this checker
-covers what can be checked mechanically, and **when a vocabulary changes, someone still has to
-re-read the guide** — see item 115 below for the full accounting of that bound.
+manifest holds only claims that are literal i18n strings, and it checks that a claim **matches** the
+dictionary — not that the dictionary is right. Three things are outside it:
+
+- **Behavioural claims and counts of what the database holds.** The same stale section carried one:
+  *"cele 13 module"*, wrong since vet and wronger after anatomy, which **no trigger would have
+  caught**, because no trigger can. The guide's three legal entities, named by hand in Pasul 2, are
+  the same class.
+- **Whether the Romanian is grammatical.** The 2026-10-12 session→workshop rename (item 120 below)
+  broke **eleven** agreements — `atelier` is neuter where `ședință` and `sesiune` are feminine, so
+  *"nicio atelier alocată"* and *"durata atelierei"* became wrong the instant the noun changed. This
+  checker passed **38/38 before and after**, correctly: every claim still matched its string. A
+  cross-language find-and-replace is safe in English, which has no gender, and unsafe in Romanian,
+  and nothing in this repo's tooling knows the difference.
+- **Whether a string that renders is a sentence worth reading.** Item 122 below is the live case: a
+  message that interpolates a name renders "Unknown has no grade effective on this date" for a viewer
+  who cannot read that name, and no dictionary check can see it.
+
+So: this checker covers what can be checked mechanically, and **when a vocabulary changes, someone
+still has to re-read the guide — and, if the change touched Romanian, read every changed string** —
+see item 115 below for the full accounting of that bound.
 
 ---
 
@@ -4826,6 +4840,17 @@ manifest covers only literal i18n strings; the guide's own preamble says behavio
 same age, one machine-checkable and one not. Both were fixed in item 114 above's pass; only the first
 one could ever have been caught by running something.
 
+**A second bound, found the same way the first was — by a change sailing past a green run.** The
+2026-10-12 rename (item 120 below) rewrote 47 dictionary lines and broke **eleven Romanian
+agreements** doing it, because `atelier` is neuter where `ședință` and `sesiune` were feminine. This
+checker reported **38/38 both before and after**, and was right to: it compares each manifest claim
+against the live dictionary string, so a claim and a string that are equally ungrammatical agree
+perfectly. **It checks that the guide matches the code, never that either is correct Romanian.**
+That is not a defect to fix here — a grammar checker for two languages is far outside what a
+manifest diff should attempt — but it is the second thing a green run does not mean, and it belongs
+beside the first. The practical rule it implies: **a find-and-replace across both languages needs
+every changed RO line read by a human; the EN side does not, because English nouns carry no gender.**
+
 **And the excluded class had a third instance, in the sentence that defines the exclusion.** The
 guide's manifest preamble lists *"cele 13 module"* as its own worked example of a claim the checker
 does not cover — and that example was itself stale, with the same wrong number, three weeks after
@@ -5413,6 +5438,161 @@ avoid it. Cleanup now deletes by marker rather than by ids captured along the wa
 `scripts/verify_schedule_rename_precheck_test_org_b.ts`; item 95 above (Luiza's deliberate absence
 of a grade); item 65 above (the same RLS-outrunning-a-join shape); item 66 above (the never-print-an-
 id rule this applies to a sentence).
+
+---
+
+### 122. A message written to avoid naming a column ended up naming nobody — and three more `?? "Unknown"` fallbacks reach user-facing text on the same screen
+
+2026-10-12, found by rendering the page rather than by reading the code. Item 121 above's
+pre-close check names the person who has no grade, because the person is the actionable half. Its
+first live run rendered:
+
+> **"Unknown has no grade effective on this date"**
+
+**A sentence written specifically to avoid naming a database column instead named nobody**, which is
+strictly worse: `trainer_grade_assignments is missing a row` at least tells you where to look.
+
+**The mechanism, which generalises past this one message.** A workshop slot is a plain foreign key
+to `public.users` with **no role requirement** — nothing stops an operations manager, an evaluator or
+anyone else being put in one. But `users`' own SELECT policy admits **trainer** names to finance and
+operations viewers (`202609160001`), not names in general. So the moment an allocated person is not a
+trainer, the name lookup returns nothing and every message built around that name degrades.
+
+**The general rule:** *user-facing text that interpolates a name needs a no-name branch, because the
+name comes from a table with its own RLS and the row it describes may be about someone the viewer
+cannot see.* A `?? "Unknown"` is not that branch — it satisfies the type and destroys the sentence.
+Item 66 above established this for a header (a UUID must never render as a name); this is the same
+rule for a sentence, and the sentence case is worse because the surrounding grammar makes the
+placeholder read as a real answer.
+
+**Fixed in item 121 above's message**: the name when readable, and otherwise a sentence that says
+what IS known and why the name is missing.
+
+**Three more on the same screen, found while fixing it, NOT fixed here.** All in
+`app/(app)/payroll/page.tsx`:
+
+| Fallback | Where it renders | How bad |
+|---|---|---|
+| trainer slot names (lines 197, 203) | the **unconfirmed-slot list** — the block directly above item 121's | **The worst of the three.** This is the list the closer is meant to act on, and the name is the actionable column; the row still carries client + date, so the workshop is identifiable, but "who hasn't confirmed" reads as "Unknown". |
+| `closedByName` (line 186) | "closed by …" on a past period | Degraded audit line. Not actionable either way, but it asserts a fact about a person. |
+| `clientName` (lines 174, 190) | both lists | **Already recorded as item 65 above**, which is where its decision lives — not a new finding. |
+
+**Not fixed in this pass on purpose.** The first is a pre-existing defect in a block this round only
+sat beside, the second is cosmetic, and both want the same decision — what a name-less row should say
+— made once rather than three times in a hurry. The fix shape is known and is the one item 121 above
+now uses.
+
+**Blocked on:** nothing technical — a decision on the wording for a name-less row, then the same
+two-branch treatment in three places.
+**Re-verify when:** any new user-facing message interpolates a name from a `users` lookup. The test
+is not "does it compile" but "render it as a viewer who cannot read that name."
+**Lives in:** `app/(app)/payroll/page.tsx` (all four fallbacks), `payroll-client.tsx` (where they
+render); item 121 above (the instance that was fixed); item 66 above (the same rule for a header);
+item 65 above (the `clientName` case, with its own decision); `202609160001` (the policy that admits
+trainer names and not names in general).
+
+---
+
+### 123. An absence under RLS is not evidence — the general form, after a check nearly accused every trainer on data its viewer could not see
+
+2026-10-12. Item 121 above's pre-close check asks whether each allocated person has a pay grade
+effective on the workshop's date. The obvious implementation reads
+`trainer_grade_assignments`, finds no row, and reports "no grade".
+
+**It would have been wrong for a whole class of viewer.** That table's SELECT policy admits
+`finance.operations.*` / `finance.reporting.*` / the person's own row / the platform-owner flag.
+`/payroll`'s own gate is **wider**: `finance.operations.*` **OR `org.settings.manage`**. A viewer
+holding only the second reads **zero grade rows** — not because nobody has a grade, but because the
+table will not show them any. A check that treats that silence as an answer **accuses every trainer
+of having no grade, on data the viewer cannot see**, and names them while doing it (item 122 above).
+
+**The guard, and the general form it is an instance of:**
+
+> **Under RLS, "I read no rows" and "there are no rows" are different facts, and only one of them is
+> about the world.** A check built on a filtered read must establish that it can see *something*
+> before it is entitled to conclude *nothing*. Zero rows means the question goes unasked, not
+> answered no.
+
+In item 121 above that is one boolean: the grade question is only asked when at least one grade row
+came back, which proves read access without needing to know the viewer's capabilities.
+
+**Same family as item 104 above** ("the absence of a history row is not evidence about a row's
+origin"), and worth stating as a family rather than two coincidences. The pattern recurs wherever a
+*privileged* read is used to make a *negative* claim:
+
+- item 104 above — `row_history` has no INSERT trigger, so a missing history row proves nothing
+  about provenance. Already produced one wrong answer that got committed (item 102 above).
+- item 65 above — a `clients` join outruns the viewer's own segment, so a missing client name is an
+  RLS boundary and not a missing client.
+- this — a missing grade row is a policy boundary before it is a fact about a trainer.
+
+**The asymmetry that makes it a trap:** a filtered read is perfectly safe for a *positive* claim
+("these rows exist"), and silently wrong for the negative one ("therefore those don't"). The code
+looks identical in both cases, the types are the same, and the failure only appears for viewers the
+author is not.
+
+**Re-verify when:** any screen computes a count, a completeness check or a "nobody has X" claim from
+a table whose policy is narrower than that screen's own gate. The specific comparison worth making
+is exactly that one: *is this table's SELECT policy narrower than the gate on the page reading it?*
+If yes, the negative claim needs a can-I-see-anything guard.
+**Lives in:** `app/(app)/payroll/page.tsx` (`gradesReadable`); item 121 above (the check it
+protects); item 104 above (the same family, about provenance); item 65 above (the same family, about
+a join); item 102 above (the committed wrong answer item 104 records).
+
+---
+
+### 124. A verification script written to avoid item 102's standing-fixture problem reproduced it — and the fix that generalises is cleanup by marker, not by captured ids
+
+2026-10-12. Item 102 above records two standing fixtures left mutated by verification runs whose
+silent `finally` never fired, which is why every script since announces whether cleanup ran. Item
+117 above's script does. **It still left a client and two groups behind in Test Org B.**
+
+**The chain, because no single link was the bug:**
+
+1. The fixture inserted a `trainer_grade_assignments` row with `source: "VERIFY 121 fixture"`.
+2. `source` is CHECK-constrained to `'computed' | 'manual'`. The insert was rejected.
+3. The script did not check the error, so `grade` was **null** — and `grade` was only ever read as
+   `grade!.id`, a non-null assertion that compiles and lies.
+4. The missing row **silently disabled the feature under test**: with zero grade rows readable, item
+   123 above's guard correctly declined to ask the grade question, so the assertion failed for a
+   reason unrelated to the code it was testing.
+5. `cleanup()` ran, hit `grade!.id` on a null, **threw**, and every delete after that line never
+   executed. The "CLEANUP: ... Test Org B is as it was found" line never printed, which is the one
+   part that worked.
+
+**The fix that generalises is not "check the insert error."** That fixes this script. The fix is in
+how cleanup identifies what to remove:
+
+> **Cleanup deletes by MARKER, not by ids captured along the way.** Every fixture carries a
+> recognisable marker in a column that is already there (`notes like 'VERIFY 119-121%'`, `name like
+> 'VERIFY%'`), and cleanup deletes everything bearing it. A half-built fixture set then cleans up
+> exactly as well as a complete one, because cleanup never depends on a variable the build populated.
+
+Captured ids are the fragile part: they encode an assumption that every step before them succeeded,
+and they turn one failed insert into an orphaned fixture plus a crash. A marker encodes nothing.
+
+**Applied to item 117 above's script**; item 121 above's own script was written the same way from the
+start. The leftover client and two groups were removed by hand the same session, and the absence
+re-verified (`0 remaining`, `0 orphan sessions`).
+
+**Two smaller lessons from the same run, recorded because each cost a cycle:**
+- **The script asserted the create form's labels by RENDERING.** That form sits behind a "+ New
+  group" button and appears in no server-rendered fetch, so four assertions came back false and
+  reported the build as broken. The honest claim for a control that only exists after a click is
+  **shipment in the client bundle**, which is what the script now asserts — the same distinction its
+  siblings already draw for RO strings.
+- **The fixture assumed Test Org B had no grades.** It has six, B1 through B6, all effective
+  2026-09-02. The assumption was never checked, and the right instrument turned out to need no
+  fixture at all: a real account that genuinely has no grade, put in a workshop slot — which a slot
+  permits, since it is a plain FK with no role requirement (item 122 above).
+
+**Re-verify when:** writing any new `scripts/verify_*` that creates fixtures. The question to ask is
+not "does cleanup run" — item 102 above already fixed that — but **"does cleanup still work if the
+third insert fails?"**
+**Lives in:** `scripts/verify_lesson_plan_flow_test_org_b.ts` and
+`scripts/verify_schedule_rename_precheck_test_org_b.ts` (both now marker-based); item 102 above (the
+original standing-fixture failure and the announce-cleanup rule); item 121 above (the feature whose
+test this was); item 123 above (the guard that made the failure silent rather than loud).
 
 ---
 
