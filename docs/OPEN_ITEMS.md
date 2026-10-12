@@ -5720,13 +5720,38 @@ warning against naming a cause you cannot see).
 
 ---
 
-### 126. `git_info_fail` — the deploy outage was Vercel's GitHub App getting 403 on the repository fetch, and the signature identifies it in a minute
+### 126. `git_info_fail` — Vercel's GitHub App getting 403 on the repository fetch. INTERMITTENT, not fixed: Reconnect bought exactly one successful deployment
 
-2026-10-12, 11:49Z to 13:00Z. Three consecutive production deployments failed and the cause was
-neither the code, nor a quota, nor the `fra1` region move. **Vercel's GitHub App was returning 403
-when fetching the repository**, which the project's Git settings showed as
-`GitHub fetch error - status: 403` on the connected repository. **Pressing Reconnect fixed it**; that
-field now reads `Connected Aug 10` and the error is gone.
+2026-10-12, from 11:49Z and **still recurring**. Production deployments fail with
+`errorCode: 'git_info_fail'` and the cause is neither the code, nor a quota, nor the `fra1` region
+move. **Vercel's GitHub App returns 403 when fetching the repository**, which the project's Git
+settings showed as `GitHub fetch error - status: 403` on the connected repository.
+
+**Reconnect was pressed, the 403 disappeared from the settings page, and the very next deployment
+failed the same way.** Recorded as intermittent rather than resolved, because the first version of
+this entry said "Pressing Reconnect fixed it" on the evidence of one successful deployment, and the
+one after it falsified that within six minutes:
+
+| time | commit | outcome | duration |
+|---|---|---|---|
+| 11:49:33Z | `674b238` | READY | 56.5 s |
+| 11:59:54Z | `767a479` | **ERROR `git_info_fail`** | 8.3 s |
+| 12:03:54Z | `d6883f3` | **ERROR `git_info_fail`** | 8.8 s (docs-only) |
+| 12:05:03Z | `6e0fd00` | **ERROR `git_info_fail`** | 6.6 s |
+| — | — | **Reconnect pressed, 403 cleared from the settings page** | — |
+| 13:00:31Z | `949e6ef` | READY | 49.9 s |
+| 13:06:55Z | `f055448` | **ERROR `git_info_fail`** | 4.4 s (docs-only) |
+
+**So Reconnect is a retry, not a repair.** It restores the link long enough for one deployment and
+the failure returns. Whatever is wrong is on the Vercel side of the GitHub App link and survives
+re-pressing the button — which means the next step is re-authorising or reinstalling the
+integration, not pressing Reconnect again.
+
+**One consequence worth carrying into every later entry: "verified live" now needs a deployment
+check in front of it.** Item 125 above's measurement is valid precisely because it ran against
+`949e6ef`, which did deploy and does contain the change — checked before measuring, not assumed. The
+docs commit that failed afterwards changes no behaviour, so production is behind on this register's
+own text and nothing else.
 
 **THE SIGNATURE, which is the whole value of this entry.** Recognise it from two numbers and stop
 investigating anything else:
@@ -5740,7 +5765,8 @@ Measured, both sides of the boundary:
 |---|---|---|---|
 | eleven deployments, 08:56Z–11:49Z | **43–61 s** | — | normal |
 | three deployments, 11:59Z–12:05Z | **6–9 s** | **`git_info_fail`** | **`[ ]` — zero events, `builds: []`** |
-| after Reconnect, 13:00Z | **49.9 s** | — | normal |
+| one after Reconnect, 13:00Z | **49.9 s** | — | normal |
+| the next one, 13:06Z | **4.4 s** | **`git_info_fail`** | **`[ ]` again** |
 
 A build that compiles this app costs about a minute. One that ends in under ten seconds has not
 reached `npm ci`, let alone TypeScript or ESLint — and the API confirms it rather than implying it:
@@ -5766,10 +5792,10 @@ push notification and the repository read are different paths; the first kept wo
 second returned 403. **"The deployment exists" is therefore not evidence that Vercel can read the
 repo.**
 
-**Second occurrence of this class in this project.** The Vercel↔GitHub integration desynced once
-before and was repaired the same way — disconnect/reconnect — which is recorded in the session
-memory for this repo rather than here. Twice now, the fix has been Reconnect and the diagnosis has
-been the slow part.
+**Second occurrence of this class in this project, and the first time Reconnect has not held.** The
+Vercel↔GitHub integration desynced once before and was repaired by disconnect/reconnect, recorded in
+the session memory for this repo rather than here. That precedent is what made "Reconnect fixed it"
+so easy to believe on one data point.
 
 **What this cost, and the three dead hypotheses, recorded because each one looked right at the
 time:** a compile error (ruled out by two clean local builds, one from a deleted `.next`, and then
@@ -5779,6 +5805,9 @@ change in `3c86f80` (ruled out by the eight deployments that succeeded after it)
 this session's record of writing one such hypothesis down as a cause and watching it die; this entry
 is what it looks like when the actual answer finally arrives from a log.
 
+**Blocked on:** a real repair of the GitHub App link — re-authorise or reinstall the Vercel GitHub
+integration for this repository, rather than pressing Reconnect again. Until then every push is a
+coin toss and nothing can be claimed as deployed without checking.
 **Re-verify when:** any deployment fails in under ~15 seconds. Read `errorCode` on the deployment
 record and the length of the events array before anything else:
 `curl -H "Authorization: Bearer $VERCEL_TOKEN" "https://api.vercel.com/v13/deployments/<dpl>?teamId=<team>"`.
