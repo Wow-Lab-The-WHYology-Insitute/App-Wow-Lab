@@ -543,6 +543,68 @@ written text and once with the fix the drill itself surfaced.
 
 ---
 
+## Questions waiting on Anca — the batch, in one place
+
+Every open question that only she can answer, collected here because until 2026-10-12 they existed
+only as `**Blocked on:** Anca` lines scattered across the file, findable by grep and by nothing else.
+**This section holds the questions; the items hold the reasoning.** Each one is phrased as it would
+be sent to her — in Romanian, in her own vocabulary, without schema words — because a question
+translated into column names comes back answering something else.
+
+Added, closed or re-asked here as items move. Nothing goes in without an item number beside it.
+
+---
+
+**1. Orele de administrare și entitatea juridică** — item 112 below. *New 2026-10-12.*
+
+> Ai spus că fiecare oră lucrată se atribuie unei entități, în funcție de proiect și de contractul cu
+> clientul. Dar cele trei categorii ale tale nu se comportă la fel: **Ateliere** se leagă clar de un
+> proiect; **Admin** uneori da, uneori nu; **Financiar** e contabilitate pentru toate trei
+> deodată.
+>
+> Deci: vrei ca fiecare oră de administrare să poarte un proiect, din care rezultă entitatea — sau
+> vrei ca persoana să aleagă entitatea de fiecare dată când își trece orele?
+>
+> Și, oricare dintre cele două: la **Financiar**, ce se alege?
+
+Why it cannot be guessed: the two answers are different screens, not different defaults — one asks
+for a project and derives the entity, the other asks for the entity directly. And an entity that
+silently defaults is a wrong invoice, not a smaller one.
+
+---
+
+**2. Tarifele Cătălinei pe categorii** — item 130 below. *New 2026-10-12.*
+
+> Cătălina are un tarif de administrare doar pentru **Admin** (72 net / 79.92 facturat). Pentru
+> **Ateliere** și **Financiar** nu are niciun tarif.
+>
+> Ar trebui să aibă și pentru acestea două, sau pur și simplu nu face acel tip de muncă?
+
+Why it is asked rather than filled in: if she does that work, the rate is hers to state; if she does
+not, the absence is correct and the resolver raising on it is the right behaviour. Copying 79.92
+across would invent two rates nobody agreed.
+
+---
+
+**3. Notițele de pe grupă** — item 116 below. **CLOSED 2026-10-12** — she confirmed the current
+behaviour: an allocated trainer reads them. Kept here so the batch shows what was asked and
+answered, not only what is outstanding.
+
+---
+
+**4. Grila de evaluare a performanței** — item 23 below. Six points with no confirmed design.
+
+**5. Cele cinci sume rămase din grile** — item 20 below.
+
+**6. Validarea experimentelor: stările** — item 117 below. Whether `changes_requested` is a state
+she wants, and whether `/my-work` becomes the trainer's landing page. Mihai's call as much as hers.
+
+**7. Cifrele din august, reconfirmate** — item 86 below.
+
+**8. Fluxul, verificat contra schemei reale** — item 52 below.
+
+---
+
 ## Threads not started
 
 ### 1. CEO dashboard
@@ -3088,8 +3150,9 @@ every fail-loud choice in this function.
 
 **Never calls `app.resolve_contract_type_uplift`, with the reason recorded right where the four (five)
 resolvers are composed**, not only in the migration's own header: the PFA-inclusive rates already carry
-the 11.1% uplift (item 95), calling it here would double it, and `contract_type_uplift` stays at zero
-rows for exactly that reason.
+the uplift (item 95 above), calling it here would double it, and `contract_type_uplift` stays at zero
+rows for exactly that reason. **This line said "the 11.1% uplift" until 2026-10-12; it is 11% —
+corrected per item 128 below, which measured it.**
 
 **delivery_context comes from the group, never the session** — sessions carry no format of their own.
 Confirmed, not assumed, by reading `app.resolve_duration_multiplier`'s own case statement (not by
@@ -4544,8 +4607,10 @@ types maps to 80, 80 and 90", and Raluca Margean's article tiers). Nothing here 
 no admin-hours table on either side yet (item 23 below has the per-article half with no table
 either).
 
-**Two kinds of rate, and they must not be stored as one kind.** Four rates carry the 11.1% PFA/SRL
-uplift; five do not, because they are already the invoiced amount.
+**Two kinds of rate, and they must not be stored as one kind.** Four rates carry the 11% PFA/SRL
+uplift (**this entry said 11.1% until 2026-10-12 — see item 128 below, which measured it against the
+figures: 50 → 55.50, 72 → 79.92 and the trainer grid's 100 → 111 are all exact at ×1.11 and none is
+exact at ×1.111**); five do not, because they are already the invoiced amount.
 
 **FINAL — the invoiced amount. No 11% is added to either:**
 
@@ -4560,7 +4625,8 @@ uplift; five do not, because they are already the invoiced amount.
 | Raluca Margean | article, over 4000 words | 350 |
 | Raluca Margean | internal newsletter | 150 each |
 
-**UPLIFTED — net, highlighted in her table, +11.1%:**
+**UPLIFTED — net, highlighted in her table, +11%** (not 11.1%; corrected 2026-10-12, item 128
+below)**:**
 
 | Person | Net | Invoiced |
 |---|---|---|
@@ -4688,7 +4754,8 @@ at 0% (item 95 above).
 accounts, which of the three entities does it belong to — and do you decide that per hour, per
 project, or by a standing rule per kind of work?*
 
-**Blocked on:** that answer. The trainer half can be built without it; the admin half cannot.
+**Blocked on:** that answer — question 1 in "Questions waiting on Anca" above, phrased as it would
+be sent. The trainer half can be built without it; the admin half cannot.
 **Lives in (addendum):** item 128 below (the rates these hours will price); item 130 below (the
 other thing the same hour needs — its kind); `202608290001` (`groups.contract_id`, the trainer-side
 path); `app.calculate_session_pay` (which already walks part of it).
@@ -6019,10 +6086,23 @@ instead, in exact decimal:
 **11%**, the two rows do **not** imply different rounding, and **the tolerance is zero** — a slack
 allowance would only stop the constraint catching what it exists for.
 
-**This project has been calling it 11.1% in writing throughout** — item 95 above, item 111 above,
-`202609240001`'s comments and `202609250001`'s. **The label is wrong; the data was always right.**
-Those migrations are not rewritten: they record what was believed when written. Anyone reading
-"11.1%" anywhere in this repo should read 11%.
+**This project has been calling it 11.1% in writing since August** — and tracing exactly where is
+the useful part, because **item 95 above never said it.** Item 95 quotes only Anca's own words,
+*"in contractul cu trainerii PFA sau SRL vom avea direct 111 lei/ora tarif de baza junior"* — a
+figure that *supports* 11% and states no percentage at all. The four places that do state it:
+
+| where | what it says | status |
+|---|---|---|
+| item 99 above | *"the PFA-inclusive rates already carry the 11.1% uplift (item 95)"* | **corrected in place** — and note it attributes the number to item 95, which does not contain it |
+| item 111 above | *"the 11.1% PFA/SRL uplift"*, *"+11.1%"* | **corrected in place** |
+| `202609240001` | three mentions in comments | left as written |
+| `202609250001` | one mention | left as written |
+
+**So the label was not mis-sourced — it was UNsourced.** It entered at item 99 as a precise-looking
+figure attached to a citation whose target held no figure, and three later writers inherited it from
+there. The migrations are deliberately not rewritten: they record what was believed when written,
+and a migration edited after the fact stops being evidence. **Anyone reading "11.1%" in those two
+files should read 11%.** The general form of how this survived two months is item 131 below.
 
 **Shape: ONE table with a discriminator, under one versioned header** — not one flat table, and not
 two tables. The two shapes are keyed differently rather than merely shaped differently (Anka's by
@@ -6066,7 +6146,9 @@ assertion wrong, which is the guard doing its job on the migration that contains
 **Not built, deliberately:** the hours-entry screen. Rates first.
 **Lives in:** `supabase/migrations/202610120011`, `202610120012` and both rollbacks;
 `db/tests/admin_rates.sql`; `app.resolve_admin_rate`; item 111 above (the figures and their
-provenance); item 95 above (the trainer grid this mirrors, and the "11.1%" label it carries);
+provenance); item 95 above (the trainer grid this mirrors — which quotes her "111 lei/ora" and
+never states a percentage); item 99 above and item 131 below (where the wrong label entered, and why
+it lasted);
 item 112 above (the entity attribution these hours will also need); item 130 below (why the
 hours-entry screen cannot key pay on the person).
 
@@ -6098,14 +6180,72 @@ Two further things that follow, so the shape is not rediscovered:
   independent of the kind question. A screen that solves one and not the other produces a priced
   hour nobody can invoice.
 
-**Blocked on:** nothing to decide yet — this is a constraint to honour when the hours-entry screen
-is specified, not an open question.
+**Blocked on:** nothing structural — this is a constraint to honour when the hours-entry screen is
+specified. One small question does go to Anca, as question 2 in "Questions waiting on Anca" above:
+whether Cătălina should also have an `ateliere` and a `financiar` rate, or simply does not do that
+work.
 **Re-verify when:** that screen is designed. The test to write first is Cătălina's: two hours, one
 trainer and one admin, on the same day, priced differently and correctly.
 **Lives in:** item 128 above (her admin rate); item 95 above (her trainer grade, seeded with nine
 others); item 111 above (the rate's provenance and the FINAL-vs-uplifted split); item 112 above (the
 entity half of the same hour); `app.resolve_admin_rate` and `app.resolve_trainer_grade_rate` (the
 two answers).
+
+---
+
+### 131. A label repeated often enough reads as sourced — "11.1%" survived two months because nothing ever multiplied it
+
+2026-10-12. The general form behind item 128 above, recorded because this register keeps finding it
+and this instance has an unusually clean mechanism.
+
+**What happened.** An uplift percentage entered the written record at item 99 above as *"the 11.1%
+uplift (item 95)"*. **Item 95 contains no percentage.** It quotes Anca's own words — *"vom avea
+direct 111 lei/ora tarif de baza junior"* — a base of 100 and a result of 111, which is 11%. The
+citation supplied authority the target never had, and three later writers (item 111 and two
+migrations) inherited the figure from the citation rather than from the arithmetic.
+
+**Nothing in two months multiplied it by anything.** The number appeared only in prose: in comments
+explaining why `contract_type_uplift` must stay empty, in an entry describing which rates are
+FINAL, in a register item about admin pay. Every one of those sentences is *true at 11% as well*,
+because none of them computes — they all say "the uplift is already included, do not add it again",
+which holds whatever the percentage is. **A wrong number that is never used produces no wrong
+answer, which is exactly why it survives.**
+
+**It surfaced only when a CHECK needed a tolerance, and only because the tolerance was set from the
+arithmetic rather than from the data.** Writing
+`check (amount = round(net_amount * 1.11, 2))` required knowing the multiplier, and the honest way to
+pick it was to ask which multiplier the stored figures actually imply. The lazy way was available
+and would have hidden it permanently: set the tolerance wide enough for 55.50 and 79.92 to pass
+under ×1.111, note that "Anca's numbers don't reconcile exactly", and move on. **That version
+passes, ships, and encodes the wrong rate forever** — and the CHECK becomes decorative, which is
+worse than no CHECK because it looks like verification.
+
+**The three recurring shapes this is an instance of, now visible together:**
+
+| shape | instances |
+|---|---|
+| a citation acquiring a figure its source never contained | this; item 62 below (a recommendation remembered as delivered) |
+| a plausible mechanism written down as a cause | item 118 above (three times in one hour), item 104 above, item 109 above |
+| a check whose threshold was fitted to the data it was meant to test | **this is the first recorded instance** |
+
+**The third one is the one worth naming**, because it is the only one of the three that is invisible
+after the fact: a tolerance fitted to make the current data pass leaves no trace, reports green
+forever, and cannot be distinguished from a correct threshold by reading the code. **The rule it
+implies: a numeric constraint's threshold comes from the arithmetic that explains the data, never
+from the data itself. If the two disagree, the data is telling you the arithmetic is wrong — which
+is precisely what happened here, in the other direction.**
+
+**And a cheap habit that would have caught it earlier:** any percentage in prose should be written
+with the pair that produces it, once — "11% (100 → 111)". The figure then carries its own test, and
+a reader who multiplies finds the error in seconds rather than in two months.
+
+**Re-verify when:** nothing — this is a lesson, not a defect with a state. But the next numeric
+CHECK written in this repo should name, in its own comment, which figures its threshold was derived
+from. `admin_rates_uplift_reconciles_check` does (item 128 above).
+**Lives in:** item 128 above (the instance, with the measurement); item 99 above (where the label
+entered); item 111 above (where it was inherited); `202609240001` and `202609250001` (the two
+migrations left uncorrected on purpose); item 118 above and item 104 above (the adjacent shape, a
+mechanism mistaken for a cause).
 
 ---
 
