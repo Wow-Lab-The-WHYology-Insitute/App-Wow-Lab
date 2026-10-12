@@ -5224,6 +5224,198 @@ re-measure it instead.
 
 ---
 
+### 119. A date picker that produced nothing — `groups.schedule_pattern` labelled, made editable, and given the option to create the first workshop
+
+2026-10-12, built and verified live. Mihai added a group, gave it a date and a time, and expected a
+first workshop. Nothing appeared.
+
+**The field: `groups.schedule_pattern text null`, no column comment, referenced by ZERO functions.**
+Nothing parsed it, nothing generated from it. `addSession` already said so in a comment that
+predates the question: *"Not defaulted from `groups.schedule_pattern` — free text, no enforced
+grammar, nothing here parses it."*
+
+**And it was not only a recurring pattern — it held two different kinds of value**, decided by the
+format, with the form choosing which:
+
+| `delivery_format` | What the form showed | What was stored |
+|---|---|---|
+| `scoli_private_recurente` | day-of-week select + time | `"Tuesday 16:00"` |
+| **the other nine** | **a native `<input type="date">` + time, UNLABELLED** | `"2026-09-30 14:00"` |
+
+**The misreading is still in the data, and is the best evidence of the defect:** the group created
+2026-09-25 holds `schedule_pattern = '2026-09-26 15:52'` and **zero workshops**, then and now.
+Picking a date out of a date picker and expecting a dated thing to exist is the only reasonable
+reading of that control; the field name that contradicts it appeared nowhere in the UI.
+
+**Built, in the order the problem has:**
+
+1. **Both branches labelled**, with one line saying what they do. Recurring: *"The day and time this
+   club runs each week. It describes the rhythm only — it does not create workshops."* / *"Descrie
+   doar ritmul — nu creează ateliere."*
+2. **The date picker STAYS for the nine one-off formats**, and now creates something. Replacing it
+   with a text pattern field was the alternative and is wrong: those nine are one-off workshops, the
+   date is a fact rather than a rhythm, and a date field that produced nothing was the bug — not the
+   date field itself.
+3. **An opt-in checkbox**, *"Also create the first workshop on this date"* — rendered only for the
+   nine, defaulted **on** there (the user has just picked a date), **not rendered at all** for
+   recurring. Never silent in either direction, and the form says afterwards which happened.
+4. **ONE workshop, never a series.** A club runs ~30 a year; generating those needs term dates, a
+   holiday calendar and an end date, none of which exist here. `addGroup` parses the pattern and
+   requires an ISO date, so `"Tuesday 16:00"` creates nothing and says so rather than inventing "the
+   next Tuesday" — which would be a guess about when term starts. A failed workshop insert never
+   discards the group: a group without its first workshop is recoverable by hand, a lost group is not.
+5. **The new workshop is deliberately incomplete.** `duration_minutes` and `location_tier` stay null,
+   because location depends on which trainer is assigned and nobody is assigned at scheduling time.
+   Their absence surfaces in item 121 below, not here.
+6. **`schedule_pattern` is editable for the first time.** The column has had an `UPDATE` grant since
+   the table was created and simply had no control after creation — a mistyped schedule could only be
+   corrected with direct SQL. Kept as **free text** in the edit form on purpose: the live values are
+   in two different shapes, and a widget that could not represent one of them would silently destroy
+   it on the next save.
+7. **The group info panel says what the field is where it is read**, not only where it is typed.
+
+**The four existing groups are untouched, and not backfilled.** Two hold a weekday pattern
+(`Tuesday 16:00`, `Monday 16:00` — Lycée Français, correct as they are) and two hold a date
+(`2026-09-30 14:00`, which has 3 workshops created separately, and `2026-09-26 15:52`, which has
+none). **Mihai's September group is his to decide about** — creating a workshop under it now would
+be this change guessing at an intent from three weeks ago.
+
+**Verified live** (`scripts/verify_schedule_rename_precheck_test_org_b.ts`): the labels and the
+checkbox ship in both languages, an ISO date parses to a workshop date, a weekday pattern parses to
+nothing, and the info panel carries its hint. The form's own strings are asserted **by shipment, not
+by rendering** — the create form sits behind "+ New group" and is in no server-rendered fetch, which
+the script's first run got wrong and reported as four failures of the build.
+
+**Lives in:** `app/(app)/groups/groups-client.tsx` (the labelled control and the checkbox);
+`app/(app)/groups/actions.ts` (`addGroup`'s date parse, `updateGroup`'s new field);
+`app/(app)/groups/[id]/group-info-section.tsx` (the read hint and the edit field);
+`app/(app)/groups/i18n.ts`; item 121 below (where the new workshop's missing inputs surface);
+item 52 below (the one-off-vs-recurring modelling question this sits on top of).
+
+---
+
+### 120. The interface says workshop / atelier — and a blind substitution produced eleven Romanian agreement errors
+
+2026-10-12. Renamed user-facing only, RO **atelier**, EN **workshop**.
+
+**The codebase had already half-answered it, inconsistently**, which is why no decision about "which
+language Mihai meant" was needed: both languages already leaned the same way.
+
+| | Before | |
+|---|---|---|
+| RO `atelier` | 6 strings | my-work ×2, contracts ×1, groups ×3 |
+| RO `sesiune` | **1 string** | — and it also said *atelier*, for the same thing, in the same sentence |
+| RO `ședință` | 2 strings | one of them quoting a contract |
+| EN `workshop` | 6 strings | one of them in that same mixed sentence |
+
+Both mixed-vocabulary strings are fixed. Anca's responsibilities document uses *atelier* throughout,
+which is the tiebreaker it never needed.
+
+**Scope: 47 dictionary lines across 4 files, plus 8 hardcoded strings in 2.** Three deliberate
+exceptions:
+
+1. **Dict KEYS untouched** (`new_session_button`, `sessions_heading`, 14 in all) — invisible to
+   users, and renaming them touches every call site plus the operator guide's manifest for no
+   user-visible gain.
+2. **The billing-rule example keeps `ședință`**, because live contracts say
+   `105 lei/copil/ședință` and `770 RON + TVA/ grupă/ ședință`. The hint has to agree with the paper,
+   not with the menu. Written into the operator guide as its own line so the next sweep does not
+   "fix" it.
+3. **`public.sessions` and everything keyed on it untouched**, with one comment in
+   `groups/actions.ts` where someone would wonder why the same function says *workshop* to users and
+   *sessions* to the database: its own RLS policies, four `SECURITY DEFINER` routing functions,
+   `row_history` rows already written under that `table_name`, `app.calculate_session_pay` and its
+   five resolvers, and 13 suite files all name it — and history rows would then disagree with the
+   table they describe.
+
+**ELEVEN agreement errors the substitution created, and the general lesson.** `atelier` is **neuter**
+in Romanian — masculine agreement in the singular, feminine in the plural — where `ședință` and
+`sesiune` are feminine throughout. So every article and adjective left behind disagreed the moment
+the noun changed: *"nicio atelier alocată"*, *"durata atelierei"*, *"această atelier"*, *"acestei
+ateliere"*, *"o atelier neconfirmată"*, *"Creează ateliera"*. All eleven fixed, and the verification
+script asserts the broken forms **do not ship**.
+
+**A find-and-replace across two languages is safe in exactly one of them.** English nouns carry no
+gender, so the EN side needed no review; the RO side needed every changed line read. Nothing in this
+project's tooling catches this — `check_operator_guide.ts` compares the guide against the
+dictionaries and passed 38/38 both before and after, because it checks that claims MATCH, not that
+they are grammatical.
+
+**Lives in:** `app/(app)/{groups,my-work,payroll,payment-config}/i18n.ts`;
+`app/(app)/groups/actions.ts` and `session-write-errors.ts` (the hardcoded strings and the
+table-name comment); `docs/WOWLAB_GHID_Operare_Clienti_Contracte_Grupe.md` (the `ședință`
+exception); item 14 below (the i18n coverage gap these two EN-only files still sit in).
+
+---
+
+### 121. `/payroll` now says which workshops cannot be priced — and said "Unknown has no grade" until its own verification caught it
+
+2026-10-12. Not required fields at creation: a check before the month closes, beside the
+unconfirmed-slot warning that already existed.
+
+**The five inputs, read from `app.calculate_session_pay` rather than from intuition.** Every resolver
+**raises** — none returns null — but the calculation guards the first three itself, with its own
+named messages, before any resolver is reached:
+
+| Input | Read from | On missing |
+|---|---|---|
+| `duration_minutes` | the workshop | `raise` *"has no duration_minutes recorded"* |
+| `location_tier` | the workshop | `raise` *"has no location_tier recorded"* |
+| `language_group` | **the group** | `raise` *"group % has no language_group recorded"* |
+| a trainer in the slot | the workshop | `raise` *"p_trainer_id must not be null"* |
+| **a grade effective on that date** | `trainer_grade_assignments` | `raise` *"no trainer_grade_assignments row for trainer % on or before %"* |
+
+**Why not required at creation.** Requiring duration and location would invert the real order:
+`location_tier` depends on which trainer is assigned (the form pre-fills it from their home city),
+allocation happens *after* scheduling in the responsibilities document's own sequence, and
+`trainers.substitute` exists as a capability because the slot changes after the date is fixed.
+Pencilling in a date before anyone is assigned is how scheduling starts here.
+
+**What the screen says when nothing is missing: nothing.** The block renders only when at least one
+workshop in the displayed month cannot be priced. Deliberate, and a deliberate difference from the
+unconfirmed-slot block directly above it, which *does* show a positive line
+(`summary_all_confirmed`): confirmation is a thing the closer is actively waiting for, while an
+unpriceable workshop is an exception, and a line that is always there becomes a line nobody reads.
+
+**The grade message names the person, not the column** — *"Luiza Mirt has no grade effective on this
+date"*, not *"trainer_grade_assignments is missing a row"*. Luiza is the live instance, with no grade
+by Anca's own conditional answer (*"grade 3 if she returns"*, item 95 above), and the actionable half
+is the person.
+
+**It said "Unknown has no grade effective on this date" until the verification script rendered it.**
+A workshop slot is a plain FK to `users` with no role requirement, and `users`' SELECT policy admits
+**trainer** names to finance/ops viewers (`202609160001`) — so anyone allocated who is not a trainer
+resolves to no name at all. The sentence that produced names nobody and is **strictly less
+actionable than naming the column it was written to avoid naming.** Fixed: the name when it is
+readable, and when it is not, a sentence saying what is known and why the name is missing. Never
+"Unknown". That is item 66 above's rule — a UUID must never render as a name — applied to a message
+rather than to a header, and it was caught by rendering the page rather than by reasoning about it.
+
+**One guard worth more than the check it protects.** `trainer_grade_assignments`' SELECT policy is
+*narrower* than `/payroll`'s own gate: the table admits `finance.operations.*` /
+`finance.reporting.*` / own row / the platform-owner flag, while the page admits
+`finance.operations.*` **or `org.settings.manage`**. For a viewer holding only the latter the grade
+read comes back empty — so **zero readable grade rows means the question goes unasked, not answered
+no.** Without that, the screen would accuse every trainer of having no grade, on data the viewer
+simply cannot see. Same shape as item 65 above (a join that outruns the joined table's RLS), caught
+before shipping rather than after.
+
+**Verified live, all five cases, in Test Org B.** Two faults in the verification script's own
+fixtures are recorded in it: it assumed Test Org B had no grades (it has six, B1–B6 from
+2026-09-02), and its fixture's `source` value violated a CHECK constrained to `computed|manual`,
+came back null, turned the grade question silently off and **crashed cleanup, leaving a client and
+two groups behind** — item 102 above's standing-fixture failure, reproduced by a script written to
+avoid it. Cleanup now deletes by marker rather than by ids captured along the way.
+
+**Lives in:** `app/(app)/payroll/page.tsx` (the five questions and the readability guard),
+`payroll-client.tsx` (the block), `payroll/i18n.ts` (the wording);
+`supabase/migrations/202609250001_create_calculate_session_pay.sql` (the five raises this mirrors);
+`scripts/verify_schedule_rename_precheck_test_org_b.ts`; item 95 above (Luiza's deliberate absence
+of a grade); item 65 above (the same RLS-outrunning-a-join shape); item 66 above (the never-print-an-
+id rule this applies to a sentence).
+
+---
+
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
