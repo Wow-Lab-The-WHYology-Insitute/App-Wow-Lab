@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { MyWorkClient } from "./my-work-client";
 import { AccessDenied } from "@/components/ui/access-denied";
+import { PlanDecisionsNotice } from "./plan-decisions-notice";
+import type { PlanDecision } from "./plan-decisions-notice";
 
 // The trainer's own view of their own work. Every figure here is
 // readable by a trainer today with no schema change -- confirmed
@@ -121,8 +123,65 @@ export default async function MyWorkPage() {
     .limit(1)
     .returns<GradeRow[]>();
 
+  // ---- Decisions on my proposed experiments, not yet acknowledged ----
+  // "Unseen" is a comparison between two columns on the same row
+  // (decision_seen_at vs decided_at), and PostgREST cannot filter one column
+  // against another -- so the decided rows come back and the comparison
+  // happens here. The volume makes that free: a trainer has one row per
+  // session they are on, and only decided ones are fetched at all.
+  //
+  // Why the comparison rather than `decision_seen_at is null`: a second
+  // decision on the same row (changes requested, re-proposed, validated again)
+  // must notify again even though the trainer had acknowledged the first one.
+  const { data: decisionRows } = await supabase
+    .from("session_lesson_plans")
+    .select("id, session_id, lesson_plan_id, status, decision_note, decided_at, decision_seen_at")
+    .eq("trainer_id", user.id)
+    .not("decided_at", "is", null)
+    .returns<{
+      id: string;
+      session_id: string;
+      lesson_plan_id: string;
+      status: string;
+      decision_note: string | null;
+      decided_at: string;
+      decision_seen_at: string | null;
+    }[]>();
+
+  const unseen = (decisionRows ?? []).filter(
+    (r) => r.decision_seen_at === null || r.decision_seen_at < r.decided_at,
+  );
+
+  const sessionById = new Map(mine.map((s) => [s.id, s]));
+  const unseenPlanIds = [...new Set(unseen.map((r) => r.lesson_plan_id))];
+  const { data: unseenPlans } = unseenPlanIds.length > 0
+    ? await supabase
+        .from("lesson_plans")
+        .select("id, canonical_title")
+        .in("id", unseenPlanIds)
+        .returns<{ id: string; canonical_title: string }[]>()
+    : { data: [] as { id: string; canonical_title: string }[] };
+  const planTitleById = new Map((unseenPlans ?? []).map((p) => [p.id, p.canonical_title]));
+
+  const decisions: PlanDecision[] = unseen.flatMap((r) => {
+    const session = sessionById.get(r.session_id);
+    // A decided row whose session this viewer cannot see is not renderable --
+    // and should not be, since the link to the group would 404 for them.
+    if (!session) return [];
+    return [{
+      rowId: r.id,
+      groupId: session.group_id,
+      sessionDate: session.session_date,
+      planTitle: planTitleById.get(r.lesson_plan_id) ?? "—",
+      status: r.status,
+      note: r.decision_note,
+    }];
+  });
+
   return (
-    <MyWorkClient
+    <div className="flex flex-col gap-6">
+      <PlanDecisionsNotice decisions={decisions} />
+      <MyWorkClient
       hasAnySessions={mine.length > 0}
       confirmedThisMonth={confirmedThisMonth}
       unconfirmedCount={unconfirmed.length}
@@ -132,6 +191,7 @@ export default async function MyWorkPage() {
       minutesThisMonth={minutesThisMonth}
       sessionsMissingDuration={sessionsMissingDuration}
       gradeLevel={grades?.[0]?.grade_level ?? null}
-    />
+      />
+    </div>
   );
 }

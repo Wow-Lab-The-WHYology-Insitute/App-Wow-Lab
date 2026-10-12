@@ -293,6 +293,46 @@ export const groupsDict: Dictionary = {
   },
   kv_children_billed: { en: "Children billed", ro: "Copii facturați" },
   kv_notes: { en: "Notes", ro: "Note" },
+
+  // Lesson-plan proposal and validation (item 117, Anca 2026-10-12). RO is the
+  // operator-facing language here: the two people who use this screen daily
+  // are a trainer and Catalina.
+  plans_section_title: { en: "Experiments and validation", ro: "Experimente și validare" },
+  plans_empty: {
+    en: "No sessions yet — an experiment is chosen per session, per trainer.",
+    ro: "Încă nu există ședințe — experimentul se alege pe ședință, pentru fiecare trainer.",
+  },
+  plans_slot_principal: { en: "Principal", ro: "Trainer Principal" },
+  plans_slot_secundar: { en: "Secondary", ro: "Trainer Secundar" },
+  plans_unassigned: { en: "No trainer allocated", ro: "Niciun trainer alocat" },
+  plans_none_chosen: { en: "No experiment chosen", ro: "Niciun experiment ales" },
+  plans_choose: { en: "Choose an experiment", ro: "Alege experimentul" },
+  plans_change: { en: "Change", ro: "Schimbă" },
+  plans_search_placeholder: {
+    en: "Search by name, topic or file…",
+    ro: "Caută după nume, temă sau fișier…",
+  },
+  plans_search_no_match: { en: "No experiment matches.", ro: "Niciun experiment nu corespunde." },
+  // Shown when the search matched one of a plan's OTHER titles. 68 of 286
+  // plans carry more than one, so without this a search for "DNA extraction"
+  // returns a row labelled "Seeing DNA" and reads as broken.
+  plans_matched_as: { en: "matched", ro: "găsit ca" },
+  plans_not_written_yet: { en: "plan not written yet", ro: "plan nescris încă" },
+  plans_status_proposed: { en: "Awaiting validation", ro: "Așteaptă validarea" },
+  plans_status_validated: { en: "Validated", ro: "Validat" },
+  plans_status_changes_requested: { en: "Changes requested", ro: "Modificări cerute" },
+  plans_validate: { en: "Validate", ro: "Validează" },
+  plans_request_changes: { en: "Request changes", ro: "Cere modificări" },
+  plans_note_placeholder: { en: "What needs changing?", ro: "Ce trebuie schimbat?" },
+  plans_decided_by: { en: "by", ro: "de" },
+  plans_cancel: { en: "Cancel", ro: "Anulează" },
+  plans_saving: { en: "Saving…", ro: "Se salvează…" },
+  // Stated on the screen, not only in the schema: a session can be delivered
+  // without validation and the record still stands.
+  plans_no_validation_hint: {
+    en: "Not validated. The record of what was delivered does not depend on it.",
+    ro: "Nevalidat. Înregistrarea a ceea ce s-a livrat nu depinde de asta.",
+  },
   kv_contract: { en: "Contract", ro: "Contract" },
   contract_none: { en: "No contract linked yet", ro: "Niciun contract legat încă" },
   contract_hidden: {

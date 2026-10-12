@@ -74,4 +74,14 @@ export const myWorkDict: Dictionary = {
     en: "You have no sessions allocated yet. When Operations schedules you onto a workshop, it will show up here.",
     ro: "Nu ai încă nicio sesiune alocată. Când Operațiunile te programează la un atelier, va apărea aici.",
   },
+
+  // Lesson-plan decisions (item 117). The notification a trainer meets on
+  // entering: Anca asked for more than a line on this page, and for something
+  // that can be marked seen.
+  decisions_title: { en: "Experiment decisions", ro: "Decizii privind experimentele" },
+  decisions_validated: { en: "Validated", ro: "Validat" },
+  decisions_changes_requested: { en: "Changes requested", ro: "Modificări cerute" },
+  decisions_mark_seen: { en: "Mark seen", ro: "Am văzut" },
+  decisions_marking: { en: "Saving…", ro: "Se salvează…" },
+  decisions_open_group: { en: "Open group", ro: "Deschide grupa" },
 };

@@ -6,6 +6,8 @@ import { GroupHeader } from "./group-header";
 import { GroupInfoSection } from "./group-info-section";
 import { TrainerResourcesSection } from "./trainer-resources-section";
 import { AccessDenied } from "@/components/ui/access-denied";
+import { SessionPlansSection } from "./session-plans-section";
+import type { CataloguePlan, PlanRow } from "./session-plans-section";
 
 type GroupRow = {
   id: string;
@@ -170,6 +172,86 @@ export default async function GroupDetailPage({
       ? (trainerNameById.get(s.trainer_secundar_id) ?? "Unknown")
       : null,
   }));
+
+  // ---- Lesson plans: the catalogue, and this group's proposals (item 117) ----
+  // The whole catalogue in one fetch, deliberately. 288 plans is ~60 KB and the
+  // selector searches across every title a plan carries, its what-is-taught
+  // text and its filename -- which cannot be done server-side without either a
+  // tsvector (a trigger, a stored column, an index and a language-config
+  // decision for content that is half Romanian and half English) or `unaccent`,
+  // which is not installed. Same one-unfiltered-fetch choice payroll/page.tsx
+  // makes for sessions, for the same reason. RLS filters it to nothing for a
+  // viewer without curriculum.read.
+  const { data: catalogueRows } = await supabase
+    .from("lesson_plans")
+    .select("id, canonical_title, plan_ref, status, what_is_taught")
+    .eq("organization_id", group.organization_id)
+    .order("canonical_title")
+    .returns<{ id: string; canonical_title: string; plan_ref: string | null; status: string; what_is_taught: string | null }[]>();
+
+  const { data: placementRows } = await supabase
+    .from("lesson_plan_modules")
+    .select("lesson_plan_id, module, title_on_sheet")
+    .eq("organization_id", group.organization_id)
+    .returns<{ lesson_plan_id: string; module: string; title_on_sheet: string | null }[]>();
+
+  const titlesByPlan = new Map<string, Set<string>>();
+  const modulesByPlan = new Map<string, Set<string>>();
+  for (const pl of placementRows ?? []) {
+    if (pl.title_on_sheet) {
+      const set = titlesByPlan.get(pl.lesson_plan_id) ?? new Set<string>();
+      set.add(pl.title_on_sheet);
+      titlesByPlan.set(pl.lesson_plan_id, set);
+    }
+    const mset = modulesByPlan.get(pl.lesson_plan_id) ?? new Set<string>();
+    mset.add(pl.module);
+    modulesByPlan.set(pl.lesson_plan_id, mset);
+  }
+  const catalogue: CataloguePlan[] = (catalogueRows ?? []).map((p) => ({
+    ...p,
+    // Canonical first, then every other spelling the sheets use for it.
+    titles: [p.canonical_title, ...[...(titlesByPlan.get(p.id) ?? [])].filter((x) => x !== p.canonical_title)],
+    modules: [...(modulesByPlan.get(p.id) ?? [])].sort(),
+  }));
+
+  const sessionIds = (sessions ?? []).map((s) => s.id);
+  const { data: planLinkRows } = sessionIds.length > 0
+    ? await supabase
+        .from("session_lesson_plans")
+        .select("id, session_id, trainer_id, lesson_plan_id, status, decision_note, decided_at, decided_by")
+        .in("session_id", sessionIds)
+        .returns<(Omit<PlanRow, "decided_by_name"> & { decided_by: string | null })[]>()
+    : { data: [] as (Omit<PlanRow, "decided_by_name"> & { decided_by: string | null })[] };
+
+  // The decider's name, resolved through the same users lookup the session
+  // rows use -- and subject to the same limit recorded above: a viewer without
+  // org.members.read gets null back and the UI omits the name rather than
+  // printing an id (item 66's rule).
+  const deciderIds = [...new Set((planLinkRows ?? []).map((r) => r.decided_by).filter((v): v is string => v !== null))];
+  const { data: deciderUsers } = deciderIds.length > 0
+    ? await supabase.from("users").select("id, full_name, first_name, last_name").in("id", deciderIds).returns<UserLookupRow[]>()
+    : { data: [] as UserLookupRow[] };
+  const deciderNameById = new Map((deciderUsers ?? []).map((u) => [u.id, displayName(u)]));
+  const planRows: PlanRow[] = (planLinkRows ?? []).map((r) => ({
+    id: r.id,
+    session_id: r.session_id,
+    trainer_id: r.trainer_id,
+    lesson_plan_id: r.lesson_plan_id,
+    status: r.status,
+    decision_note: r.decision_note,
+    decided_at: r.decided_at,
+    decided_by_name: r.decided_by ? (deciderNameById.get(r.decided_by) || null) : null,
+  }));
+
+  // curriculum.validate -- the approval gate, matching
+  // app.rpc_decide_session_lesson_plan's own check exactly. Held by
+  // curriculum_manager (Anka, Catalina), organization_owner (Mihai) and
+  // platform_owner (Anca), and by nobody else. NOT ORed with
+  // org.settings.manage or an owner flag: app.has_capability already expands
+  // `curriculum.*` and already ORs app.is_platform_owner() in itself, and the
+  // owner predicate reads the users column -- false for Anca, who holds the
+  // role (item 117).
+  const canValidatePlans = await checkCapability(supabase, "curriculum.validate", group.organization_id);
 
   // sessions.create capability (matches the RLS INSERT/UPDATE policy on
   // sessions, 202608130003) — gates both "+ New Session" and the inline
@@ -353,6 +435,27 @@ export default async function GroupDetailPage({
         // heuristic's "does this address look like Bucharest" check.
         groupAddress={group.address ?? clientRow?.address ?? null}
         viewerId={user.id}
+      />
+
+      {/* Its own section rather than two more columns in GroupDetailClient's
+          session table: that table already renders a desktop and a mobile
+          variant of every cell, and a per-trainer sub-row with a searchable
+          selector does not fit either. Same separate-component shape as
+          GroupInfoSection and TrainerResourcesSection on this page. */}
+      <SessionPlansSection
+        groupId={group.id}
+        sessions={sessionRows.map((s) => ({
+          id: s.id,
+          session_date: s.session_date,
+          trainer_principal_id: s.trainer_principal_id,
+          trainer_secundar_id: s.trainer_secundar_id,
+          trainer_principal_name: s.trainerPrincipalName,
+          trainer_secundar_name: s.trainerSecundarName,
+        }))}
+        catalogue={catalogue}
+        rows={planRows}
+        viewerId={user.id}
+        canValidate={canValidatePlans}
       />
 
       {hasMywork && <TrainerResourcesSection deliveryFormat={group.delivery_format} />}

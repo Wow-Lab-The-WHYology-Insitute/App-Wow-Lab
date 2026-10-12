@@ -515,3 +515,115 @@ export async function correctSessionConfirmation(
   revalidatePath(`/groups/${groupId}`);
   return { ok: true };
 }
+
+// ============================================================================
+// Lesson-plan proposal and validation (item 117, Anca 2026-10-12).
+// ============================================================================
+// All three thin, for the same reason updateSessionAttendance is thin: the
+// SECURITY DEFINER function underneath re-checks everything (row match,
+// capability, organization, state) and its return code is what actually gates
+// the write. These translate the code into a message a person can act on.
+//
+// No capability pre-check in any of them. updateGroup and updateContract do
+// pre-check, to give a specific reason instead of a mystery no-op -- but those
+// write through RLS, where a refusal IS a silent zero-rows. Here the function
+// returns 'not_permitted' / 'not_assigned' explicitly, so a second check in
+// front of it would only add a way for the two to disagree.
+
+export async function proposeSessionLessonPlan(
+  groupId: string,
+  sessionId: string,
+  lessonPlanId: string,
+): Promise<VoidActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("rpc_propose_session_lesson_plan", {
+    p_session_id: sessionId,
+    p_lesson_plan_id: lessonPlanId,
+  });
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  if (data === "not_found") {
+    return { ok: false, error: "Session not found, or not visible to your role." };
+  }
+  if (data === "not_assigned") {
+    return { ok: false, error: SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR };
+  }
+  if (data === "plan_not_found") {
+    return { ok: false, error: "That lesson plan is not in this organization's catalogue." };
+  }
+  if (data !== "ok") {
+    return { ok: false, error: `Unexpected result from rpc_propose_session_lesson_plan: ${data}` };
+  }
+
+  revalidatePath(`/groups/${groupId}`);
+  // The trainer's own screen shows the same row, so it has to drop its cached
+  // copy too -- a proposal made here appears there, and a verdict made here
+  // appears there as a notification.
+  revalidatePath("/my-work");
+  return { ok: true };
+}
+
+export async function decideSessionLessonPlan(
+  groupId: string,
+  rowId: string,
+  status: "validated" | "changes_requested",
+  note: string,
+): Promise<VoidActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("rpc_decide_session_lesson_plan", {
+    p_row_id: rowId,
+    p_status: status,
+    p_note: note.trim() || null,
+  });
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  if (data === "not_found") {
+    return { ok: false, error: "That proposal no longer exists." };
+  }
+  if (data === "not_permitted") {
+    return { ok: false, error: "Not permitted (requires curriculum.validate)." };
+  }
+  if (data === "note_required") {
+    return { ok: false, error: "Say what needs changing — a request for changes needs a note." };
+  }
+  if (data === "invalid_status") {
+    return { ok: false, error: `Not a decision: ${status}.` };
+  }
+  if (data !== "ok") {
+    return { ok: false, error: `Unexpected result from rpc_decide_session_lesson_plan: ${data}` };
+  }
+
+  revalidatePath(`/groups/${groupId}`);
+  revalidatePath("/my-work");
+  return { ok: true };
+}
+
+export async function markSessionLessonPlanSeen(rowId: string): Promise<VoidActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("rpc_mark_session_lesson_plan_seen", {
+    p_row_id: rowId,
+  });
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  if (data === "not_found") {
+    return { ok: false, error: "That proposal no longer exists." };
+  }
+  if (data === "not_yours") {
+    return { ok: false, error: "That is not your proposal." };
+  }
+  if (data === "nothing_to_see") {
+    return { ok: false, error: "That proposal has not been decided yet." };
+  }
+  if (data !== "ok") {
+    return { ok: false, error: `Unexpected result from rpc_mark_session_lesson_plan_seen: ${data}` };
+  }
+
+  revalidatePath("/my-work");
+  return { ok: true };
+}

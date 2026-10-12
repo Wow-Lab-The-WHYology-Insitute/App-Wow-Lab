@@ -12,7 +12,7 @@
 -- by client + module -- so the fixture is marked in `notes`.
 
 -- ============================================================================
--- Block 1: the three live groups are untouched, and the taxonomy now has 14.
+-- Block 1: the three live groups are untouched, and the taxonomy now has 15.
 -- ============================================================================
 -- Asserted by id, not by a total row count. A global "there are exactly N
 -- groups" check was removed from custom_workshop_type.sql for coupling the
@@ -38,10 +38,29 @@ begin;
          '0',
          (select count(*) from public.groups where module = 'vet') = 0
   union all
-  select 'public.modules now holds 14 keys',
+  -- 15 since 202610120001 (anatomy, item 110). This assertion read 14 and
+  -- FAILED on the first suite run after that migration -- correctly: it is the
+  -- only thing in this repo that pins the taxonomy's size, and a module added
+  -- without updating it is exactly what it exists to catch. Worth knowing why
+  -- nothing caught it sooner: run_rls_suite.ts's stated trigger is "any
+  -- migration that touches CREATE/DROP/ALTER POLICY, or renames/drops a column
+  -- a policy or test reads." 202610120001 did neither -- it widened a CHECK --
+  -- so the trigger did not fire. Same too-narrow-trigger shape as item 115,
+  -- one layer down.
+  select 'public.modules now holds 15 keys',
          (select count(*)::text from public.modules),
-         '14',
-         (select count(*) from public.modules) = 14
+         '15',
+         (select count(*) from public.modules) = 15
+  union all
+  select 'no live group silently became anatomy',
+         (select count(*)::text from public.groups where module = 'anatomy'),
+         '0',
+         (select count(*) from public.groups where module = 'anatomy') = 0
+  union all
+  select 'anatomy carries the astronomy-style label, not a doctor/vet-style one',
+         (select display_label from public.modules where key = 'anatomy'),
+         'Anatomy',
+         (select display_label from public.modules where key = 'anatomy') = 'Anatomy'
   union all
   select 'vet carries the sibling-matching label',
          (select display_label from public.modules where key = 'vet'),
@@ -101,7 +120,7 @@ begin;
          'vet',
          (select module from public.groups where notes = 'ACCEPTANCE TEST -- vet module (rolled back)') = 'vet'
   union all
-  select 'an invented fifteenth module is rejected by the constraint',
+  select 'an invented module key is rejected by the constraint',
          (select rejected::text from sabotage_result),
          'true',
          (select rejected from sabotage_result)
