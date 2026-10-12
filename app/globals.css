@@ -8,4 +8,26 @@
   --color-sidebar: #241b26;
   --font-display: var(--font-tilt-neon);
   --font-body: var(--font-cabin);
+
+  /* Motion tokens. Four, deliberately: this app has ~79 transitions and
+     almost all of them are colour or opacity on the Tailwind defaults, which
+     is the right answer for a tool used dozens of times a day. These exist so
+     the few places that DO move have one definition to share, and so the next
+     person writing a duration has something to compare against.
+
+     Only the code touched in the 2026-10-12 motion pass adopts them; the
+     existing transitions are deliberately left on the defaults rather than
+     rewritten, because changing 79 working transitions to say the same thing
+     differently is churn, not improvement. */
+
+  /* Entering panels: fast start, long settle. The drawer uses this. Never use
+     ease-in-out for something arriving — it starts slowly, which reads as lag. */
+  --ease-out-panel: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Colour and opacity, where the curve barely matters and the default is fine. */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Colour, opacity, small rotations — short enough to feel immediate. */
+  --duration-fast: 150ms;
+  /* Panels and size changes, where 150ms reads as a jump. */
+  --duration-panel: 200ms;
 }

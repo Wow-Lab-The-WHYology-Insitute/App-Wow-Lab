@@ -177,7 +177,7 @@ export function SuppliersClient({
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:ring-2"
+                  className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2"
                 >
                   <option value="all">{t("filter_status_all")}</option>
                   {STATUSES.map((s) => (
@@ -332,35 +332,35 @@ function NewSupplierForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={t("name_placeholder")}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2 md:flex-1"
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:flex-1"
         />
         <input
           type="text"
           value={legalName}
           onChange={(e) => setLegalName(e.target.value)}
           placeholder={t("legal_name_placeholder")}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2 md:flex-1"
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:flex-1"
         />
         <input
           type="text"
           value={cui}
           onChange={(e) => setCui(e.target.value)}
           placeholder={t("cui_placeholder")}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2 md:w-40"
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:w-40"
         />
         <input
           type="text"
           value={serviceType}
           onChange={(e) => setServiceType(e.target.value)}
           placeholder={t("service_type_placeholder")}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2 md:flex-1"
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:flex-1"
         />
         <input
           type="text"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder={t("notes_placeholder")}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2 md:flex-1"
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:flex-1"
         />
         <button
           type="button"

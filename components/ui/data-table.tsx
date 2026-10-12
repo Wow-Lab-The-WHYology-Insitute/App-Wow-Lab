@@ -352,7 +352,7 @@ export function DataTableToolbar({
               value={searchValue}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={searchPlaceholder}
-              className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 w-full max-w-sm rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:ring-2"
+              className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 w-full max-w-sm rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2"
             />
           )}
           {filters}

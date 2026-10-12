@@ -59,7 +59,7 @@ export function LoginForm() {
           required
           autoComplete="email"
           placeholder="you@wowlab.ro"
-          className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+          className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         />
       </div>
 

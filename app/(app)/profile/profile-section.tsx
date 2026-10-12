@@ -157,7 +157,7 @@ export function ProfileSection({
                 setSaved(false);
               }}
               placeholder={t("first_name_placeholder")}
-              className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 sm:flex-1"
+              className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 sm:flex-1"
             />
             <input
               type="text"
@@ -167,7 +167,7 @@ export function ProfileSection({
                 setSaved(false);
               }}
               placeholder={t("last_name_placeholder")}
-              className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 sm:flex-1"
+              className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 sm:flex-1"
             />
           </div>
           <input
@@ -178,7 +178,7 @@ export function ProfileSection({
               setSaved(false);
             }}
             placeholder={t("phone_placeholder")}
-            className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+            className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
           />
           {error && (
             <p className="font-body text-ink rounded-lg bg-brand-pink/10 px-4 py-3 text-sm">

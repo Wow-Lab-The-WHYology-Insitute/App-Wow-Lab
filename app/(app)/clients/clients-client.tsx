@@ -92,7 +92,7 @@ function SortableHeader({
 function StatusChip({ status, label }: { status: string; label: string }) {
   return (
     <span
-      className={`font-body inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+      className={`font-body inline-flex w-fit shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap ${
         status === "active" ? "bg-ink/5 text-ink" : "bg-brand-pink/10 text-brand-pink"
       }`}
     >
@@ -171,7 +171,9 @@ function buildExtraColumns(
         <SortableHeader label={t("detail_cui")} sortKey="cui" activeKey={sortKey} dir={sortDir} onSort={onSort} />
       ),
       width: 100,
-      render: (c) => <span className="font-mono text-xs">{c.cui || "—"}</span>,
+      // tabular-nums so CUIs of different lengths line up digit-for-digit down
+      // the column — they are identifiers people compare by eye.
+      render: (c) => <span className="font-mono text-xs tabular-nums">{c.cui || "—"}</span>,
     },
     {
       key: "created_at",
@@ -316,7 +318,14 @@ export function ClientsClient({
       ),
       width: 130,
       render: (c) => (
-        <span className="font-body bg-ink/5 text-ink inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-medium">
+        // nowrap + shrink-0 is PREVENTIVE, not corrective: measured at 1280px in
+        // both languages with the real Cabin font, "Școală privată" and
+        // "Private school" both fit the 130px column on one line with room to
+        // spare. This stops a future longer label (or a narrower column) from
+        // silently wrapping the badge onto two lines instead of overflowing
+        // visibly, which is the failure that gets shipped because it looks
+        // deliberate.
+        <span className="font-body bg-ink/5 text-ink inline-flex w-fit shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap">
           {t(`client_type_${c.client_type}`)}
         </span>
       ),
@@ -417,7 +426,7 @@ export function ClientsClient({
                   <select
                     value={typeFilter}
                     onChange={(e) => setTypeFilter(e.target.value)}
-                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:ring-2"
+                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2"
                   >
                     <option value="all">{t("filter_type_all")}</option>
                     {CLIENT_TYPES.map((ty) => (
@@ -429,7 +438,7 @@ export function ClientsClient({
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:ring-2"
+                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2"
                   >
                     <option value="all">{t("filter_status_all")}</option>
                     {/* "Prospect" excluded from the filter's practical option
@@ -606,12 +615,12 @@ function NewClientForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={t("name_placeholder")}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2"
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <select
           value={clientType}
           onChange={(e) => setClientType(e.target.value)}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2"
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         >
           <option value="" disabled>
             {t("select_client_type")}
@@ -625,7 +634,7 @@ function NewClientForm({
         <select
           value={businessLine}
           onChange={(e) => setBusinessLine(e.target.value)}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2"
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         >
           <option value="" disabled>
             {t("select_business_line")}
@@ -641,28 +650,28 @@ function NewClientForm({
           value={legalName}
           onChange={(e) => setLegalName(e.target.value)}
           placeholder={t("legal_name_placeholder")}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2"
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <input
           type="text"
           value={cui}
           onChange={(e) => setCui(e.target.value)}
           placeholder={t("cui_placeholder")}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2"
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2"
         />
         <input
           type="text"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
           placeholder={t("address_placeholder")}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2 md:col-span-2"
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
         />
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder={t("notes_placeholder")}
           rows={2}
-          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2 md:col-span-2"
+          className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
         />
         {canWriteCrmLink && (
           <input
@@ -670,7 +679,7 @@ function NewClientForm({
             value={externalCrmRef}
             onChange={(e) => setExternalCrmRef(e.target.value)}
             placeholder={t("external_crm_ref_placeholder")}
-            className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none transition-colors focus:ring-2 md:col-span-2"
+            className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 md:col-span-2"
           />
         )}
       </div>

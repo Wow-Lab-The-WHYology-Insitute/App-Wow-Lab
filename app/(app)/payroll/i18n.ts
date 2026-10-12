@@ -52,7 +52,16 @@ export const payrollDict: Dictionary = {
     en: "{{n}} workshops this month. All {{total}} trainer slots are confirmed.",
     ro: "{{n}} ateliere în această lună. Toate cele {{total}} sloturi de trainer sunt confirmate.",
   },
-  summary_sessions_count: { en: "{{n}} workshops this month", ro: "{{n}} ateliere în această lună" },
+  // Count in parentheses rather than in the sentence. Romanian has three
+  // plural forms (1 / 2-19 / 20+ with "de"), so "{{n}} ateliere" was wrong at
+  // n=1 ("1 ateliere") and at n>=20 ("20 ateliere", missing "de"). A label with
+  // a bracketed count sidesteps all three without Intl.PluralRules, and it is
+  // the pattern "Ateliere ({{count}})" already uses elsewhere. The sentences
+  // that genuinely need the number inline are left for a later pass.
+  summary_sessions_count: {
+    en: "Workshops this month ({{n}})",
+    ro: "Ateliere în această lună ({{n}})",
+  },
   summary_unconfirmed_heading: {
     en: "{{n}} of {{total}} trainer slots are not confirmed",
     ro: "{{n}} din {{total}} sloturi de trainer nu sunt confirmate",
@@ -67,9 +76,13 @@ export const payrollDict: Dictionary = {
   // Anca's own conditional answer ("grade 3 if she returns", item 95), so the
   // message has to say "Luiza Mirt has no grade on this date", not
   // "trainer_grade_assignments is missing a row".
+  // Was "{{n}} workshop(s)" / "{{n}} atelier(e)" — the parenthesised-suffix
+  // dodge, which avoids being wrong but reads as machine output and is STILL
+  // wrong in Romanian at 20+ (needs "de"). As a heading the count belongs in
+  // brackets anyway.
   unpriceable_heading: {
-    en: "{{n}} workshop(s) in {{month}} cannot be priced yet",
-    ro: "{{n}} atelier(e) din {{month}} nu pot fi încă plătite",
+    en: "Workshops in {{month}} that cannot be priced yet ({{n}})",
+    ro: "Ateliere din {{month}} care nu pot fi încă plătite ({{n}})",
   },
   unpriceable_hint: {
     en: "Closing the month is still possible — but pay cannot be computed for these until the gaps are filled, and a trainer can no longer fix them afterwards.",

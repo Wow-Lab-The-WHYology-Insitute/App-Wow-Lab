@@ -5,6 +5,14 @@ import { useTranslations } from "@/lib/i18n";
 import { groupsDict } from "../i18n";
 import { updateGroup } from "../actions";
 
+// EMPTY is what an unset field renders. It stays visible on purpose — in an
+// internal record "nobody has filled this in" is information, and a row that
+// disappears hides the fact that the field exists. Only its WEIGHT was wrong:
+// in text-ink font-medium it looked exactly as substantial as a real value,
+// and six of the thirteen rows on a live group are empty today, so the panel
+// read as six filled fields that happened to say nothing.
+const EMPTY = "—";
+
 type ContractOption = { id: string; client_id: string; exit_number: string | null };
 type ContactOption = { id: string; client_id: string; full_name: string };
 
@@ -114,31 +122,31 @@ export function GroupInfoSection({
       <Kv label={t("kv_delivery_format")} value={t(`format_${deliveryFormat}`)} />
       <Kv
         label={t("kv_language")}
-        value={languageGroup ? t(`language_${languageGroup}`) : "—"}
+        value={languageGroup ? t(`language_${languageGroup}`) : EMPTY}
       />
       {/* The sublabel is the honest half. For nine of the ten formats this
           field holds a date someone picked expecting a workshop to exist;
           saying what it is here costs nothing and is where it gets read. */}
       <Kv
         label={t("col_schedule")}
-        value={schedulePattern || "—"}
+        value={schedulePattern || EMPTY}
         sublabel={
           deliveryFormat === "scoli_private_recurente"
             ? t("schedule_kv_hint_recurring")
             : t("schedule_kv_hint_oneoff")
         }
       />
-      <Kv label={t("kv_age_range")} value={ageRange || "—"} />
+      <Kv label={t("kv_age_range")} value={ageRange || EMPTY} />
       <Kv
         label={t("kv_address")}
-        value={address || "—"}
+        value={address || EMPTY}
         sublabel={address && addressIsOverride ? t("address_override_hint") : undefined}
       />
       <Kv
         label={t("kv_onsite_contact")}
         value={
           onSiteContactId === null
-            ? "—"
+            ? EMPTY
             : !onSiteContactVisible
               ? t("client_hidden")
               : `${onSiteContactName}${onSiteContactPhone ? ` · ${onSiteContactPhone}` : ""}`
@@ -149,7 +157,7 @@ export function GroupInfoSection({
       />
       <Kv
         label={t("kv_calendar")}
-        value={calendarLink ? t("open_link") : "—"}
+        value={calendarLink ? t("open_link") : EMPTY}
         href={calendarLink ?? undefined}
         external
       />
@@ -180,9 +188,9 @@ export function GroupInfoSection({
           only deferred, and is recorded as its own open item
           (OPEN_ITEMS.md) rather than settled here by giving it a plain,
           unmasked edit form. Pending Anca, not forgotten. */}
-      <Kv label={t("kv_children_confirmed")} value={childrenConfirmed?.toString() ?? "—"} />
-      <Kv label={t("kv_children_billed")} value={childrenBilled?.toString() ?? "—"} />
-      <Kv label={t("kv_notes")} value={notes || "—"} />
+      <Kv label={t("kv_children_confirmed")} value={childrenConfirmed?.toString() ?? EMPTY} />
+      <Kv label={t("kv_children_billed")} value={childrenBilled?.toString() ?? EMPTY} />
+      <Kv label={t("kv_notes")} value={notes || EMPTY} clamp />
     </Section>
   );
 }
@@ -421,31 +429,51 @@ function Kv({
   href,
   external,
   sublabel,
+  clamp,
 }: {
   label: string;
   value: string;
   href?: string;
   external?: boolean;
   sublabel?: string;
+  /** Long free text (notes): clamp to three lines with a click to expand. */
+  clamp?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const isEmpty = value === EMPTY;
+  // Stacked under sm:, side-by-side from sm: up. Measured at 320px before
+  // changing it: the panel's usable width is 272px (320 minus the section's
+  // p-6), and justify-between had nothing left to distribute, so the label and
+  // the value touched — the first row rendered "ClientȘcoala Franceză (Lycee
+  // Francais)" as one run-on word. Stacking is the right answer rather than
+  // truncating because on a group sheet the value is what the trainer came for.
   return (
     <div className="flex flex-col gap-0.5 border-b border-black/5 py-2 text-sm last:border-0">
-      <div className="flex items-baseline justify-between">
-        <span className="font-body text-muted">{label}</span>
+      <div className="flex flex-col items-start gap-0.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <span className="font-body text-muted sm:shrink-0">{label}</span>
         {href ? (
           <a
             href={href}
             target={external ? "_blank" : undefined}
             rel={external ? "noreferrer" : undefined}
-            className="text-brand-pink font-body font-medium hover:underline"
+            title={value}
+            className="text-brand-pink font-body min-w-0 font-medium hover:underline sm:text-right"
           >
             {value}
           </a>
         ) : (
-          <span className="font-body text-ink font-medium">{value}</span>
+          <span
+            title={value}
+            onClick={clamp && !isEmpty ? () => setExpanded((v) => !v) : undefined}
+            className={`font-body min-w-0 sm:text-right ${
+              isEmpty ? "text-muted font-normal" : "text-ink font-medium"
+            } ${clamp && !isEmpty ? `cursor-pointer ${expanded ? "" : "line-clamp-3"}` : ""}`}
+          >
+            {value}
+          </span>
         )}
       </div>
-      {sublabel && <span className="font-body text-muted self-end text-xs">{sublabel}</span>}
+      {sublabel && <span className="font-body text-muted text-xs sm:self-end">{sublabel}</span>}
     </div>
   );
 }

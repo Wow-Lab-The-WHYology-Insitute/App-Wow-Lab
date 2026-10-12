@@ -25,6 +25,11 @@ export type PlanDecision = {
 export function PlanDecisionsNotice({ decisions }: { decisions: PlanDecision[] }) {
   const t = useTranslations(myWorkDict);
   const [dismissed, setDismissed] = useState<string[]>([]);
+  // `leaving` fades the row out; `dismissed` removes it once the fade is done.
+  // Two states rather than one because unmounting in the same render as the
+  // opacity change means there is nothing left to fade — the same mistake the
+  // expandable row makes with its content (audited, deliberately left alone).
+  const [leaving, setLeaving] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -38,7 +43,17 @@ export function PlanDecisionsNotice({ decisions }: { decisions: PlanDecision[] }
       </h2>
       <ul className="flex flex-col gap-3">
         {open.map((d) => (
-          <li key={d.rowId} className="flex flex-wrap items-start justify-between gap-3">
+          <li
+            key={d.rowId}
+            // The one animation added rather than removed in the 2026-10-12
+            // pass, and justified by frequency: a trainer marks a decision seen
+            // a handful of times a month, so 150ms of fade is noticed as
+            // acknowledgement rather than endured as lag. Everything that
+            // happens dozens of times a day in this app stays instant.
+            className={`flex flex-wrap items-start justify-between gap-3 motion-safe:transition-opacity motion-safe:duration-[var(--duration-fast)] ${
+              leaving.includes(d.rowId) ? "opacity-0" : "opacity-100"
+            }`}
+          >
             <div className="min-w-0">
               <p className="font-body text-ink text-sm">
                 <span className="font-bold">
@@ -68,7 +83,13 @@ export function PlanDecisionsNotice({ decisions }: { decisions: PlanDecision[] }
                     // Hidden locally as well as server-side: revalidatePath
                     // refreshes the page data, but the row has to disappear
                     // even if this viewer's cache is stale.
-                    else setDismissed((prev) => [...prev, d.rowId]);
+                    else {
+                      setLeaving((prev) => [...prev, d.rowId]);
+                      setTimeout(
+                        () => setDismissed((prev) => [...prev, d.rowId]),
+                        150,
+                      );
+                    }
                   });
                 }}
                 className="font-body rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-3 py-1 text-xs font-bold text-white uppercase"

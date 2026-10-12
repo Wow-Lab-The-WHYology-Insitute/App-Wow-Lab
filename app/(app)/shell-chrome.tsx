@@ -16,6 +16,12 @@ type NavGroup = { labelKey?: string; items: NavItem[] };
 // by the hamburger button, with a backdrop that closes it — standard
 // collapse pattern, nothing fancier. The drawer also closes itself when a
 // NavLink is actually clicked (onNavigate), not just on backdrop tap.
+//
+// The only real movement in this app. ease-OUT, not ease-in-out: a panel that
+// is arriving should start fast and settle, where ease-in-out starts slowly
+// and reads as lag. motion-safe: because this is the one transform in the
+// codebase and the only transition that reduced-motion users have reason to
+// care about — the other ~79 are colour and opacity. Tokens from globals.css.
 export function ShellChrome({
   navGroups,
   userEmail,
@@ -39,7 +45,7 @@ export function ShellChrome({
   return (
     <div className="flex min-h-dvh">
       <aside
-        className={`bg-sidebar fixed inset-y-0 left-0 z-40 flex w-60 flex-col transition-transform duration-200 ease-in-out md:sticky md:top-0 md:h-screen md:flex-shrink-0 md:translate-x-0 md:transition-none ${
+        className={`bg-sidebar fixed inset-y-0 left-0 z-40 flex w-60 flex-col motion-safe:transition-transform motion-safe:duration-[var(--duration-panel)] motion-safe:ease-out-panel md:sticky md:top-0 md:h-screen md:flex-shrink-0 md:translate-x-0 md:transition-none ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >

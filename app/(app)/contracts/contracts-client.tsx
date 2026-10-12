@@ -607,7 +607,7 @@ export function ContractsClient({
                   <select
                     value={typeFilter}
                     onChange={(e) => setTypeFilter(e.target.value)}
-                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:ring-2"
+                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2"
                   >
                     <option value="all">{t("filter_type_all")}</option>
                     {CONTRACT_TYPES.map((ty) => (
@@ -619,7 +619,7 @@ export function ContractsClient({
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:ring-2"
+                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2"
                   >
                     <option value="all">{t("filter_status_all")}</option>
                     {CONTRACT_STATUSES.map((s) => (
@@ -631,7 +631,7 @@ export function ContractsClient({
                   <select
                     value={entityFilter}
                     onChange={(e) => setEntityFilter(e.target.value)}
-                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:ring-2"
+                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2"
                   >
                     <option value="all">{t("filter_entity_all")}</option>
                     {entityOptions.map((name) => (

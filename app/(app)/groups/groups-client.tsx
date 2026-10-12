@@ -575,7 +575,7 @@ export function GroupsClient({
                   <select
                     value={moduleFilter}
                     onChange={(e) => setModuleFilter(e.target.value)}
-                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:ring-2"
+                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2"
                   >
                     <option value="all">{t("filter_module_all")}</option>
                     {moduleOptions.map((m) => (
@@ -587,7 +587,7 @@ export function GroupsClient({
                   <select
                     value={formatFilter}
                     onChange={(e) => setFormatFilter(e.target.value)}
-                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:ring-2"
+                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2"
                   >
                     <option value="all">{t("filter_format_all")}</option>
                     {formatOptions.map((f) => (
@@ -599,7 +599,7 @@ export function GroupsClient({
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus:ring-2"
+                    className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2"
                   >
                     <option value="all">{t("filter_status_all")}</option>
                     {STATUS_KEYS.map((s) => (
