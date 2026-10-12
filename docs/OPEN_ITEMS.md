@@ -5126,6 +5126,102 @@ refines rather than replaces); item 94 above (the 25h8m silent failure these scr
 item 109 above (the mistake class this entry repeated twice); item 117 above (the work this briefly
 reported as undeployed, since verified live).
 
+### 119. Functions ran in Washington, the database is in Frankfurt — moved to fra1 2026-10-12, measured with controls, and every production timing before 09:44:55Z carries the distance
+
+2026-10-12. Mihai: the app feels slower than it should. Measured on app.wowlab.ro before optimising
+anything, signed in as wow-lab-test-b fixtures (`test+user-b@wowlab.dev`, organization_owner;
+`maxdigitalro+trainerb1@gmail.com`, trainer).
+
+**The cause was distance, not work.** Every response carried `x-vercel-id: fra1::iad1` — entering
+at Frankfurt, executing in Washington (`iad1`, Vercel's default for new projects) — while the
+database is in `eu-central-1`. Each Supabase call from a page function crossed the Atlantic:
+**103–107 ms p50 origin time per call** (Supabase edge logs, colo IAD, ~2,775 calls across the
+measurement windows; p90 114–229 ms, the tail being fresh connections). Pages make **15–27 calls**,
+most of them in sequence (9–17 of them `has_capability`). The SQL itself was never the cost:
+`has_capability` executes in 1.25 ms mean over 19,199 calls, the heaviest page query in 16–21 ms.
+
+**The change:** `"regions": ["fra1"]` in `vercel.json`, commit `3c86f80`. Hobby allows exactly one
+function region, chosen freely; set in `vercel.json` rather than the dashboard so it is visible in
+review. Vercel `success` at 09:44:55Z (item 118 above's table); last `iad1` response observed
+09:44:54Z, first `fra1::fra1` response 09:45:25Z. **Per-call origin time after: 11–14 ms p50**
+(colo FRA, ~2,850 calls; p90 21–36 ms).
+
+**What a call costs in wall time is a different number, and both are true.** Origin time is measured
+inside Supabase's edge. Seen from the function, a sequential call costs **~30–35 ms** in fra1 —
+measured on `/auth/callback`, where each added call can be counted from the logs (11 extra calls
+added ~350 ms; 3 added ~100 ms). Re-cost any "N fewer calls" proposal at ~30–35 ms per call, not 12.
+
+**Four pages untouched by anything else that shipped today** (warm median of five, same harness both
+sides; `18dec06` went live mid-measurement at 09:47:12Z but changes none of these four or the
+layout):
+
+| page | first byte before | first byte after (run 1 / run 2) | first paint before | first paint after (run 1 / run 2) |
+|---|---|---|---|---|
+| /clients | 1.86 s | 0.46 / 0.69 s | 1.88 s | 0.88 / 0.68 s |
+| /contracts | 1.85 s | 0.44 / 0.52 s | 2.95 s | 0.73 / 0.90 s |
+| /groups | 1.74 s | 0.42 / 0.52 s | 2.45 s | 0.77 / 0.78 s |
+| /suppliers | 1.65 s | 0.44 / 0.40 s | 2.28 s | 0.72 / 0.71 s |
+
+"Before" is the 09:35Z run; first paint is headless Chrome, cold cache per run. The projection had
+been 0.3–0.5 s. First byte landed at 0.40–0.69 s; first paint at 0.68–0.90 s, because the browser's
+own CSS/font/JS work (~100–250 ms) now shows where it used to overlap the long server wait.
+
+**The controls — what makes this a measurement rather than a before-and-after:**
+
+- **Things that do not run in the page function did not move.** Static file 37–41 ms → 36–40 ms.
+  The middleware sign-in check, which already ran in Frankfurt: 17 → 14 ms p50, 35 → 24 ms p90, with
+  the same request volume (314 vs 305). Response headers in the browser: ~89–143 ms → ~90–95 ms.
+- **The one thing that runs in the function without touching the database fell by about the round
+  trip:** `/login` 170–181 ms → 77–88 ms. (It was treated as a network floor in the first report; it
+  was itself paying the hop to Washington.)
+- **The distributions do not overlap.** Fastest before-run on the four pages: 1.60 s. Slowest
+  after-run: 0.98 s in run 1, 1.55 s in run 2 — run 2 was noisier, with a single /groups outlier,
+  and still did not cross.
+- **The baseline was taken twice, twenty minutes apart, and agreed** (09:15Z and 09:35Z: /clients
+  1.86 / 1.86 s, /contracts 1.82 / 1.85 s, /groups 1.77 / 1.74 s, /suppliers 1.64 / 1.65 s).
+
+**Re-baseline, as of 10:05Z (`18dec06` live), for the next change on these two pages:**
+
+| page | first byte | first paint |
+|---|---|---|
+| /groups/[id], owner | 0.71 s (run 1: 1.00 s) | 1.32 s (run 1: 1.11 s) |
+| /groups/[id], trainer | 0.59 s (0.63 s) | 1.06 s (1.12 s) |
+| /my-work, owner | 0.43 s (0.41 s) | 0.82 s (0.74 s) |
+| /my-work, trainer | 0.48 s (0.57 s) | 0.75 s (0.77 s) |
+
+`/groups/[id]` is now the slowest page by about 2× (owner HTML 37.7 KB, up from 33.0 KB with item
+117 above's catalogue).
+
+**What this means for every timing taken before today.** Any production timing measured before
+09:44:55Z carries a transatlantic round trip per database call — roughly 100–300 ms each, times the
+number of sequential calls on the path. **The dead-zone figure behind the `pendingCreate` banner is
+in that category.** Commit `38fe153` (2026-09-10) measured "the create form closes at ~0.7s, the new
+row appears at ~2.4s" and concluded "Not something to make faster — the fix is showing the wait."
+The ~1.7 s between the two is the revalidated list page re-rendering on the server, and that render
+took 1.74–1.86 s under `iad1` against 0.40–0.69 s now. So the 2.4 s was most likely mostly distance,
+not work — **an inference, not a re-measurement**: nobody has timed that create flow in fra1. The
+closest measured thing, a save on the group detail screen through the UI (owner, wow-lab-test-b),
+landed in 0.86–1.60 s.
+
+**Item 118 above, from this side.** Its premise was wrong twice today ("queued behind the previous
+commit", then "Vercel never built it"), and the defect that stands is the one it now names: the
+script gives up after ~30 s when no status has appeared, against a first-status lag measured at
+54 s–3 m 37 s that day (its own table) — 2× to 7× longer than the window. `3c86f80` is one of its
+data points: the script reported "Treat as NOT deployed" at ~30 s, and the first Vercel status
+appeared ~2.5–3.5 min after the push. The fix is held for its own pass, as item 118 above says.
+
+**Not changed in this pass, and re-costed rather than built:** batching the 7–17 capability checks
+per page into one call (~1–1.5 s saved under `iad1`, now roughly 0.2–0.4 s at ~30–35 ms per call);
+running each page's independent queries in parallel (now roughly 0.1–0.2 s); loading skeletons.
+
+**Blocked on:** nothing.
+**Re-verify when:** anything moves the functions or the database (a second region, a Supabase
+region change, a plan change), or before quoting any pre-09:44:55Z production timing as current —
+re-measure it instead.
+**Lives in:** `vercel.json`; commit `3c86f80`; commit `38fe153` (the 2.4 s figure); item 118 above
+(the deploy-status window); item 117 above (the `18dec06` change that confounds `/groups/[id]` and
+`/my-work`).
+
 ---
 
 ### 18. Pending invites — cut deliberately
