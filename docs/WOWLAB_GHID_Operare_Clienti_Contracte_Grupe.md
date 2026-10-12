@@ -17,7 +17,9 @@ npx tsx scripts/check_operator_guide.ts
 
 Acest ghid **nu** este verificat automat în CI — în acest proiect nu există CI, și nu îl adăugăm pentru asta. Scriptul se rulează de o persoană, la nevoie.
 
-**Ultima rulare:** 2026-09-10 — 34/34 (4 rânduri noi, pentru linia de business). Prima rulare a găsit o nepotrivire reală (`create_contract`: textul butonului e „Creează contractul", nu „Creează contract" cum scria draftul) — corectată în același commit, în manifest și în Pasul 2 mai jos.
+**Ultima rulare:** 2026-10-12 — 38/38, după reparația de mai jos. Rularea anterioară (2026-09-10) a dat 34/34, iar scriptul **nu a mai fost rulat trei săptămâni** — timp în care `202609210006` a înlocuit lista de șase formate cu cele nouă ale Ancăi plus Custom, iar ghidul a continuat să trimită la trei formate care nu mai existau. Găsit 2026-10-12, din întâmplare, verificând altceva (OPEN_ITEMS.md item 114). Manifestul are acum 38 de rânduri, nu 34: cele trei rânduri moarte au fost înlocuite cu toate cele zece formate reale, pentru ca lista din Pasul 3 să fie verificabilă în întregime, nu doar pe jumătate.
+
+Prima rulare, în 2026-09-10, a găsit o nepotrivire reală (`create_contract`: textul butonului e „Creează contractul", nu „Creează contract" cum scria draftul) — corectată în același commit, în manifest și în Pasul 2 mai jos.
 
 ---
 
@@ -55,11 +57,15 @@ Nu conține afirmațiile de comportament (ex. „listele pornesc goale", „data
 | `page_title` | `groupsDict` | `app/(app)/groups/i18n.ts` | Grupe și înscrieri |
 | `new_group` | `groupsDict` | `app/(app)/groups/i18n.ts` | + Grupă nouă |
 | `edit` | `groupsDict` | `app/(app)/groups/i18n.ts` | Editează |
-| `format_recurring` | `groupsDict` | `app/(app)/groups/i18n.ts` | Recurent (club școlar) |
 | `format_scoala_altfel` | `groupsDict` | `app/(app)/groups/i18n.ts` | Școala Altfel |
 | `format_saptamana_verde` | `groupsDict` | `app/(app)/groups/i18n.ts` | Săptămâna Verde |
-| `format_party` | `groupsDict` | `app/(app)/groups/i18n.ts` | Party |
-| `format_corporate` | `groupsDict` | `app/(app)/groups/i18n.ts` | Corporate |
+| `format_wow_lab_party` | `groupsDict` | `app/(app)/groups/i18n.ts` | Wow Lab Party |
+| `format_parteneriate_companii` | `groupsDict` | `app/(app)/groups/i18n.ts` | Parteneriate cu companii |
+| `format_cursuri_deschise` | `groupsDict` | `app/(app)/groups/i18n.ts` | Cursuri deschise |
+| `format_scoli_private_ocazionale` | `groupsDict` | `app/(app)/groups/i18n.ts` | Școli private (colaborări ocazionale) |
+| `format_scoli_private_recurente` | `groupsDict` | `app/(app)/groups/i18n.ts` | Școli private (colaborări recurente) |
+| `format_evenimente_mall` | `groupsDict` | `app/(app)/groups/i18n.ts` | Evenimente/prezentări la mall |
+| `format_party_companii` | `groupsDict` | `app/(app)/groups/i18n.ts` | Party în companii |
 | `format_custom` | `groupsDict` | `app/(app)/groups/i18n.ts` | Custom |
 | `status_active` | `groupsDict` | `app/(app)/groups/i18n.ts` | Activă |
 | `create_group` | `groupsDict` | `app/(app)/groups/i18n.ts` | Creează grupa |
@@ -106,12 +112,24 @@ Pentru a-l marca semnat: intri pe contract și apeși „Marchează ca semnat". 
 
 - Client — școala
 - Contract — contractul sub care se livrează grupa. Poți să-l lași gol dacă nu e încă semnat și să-l completezi mai târziu, din „Editează" pe pagina grupei.
-- Modulul — cele 13 module
-- Formatul — Recurent (club școlar), Școala Altfel, Săptămâna Verde, Party, Corporate sau Custom
+- Modulul — cele 15 module
+- Formatul — una din cele zece de mai jos. Formatul spune **cum și cui** se vinde atelierul; ce se predă e modulul. Sunt două câmpuri separate, nu două feluri de a spune același lucru.
+  - **Școli private (colaborări recurente)** — club care se ține săptămânal la o școală privată, pe tot anul școlar. Doar ăsta cere program pe zi și oră (vezi mai jos).
+  - **Școli private (colaborări ocazionale)** — o intervenție singulară la o școală privată, nu un club. Exemplul Ancăi: Science Week la IBSB.
+  - **Școala Altfel** — programul național Școala Altfel, de regulă în școli de stat.
+  - **Săptămâna Verde** — programul național Săptămâna Verde. E alt program, nu o variantă a Școlii Altfel.
+  - **Cursuri deschise** — curs la care copiii se înscriu individual, nu printr-o școală. Exemplul Ancăi: cursuri de chimie.
+  - **Wow Lab Party** — petrecerea unui copil.
+  - **Party în companii** — același produs, dar la o firmă (ex. petrecerea angajaților). Dacă e party și e la firmă, alegi ăsta, nu „Wow Lab Party".
+  - **Parteneriate cu companii** — relație continuă cu o companie, nu un eveniment singular.
+  - **Evenimente/prezentări la mall** — eveniment sau prezentare într-un spațiu comercial. Exemplul Ancăi: Barlad Value Center.
+  - **Custom** — numai când niciunul din celelalte nouă nu descrie livrarea. Nu e „recurent cu alt nume": clubul săptămânal la școală privată e „Școli private (colaborări recurente)".
+
+  Dacă te-ai obișnuit cu lista veche de șase: *Recurent (club școlar)* → **Școli private (colaborări recurente)**; *Party* → **Wow Lab Party** sau **Party în companii**, după unde se ține; *Corporate* → **Parteneriate cu companii** sau **Evenimente/prezentări la mall**, după dacă e relație continuă sau un eveniment. *Școala Altfel*, *Săptămâna Verde* și *Custom* au rămas la fel. **Cursuri deschise** și **Școli private (colaborări ocazionale)** sunt noi — vechea listă nu avea cum să le exprime.
 - Starea — vine pe „Activă"
 - Programul:
-  - pentru recurent: ziua și ora. Zilele apar deocamdată în engleză (Monday, Tuesday…). Dacă lași ora goală, se pierde și ziua — completează amândouă.
-  - pentru celelalte formate: data și ora. Aici ora poate rămâne goală, data se păstrează.
+  - pentru **Școli private (colaborări recurente)**: ziua și ora. Zilele apar deocamdată în engleză (Monday, Tuesday…). Dacă lași ora goală, se pierde și ziua — completează amândouă.
+  - pentru celelalte nouă formate (inclusiv Custom): data și ora. Aici ora poate rămâne goală, data se păstrează.
 - Interval de vârstă, Link calendar an școlar — opționale
 
 Apeși „Creează grupa".
