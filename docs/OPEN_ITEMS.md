@@ -5720,7 +5720,7 @@ warning against naming a cause you cannot see).
 
 ---
 
-### 126. `git_info_fail` — Vercel's GitHub App getting 403 on the repository fetch. INTERMITTENT, not fixed: Reconnect bought exactly one successful deployment
+### 126. The Git integration is broken in three distinct ways and neither Reconnect nor a full reinstall fixed it — NEXT STEP IS VERCEL SUPPORT
 
 2026-10-12, from 11:49Z and **still recurring**. Production deployments fail with
 `errorCode: 'git_info_fail'` and the cause is neither the code, nor a quota, nor the `fra1` region
@@ -5741,11 +5741,59 @@ one after it falsified that within six minutes:
 | — | — | **Reconnect pressed, 403 cleared from the settings page** | — |
 | 13:00:31Z | `949e6ef` | READY | 49.9 s |
 | 13:06:55Z | `f055448` | **ERROR `git_info_fail`** | 4.4 s (docs-only) |
+| 13:08:43Z | `728391c` | READY | 48.4 s (docs-only — so it was already intermittent, success/fail/success, not monotonic; I missed this one at first by checking the failed sha and not the next) |
 
 **So Reconnect is a retry, not a repair.** It restores the link long enough for one deployment and
-the failure returns. Whatever is wrong is on the Vercel side of the GitHub App link and survives
-re-pressing the button — which means the next step is re-authorising or reinstalling the
-integration, not pressing Reconnect again.
+the failure returns.
+
+**Then the GitHub App was uninstalled from the organization, reinstalled, and the project
+reconnected — and the symptom CHANGED rather than cleared.** Two consecutive pushes after the
+reinstall produced **no deployment at all**:
+
+| time | commit | what Vercel created |
+|---|---|---|
+| ~13:20Z | `97e10b8` | **nothing** — still no deployment after 15 minutes of polling |
+| ~13:35Z | `ebac07b` | **nothing** — no deployment after 5 minutes |
+
+Both are on `origin/main` (confirmed with `git ls-remote`), and the project's link record is
+structurally intact — `type: github`, `Wow-Lab-The-WHYology-Insitute / App-Wow-Lab`,
+`repoId: 1271387260`, `productionBranch: main`, `createdAt` ≈ 2026-08-10, matching the
+`Connected Aug 10` the settings page shows.
+
+**THREE distinct failure states have now been observed on this project in one afternoon**, and
+telling them apart is the first thing to do on any future occurrence:
+
+| state | deployment created? | duration | build log | `errorCode` |
+|---|---|---|---|---|
+| **healthy** | yes | 43–61 s | normal | — |
+| **`git_info_fail`** | yes | 4–9 s | **empty**, `builds: []` | `git_info_fail` |
+| **webhook dead** (after the reinstall) | **no** | — | — | — |
+
+The third is the worst to diagnose, because nothing anywhere reports a failure: `git push` succeeds,
+GitHub holds the commit, no deployment record exists to carry an error, and the only signal is an
+absence. It is also exactly the condition item 108 above describes and `check_deploy_status.ts`
+exists for — but see the caveat below about that script today.
+
+**Verdict, plainly: not repaired.** Reconnect bought one deployment; the uninstall/reinstall bought
+none and traded a loud failure for a silent one. **The next step is Vercel support, not another
+thing to press.** Intermittent `git_info_fail` with intact GitHub-side permissions, followed by
+webhooks that create no deployment, is visible in their logs and not in ours.
+
+**What to hand them, so the ticket does not need a second round:**
+- project `prj_0qQGJwev5UT936X2KFnl9fVJWwNF`, team `team_jc5JPRPiybFWLSHA05B3BAKi`, repo
+  `Wow-Lab-The-WHYology-Insitute/App-Wow-Lab`, `repoId 1271387260`
+- the three `git_info_fail` deployments: `dpl_CvmttRcMW8cVfcAnz4iGt7PXdmsi`,
+  `dpl_4wxyweE73kJVCfbRV2EoTPRWXzG3`, `dpl_F239xTLVW4hmJkF5dbp1utjT5QGo`
+- the two commits that produced no deployment at all: `97e10b8`, `ebac07b`
+- the fact that the GitHub App's own permissions were all-repositories, read and write, throughout
+
+**`check_deploy_status.ts` could not be used for this verification, for a reason worth knowing.** It
+queries GitHub's commit-status API **unauthenticated**, which is rate-limited to 60 requests an hour
+— and this session's own polling loops exhausted it, after which the script fails with
+`GitHub API returned HTTP 403` for every commit. The Vercel API (with a token in `.env.local`) is
+the better instrument regardless: it reports `errorCode` and build duration directly, and it can
+distinguish "no deployment exists" from "no status yet", which is precisely the ambiguity item 118
+above is about.
 
 **One consequence worth carrying into every later entry: "verified live" now needs a deployment
 check in front of it.** Item 125 above's measurement is valid precisely because it ran against
@@ -5805,9 +5853,13 @@ change in `3c86f80` (ruled out by the eight deployments that succeeded after it)
 this session's record of writing one such hypothesis down as a cause and watching it die; this entry
 is what it looks like when the actual answer finally arrives from a log.
 
-**Blocked on:** a real repair of the GitHub App link — re-authorise or reinstall the Vercel GitHub
-integration for this repository, rather than pressing Reconnect again. Until then every push is a
-coin toss and nothing can be claimed as deployed without checking.
+**Production is NOT stranded, which is the one piece of good news.** The last successful deployment,
+`728391c` at 13:08:43Z, is an ancestor of `main` and carries every code change — everything pushed
+since is documentation. So the app is current; only this register's own text is behind.
+
+**Blocked on:** Vercel support. Reconnect and a full uninstall/reinstall have both been tried, and
+the second made the failure quieter rather than rarer. Until it is fixed, nothing may be described
+as deployed without checking the Vercel API for a deployment of that exact sha.
 **Re-verify when:** any deployment fails in under ~15 seconds. Read `errorCode` on the deployment
 record and the length of the events array before anything else:
 `curl -H "Authorization: Bearer $VERCEL_TOKEN" "https://api.vercel.com/v13/deployments/<dpl>?teamId=<team>"`.
