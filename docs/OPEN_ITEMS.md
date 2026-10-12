@@ -4820,16 +4820,25 @@ carries the same 15 keys — the two objects `202610070001` warned can drift are
 exclusion sentence now also names counts-of-database-contents explicitly, so the next reader does not
 have to infer that a number is unverifiable from the fact that it is not a dictionary string.
 
-**One divergence found by the same scan and deliberately not changed.** Pasul 2 names the three legal
-entities by hand, and writes **"Asociația STEMplicity"** with a diacritic; the live row in
-`public.legal_entities` is **"Asociatia STEMplicity"** without one, which item 42 below established
-is correct by convention in this system and not a typo (Anca confirmed it on her own name). So the
-operator reads one spelling and sees another on screen. It is one character, it is in prose rather
-than in the manifest, and "fix the document to match the data" is the exact shape of the change items
-35 and 42 below record as having nearly corrupted correct data twice — so it is reported rather than
-applied. Also measured while there: `legal_entities` holds **5 rows across all organizations** (3 real
-in `wow-lab`, 2 test fixtures in Test Org B), so the guide's "three" is right because it is
-org-scoped, not because the table has three rows.
+**One divergence found by the same scan — reported first, then fixed in the direction that was
+decided.** Pasul 2 names the three legal entities by hand and wrote **"Asociația STEMplicity"** with
+a diacritic; the live row in `public.legal_entities` is **"Asociatia STEMplicity"** without one,
+which item 42 below established is correct by convention here and not a typo (Anca confirmed it on
+her own name). So the operator read one spelling and saw another on screen. It was reported rather
+than applied, because the two possible fixes point in opposite directions and "correct the thing that
+looks wrong" is the exact shape items 35 and 42 below record as having nearly corrupted correct data
+twice. **Mihai decided it the same day: the document moves, the data does not** — the guide's job is
+telling someone what to click, so it names what is on screen. **The reasoning is written into the
+guide beside the word**, not only here, so the next person to notice the missing diacritic finds out
+why before "fixing" it back.
+
+**The org-scoped count trap, recorded because it will catch someone.** `legal_entities` holds **five
+rows across all organizations** — 3 real in `wow-lab`, 2 test fixtures in Test Org B. The guide's
+"three" is right **because it is scoped to `wow-lab`**, not because the table holds three rows. A
+bare `select count(*) from public.legal_entities` returns 5, reads as a discrepancy against the
+guide, and is not one — anyone verifying that line has to filter by organization. Also stated in the
+guide itself, next to the three names, for the same reason the diacritic note is: the person who will
+run that count is reading the guide, not this register.
 
 **The quoted half-sentence above is left in the preamble unchanged, on purpose.** It is still true —
 both checkers are hand-run for the same reason — and it is this entry's own evidence. Rewriting it to

@@ -97,7 +97,9 @@ Apeși „Creează clientul".
 **Meniu → Clienți și contracte → Contracte → „+ Contract nou"**
 
 - Client — școala de la pasul 1
-- Entitatea juridică — Experimente Wow SRL, Brandine Advertising SRL sau Asociația STEMplicity. Firma care facturează.
+- Entitatea juridică — Experimente Wow SRL, Brandine Advertising SRL sau Asociatia STEMplicity. Firma care facturează.
+  - „Asociatia" e scris **intenționat fără diacritică**, exact cum apare în aplicație: numele din baza de date se scriu fără diacritice prin convenție, confirmată de Anca pe propriul ei nume (OPEN_ITEMS.md item 42). Ghidul numește ce e pe ecran, deci nu se „corectează" înapoi — corecția în direcția cealaltă, în date, e exact greșeala pe care itemii 35 și 42 o au consemnată.
+  - Cele trei sunt entitățile organizației **WOW LAB**. Tabelul `legal_entities` are cinci rânduri în total, două fiind fixturi de test (Test Org B): un `count(*)` fără filtru pe organizație arată cinci și pare o nepotrivire cu „trei" de mai sus. Nu e.
 - Tipul contractului — recurent anual, eveniment unic sau contract-cadru
 - Număr intrare / Număr ieșire — opționale. Numărul de ieșire trebuie să fie unic; dacă se repetă, primești o eroare (în engleză, deocamdată).
 - Data început / Data sfârșit — opționale
