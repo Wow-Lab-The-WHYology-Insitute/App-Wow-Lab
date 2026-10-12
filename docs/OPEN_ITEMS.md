@@ -5596,7 +5596,7 @@ test this was); item 123 above (the guard that made the failure silent rather th
 
 ---
 
-### 125. The landing path cost nine round trips; it now costs one — and the deploy carrying it FAILED, so the after-measurement does not exist yet
+### 125. The landing path cost nine round trips; it now costs one — halving the sign-in redirect, once a deploy outage unrelated to it was cleared
 
 2026-10-12. The post-sign-in destination (the rule in item 114 above's sibling, `lib/landing.ts`)
 resolved by looking up the caller's memberships and then calling `has_capability` once per
@@ -5655,13 +5655,42 @@ session** — the CLI is not logged in and the Vercel MCP server is unauthentica
 hypothesis about why is a guess, and item 118 above records what happens when one of those gets
 written down as a cause.
 
-**The after-numbers taken while that was true are void, and are recorded here only so nobody
-mistakes them for a result.** `app.wowlab.ro` was still serving the previous build, so the 588 /
+**The after-numbers taken while that was true were void, and are kept here only so nobody mistakes
+them for the result above.** `app.wowlab.ro` was still serving the previous build, so the 588 /
 237 / 212 ms observed are the OLD code path: 588 ms for the trainer sits inside the before-run's own
 spread (534–967). **No improvement has been measured. The function is proven; the path through it
 is not.**
 
-**It failed twice, deterministically, and in TEN SECONDS — which rules out the whole class of cause
+**RESOLVED 2026-10-12: the deploy outage was `git_info_fail` and had nothing to do with this change
+(item 126 below). After the fix, measured properly, with a control arm on the same build:**
+
+| account | before (per-capability loop) | after (one RPC) | end to end | landing's own cost, after |
+|---|---|---|---|---|
+| **trainer** | 660 ms | **320 ms** | **−340 ms (−52%)** | 198 ms over a 122 ms floor |
+| owner | 295 ms | **142 ms** | **−153 ms (−52%)** | 31 ms over 111 ms |
+| ops manager | 274 ms | **141 ms** | **−133 ms (−49%)** | 47 ms over 94 ms |
+
+Warm median of five per arm, and all three land where the rule says they should (`/my-work`,
+`/profile`, `/profile`), which is also the three-account verification this entry was waiting on.
+
+**The control arm is new and worth keeping.** `scripts/measure_landing_path.ts` now measures each
+account twice on the SAME build: once normally, and once with an explicit `next=/profile`, which
+short-circuits the callback before it resolves a landing path at all. That holds everything constant
+— the build, `verifyOtp`, the platform's mood that minute — so "landing costs 198 ms" is a
+subtraction rather than a comparison against a different deployment on a different afternoon. The
+earlier before-numbers have no such control, so the end-to-end column is the weaker of the two
+claims and is labelled as such.
+
+**What the remaining 198 ms is, because it is not round trips any more.** The trainer is still the
+expensive case for the same reason as before: theirs is the one account where all nine capability
+checks must actually run, since `mywork.*` matches and then every one of the eight beyond-keys has to
+come back false. Those nine calls now happen inside one round trip instead of across nine, which is
+the whole saving — but they are still nine queries. Making them cheaper would mean not calling
+`app.has_capability` nine times, i.e. re-implementing the authorization rule in a single query, which
+is exactly what this migration refused to do. **198 ms of in-database work is the deliberate price of
+one definition of "has".**
+
+**It failed twice, deterministically, and in TEN SECONDS — which ruled out the whole class of cause
 I would otherwise have guessed at.** Measured from GitHub's own timestamps:
 
 | commit | push → verdict | outcome |
@@ -5682,15 +5711,83 @@ deployments — which is circumstantial and nothing more. Item 118 above is the 
 down a cause that fit the evidence in front of me and then watching it die twice; the 10-second
 figure is evidence, "therefore it is the daily deployment cap" would be a guess.
 
-**Blocked on:** a successful deployment of `767a479` or later — then re-run
-`npx tsx --env-file=.env.local scripts/measure_landing_path.ts "AFTER"` and the three-account UI
-verification. Whoever can open the Vercel dashboard can read why it failed in one click:
-`npx vercel inspect dpl_CvmttRcMW8cVfcAnz4iGt7PXdmsi --logs`.
+**Blocked on:** nothing — deployed, measured and verified 2026-10-12 after item 126 below's fix.
 **Lives in:** `supabase/migrations/202610120008_add_has_any_capability_and_landing_flags.sql` and its
 rollback (applied); `lib/landing.ts`; `app/auth/callback/route.ts`; `app/page.tsx`;
 `db/tests/landing_flags.sql`; `scripts/measure_landing_path.ts`; item 114 above (the stale-list shape
 the capability list is commented against); item 118 above (the deploy-reporting entry, and the
 warning against naming a cause you cannot see).
+
+---
+
+### 126. `git_info_fail` — the deploy outage was Vercel's GitHub App getting 403 on the repository fetch, and the signature identifies it in a minute
+
+2026-10-12, 11:49Z to 13:00Z. Three consecutive production deployments failed and the cause was
+neither the code, nor a quota, nor the `fra1` region move. **Vercel's GitHub App was returning 403
+when fetching the repository**, which the project's Git settings showed as
+`GitHub fetch error - status: 403` on the connected repository. **Pressing Reconnect fixed it**; that
+field now reads `Connected Aug 10` and the error is gone.
+
+**THE SIGNATURE, which is the whole value of this entry.** Recognise it from two numbers and stop
+investigating anything else:
+
+> **An empty build log plus a sub-10-second failure means the build never started, so the cause is
+> the GitHub link and not anything in the repository.**
+
+Measured, both sides of the boundary:
+
+| | duration | `errorCode` | build log |
+|---|---|---|---|
+| eleven deployments, 08:56Z–11:49Z | **43–61 s** | — | normal |
+| three deployments, 11:59Z–12:05Z | **6–9 s** | **`git_info_fail`** | **`[ ]` — zero events, `builds: []`** |
+| after Reconnect, 13:00Z | **49.9 s** | — | normal |
+
+A build that compiles this app costs about a minute. One that ends in under ten seconds has not
+reached `npm ci`, let alone TypeScript or ESLint — and the API confirms it rather than implying it:
+the events endpoint returns an empty array, and `builds` is empty, because there was nothing to
+build. The deployment record carries `errorCode: 'git_info_fail'` and **no** `errorMessage`,
+`errorStep` or `errorLink`; that code is the entirety of what Vercel recorded.
+
+**The decisive control was a docs-only commit.** `d6883f3` changed nothing but
+`docs/OPEN_ITEMS.md` and failed identically to the commit before it. That rules the repository
+contents out completely, and it is the cheapest possible test — if a commit that touches only a
+markdown file fails the same way, stop reading diffs.
+
+**The GitHub App's own permissions were intact the entire time — all repositories, read and write
+(checked by Mihai on GitHub's side).** This is the most useful negative in the entry: **checking
+GitHub first costs time and settles nothing.** The 403 was Vercel's side of the link, not a
+permission GitHub had withdrawn, so the installation page looks perfectly healthy while every
+deployment fails. Go to the Vercel project's Git settings and look for the fetch error there.
+
+**Why the webhook still fired, which is what makes this confusing.** A deployment was created for
+every push, with the correct `ref`, `sha` and commit metadata — so from GitHub's side and from
+`git push`'s side everything looked normal, and the commit status even appeared (as `failure`). The
+push notification and the repository read are different paths; the first kept working while the
+second returned 403. **"The deployment exists" is therefore not evidence that Vercel can read the
+repo.**
+
+**Second occurrence of this class in this project.** The Vercel↔GitHub integration desynced once
+before and was repaired the same way — disconnect/reconnect — which is recorded in the session
+memory for this repo rather than here. Twice now, the fix has been Reconnect and the diagnosis has
+been the slow part.
+
+**What this cost, and the three dead hypotheses, recorded because each one looked right at the
+time:** a compile error (ruled out by two clean local builds, one from a deleted `.next`, and then
+conclusively by the docs-only commit); a deployment quota (fits "deterministic failures late in a
+busy day" and nothing else — a cap does not produce a git-specific code); and the `fra1` region
+change in `3c86f80` (ruled out by the eight deployments that succeeded after it). Item 118 above is
+this session's record of writing one such hypothesis down as a cause and watching it die; this entry
+is what it looks like when the actual answer finally arrives from a log.
+
+**Re-verify when:** any deployment fails in under ~15 seconds. Read `errorCode` on the deployment
+record and the length of the events array before anything else:
+`curl -H "Authorization: Bearer $VERCEL_TOKEN" "https://api.vercel.com/v13/deployments/<dpl>?teamId=<team>"`.
+The project and team ids live in `.vercel/project.json`.
+**Lives in:** `.vercel/project.json` (project `prj_0qQGJwev5UT936X2KFnl9fVJWwNF`, team
+`team_jc5JPRPiybFWLSHA05B3BAKi`); commit `949e6ef` (the empty commit that proved the repair, 49.9 s);
+item 125 above (the work this blocked, and its measurement once unblocked); item 118 above (the
+deploy-reporting entry and the warning against naming an unseen cause); `scripts/check_deploy_status.ts`
+(which reported the failures correctly throughout).
 
 ---
 

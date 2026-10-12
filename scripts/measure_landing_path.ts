@@ -36,10 +36,19 @@ function admin() {
   });
 }
 
-async function oneCallback(a: ReturnType<typeof admin>, email: string) {
+// The CONTROL arm. An explicit `next` short-circuits the callback before it
+// resolves a landing path at all (app/auth/callback/route.ts returns on it),
+// so `next=/profile` measures the same endpoint, the same build and the same
+// verifyOtp with the landing logic switched off -- which is a far better
+// control than comparing against a different deployment, since it holds
+// everything else constant including whatever the platform is doing this
+// minute.
+async function oneCallback(a: ReturnType<typeof admin>, email: string, skipLanding = false) {
   const { data: link, error } = await a.auth.admin.generateLink({ type: "magiclink", email });
   if (error || !link) throw new Error(`generateLink failed for ${email}: ${error?.message}`);
-  const url = `${SITE_URL}/auth/callback?token_hash=${link.properties!.hashed_token}&type=magiclink`;
+  const url =
+    `${SITE_URL}/auth/callback?token_hash=${link.properties!.hashed_token}&type=magiclink` +
+    (skipLanding ? "&next=/profile" : "");
   const t0 = performance.now();
   const res = await fetch(url, { redirect: "manual" });
   const ms = performance.now() - t0;
@@ -57,18 +66,27 @@ async function main() {
   console.log(`\n=== landing path, ${LABEL} — ${SITE_URL} ===`);
   console.log(`warm-up discarded, median of ${SAMPLES}\n`);
   for (const [who, email] of ACCOUNTS) {
-    await oneCallback(a, email); // warm-up, discarded
-    const runs = [];
-    let destination = "";
-    for (let i = 0; i < SAMPLES; i++) {
-      const r = await oneCallback(a, email);
-      runs.push(r.ms);
-      destination = r.location.replace(SITE_URL, "") || `HTTP ${r.status}`;
+    const arms: Record<string, { runs: number[]; dest: string }> = {
+      with: { runs: [], dest: "" },
+      without: { runs: [], dest: "" },
+    };
+    for (const [arm, skip] of [["with", false], ["without", true]] as const) {
+      await oneCallback(a, email, skip); // warm-up, discarded
+      for (let i = 0; i < SAMPLES; i++) {
+        const r = await oneCallback(a, email, skip);
+        arms[arm].runs.push(r.ms);
+        arms[arm].dest = r.location.replace(SITE_URL, "") || `HTTP ${r.status}`;
+      }
     }
-    const ms = runs.map((r) => Math.round(r));
+    const w = Math.round(median(arms.with.runs));
+    const wo = Math.round(median(arms.without.runs));
     console.log(
-      `${who.padEnd(12)} median ${String(Math.round(median(runs))).padStart(5)} ms   ` +
-      `[${ms.join(", ")}]   -> ${destination}`,
+      `${who.padEnd(12)} with ${String(w).padStart(5)} ms  without ${String(wo).padStart(5)} ms  ` +
+      `landing costs ${String(w - wo).padStart(4)} ms   -> ${arms.with.dest}`,
+    );
+    console.log(
+      `${"".padEnd(12)}   with [${arms.with.runs.map((r) => Math.round(r)).join(", ")}]  ` +
+      `without [${arms.without.runs.map((r) => Math.round(r)).join(", ")}]`,
     );
   }
   console.log("");
