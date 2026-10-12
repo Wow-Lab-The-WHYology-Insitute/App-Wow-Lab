@@ -27,7 +27,9 @@ Prima rulare, în 2026-09-10, a găsit o nepotrivire reală (`create_contract`: 
 
 Fiecare rând de mai jos este o afirmație din procedură care citează text exact dintr-un dicționar i18n (buton, opțiune de listă, valoare implicită) — cu locul exact din cod unde poate fi verificată. `scripts/check_operator_guide.ts` citește acest tabel și compară coloana **Text RO așteptat** cu valoarea reală din dicționarul numit. Un rând care nu se mai potrivește înseamnă că procedura a rămas în urma codului.
 
-Nu conține afirmațiile de comportament (ex. „listele pornesc goale", „data vine completată cu azi", „cele 13 module") — acelea nu sunt text dintr-un dicționar i18n, ci logică de cod, și se verifică manual, la fel ca până acum.
+Nu conține afirmațiile de comportament (ex. „listele pornesc goale", „data vine completată cu azi", „cele 15 module") — acelea nu sunt text dintr-un dicționar i18n, ci logică de cod, și se verifică manual, la fel ca până acum. Nici afirmațiile despre **conținutul bazei de date** (cele trei entități juridice numite în Pasul 2, numărul de module) nu sunt acoperite: nu sunt șiruri din dicționar, deci scriptul nu le vede. Când se schimbă un vocabular, cineva recitește ghidul — scriptul nu e suficient singur.
+
+Exemplul de mai sus a fost chiar el greșit până la 2026-10-12: scria „cele 13 module", rămas în urmă de la `202610070001` (vet) și mai în urmă după `202610120001` (anatomy). Verificat acum direct în `public.modules`: **15 rânduri**, aceleași 15 chei și în `groups_module_check`.
 
 | Cheie | Export | Fișier | Text RO așteptat |
 |---|---|---|---|

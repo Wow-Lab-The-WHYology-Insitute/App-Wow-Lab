@@ -224,6 +224,36 @@ npx tsx scripts/check_deploy_status.ts        # checks HEAD
 npx tsx scripts/check_deploy_status.ts <sha>   # checks a specific commit
 ```
 
+**`scripts/check_operator_guide.ts`** diffs the operator guide's manifest —
+`docs/WOWLAB_GHID_Operare_Clienti_Contracte_Grupe.md`, the procedure Anka and Cătălina actually
+follow — against the live i18n dictionaries it names, so a button label or dropdown option that
+changed in code surfaces as a claim the guide can no longer make. **Run this after any change to
+`clients`/`contracts`/`groups` `i18n.ts`, `*-client.tsx` or `actions.ts`, and after any migration
+that changes a vocabulary those screens render** — `delivery_format`, `module`, `client_type`,
+`business_line`, `contract_type`:
+
+```
+npx tsx scripts/check_operator_guide.ts
+```
+
+**The migration half of that trigger is the half nothing named, and it is the half that cost three
+weeks.** The guide carries its own maintenance obligation ("Obligație de întreținere"), kept
+deliberately where it is — a second reminder behind the door costs nothing — but on its own it was
+insufficient for two reasons, both real: it names **UI files only**, and it lives **inside the
+document it protects**, so the only person it reaches is one already reading the guide.
+`202609210006` replaced `delivery_format`'s six values with Anca's nine plus `custom`, the i18n edit
+rode along in the same commit, and neither author had any reason to open the guide. For three weeks
+it told the two people doing data entry to pick three formats that no longer existed (item 114
+below). This block is the trigger moved in front of the actor, where the other three already were.
+
+**What a green run does not mean, stated here so nobody reads 38/38 as "the guide is correct."** The
+manifest holds only claims that are literal i18n strings. Behavioural claims and **counts of what the
+database holds** are excluded by design — and the same stale section carried one: *"cele 13 module"*,
+wrong since vet and wronger after anatomy, which **no trigger would have caught**, because no trigger
+can. The guide's three legal entities, named by hand in Pasul 2, are the same class. So: this checker
+covers what can be checked mechanically, and **when a vocabulary changes, someone still has to
+re-read the guide** — see item 115 below for the full accounting of that bound.
+
 ---
 
 ## No scheduled execution mechanism — decided, not built now
@@ -4717,7 +4747,7 @@ item 115 below (why three weeks passed).
 
 ---
 
-### 115. The operator-guide checker had no trigger — it is the only one of the four that doesn't, and the trigger it does have is written where the wrong person reads it
+### 115. The operator-guide checker had no trigger — the only one of the four without one, and the trigger it did have was written where the wrong person reads it — TRIGGER ADOPTED 2026-10-12
 
 2026-10-12, recorded separately from the fix (item 114 above) because the fix is three weeks of wrong
 instructions and this is why nobody noticed. The checker **worked**: it caught all three dead format
@@ -4733,7 +4763,7 @@ this file's own preamble, not asserted:
 | `check_open_items_register.ts` | own block | "after any pass that edits several items at once" |
 | `run_rls_suite.ts` | own block | "after any migration that touches `CREATE POLICY`/`DROP POLICY`/`ALTER POLICY`, or that renames or drops a column any policy or test reads" |
 | `check_deploy_status.ts` | own block | "after any push meant to reach `app.wowlab.ro`, before trusting any verification done there" |
-| **`check_operator_guide.ts`** | **one passing clause inside another checker's block** | **none** |
+| **`check_operator_guide.ts`** | **one passing clause inside another checker's block** | **none** — until 2026-10-12; it now has its own block, see "Adopted" below |
 
 Its only mention in this register is the half-sentence *"Run by hand, same as
 `scripts/check_operator_guide.ts` and for the same reason — no CI exists in this repo to run it
@@ -4755,8 +4785,9 @@ only. The change that invalidated the guide was a **migration** (`202609210006`)
 CHECK-constrained vocabulary; the i18n edit rode along in the same commit. Someone who had read the
 obligation and was writing a migration would not have seen themselves in it.
 
-**Proposed trigger — proposed, not built.** A fourth preamble block, with the condition phrased as an
-action rather than as a document's self-defence:
+**ADOPTED 2026-10-12, same session, on Mihai's decision — the fourth preamble block now exists, above.**
+What was proposed, and what went in verbatim: a block with the condition phrased as an action rather
+than as a document's self-defence:
 
 > **`scripts/check_operator_guide.ts`** diffs the operator guide's manifest against the live i18n
 > dictionaries. **Run it after any change to `clients`/`contracts`/`groups` `i18n.ts`,
@@ -4779,12 +4810,39 @@ manifest covers only literal i18n strings; the guide's own preamble says behavio
 same age, one machine-checkable and one not. Both were fixed in item 114 above's pass; only the first
 one could ever have been caught by running something.
 
-**Blocked on:** nothing — this is a four-line edit to this file's preamble, held back only so the
-trigger's wording is a decision rather than something slipped in alongside the fix it describes.
-**Re-verify when:** the next migration changes a rendered vocabulary. If the guide goes stale again
-with the trigger in place, the trigger is the wrong shape and CI becomes the honest answer.
+**And the excluded class had a third instance, in the sentence that defines the exclusion.** The
+guide's manifest preamble lists *"cele 13 module"* as its own worked example of a claim the checker
+does not cover — and that example was itself stale, with the same wrong number, three weeks after
+vet. Found 2026-10-12 by scanning the guide for every count rather than by trusting that fixing the
+one in Pasul 3 had fixed "the module count". Both now read 15, **verified against `public.modules`
+directly rather than against the migration that changed it**: 15 rows, and `groups_module_check`
+carries the same 15 keys — the two objects `202610070001` warned can drift are in step. The guide's
+exclusion sentence now also names counts-of-database-contents explicitly, so the next reader does not
+have to infer that a number is unverifiable from the fact that it is not a dictionary string.
+
+**One divergence found by the same scan and deliberately not changed.** Pasul 2 names the three legal
+entities by hand, and writes **"Asociația STEMplicity"** with a diacritic; the live row in
+`public.legal_entities` is **"Asociatia STEMplicity"** without one, which item 42 below established
+is correct by convention in this system and not a typo (Anca confirmed it on her own name). So the
+operator reads one spelling and sees another on screen. It is one character, it is in prose rather
+than in the manifest, and "fix the document to match the data" is the exact shape of the change items
+35 and 42 below record as having nearly corrupted correct data twice — so it is reported rather than
+applied. Also measured while there: `legal_entities` holds **5 rows across all organizations** (3 real
+in `wow-lab`, 2 test fixtures in Test Org B), so the guide's "three" is right because it is
+org-scoped, not because the table has three rows.
+
+**The quoted half-sentence above is left in the preamble unchanged, on purpose.** It is still true —
+both checkers are hand-run for the same reason — and it is this entry's own evidence. Rewriting it to
+point at the new block would have made the quote above a misquote, which is the failure mode this
+register's own checker exists to catch one level down.
+
+**Blocked on:** nothing — done.
+**Re-verify when:** the next migration changes a rendered vocabulary. **If the guide goes stale again
+with the trigger in place, the trigger is the wrong shape and CI becomes the honest answer** — that
+is the test this block has to pass, and it has not passed it yet; one adoption is not evidence.
 **Lives in:** item 114 above (the three weeks of wrong instruction this explains); this file's
-preamble (the three checker blocks this proposes a fourth alongside);
+preamble (now four checker blocks, the fourth added by this entry); item 42 below (the
+diacritic-free-names convention the Pasul 2 divergence sits on top of);
 `docs/WOWLAB_GHID_Operare_Clienti_Contracte_Grupe.md` ("Obligație de întreținere", the trigger in the
 wrong place); `scripts/check_operator_guide.ts`; item 86 above (a checker silently broken by a
 migration with nothing running it in between — the same shape one layer down).
