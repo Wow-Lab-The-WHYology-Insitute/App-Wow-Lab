@@ -21,5 +21,5 @@ export default async function Home() {
     redirect("/login");
   }
 
-  redirect(await resolveLandingPath(supabase, user.id));
+  redirect(await resolveLandingPath(supabase));
 }

@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { checkCapability } from "@/lib/capabilities";
 
 // Where a signed-in account lands. Used by BOTH /auth/callback (the path every
 // real sign-in takes, since this app is magic-link only) and app/page.tsx (the
@@ -33,6 +32,8 @@ import { checkCapability } from "@/lib/capabilities";
 // app has any surface for. When an evaluations or inventory screen ships, those
 // accounts' landing changes -- correct under this rule, and it will look like a
 // regression to them, so it is written down rather than discovered.
+const MY_OWN_WORK_CAPABILITY = "mywork.*";
+
 const BEYOND_OWN_WORK_CAPABILITIES = [
   "clients.read", // /clients
   "contracts.read", // /contracts
@@ -46,34 +47,44 @@ const BEYOND_OWN_WORK_CAPABILITIES = [
 
 export async function resolveLandingPath(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
 ): Promise<string> {
-  const { data: memberships } = await supabase
-    .from("user_org_roles")
-    .select("organization_id")
-    .eq("user_id", userId)
-    .returns<{ organization_id: string }[]>();
+  // ONE round trip, for both answers, across every organization the caller
+  // belongs to. It replaced a memberships lookup plus up to nine sequential
+  // has_capability calls -- measured before the change at a warm median of
+  // 660 ms for a trainer, who is the one account that cannot short-circuit:
+  // mywork.* matches, then all eight "beyond own work" keys have to come back
+  // false before /my-work is the answer.
+  //
+  // The capability list still lives HERE and is passed in. Keeping it in the
+  // app rather than inside the function is deliberate: it belongs beside the
+  // comment above explaining that it must grow when a nav group is added, and
+  // a copy in SQL would be a second place to forget.
+  //
+  // No user id is passed, because app.resolve_landing_flags takes none -- it
+  // is SECURITY DEFINER and always answers about app.current_user_id().
+  const { data, error } = await supabase.rpc("resolve_landing_flags", {
+    p_mywork_cap: MY_OWN_WORK_CAPABILITY,
+    p_beyond_caps: BEYOND_OWN_WORK_CAPABILITIES,
+  });
 
-  const orgs = [...new Set((memberships ?? []).map((m) => m.organization_id))];
-  if (orgs.length === 0) return "/profile";
-
-  // mywork.* first, and return early when it is absent: that skips eight RPC
-  // calls on the sign-in path for everyone who is not a trainer at all
-  // (Catalina, Laura, a role-less account).
-  let hasMyWork = false;
-  for (const org of orgs) {
-    if (await checkCapability(supabase, "mywork.*", org)) {
-      hasMyWork = true;
-      break;
-    }
+  if (error) {
+    // Fail closed, loudly, and in the direction that is never wrong for
+    // anybody: /profile is reachable by every signed-in account, while
+    // /my-work renders nothing for someone with no allocated work. Same
+    // reasoning as checkCapability's own default-to-false, and the same place
+    // it leaves a trace -- Vercel's function logs.
+    console.error(
+      "resolve_landing_flags RPC failed — landing on /profile (the destination that is correct for every account):",
+      error,
+    );
+    return "/profile";
   }
-  if (!hasMyWork) return "/profile";
 
-  for (const org of orgs) {
-    for (const cap of BEYOND_OWN_WORK_CAPABILITIES) {
-      if (await checkCapability(supabase, cap, org)) return "/profile";
-    }
-  }
+  // `returns table` arrives as an array of rows through PostgREST.
+  const flags = (Array.isArray(data) ? data[0] : data) as
+    | { has_mywork?: boolean; has_beyond?: boolean }
+    | undefined;
 
-  return "/my-work";
+  if (!flags?.has_mywork) return "/profile";
+  return flags.has_beyond ? "/profile" : "/my-work";
 }

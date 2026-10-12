@@ -23,16 +23,22 @@ export async function GET(request: NextRequest) {
 
   if (token_hash && type) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.verifyOtp({ token_hash, type });
+    // verifyOtp already returns the user it just authenticated. The first
+    // version of this called getUser() straight afterwards to get the same
+    // person back -- a second network round trip, on the sign-in path, for an
+    // answer already in hand.
+    const { data: verified, error } = await supabase.auth.verifyOtp({ token_hash, type });
 
     if (!error) {
       if (next) {
         return NextResponse.redirect(`${origin}${next}`);
       }
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      const destination = user ? await resolveLandingPath(supabase, user.id) : "/profile";
+      // resolveLandingPath needs no user id: the function behind it is
+      // SECURITY DEFINER and always answers about the current session. The
+      // user object is still checked, because a verifyOtp that somehow
+      // returned no user should land on /profile rather than ask the database
+      // who nobody is.
+      const destination = verified.user ? await resolveLandingPath(supabase) : "/profile";
       return NextResponse.redirect(`${origin}${destination}`);
     }
   }
