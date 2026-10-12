@@ -709,6 +709,21 @@ should stay scoped to whoever already holds `finance.reporting.*` too (sidestepp
 by construction) -- not a technical blocker.
 **Re-verify when:** real sessions exist across more than one client-type segment and someone holding
 only `finance.operations.*` is the one closing payroll.
+
+**NARROWED 2026-10-12, and this entry named the wrong person — verified against the live policies,
+see item 110 below.** Anca: Anka closes the month, not Laura. Three accounts reach `/payroll` today
+(`finance.operations.*` OR `org.settings.manage`): **Anka**, **Laura Moale**, **Mihai**. Anka holds
+**both** `finance.operations.*` and `finance.reporting.*`, whose branches are exact complements, so
+she sees every client type and **can never see "Unknown"** — the closer this entry worried about is
+the one person it cannot affect. **Laura is the only account in the exposed state** (`finance.
+operations.*` with no `finance.reporting.*`). Also worth stating because the segment is easy to get
+backwards: `finance.operations.*` sees `private_school` + `parent_b2c`, **not** corporate and grants —
+so a private-school client reads as its name to her, and it is corporate/grant clients that read
+"Unknown". Still inert, now for two reasons rather than one: `wow-lab` holds zero sessions **and**
+all four of its real clients are `private_school`. The open decision is therefore narrower than this
+entry states: not "should payroll-closing see every client", but "should a `finance.operations.*`-only
+closer see corporate and grant client names" — live only once Laura closes a month containing a
+corporate session.
 **Lives in:** the payroll walkthrough fixes entry below (the trainer-name gap this parallels);
 item 20 (Laura's `finance.operations.*`-only capability set); `app/(app)/payroll/page.tsx` (the
 join); the `clients` table's own SELECT policy (its client-type segregation branch).
@@ -3556,6 +3571,24 @@ nine-value list's provenance and migration); item 102 above (the tenth value); i
 
 ---
 
+**CLOSED 2026-10-12 — both halves, by Anca, in item 110 below.** The headline open question ("Anca
+settled the vocabulary of one axis. Whether there should be two axes at all has never been put to
+her") was put to her and answered: **three** axes, `module` and `delivery_format` separate, the plan
+a third below both. And the separable half ("do Anatomy and Vet become modules 14 and 15?") is done —
+Vet 2026-10-07 (`202610070001`), Anatomy 2026-10-12 (`202610120001`), so this entry's "13 confirmed +
+Vet + Anatomy = 15" reading of "13 din 15" is now the live taxonomy. Crăciun stays out, for the
+reasons this entry gives.
+
+**Two things in this entry are now superseded rather than merely old.** First, its objection to
+Anatomy — "adding it as a 14th value today would duplicate content that `doctor` already carries" —
+is answered by her, not overruled: a plan belonging to several modules is the design. Second, **its
+measurements are superseded by a re-measurement against the newer export** (518/515/455/276/115
+→ 540/512/461/288/113; see item 110 below for the table and the two causes, one of which is a
+parsing error in this entry's own figures — `Modul WOW LAB MIX`'s third header row sits one column
+left of its data).
+
+---
+
 ### 104. This database cannot answer "who inserted this row" — for any table
 
 2026-10-02. Found incidentally while establishing the provenance of two rows in `wow-lab-test-b`
@@ -3832,9 +3865,15 @@ each is blocked on a decision rather than on effort.
    be confused with the two deliberately withheld CNPs (Berea, Raluca Margean) — different reason,
    different resolution, and the `notes` on each row say which.
 
-Open but not supplier-shaped, carried from the register for whoever picks up admin pay: Raluca
+~~Open but not supplier-shaped, carried from the register for whoever picks up admin pay: Raluca
 Margean's newsletter rate (the contract lists article tiers only) and whether her article tiers
-survived two amendments; and which of Anka's three task types maps to 80, 80 and 90.
+survived two amendments; and which of Anka's three task types maps to 80, 80 and 90.~~
+**ANSWERED 2026-10-12 by Anca — all three, now item 111 below.** Her newsletter rate is 150 RON
+each. Her article tiers did not need to survive the two amendments: hers are newer and **supersede**
+the supplier contract's three tiers. Anka's mapping is Admin 80 (everything administrative but not
+financial), Ateliere 80 (workshop organisation, sales, ActiveCampaign), Financiar 90 (accounting and
+financial statements) — all three FINAL, no 11% on top. One new fact that was in no earlier record:
+**Cătălina also has an admin rate**, 72 net / 79.92 invoiced, and hers *is* uplifted.
 
 **Lives in:** `supabase/migrations/202610070002`, `202610070003` and their rollbacks (both applied);
 `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §3.2/§3.3/§5/§10 (the trainer/supplier split, the
@@ -4170,6 +4209,453 @@ commits, and only one of them is a usable existence check. `/commits/<sha>/statu
 with `total_count: 0`** for a sha it has never seen — identical to its answer for a pushed commit
 nothing reported on. `/commits/<sha>` returns **422**. The status endpoint cannot tell you whether a
 commit exists; the commit endpoint can.
+
+---
+
+### 110. Anca's 2026-10-12 answers — the eight-week-old two-axes question closed by her, Anatomy shipped as module 15, and two answers that don't resolve what they were asked
+
+2026-10-12. Her round of answers, with one correction she supplied herself (her 2026-08-10 message
+correcting her 2026-08-07 one — see item 111 below). Everything in this entry was either checked
+live the same date or is a direct quote of hers; nothing is carried from notes.
+
+**The central question item 103 above left open is closed, by her, directly.** That entry ended:
+*"Anca settled the vocabulary of one axis. Whether there should be two axes at all has never been
+put to her."* It has now been put to her, and the answer is **three** axes:
+
+| Axis | Her words | Where it lives today |
+|---|---|---|
+| **what is taught** | "a module contains several lesson plans" | `groups.module` — 15 keys as of today |
+| **which plan** | "the same plan can belong to several modules" | **nothing.** `sessions.experiment_delivered`, free text |
+| **where it is delivered** | "Săptămâna Verde, Școala Altfel, Corporate" | `groups.delivery_format` — Anca's nine + `custom` |
+
+So `module` and `delivery_format` stay **separate fields**, and the epic's 19-value "Tip atelier"
+flattening is dead on her own authority rather than on item 103's date argument. That argument still
+stands and is still why no live data was changed on a stale decision — it is simply no longer the
+load-bearing one. One consequence worth naming: **`202609210006`'s own column comment is now out of
+date** where it says *"the module+delivery_format SPLIT itself (vs. a single 'Tip atelier' field)
+remains Mihai's own interpretation, unconfirmed by this decision."* It is confirmed. An applied
+migration is not rewritten, so that comment stays as the record of what was true when it was
+written; this entry is the correction, and `groups.module`'s own comment (rewritten by
+`202610120001`) now carries the current state.
+
+**She wants lesson plans in the app, as a searchable selector so a trainer finds one quickly.** That
+makes the catalogue the largest buildable thing on this register. Its shape was reported 2026-10-12
+and deliberately **not built** — see "the catalogue, measured" below for the numbers that report
+rests on, which correct item 103's.
+
+---
+
+#### Built, applied and verified live the same date
+
+**Anatomy is module 15 (`202610120001`).** The taxonomy is complete: the figure "13 din 15" has an
+account for the first time — thirteen confirmed in August, plus `vet` (2026-10-07) and `anatomy`.
+CRACIUN remains a sixteenth sheet and deliberately not a module.
+
+**Her reason closed the standing objection rather than overruling it.** `202610070001` (vet) refused
+Anatomy because *"adding it would duplicate content doctor already carries"* — 6 of its 6 real plans
+also sit on the doctor sheet. Her answer makes that the designed shape of the catalogue, not a
+defect: a plan on several modules is correct. Measured rather than accepted: **113 of 288 distinct
+plans sit on more than one sheet, one of them on five — and that one is Anatomy's own
+`ANAT_SeeingDNA_DC_4`.** `Modul WOW LAB MIX` is the same fact at ten times the scale (80 distinct
+plans, 75 of them also on another sheet) and nobody has ever proposed deleting MIX for it.
+
+Key and label were **reported before being written**, as asked: key `anatomy`, label `Anatomy`,
+identical in EN and RO. The precedent splits and this one follows `astronomy`, not its siblings —
+`Modul ANATOMY` → `Anatomy` is the same rule as `Modul ASTRONOMY` → `Astronomy`; `doctor`/`vet` got
+"I Wanna Be a …" because their sheets literally are that phrase. The key is the word spelled out,
+not the `ANAT_` filename prefix — the same choice `astronomy` already made over `ASTRO_`.
+
+Four objects, the same four vet needed: the `public.modules` row, the widened `groups_module_check`
+(`groups.module` is **not** an FK — re-verified live, not inherited from `202610070001`'s check a
+week earlier), `MODULE_KEYS` in `groups-client.tsx`, and the `module_anatomy` i18n entry with both
+sides. The `groups.module` comment no longer says Anatomy is deliberately absent.
+
+Verified after the push, never from `db push`'s own exit code: 15 rows in `public.modules`,
+`'anatomy'` inside the constraint, exactly one constraint by that name, the new comment live, a real
+`anatomy` group accepted in Test Org B and a bogus key still rejected (both rolled back). Then end
+to end against the real deployment — `scripts/verify_anatomy_module_test_org_b.ts`, the same shape
+as vet's: "Anatomy" renders in `/groups`, the raw key never reaches the user, the shouted sheet form
+is absent, the full `{en, ro}` entry ships in the client bundle, `"anatomy"` is in the create-form
+key list, cleanup ran and said so. **Its first run reported two CONTROL failures that were the
+script's fault, not the build's**, and the fix is written into the script so the next person does not
+repeat it: the module list on `/groups` is data-driven (`moduleOptions` from the groups that exist),
+so controls naming `Astronomy` and `I Wanna Be a Vet` — neither of which has a group in Test Org B —
+were asking the page to render labels it correctly does not. The control has to be a module with a
+real group behind it (`doctor`), and the Astronomy label is checked in the shipped dictionary
+instead.
+
+**Lycée Français is taught in English, not French (`202610120002`).** Both its groups now carry
+`language_group = 'ro_en'`, the **0%** branch. This closes the one case `202609240003` named and
+deliberately refused to guess: *"'Școala Franceză (Lycee Francais)' … is obviously a French-medium
+school by name. Guessing is not the same as knowing … Both of its groups' language_group stays NULL
+until she says so."*
+
+**The obvious guess was wrong, and the cost of having made it is measurable.** `fr_de_es` carries
+20% (Anca 2026-09-24, item 95 above); `ro_en` carries 0. Inferring the language from the school's
+name would have overpaid every session in both groups by 20% for as long as nobody re-asked. This is
+the **third** time in this project that a plausible-looking inference would have corrupted correct
+data — after "Laura Moale" (item 35 below) and the `Asociatia STEMplicity` spelling (item 42 below).
+The migration raises unless exactly 2 rows change. Verified live: both groups read `ro_en`, and
+`groups_row_history` holds two rows for the write with `actor_user_id = NULL` on both — a migration
+carries no JWT, `app.current_user_id()` reads one, and the actor was **not** faked by setting a
+claim. The migration file is the provenance record instead. That is item 104 above's exact shape,
+chosen on purpose this time rather than discovered after the fact.
+
+**Supplier-contract access stays as it is.** Closed by her, no change. The question is off the list.
+
+---
+
+#### Verified, with an answer the asking party should see
+
+**School addresses: both fields are editable by the two people who will enter them.** Mihai and Anka
+will do the data entry; checked against the live policies and the live capability rows rather than
+reasoned from role names:
+
+| | Who can write it | Anka | Mihai |
+|---|---|---|---|
+| `clients.address` | `is_platform_owner()` OR `org.settings.manage` OR **`clients.create`** | ✅ `clients.create` | ✅ `org.settings.manage` |
+| `groups.address` | `is_platform_owner()` OR `org.settings.manage` OR **`groups.create`** (`updateGroup`'s `canManageGroupFields`) | ✅ `groups.create` | ✅ `org.settings.manage` |
+
+Anka holds 40 capabilities across seven roles, `clients.create` and `groups.create` among them.
+Column-level `UPDATE` grants exist on both columns for `authenticated` (checked in
+`information_schema.column_privileges` — neither was caught by item 91 above's narrowing). **Nothing
+to report as broken.** One adjacent fact, not a blocker: all four real `wow-lab` clients currently
+have `address = NULL`, and so do both groups, which is consistent with "they will enter them" and not
+with a write path that silently fails.
+
+**Group notes — the field does exist, and her own screenshot is the proof.** Her answer says she sees
+no Notes field in production. It is there: the **last row of Group info**, rendered unconditionally
+for anyone who can see the group at all (`group-info-section.tsx`, `<Kv label={t("kv_notes")}
+value={notes || "—"} />`). It reads `—` because every real group's `notes` is `NULL` — all four of
+them, checked live. An empty field and an absent field look identical in a read view, which is
+exactly what happened here.
+
+**And the question behind it now has a measured answer: yes, the allocated trainer sees it.** Proven
+against the live policies, not read off the render code —
+`scripts/verify_group_notes_trainer_visibility.sql`, five assertions, all passing:
+
+1. an `operations_manager` (Cătălina's role) writes `groups.notes` — 1 row updated
+2. the allocated `trainer_principal` reads the note back **verbatim**
+3. the allocated `trainer_secundar` reads it back verbatim too
+4. a trainer with **no** session in that group sees no row at all, so no note
+5. the allocated trainer **cannot** write it — 0 rows updated
+
+Run in Test Org B for the reason the real org cannot answer it: **`wow-lab` holds zero sessions**, so
+no trainer is allocated to anything there and `groups`' `mywork.*` branch cannot be exercised. Test
+Org B carries the same role keys against the same policies. The mechanism is row-level: `groups`'
+SELECT policy admits `mywork.*` scoped to the viewer's own sessions, RLS restricts rows and not
+columns, and `notes` has an ordinary column-level SELECT grant.
+
+**So the re-ask is not "does the field exist" but a policy question:** a note Cătălina writes on a
+group is visible, verbatim, to every trainer allocated to a session in it, and to nobody else. That
+is current behaviour, not a proposal. If it is what she wants, nothing needs building. If notes are
+meant to be internal to Operations, the fix is a column-narrowed read (a masked column or a
+trainer-facing split), which is a build and needs her answer first.
+
+**Payroll "Unknown" (item 65 above) — she is right about the person and the hypothesis in the
+question was inverted.** Anka closes the month, not Laura; item 65 named Laura. Verified against the
+policies, as asked, not from role names:
+
+- **Who reaches `/payroll` today:** exactly three accounts. The gate is `finance.operations.*` **OR**
+  `org.settings.manage` (`payroll/page.tsx`, matching `closePayrollPeriod`'s own gate). That is
+  **Anka** and **Laura Moale** via `finance.operations.*`, and **Mihai** via `org.settings.manage`.
+  Nobody else holds either — Cătălina's `operations_manager` set is
+  `clients.read, groups.create, groups.read, org.members.read, sessions.create, sessions.read`, no
+  finance capability at all.
+- **Which client segment that capability covers:** `finance.operations.*` sees
+  **`private_school` + `parent_b2c`** on `clients` — **not** corporate and grants. The question had
+  it the other way round, and the inversion matters: a private-school client like Lycée Français is
+  precisely what a `finance.operations.*` holder **can** see. It is corporate/grant clients that read
+  `Unknown` to them.
+- **And Anka specifically cannot hit this at all.** She holds **both** `finance.operations.*` and
+  `finance.reporting.*`. The two branches are complements (`client_type in (...)` /
+  `client_type not in (...)`), so together they cover every client type. Her `clients.read` is
+  neutralised by that branch's own `not finance.operations.* and not finance.reporting.*` guard, and
+  it does not matter — she sees every client either way. **The closer named in the question is the
+  one person who can never see "Unknown".**
+- **Laura is the real exposure, and only Laura:** `finance.operations.*` with no
+  `finance.reporting.*`. She is the only account in that state.
+- **Still inert, for a different reason than item 65 gave.** That entry said `sessions` holds zero
+  rows in `wow-lab`; still true today, and additionally **all four real `wow-lab` clients are
+  `private_school`**, which Laura can see. Both conditions would have to change before this bites.
+  The three sessions that do exist live are in Test Org B, on a `corporate` client — the exact mix
+  that would trigger it, in the one org where it does not matter.
+
+**What that leaves open is narrower than item 65 stated:** not "should payroll-closing see every
+client's name", but "should a `finance.operations.*`-only closer see corporate and grant clients'
+names on the payroll screen." Anka's own access makes the question moot for today's closer; it
+becomes real the moment Laura closes a month in which a corporate session exists.
+
+---
+
+#### The catalogue, measured — these numbers correct item 103 above
+
+Re-measured 2026-10-12 against the **current** export (`Centralizator module WOW LAB
+2023-2024-2025 (1).xlsx`, 2026-10-07 — the one with VET unhidden), with an explicit per-sheet column
+map rather than a header-sniffing heuristic. Item 103's figures came from the 2026-09-25 export and a
+looser parse; both drifts are real and this is the current set:
+
+| | item 103 (2026-09-25) | measured 2026-10-12 |
+|---|---|---|
+| sheets | 16 | 16 |
+| lesson rows | 518 | **540** |
+| plan-column strings | 515 | **512** |
+| matching the filename pattern | 455 | **461** |
+| distinct plans | 276 | **288** |
+| on more than one sheet | 115 | **113** |
+| MIX distinct / also elsewhere | 85 / 80 | **80 / 75** |
+
+Two causes, both identifiable: VET's six rows are now visible and parse (+6 plans), and item 103's
+parse picked up `Modul WOW LAB MIX`'s third block one column off — that sheet's **third header row
+sits one column to the left of its own data**, so a header-driven parse reads its "Discutam despre"
+column as the plan column and silently harvests 33 what-is-taught strings as plan references. **Any
+importer has to handle that, and it will not announce itself** — the strings it produces look like
+prose, not like filenames, which is how they survived one measurement.
+
+Facts that did **not** drift and that the design rests on:
+
+- **The four reliable columns are reliable across 15 of 16 sheets** — module (from the sheet),
+  ordinal, title, what-is-taught. `CRACIUN` is the sixteenth and has none of them in that form
+  (`No` / `Name of the experiment` / `Observations` / `Science behind`).
+- **The plan-filename column is absent as such from two sheets.** `Modul ANATOMY` calls it
+  `Link/ resurse (optional)` (and it carries real `ANAT_*` filenames regardless); `CRACIUN` has only
+  `Link`, holding YouTube URLs.
+- **What-is-taught is present as a column but not as a value:** 467 of 523 non-CRACIUN rows carry one
+  (89%). `Modul CHEMISTRY FOR ME` has it on 16 of 32 rows, `MAGIC OF PHSYSICS` on 40 of 55. It cannot
+  be `NOT NULL`.
+- **Ordinal is per-sheet, not per-plan** — measured, not assumed: `TicTok_Rainbow vulcano_GS_28` is
+  №1 on GAGA, №12 on TikTok Science and №17 on MIX. It belongs on the join row, never on the plan.
+- **51 plan strings do not match the filename pattern, and 40 of them are chapter pointers** —
+  17 on `Modul ANATOMY`, 23 on `I WANT TO BE A DOCTOR` (`1. Lungs`, `17. Immune system`). The other
+  11 are a different problem each: a repeated title used as a plan (`Floating Soda Cans` ×3), the
+  literal word `plan` ×2, `Lesson plan template - Oobleck` ×2, `Harry potter` (a *Poveste* value in
+  the plan column), an author's note (`acelasi continut si acelasi tip de experiment cu PD_7`), and
+  one `education.com` URL.
+- **Anatomy: 23 rows, 6 distinct plans, all 6 also on the doctor sheet** — unchanged from item 103,
+  and the exact six it names. **Doctor: 15 distinct plans. Vet: 6.**
+- **`CRACIUN` carries zero plan filenames** and is an idea list with a `feedback Cata` column.
+
+**Lives in:** `supabase/migrations/202610120001_add_anatomy_module.sql`,
+`202610120002_set_lycee_francais_language_group.sql` and both rollbacks (all applied 2026-10-12);
+`scripts/verify_anatomy_module_test_org_b.ts`; `scripts/verify_group_notes_trainer_visibility.sql`;
+`app/(app)/groups/groups-client.tsx` (`MODULE_KEYS`), `app/(app)/groups/i18n.ts`
+(`module_anatomy`); `app/(app)/groups/[id]/group-info-section.tsx` (the Notes `Kv` her screenshot
+shows); `app/(app)/payroll/page.tsx` (the gate and the `"Unknown"` fallback);
+`docs/WOWLAB_Spec_Trainer_Principal_Secundar.md` (two experiments, one owner each — the constraint
+the session↔plan link has to carry); item 103 above (the three-axis question this closes and the
+figures this corrects); item 65 above (the payroll gap this narrows); item 95 above (the language
+bonus percentages); item 105 above (the admin-rate questions this round also answered, now item 111
+below); commits `1bb1826`, `83ad84e`.
+
+---
+
+### 111. Admin rates, complete — and the distinction a single rate column would destroy
+
+2026-10-12, from Anca's 2026-08-07 message **as corrected by her 2026-08-10 one**. This closes the
+two questions item 105 above carried for whoever picked up admin pay ("which of Anka's three task
+types maps to 80, 80 and 90", and Raluca Margean's article tiers). Nothing here is built — there is
+no admin-hours table on either side yet (item 23 below has the per-article half with no table
+either).
+
+**Two kinds of rate, and they must not be stored as one kind.** Four rates carry the 11.1% PFA/SRL
+uplift; five do not, because they are already the invoiced amount.
+
+**FINAL — the invoiced amount. No 11% is added to either:**
+
+| Person | Category | RON |
+|---|---|---|
+| Anka | Admin | 80 /hour |
+| Anka | Ateliere | 80 /hour |
+| Anka | Financiar | 90 /hour |
+| Raluca Margean | article, 500–1000 words | 100 |
+| Raluca Margean | article, 1000–2000 words | 150 |
+| Raluca Margean | article, 2000–4000 words | 250 |
+| Raluca Margean | article, over 4000 words | 350 |
+| Raluca Margean | internal newsletter | 150 each |
+
+**UPLIFTED — net, highlighted in her table, +11.1%:**
+
+| Person | Net | Invoiced |
+|---|---|---|
+| Laura | 50 | **55.50** |
+| Teodora Merișan | 50 | **55.50** |
+| Alexandra Nuțu | 50 | **55.50** |
+| Cătălina Trușan | 72 | **79.92** |
+
+**Why the distinction has to be in the schema and not only here.** A single `rate numeric` column
+with no note loses which kind each number is, and the failure is directional and silent: someone
+later adds 11% to Anka's 80 and invoices 88.80. **This is the same shape the trainer grid already
+solved and recorded** — `trainer_grade_rates`' six values (111–150) are PFA-inclusive *already*, and
+`contract_type_uplift` is kept at **zero rows, deliberately not seeded at 0%**, precisely so nothing
+can apply the uplift twice (item 95 above, and `app.resolve_contract_type_uplift`'s own
+`comment on function`). Whatever holds admin rates needs the same property: the uplift state is an
+attribute of the stored rate, not an assumption of the reader.
+
+**Anka's three categories, in her words — the task-type mapping item 105 above left open:**
+
+- **Admin** — everything administrative but not financial
+- **Ateliere** — workshop organisation, plus sales and ActiveCampaign
+- **Financiar** — accounting and financial statements
+
+**Cătălina's admin rate is new.** 72 net / 79.92 invoiced appears in no earlier record in this
+project. She already has a trainer grade seeded (`202609240002`), so she is the first person on
+record with **both** a trainer rate and an admin rate — which means an admin-hours table cannot key
+pay on the person alone.
+
+**Her article tiers supersede the supplier contract's three tiers.** Hers are newer and post-date
+both amendments. Item 105 above asked "whether her article tiers survived two amendments" — they did
+not need to: these replace them. The newsletter rate (150 each) is the figure item 105 recorded as
+missing from the contract entirely.
+
+**Admins enter their hours in the app, as trainers do.** Confirmed by her. No screen exists.
+
+**Lives in:** item 105 above (the two questions this closes, and the supplier contract whose tiers
+these supersede); item 95 above (the PFA-inclusive precedent and why `contract_type_uplift` is empty);
+item 20 below (the six pay grids, none of which is an admin grid); item 23 below (per-article
+writing, still with no table on either side); item 112 below (the entity attribution every one of
+these hours also needs); `docs/progress.md` §128/§230 (the admin rate structures and her 2026-08-10
+"80/80/90 is final" correction).
+
+---
+
+### 112. Every hour worked is attributed to a legal entity — a requirement nobody had, and admin hours have no path to one
+
+2026-10-12, from Anca. New, and not derivable from anything already recorded: **every hour worked —
+trainer or admin — is attributed to one of the three legal entities, depending on the project and the
+client contract, and the invoice is received by the entity that ran the project.**
+
+**Sessions already have a path to an entity; admin hours have none.** A session resolves one by
+following `sessions → groups → contracts → legal_entity`, which is how `/payroll` and
+`app.calculate_session_pay` already work — the entity is a property of the engagement, inherited, not
+stored per hour. An admin hour has no engagement to inherit from: Anka reconciling a bank statement
+or running ActiveCampaign is not attached to a group, a contract, or a client. The three categories
+in item 111 above make this sharper rather than softer — **Ateliere** is workshop organisation and
+plausibly resolvable per project, **Financiar** is accounting for the whole business and plausibly
+not.
+
+**What this means for the admin-hours design, reported rather than decided:**
+
+1. **`legal_entity_id` cannot be derived on admin hours the way it is on sessions.** It has to be
+   either stored per row (the entry form asks) or derived from a project link the row carries. Those
+   are different screens, not different column defaults.
+2. **If it is stored per row, it is a required field, and the form has to make the three entities
+   choosable** — which means an admin entering time needs to know, per hour, which entity the work
+   belonged to. That is a real question to put to Anka and Anka specifically, since she is both the
+   person entering most of these hours and the person who knows the answer.
+3. **If it is derived, something has to carry the link** — an optional project/client reference on the
+   admin-hours row, which then has to resolve to an entity by the same contract path sessions use,
+   and has to fail loudly when it cannot rather than defaulting. This project's resolvers already
+   have that habit (`app.resolve_*` raise on an unknown rather than returning a silent value); an
+   entity that silently defaults is a wrong invoice, not a smaller one.
+4. **The "Financiar" category probably has no project at all**, so whichever shape is chosen needs a
+   defensible answer for business-wide work — a nominated default entity, a split rule, or an explicit
+   "not project-attributable" value. Guessing this is how an invoice goes to the wrong entity.
+5. **Both of item 111 above's rate kinds have to survive the attribution**, i.e. the entity is
+   orthogonal to the uplift question: Cătălina's 79.92 is 79.92 whichever entity ran the project.
+
+**Not a blocker on the trainer side.** Sessions already resolve an entity, so this requirement
+describes existing behaviour there and does not reopen anything built. It is purely a constraint on
+the admin-hours screen that does not exist yet.
+
+**Lives in:** item 111 above (the rates these hours carry, and Anka's three categories); item 20
+below (the pay grids, which hold no entity dimension); `public.legal_entities` (the three rows);
+`app/(app)/payroll/page.tsx` and `supabase/migrations/202609250001_create_calculate_session_pay.sql`
+(the inherited-entity path admin hours have no equivalent of).
+
+---
+
+### 113. An applied migration was missing from the remote history again — caught this time by the migration's own guard, not by a confusing failure
+
+2026-10-12, found by running `db push` for item 110 above's two migrations and watching it try to
+apply **`202610070003`** (the 22-supplier seed) first. Same class as the
+"Migration history was missing 3 applied migrations — RESOLVED" entry above, five weeks later, one
+file instead of three.
+
+**It did not fail confusingly, because that seed was written to refuse.** `db push` reported
+`supplier seed: org wow-lab already has 22 supplier row(s) -- refusing to seed on top of existing
+data (SQLSTATE P0001)`. The earlier incident surfaced as `column "location_tier" … already exists`,
+a generic 42701 three migrations away from the one being pushed. **The guard turned an alarming
+failure into a self-describing one** — the migration said, in its own words, that its work was
+already done.
+
+**Confirmed it had actually run before repairing anything**, the same discipline the earlier entry
+established: all three of `202610070003`'s own post-insert assertions hold live — 22 suppliers in
+`wow-lab`, 5 with `user_id`, 3 with `cui is null` (2 withheld CNPs + Pidgin Host's absent one).
+`supabase migration list --linked` showed exactly one local file with `"remote":""`, and the diff was
+clean in the more alarming direction — **zero remote entries without a local file**, so nothing was
+deleted from `supabase/migrations/` after being applied. `schema_migrations` held 95 rows against 98
+files (95 + the 1 unrecorded + the 2 new = 98).
+
+**Which path applied it cannot be proven after the fact** — there is no audit trail for DDL/seed
+execution the way `row_history` covers DML — but item 105 above records `202610070002` and
+`202610070003` as "both applied" on 2026-10-07, and `202610070002` **is** in the remote history. So
+the two were applied by different mechanisms in that session, and only the second one's bookkeeping
+was lost. Most likely a `db query --linked --file` run, the same shape the earlier entry inferred.
+
+**Repair and verification:** `supabase migration repair --status applied 202610070003 --linked`,
+then `db push`, then an independent live read — not `db push`'s exit code. `schema_migrations` now
+holds **98 rows matching 98 files**, and both new migrations' effects were verified by querying for
+them (15 modules, `'anatomy'` in the constraint, both Lycée groups at `ro_en`).
+
+**Worth keeping because the frequency is the finding.** Twice in six weeks, an applied migration has
+gone unrecorded, and both times `db push` was unusable for *anything* until it was repaired — it
+always applies the oldest unrecorded file first, so one stale entry blocks every unrelated push
+behind it, including the §6.2 rollback procedure. A cheap standing check: `supabase migration list
+--linked` before any push, looking for `"remote":""` on a file that is older than what you are about
+to send.
+
+**Lives in:** the "Migration history was missing 3 applied migrations — RESOLVED" entry above (the
+first instance, and the repair mechanism's own verification); item 105 above (which records
+`202610070003` as applied, correctly — only the bookkeeping was missing);
+`docs/WOWLAB_SAD_Field_Masking.md` §6.2/§6.4; `supabase_migrations.schema_migrations` (live, not
+file-tracked).
+
+---
+
+### 114. The operator guide has been telling Anka and Cătălina to pick three workshop formats that no longer exist — for three weeks, and its own checker has been failing all along
+
+2026-10-12, found incidentally: `scripts/check_operator_guide.ts` was run while confirming item 110
+above's address question, and reported **3 of 34 manifest claims failing** — `groupsDict.
+format_recurring`, `format_party` and `format_corporate` "does not exist or has no `ro` value."
+
+**They do not exist, and they have not since 2026-09-21.** `202609210006` migrated
+`groups.delivery_format` to Anca's nine workshop types (items 79/85 above), and commit `e0e8a1e`
+removed those three keys from `app/(app)/groups/i18n.ts` in the same change. Verified against git,
+not assumed: at `d526f4a` (the commit before today's work) `format_corporate` has **zero**
+occurrences in that file, and `git log -S` puts its removal in `e0e8a1e`. **Nothing in today's work
+touched `FORMAT_KEYS` or any `format_*` label** — this is pre-existing, three weeks old.
+
+**The failing manifest rows are the smaller half. The guide's actual instruction to the operator is
+wrong.** `docs/WOWLAB_GHID_Operare_Clienti_Contracte_Grupe.md` line 110 reads:
+*"Formatul — Recurent (club școlar), Școala Altfel, Săptămâna Verde, Party, Corporate sau Custom"* —
+the pre-decision six-value list. The live create-group form offers Anca's nine plus `custom`, so the
+guide **names three formats that are not in the dropdown** and **omits six that are**
+(`scoli_private_ocazionale`, `scoli_private_recurente`, `cursuri_deschise`, `evenimente_mall`,
+`parteneriate_companii`, `party_companii`). An operator following it looks for "Recurent" and does
+not find it.
+
+**This is exactly the failure item 41 below was written to prevent, and the checker it built did
+catch it — nobody ran it.** That entry's own reasoning for not wiring it into CI was that no CI
+exists in this repo; the cost of that choice is now measured at three weeks. It is the same shape as
+item 86 above (the RLS suite silently broken by a migration, with nothing running it in between) and
+the same shape the register's own `scripts/check_open_items_register.ts` header warns about.
+
+**Not fixed here, deliberately.** Renaming three labels is not the fix: the nine formats are not
+renames of the six (`Corporate` split into `parteneriate_companii` and `party_companii`; `Recurent`
+became `scoli_private_recurente` alongside a new `scoli_private_ocazionale`), so rewriting line 110
+is a decision about what the operator should be told to pick for which engagement — procedure, not
+wording. That belongs to whoever owns the procedure, with Anca's nine in front of them.
+
+**Blocked on:** nothing technical — a short rewrite of the guide's format list plus its three
+manifest rows, once someone decides the mapping the guide should describe.
+**Re-verify when:** any `format_*` or `module_*` label changes again — run
+`npx tsx scripts/check_operator_guide.ts`.
+**Lives in:** `docs/WOWLAB_GHID_Operare_Clienti_Contracte_Grupe.md` (lines 58-62 the manifest rows,
+line 110 the wrong instruction); `scripts/check_operator_guide.ts`; commit `e0e8a1e` and
+`supabase/migrations/202609210006_migrate_groups_delivery_format_to_nine_workshop_types.sql` (the
+change that invalidated it); item 41 below (the entry that created both guide and checker);
+item 102 above (`custom` restored as the tenth value); item 86 above (the same "a checker nobody
+runs" shape, one layer down).
 
 ---
 

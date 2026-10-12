@@ -108,8 +108,14 @@ async function main() {
     report.push(`  raw key "anatomy" is NOT shown to the user: ${!/module_anatomy|>anatomy</.test(html)}`);
     report.push(`  the sheet's shouty "ANATOMY" form is absent: ${!/Modul ANATOMY|>ANATOMY</.test(html)}`);
     report.push(`  NOT mislabelled as its siblings: ${!text.includes("I Wanna Be an Anatomy")}`);
-    report.push(`  CONTROL: sibling "Astronomy" (the label rule this follows) still renders: ${text.includes("Astronomy")}`);
-    report.push(`  CONTROL: "I Wanna Be a Vet" (module 14) still renders: ${text.includes("I Wanna Be a Vet")}`);
+    // The control has to be a module Test Org B ACTUALLY HAS A GROUP FOR.
+    // The first run of this script used "Astronomy" (the label rule anatomy
+    // follows) and "I Wanna Be a Vet" (module 14) and both read false --
+    // correctly: the module list on this page is data-driven, so a label
+    // with no group behind it never renders, and asserting it should is
+    // asking the page to lie. `doctor` has a standing group here, which is
+    // why the vet script used it too.
+    report.push(`  CONTROL: "I Wanna Be a Doctor" (a module with a real group here) still renders: ${text.includes("I Wanna Be a Doctor")}`);
 
     report.push("--- RO, verified by shipment in the client bundle (NOT by rendering) ---");
     const srcs = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1]);
@@ -126,6 +132,11 @@ async function main() {
       `  the full entry ships with BOTH sides: ${decoded.includes('module_anatomy:{en:"Anatomy",ro:"Anatomy"}')}`,
     );
     report.push(`  "anatomy" is in the create-form key list: ${/"vet","anatomy"|"vet",\s*"anatomy"/.test(decoded)}`);
+    // Astronomy is the label RULE anatomy follows, checked in the shipped
+    // dictionary rather than on a page with no astronomy group to render it.
+    report.push(
+      `  CONTROL: the Astronomy entry this label mirrors is untouched: ${decoded.includes('module_astronomy:{en:"Astronomy",ro:"Astronomy"}')}`,
+    );
 
     console.log("\n" + report.join("\n"));
     const failed = report.some((r) => r.includes(": false"));
