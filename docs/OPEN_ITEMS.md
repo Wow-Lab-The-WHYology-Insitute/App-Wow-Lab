@@ -5440,17 +5440,53 @@ read as success; item 108 above: non-report read as build-in-progress; this: slo
 no-report), and every fix so far was written while chasing something else -- which is how a script
 accumulates three failure modes.
 
+**A FOURTH state, found 2026-10-13, that the proposed fix above still does not cover: GitHub
+reachable but refusing.** The script queries GitHub's commit-status API **unauthenticated**, which
+is 60 requests an hour, and this project's own polling loops exhausted that budget on 2026-10-12 —
+after which every call returned `403` and `fetchStatus` threw `GitHub API returned HTTP 403` for
+every commit, valid or not. **So in exactly the situation it exists for — a day when deployments
+were failing and nothing else could tell truth from silence — the script could not answer at all.**
+The two-branch fix proposed above keys on *present on the remote* versus *absent from the remote*;
+both branches assume the status endpoint answers. A 403 belongs to neither, and the script's current
+behaviour is to raise and exit non-zero, which is indistinguishable from "failed to deploy".
+
+**The answer came from the Vercel API instead, queried directly by sha**, and that is the deeper
+point: **Vercel is the source and GitHub is only the intermediary.** The commit status is something
+Vercel *posts to* GitHub after the fact; the deployment record is the thing itself. Querying Vercel
+answers the question directly, carries `errorCode` and build duration, needs no second system to be
+healthy, and is authenticated — so it has a real rate limit instead of 60 anonymous calls shared
+with whatever else is running:
+
+```
+curl -H "Authorization: Bearer $VERCEL_TOKEN" \
+  "https://api.vercel.com/v6/deployments?projectId=<proj>&teamId=<team>&sha=$(git rev-parse HEAD)&limit=1"
+```
+
+Zero deployments for the sha is unambiguous in a way GitHub's `total_count: 0` never was: it means
+Vercel has no record of that commit, which is item 126 below's state 2 exactly. **So the fix to this
+script is larger than the two-branch change proposed above — it should ask Vercel, not GitHub.** The
+`VERCEL_TOKEN` already lives in `.env.local`, and the project and team ids in `.vercel/project.json`,
+so the dependency is one the repo already carries. The one thing GitHub is still needed for is the
+*absent from the remote* branch, which `git branch -r --contains` already answers locally without
+any API at all.
+
 **Interim workaround, used today:** `until [ "$(…/status | total_count)" != "0" ]; do sleep 10; done`
 before running the script. Crude and correct.
 
-**Blocked on:** nothing — a scoped change to one script.
-**Re-verify when:** that change lands. Two assertions to write, one per branch: a commit present on
-the remote with no status yet keeps being polled and reports "no status yet", never "not deployed";
-a commit absent from the remote exits immediately saying so, without polling.
+**Blocked on:** nothing — but the change is no longer the scoped one first proposed here. Switching
+the source from GitHub to Vercel is a rewrite of what the script asks, not an adjustment of how long
+it waits.
+**Re-verify when:** that change lands. **Four** assertions to write now, one per state: a commit
+present on the remote with no status yet keeps being polled and reports "no status yet", never
+"not deployed"; a commit absent from the remote exits immediately saying so, without polling; a
+commit with a deployment reports that deployment's `errorCode` and duration; and **a commit with no
+deployment record at all is reported as "Vercel has no record of this sha" rather than as a
+failure** — that is item 126 below's state 2 and the script has never had a name for it.
 **Lives in:** `scripts/check_deploy_status.ts`; item 108 above (the `total_count` discriminator this
 refines rather than replaces); item 94 above (the 25h8m silent failure these scripts exist for);
 item 109 above (the mistake class this entry repeated twice); item 117 above (the work this briefly
-reported as undeployed, since verified live).
+reported as undeployed, since verified live); item 126 below (the outage during which this script
+could not be used, and the fourth state it exposed).
 
 ### 119. Functions ran in Washington, the database is in Frankfurt — moved to fra1 2026-10-12, measured with controls, and every production timing before 09:44:55Z carries the distance
 
@@ -6021,7 +6057,15 @@ warning against naming a cause you cannot see).
 
 ---
 
-### 126. The Git integration is broken in three distinct ways and neither Reconnect nor a full reinstall fixed it — NEXT STEP IS VERCEL SUPPORT
+### 126. The Git integration broke in three distinct states — RESOLVED 2026-10-13 by disconnecting the repository and re-linking it from zero, which is NOT what the Reconnect button does
+
+**RESOLVED 2026-10-13 07:50:21Z.** Vercel support was never needed. The repair, the three-state
+signature and the one piece of evidence that pointed at the repair before it was tried are at the
+end of this entry, under **THE REPAIR**; everything between here and there is the diagnostic record
+written while it was still broken, kept because the next occurrence will present identically and the
+dead ends are most of the value. The sentences below that say "not repaired" and "next step is
+Vercel support" were true when written and are left standing rather than edited away.
+
 
 2026-10-12, from 11:49Z and **still recurring**. Production deployments fail with
 `errorCode: 'git_info_fail'` and the cause is neither the code, nor a quota, nor the `fra1` region
@@ -6158,18 +6202,93 @@ is what it looks like when the actual answer finally arrives from a log.
 `728391c` at 13:08:43Z, is an ancestor of `main` and carries every code change — everything pushed
 since is documentation. So the app is current; only this register's own text is behind.
 
-**Blocked on:** Vercel support. Reconnect and a full uninstall/reinstall have both been tried, and
-the second made the failure quieter rather than rarer. Until it is fixed, nothing may be described
-as deployed without checking the Vercel API for a deployment of that exact sha.
-**Re-verify when:** any deployment fails in under ~15 seconds. Read `errorCode` on the deployment
-record and the length of the events array before anything else:
-`curl -H "Authorization: Bearer $VERCEL_TOKEN" "https://api.vercel.com/v13/deployments/<dpl>?teamId=<team>"`.
+---
+
+**THE REPAIR, and the three states to tell apart first.**
+
+**THE THREE STATES. Recognise which one you are in before doing anything, because two of them look
+like "the deploy is broken" and they want opposite actions.**
+
+| | state 1 — `git_info_fail` | state 2 — webhook dead | state 3 — healthy |
+|---|---|---|---|
+| deployment created? | **yes** | **no** | yes |
+| appears in the deployments list? | yes, **red** | **not at all** | yes |
+| duration | 4–10 s | — | 36–61 s |
+| build log | **empty**, `builds: []` | — | normal |
+| `errorCode` | **`git_info_fail`** | — | — |
+| what it means | Vercel got the webhook but **could not read the repo** | the webhook **stopped firing** | — |
+
+**State 1 was intermittent — roughly one deployment in four got through.** That is what made it so
+easy to misread: a success after a failure looks like a repair and is not.
+
+**State 2 is not a continuation of state 1, it is a different failure**, and the distinction is the
+one that cost the most time. In state 1 there is a red row in the deployments list carrying an error
+code. In state 2 there is **nothing to look at** — `git push` succeeds, GitHub holds the commit, and
+no deployment record exists to carry any error. It lasted **18h41m**: the last deployment created
+was `728391c` at 13:08:43Z on 2026-10-12, the next was `2b34c5a` at 07:49:43Z on 2026-10-13. Two
+pushes fell inside that window and produced nothing at all — `33a6b6b` (committed 16:03:04Z, a
+commit made specifically to test the webhook) and `3369706` (the motion/UI pass, pushed the
+following morning).
+
+**State 3, after the repair:** `2b34c5a` → `dpl_376hXKcSef6zpVxW71KxJdqsurpz`, created 07:49:43Z,
+**four seconds after the commit**, building at 07:49:45Z, READY at 07:50:21Z. **36 s of build.** A
+normal build for this app, with a normal log.
+
+**What actually repaired it, and the distinction that cost ~19 hours.**
+
+**Disconnect the repository explicitly, then link it again from zero — Settings → Git.**
+
+**NOT the Reconnect button.** Reconnect only re-confirms the link record that already exists. It was
+pressed several times across 2026-10-12 and the GitHub App was uninstalled from the organization and
+reinstalled, and *none of it rewrote the link object*. After the disconnect and fresh link, the
+settings page read **"Connected just now"** instead of "Connected Aug 10".
+
+**The evidence that identified this before it was tried**, which is the transferable part:
+
+```
+link.type              github
+link.repo              Wow-Lab-The-WHYology-Insitute/App-Wow-Lab
+link.productionBranch  main
+link.createdAt         2026-08-10 12:07:33
+link.updatedAt         2026-08-10 12:07:33   ← identical
+```
+
+`link.updatedAt` was **byte-identical to `link.createdAt`**, three months old, after an afternoon of
+pressing Reconnect and a full App uninstall/reinstall. That is a direct statement from Vercel's own
+API that **every intervention tried so far had left the link record untouched** — so the thing to do
+was not to press the same button again but to destroy the record and make a new one. Read from:
+
+```
+curl -H "Authorization: Bearer $VERCEL_TOKEN" \
+  "https://api.vercel.com/v9/projects/<projectId>?teamId=<teamId>" | jq .link
+```
+
+**On any future recurrence, read `link.updatedAt` first.** If it has not moved since the last thing
+you pressed, that thing did nothing.
+
+**Re-linking does NOT itself trigger a build, and this nearly hid the repair.** `3369706` was
+already on `main` when the repository was re-linked, so there was no new push for the restored
+webhook to fire on, and the project sat there looking exactly as dead as before. **An empty commit
+is required to find out whether the repair worked:**
+`git commit --allow-empty -m "trigger" && git push`. That is also why `949e6ef` appears earlier in
+this entry — the same technique, used on the repair that did not hold.
+
+**Blocked on:** nothing — resolved.
+**Re-verify when:** any deployment fails in under ~15 seconds, **or any push produces no deployment
+at all**. Those are states 1 and 2 above and they need different next moves. Read the deployment
+record's `errorCode` and the length of its events array for state 1; for state 2 there is no record
+to read, so go straight to `link.updatedAt` on the project:
+`curl -H "Authorization: Bearer $VERCEL_TOKEN" "https://api.vercel.com/v13/deployments/<dpl>?teamId=<team>"`
+and
+`curl -H "Authorization: Bearer $VERCEL_TOKEN" "https://api.vercel.com/v9/projects/<proj>?teamId=<team>"`.
 The project and team ids live in `.vercel/project.json`.
 **Lives in:** `.vercel/project.json` (project `prj_0qQGJwev5UT936X2KFnl9fVJWwNF`, team
-`team_jc5JPRPiybFWLSHA05B3BAKi`); commit `949e6ef` (the empty commit that proved the repair, 49.9 s);
+`team_jc5JPRPiybFWLSHA05B3BAKi`); commit `2b34c5a` and deployment `dpl_376hXKcSef6zpVxW71KxJdqsurpz`
+(the empty commit and the 36 s build that proved the repair); commit `949e6ef` (the earlier empty
+commit, which proved a repair that did not hold — the reason one green deployment is not evidence);
 item 125 above (the work this blocked, and its measurement once unblocked); item 118 above (the
-deploy-reporting entry and the warning against naming an unseen cause); `scripts/check_deploy_status.ts`
-(which reported the failures correctly throughout).
+deploy-reporting entry, which this occurrence adds a fourth uncovered state to);
+`scripts/check_deploy_status.ts` (which could not be used at all today — see item 118 above).
 
 ---
 
