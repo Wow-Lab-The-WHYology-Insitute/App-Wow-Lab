@@ -12,7 +12,11 @@ export const myWorkDict: Dictionary = {
   page_title: { en: "My work", ro: "Munca mea" },
   page_subtitle: {
     en: "Your own workshops, groups and grade. Nobody else's.",
-    ro: "Atelierele, grupele și gradul tale. Ale nimănui altcuiva.",
+    // "gradul tău", not "gradul tale": the possessive agrees with the last
+    // term of the list, and that term is a masculine singular. Wrong since
+    // 33126a3, i.e. before the session->workshop rename, so this one is not
+    // rename residue.
+    ro: "Atelierele, grupele și gradul tău. Ale nimănui altcuiva.",
   },
 
   // The unconfirmed statement -- one sentence, never two figures. The

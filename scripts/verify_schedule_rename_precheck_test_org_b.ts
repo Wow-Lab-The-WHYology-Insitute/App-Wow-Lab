@@ -238,7 +238,16 @@ async function main() {
     report.push(`  the no-grade message ships RO: ${decoded.includes("nu are un grad valabil la această dată")}`);
     report.push(`  the no-trainer message ships RO: ${decoded.includes("niciun trainer în niciunul din sloturi")}`);
     // The eleven agreement fixes: the broken forms must NOT ship.
-    for (const bad of ["nicio atelier", "Nicio atelier", "atelierei", "acestei ateliere", "o atelier neconfirmată", "Creează ateliera"]) {
+    //
+    // "Atelier nouă" / "Atelier noua" added 2026-10-13, and the reason it was
+    // missing is worth more than the entry. This list was written in the SAME
+    // commit as the rename, with six forms someone anticipated -- and the
+    // rename introduced a seventh, in that same commit, which the list
+    // therefore could not contain. A denylist catches what occurred to its
+    // author, so adding this form closes one case and not the pattern. The
+    // bundle is searched both with and without diacritics because the client
+    // chunks are escaped inconsistently.
+    for (const bad of ["nicio atelier", "Nicio atelier", "atelierei", "acestei ateliere", "o atelier neconfirmată", "Creează ateliera", "Atelier nouă", "Atelier noua"]) {
       report.push(`  broken agreement "${bad}" is absent: ${!decoded.includes(bad)}`);
     }
     report.push(`  the billing example still says ședință: ${decoded.includes("95 lei/copil/ședință")}`);

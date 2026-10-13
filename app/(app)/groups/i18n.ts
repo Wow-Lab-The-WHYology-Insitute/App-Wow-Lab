@@ -212,7 +212,12 @@ export const groupsDict: Dictionary = {
   session_status_delivered: { en: "Delivered", ro: "Livrată" },
   session_status_cancelled: { en: "Cancelled", ro: "Anulată" },
 
-  new_session_button: { en: "+ New workshop", ro: "+ Atelier nouă" },
+  // "nou", not "nouă". `atelier` is neuter: masculine agreement in the
+  // singular, feminine in the plural ("ateliere ... noi"). The feminine form
+  // here is residue from thinking in `sedinta`, which IS feminine -- both this
+  // key and new_session_title below were written with it in ba5bac9, the
+  // rename commit itself.
+  new_session_button: { en: "+ New workshop", ro: "+ Atelier nou" },
   sessions_heading: { en: "Workshops ({{count}})", ro: "Ateliere ({{count}})" },
   empty_no_sessions: { en: "No workshops yet.", ro: "Niciun atelier încă." },
   empty_no_sessions_trainer: {
@@ -291,7 +296,7 @@ export const groupsDict: Dictionary = {
   mobile_present_prefix: { en: "Present: ", ro: "Prezenți: " },
   mobile_experiment_prefix: { en: "Experiment: ", ro: "Experiment: " },
 
-  new_session_title: { en: "New workshop", ro: "Atelier nouă" },
+  new_session_title: { en: "New workshop", ro: "Atelier nou" },   // see new_session_button above
   trainer_principal_label: { en: "Trainer principal", ro: "Trainer principal" },
   trainer_secundar_label: { en: "Trainer secundar", ro: "Trainer secundar" },
   // location_tier stays on the session (unlike language, above -- it

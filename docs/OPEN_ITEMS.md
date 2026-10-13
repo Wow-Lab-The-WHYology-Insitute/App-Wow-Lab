@@ -5703,6 +5703,38 @@ project's tooling catches this — `check_operator_guide.ts` compares the guide 
 dictionaries and passed 38/38 both before and after, because it checks that claims MATCH, not that
 they are grammatical.
 
+**2026-10-13, two more agreement errors found in the same rename — and both say something the
+eleven above did not.**
+
+`new_session_button` and `new_session_title` shipped as **"Atelier nouă"**, feminine, for a day.
+The first is the primary action on every group page, so it was on screen every time anyone opened a
+group. Fixed to "Atelier nou".
+
+**First: the verification written for this rename missed the error the rename introduced.** The
+script asserts six anticipated broken forms do not ship — *"nicio atelier"*, *"Nicio atelier"*,
+*"atelierei"*, *"acestei ateliere"*, *"o atelier neconfirmată"*, *"Creează ateliera"* — and it was
+written in **the same commit** (`ba5bac9`) that introduced a seventh. It could not have contained
+it. **A denylist catches only what occurred to its author**, so adding "Atelier nouă" to it closes
+one case and does not close the pattern. The form was added anyway, because one closed case is worth
+having; it is just not a guard.
+
+**Second, and the more general one: neither error was a mis-converted string.** The eleven above
+were genuine conversion residue — a feminine article left standing when the noun under it changed.
+These two were **written from scratch in the rename commit**, as new keys, with the feminine form
+chosen fresh. Nobody substituted anything; the old gender was simply still in the writer's head
+while typing new text. **So "review every line the substitution touched" would not have caught
+either of them** — they are not lines the substitution touched. The risk is not conversion residue,
+it is that **a vocabulary change leaves the old gender active in whoever is writing the next string**,
+and it recurs at every vocabulary change, not just this one.
+
+**Checked at the same time:** all 47 RO strings mentioning `atelier`/`ateliere`, read and swept
+mechanically for the compound forms (`niciun/nicio`, `acest/această`, `acestui/acestei`,
+`alocat/alocată`, `confirmat/confirmată`, `nou/nouă`). The other 45 are correct. Three unrelated
+agreement errors surfaced in the same sweep and were fixed with them — `my-work` page_subtitle's
+*"gradul tale"* (wrong since `33126a3`, i.e. **before** this rename, so not residue of it),
+and `payment-config`'s *"cine o introduce"* (the referent `nivelul` is masculine) and
+*"120 de minute are"* (plural subject).
+
 **Lives in:** `app/(app)/{groups,my-work,payroll,payment-config}/i18n.ts`;
 `app/(app)/groups/actions.ts` and `session-write-errors.ts` (the hardcoded strings and the
 table-name comment); `docs/WOWLAB_GHID_Operare_Clienti_Contracte_Grupe.md` (the `ședință`

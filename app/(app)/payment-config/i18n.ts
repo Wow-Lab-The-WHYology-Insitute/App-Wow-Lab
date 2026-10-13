@@ -65,7 +65,9 @@ export const paymentConfigDict: Dictionary = {
   section_location_bonuses_title: { en: "Location bonuses", ro: "Bonusuri de locație" },
   section_location_bonuses_subtitle: {
     en: "Bonus percentage per tier. The tier itself is recorded per workshop by whoever enters it -- this grid only holds what each tier pays.",
-    ro: "Procentul de bonus per nivel. Nivelul se înregistrează per atelier de către cine o introduce — grila asta ține doar cât plătește fiecare nivel.",
+    // "îl introduce": the thing being entered is `nivelul`, masculine. "o"
+    // was agreeing with nothing in the sentence.
+    ro: "Procentul de bonus per nivel. Nivelul se înregistrează per atelier de către cine îl introduce — grila asta ține doar cât plătește fiecare nivel.",
   },
   tier_bucuresti: { en: "Bucharest", ro: "București" },
   tier_imprejurimi: { en: "Surroundings", ro: "Împrejurimi" },
@@ -85,7 +87,8 @@ export const paymentConfigDict: Dictionary = {
   section_duration_multipliers_title: { en: "Duration multipliers", ro: "Coeficienți de durată" },
   section_duration_multipliers_subtitle: {
     en: "Coefficient per workshop duration. 120 minutes has two rows -- standard, and the Scoala Altfel / Saptamana Verde exception, which uses ×2 instead of the standard ×1.5.",
-    ro: "Coeficientul per durata atelierului. 120 de minute are două rânduri — standard, și excepția Școala Altfel / Săptămâna Verde, care folosește ×2 în loc de ×1.5 standard.",
+    // "120 de minute au", plural subject.
+    ro: "Coeficientul per durata atelierului. 120 de minute au două rânduri — standard, și excepția Școala Altfel / Săptămâna Verde, care folosește ×2 în loc de ×1.5 standard.",
   },
   duration_30: { en: "30 min", ro: "30 min" },
   duration_60: { en: "60 min", ro: "60 min" },
