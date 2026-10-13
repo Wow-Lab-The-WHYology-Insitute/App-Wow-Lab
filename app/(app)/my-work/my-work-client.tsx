@@ -68,11 +68,11 @@ export function MyWorkClient({
         // One plain line, not a grid of five zeros: zeros read as a
         // broken page, a sentence reads as a true one. The grade still
         // shows below when set -- it's true regardless of allocation.
-        <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+        <section className="rounded-2xl border border-black/5 bg-white p-section shadow-sm">
           <p className="font-body text-muted text-sm">{t("nothing_allocated")}</p>
         </section>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-section sm:grid-cols-2 lg:grid-cols-3">
           <Figure label={t("confirmed_this_month")} value={String(confirmedThisMonth)} hint={t("confirmed_hint")} />
           <Figure label={t("groups_assigned")} value={String(groupsAssigned)} />
           <Figure
@@ -88,7 +88,7 @@ export function MyWorkClient({
         </div>
       )}
 
-      <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-black/5 bg-white p-section shadow-sm">
         <p className="font-body text-muted text-xs font-bold tracking-wide uppercase">
           {t("grade_label")}
         </p>
@@ -123,7 +123,7 @@ function Figure({
   note?: string;
 }) {
   return (
-    <section className="flex flex-col rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+    <section className="flex flex-col rounded-2xl border border-black/5 bg-white p-section shadow-sm">
       <p className="font-body text-muted text-xs font-bold tracking-wide uppercase">{label}</p>
       <p className="font-display text-ink mt-2 text-3xl">{value}</p>
       {hint && <p className="font-body text-muted mt-2 text-xs">{hint}</p>}

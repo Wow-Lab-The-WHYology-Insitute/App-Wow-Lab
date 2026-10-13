@@ -143,6 +143,17 @@ function buildExtraColumns(
   onSort: (key: SortKey) => void,
 ): DataTableColumn<Client>[] {
   return [
+    // Entity moved out of the default set 2026-10-13. The billing entity is
+    // something you look UP when raising an invoice, not something you scan
+    // when finding a client — and the criterion for this table is that what
+    // is scanned stays and what is looked up becomes opt-in. Finance turns it
+    // on once; usePersistedColumns remembers it.
+    {
+      key: "entity",
+      header: t("col_entity"),
+      width: 120,
+      render: (c) => <EntityChips names={c.billingEntities} emptyLabel={t("no_entity_yet")} />,
+    },
     {
       key: "business_line",
       header: (
@@ -309,10 +320,13 @@ export function ClientsClient({
           >
             {c.name}
           </Link>
-          <TruncatedText
-            value={[c.legal_name, c.cui].filter(Boolean).join(" · ") || "—"}
-            className="text-muted text-xs"
-          />
+          {/* Legal name only. The CUI used to ride here as "legal name · CUI",
+              and nobody scans a tax code — you search for one, and the search
+              box already covers it ("Caută după nume, denumire legală sau
+              CUI"). The legal name earns its place for the opposite reason:
+              two schools with similar display names are told apart by it.
+              CUI is still available as its own opt-in column. */}
+          <TruncatedText value={c.legal_name || "—"} className="text-muted text-xs" />
         </div>
       ),
     },
@@ -348,12 +362,6 @@ export function ClientsClient({
       ),
       width: 100,
       render: (c) => <StatusChip status={c.status} label={t(`status_${c.status}`)} />,
-    },
-    {
-      key: "entity",
-      header: t("col_entity"),
-      width: 120,
-      render: (c) => <EntityChips names={c.billingEntities} emptyLabel={t("no_entity_yet")} />,
     },
   ];
 

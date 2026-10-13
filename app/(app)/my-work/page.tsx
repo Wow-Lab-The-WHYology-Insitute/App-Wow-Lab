@@ -179,7 +179,11 @@ export default async function MyWorkPage() {
   });
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-page">
+      {/* gap-page / gap-section from the four-value scale in globals.css:
+          40px between the page's major blocks, 24px between sibling cards in
+          one grid. Both were a flat 24px/16px, which made the three stat cards
+          and the grade card below them read as one undifferentiated run. */}
       <PlanDecisionsNotice decisions={decisions} />
       <MyWorkClient
       hasAnySessions={mine.length > 0}

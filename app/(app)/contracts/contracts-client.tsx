@@ -111,6 +111,54 @@ function buildExtraColumns(
   financeVisible: boolean,
 ): DataTableColumn<Contract>[] {
   return [
+    // Entity and Value moved out of the default set 2026-10-13, on the rule
+    // that what is scanned stays and what is looked up becomes opt-in.
+    // Entity (EWS/BADV) is a billing attribute you look up while invoicing.
+    // Value is stronger: it is masked outright for roles without finance
+    // permission AND unset on every production row today, so for most of the
+    // people opening this page it was a column of em dashes. Finance turns
+    // both on once and usePersistedColumns remembers.
+    {
+      key: "entity",
+      header: t("col_entity"),
+      width: 64,
+      hideBelowPx: 1024,
+      render: (c) => (
+        <span
+          title={c.legalEntityName}
+          className="font-mono text-ink inline-flex w-fit items-center rounded bg-ink/5 px-1.5 py-0.5 text-[11px] font-medium"
+        >
+          {entityShortCode(c.legalEntityName)}
+        </span>
+      ),
+    },
+    {
+      key: "value",
+      header: t("col_value"),
+      width: 100,
+      align: "right",
+      hideBelowPx: 1024,
+      render: (c) => (
+        <div className="flex flex-col items-end gap-0.5">
+          <ValueCell
+            value={c.estimated_value}
+            visible={financeVisible}
+            maskedLabel={t("masked_label")}
+            maskedTitle={t("masked_title")}
+            format={(v) => formatMoney(v, locale)}
+          />
+          <span className="text-muted text-[11px]">
+            <ValueCell
+              value={c.previous_year_value}
+              visible={financeVisible}
+              maskedLabel={t("masked_label")}
+              maskedTitle={t("masked_title")}
+              format={(v) => formatMoney(v, locale)}
+            />
+          </span>
+        </div>
+      ),
+    },
     {
       key: "legal_name",
       header: t("detail_legal_name"),
@@ -437,47 +485,6 @@ export function ContractsClient({
       header: t("col_term"),
       width: 170,
       render: (c) => <TermCell contract={c} now={now} locale={locale} t={t} />,
-    },
-    {
-      key: "entity",
-      header: t("col_entity"),
-      width: 64,
-      hideBelowPx: 1024,
-      render: (c) => (
-        <span
-          title={c.legalEntityName}
-          className="font-mono text-ink inline-flex w-fit items-center rounded bg-ink/5 px-1.5 py-0.5 text-[11px] font-medium"
-        >
-          {entityShortCode(c.legalEntityName)}
-        </span>
-      ),
-    },
-    {
-      key: "value",
-      header: t("col_value"),
-      width: 100,
-      align: "right",
-      hideBelowPx: 1024,
-      render: (c) => (
-        <div className="flex flex-col items-end gap-0.5">
-          <ValueCell
-            value={c.estimated_value}
-            visible={financeVisible}
-            maskedLabel={t("masked_label")}
-            maskedTitle={t("masked_title")}
-            format={(v) => formatMoney(v, locale)}
-          />
-          <span className="text-muted text-[11px]">
-            <ValueCell
-              value={c.previous_year_value}
-              visible={financeVisible}
-              maskedLabel={t("masked_label")}
-              maskedTitle={t("masked_title")}
-              format={(v) => formatMoney(v, locale)}
-            />
-          </span>
-        </div>
-      ),
     },
   ];
 

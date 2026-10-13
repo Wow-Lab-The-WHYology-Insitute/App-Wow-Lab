@@ -99,10 +99,11 @@ export function SuppliersClient({
           >
             {s.name}
           </Link>
-          <TruncatedText
-            value={[s.legal_name, s.cui].filter(Boolean).join(" · ") || "—"}
-            className="text-muted text-xs"
-          />
+          {/* Legal name only — the CUI left this sub-line 2026-10-13, same
+              reasoning as /clients: a tax code is searched for, never scanned,
+              and the legal name is what tells two similarly named suppliers
+              apart. */}
+          <TruncatedText value={s.legal_name || "—"} className="text-muted text-xs" />
         </div>
       ),
     },

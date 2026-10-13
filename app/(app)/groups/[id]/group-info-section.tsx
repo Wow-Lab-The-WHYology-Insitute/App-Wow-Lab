@@ -411,7 +411,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-black/5 bg-white p-section shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="font-body text-muted text-xs font-bold tracking-wide uppercase">
           {title}
@@ -441,23 +441,36 @@ function Kv({
 }) {
   const [expanded, setExpanded] = useState(false);
   const isEmpty = value === EMPTY;
-  // Stacked under sm:, side-by-side from sm: up. Measured at 320px before
-  // changing it: the panel's usable width is 272px (320 minus the section's
-  // p-6), and justify-between had nothing left to distribute, so the label and
-  // the value touched — the first row rendered "ClientȘcoala Franceză (Lycee
-  // Francais)" as one run-on word. Stacking is the right answer rather than
-  // truncating because on a group sheet the value is what the trainer came for.
+  // Stacked under sm:, two columns from sm: up.
+  //
+  // Stacked, because at 320px the panel's usable width is 272px and
+  // justify-between had nothing left to distribute: the first row rendered
+  // "ClientȘcoala Franceză (Lycee Francais)" as one run-on word. The value is
+  // what a trainer opened the sheet for, so it gets the full width rather than
+  // being truncated.
+  //
+  // Two columns rather than justify-between from sm: up, changed 2026-10-13.
+  // justify-between pinned the label hard left and the value hard right of a
+  // ~1240px card, which put ~900px of nothing between a label and the thing it
+  // names — you read the label, then travel. Worse, right-aligning values of
+  // different lengths gave the value column a ragged LEFT edge, so there was
+  // no consistent place to start reading. A fixed 200px label column with the
+  // value left-aligned right after it fixes both, and the card stays wide.
+  //
+  // No border between rows any more either: thirteen hairlines in one card
+  // read as stripes. py-snug (16px) of whitespace separates them, which is the
+  // same job done by removing something instead of adding one.
   return (
-    <div className="flex flex-col gap-0.5 border-b border-black/5 py-2 text-sm last:border-0">
-      <div className="flex flex-col items-start gap-0.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <span className="font-body text-muted sm:shrink-0">{label}</span>
+    <div className="flex flex-col gap-0.5 py-snug text-sm">
+      <div className="flex flex-col items-start gap-0.5 sm:flex-row sm:items-start sm:gap-tight">
+        <span className="font-body text-muted sm:w-[200px] sm:shrink-0">{label}</span>
         {href ? (
           <a
             href={href}
             target={external ? "_blank" : undefined}
             rel={external ? "noreferrer" : undefined}
             title={value}
-            className="text-brand-pink font-body min-w-0 font-medium hover:underline sm:text-right"
+            className="text-brand-pink font-body min-w-0 font-medium hover:underline"
           >
             {value}
           </a>
@@ -465,7 +478,7 @@ function Kv({
           <span
             title={value}
             onClick={clamp && !isEmpty ? () => setExpanded((v) => !v) : undefined}
-            className={`font-body min-w-0 sm:text-right ${
+            className={`font-body min-w-0 ${
               isEmpty ? "text-muted font-normal" : "text-ink font-medium"
             } ${clamp && !isEmpty ? `cursor-pointer ${expanded ? "" : "line-clamp-3"}` : ""}`}
           >
@@ -473,7 +486,11 @@ function Kv({
           </span>
         )}
       </div>
-      {sublabel && <span className="font-body text-muted text-xs sm:self-end">{sublabel}</span>}
+      {sublabel && (
+        <span className="font-body text-muted text-xs sm:ml-[calc(200px+var(--spacing-tight))]">
+          {sublabel}
+        </span>
+      )}
     </div>
   );
 }

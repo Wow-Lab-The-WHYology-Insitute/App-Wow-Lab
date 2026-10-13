@@ -272,7 +272,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-black/5 bg-white p-section shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="font-body text-muted text-xs font-bold tracking-wide uppercase">
           {title}
@@ -299,26 +299,39 @@ function Kv({
   external?: boolean;
   sublabel?: string;
 }) {
+  // Same two-column treatment as the group sheet's Kv — see the long comment
+  // in app/(app)/groups/[id]/group-info-section.tsx for why. In short:
+  // justify-between put ~900px of nothing between a label and the value it
+  // names on a 1240px card, and right-aligned values of different lengths
+  // gave the value column a ragged left edge. Fixed 200px label column, value
+  // left-aligned after it, stacked below sm: so 320px does not collide.
+  // Rows separated by py-snug whitespace instead of thirteen hairlines.
   return (
-    <div className="flex flex-col gap-0.5 border-b border-black/5 py-2 text-sm last:border-0">
-      <div className="flex items-baseline justify-between">
-        <span className="font-body text-muted">{label}</span>
+    <div className="flex flex-col gap-0.5 py-snug text-sm">
+      <div className="flex flex-col items-start gap-0.5 sm:flex-row sm:items-start sm:gap-tight">
+        <span className="font-body text-muted sm:w-[200px] sm:shrink-0">{label}</span>
         {href ? (
           <a
             href={href}
             target={external ? "_blank" : undefined}
             rel={external ? "noreferrer" : undefined}
-            className="text-brand-pink font-body font-medium hover:underline"
+            className="text-brand-pink font-body min-w-0 font-medium hover:underline"
           >
             {value}
           </a>
         ) : (
-          <span className={`text-ink ${mono ? "font-mono text-xs" : "font-body font-medium"}`}>
+          <span
+            className={`min-w-0 text-ink ${mono ? "font-mono text-xs" : "font-body font-medium"}`}
+          >
             {value}
           </span>
         )}
       </div>
-      {sublabel && <span className="font-body text-muted self-end text-xs">{sublabel}</span>}
+      {sublabel && (
+        <span className="font-body text-muted text-xs sm:ml-[calc(200px+var(--spacing-tight))]">
+          {sublabel}
+        </span>
+      )}
     </div>
   );
 }

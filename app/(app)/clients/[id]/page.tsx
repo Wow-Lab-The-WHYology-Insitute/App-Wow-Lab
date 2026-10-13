@@ -215,7 +215,11 @@ export default async function ClientDetailPage({
   }
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6">
+    <div className="mx-auto flex max-w-4xl flex-col gap-page">
+      {/* gap-page between cards, p-section inside them — the four-value scale
+          in globals.css. Both were 24px before, so a card's own padding and
+          the gap between two cards were indistinguishable and the page read as
+          one column of undifferentiated boxes. */}
       <ClientHeader
         clientId={client.id}
         name={client.name}

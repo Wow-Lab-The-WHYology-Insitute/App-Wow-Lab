@@ -188,6 +188,32 @@ function buildExtraColumns(
   onSort: (key: SortKey) => void,
 ): DataTableColumn<Group>[] {
   return [
+    // Enrollment moved out of the default set 2026-10-13. Confirmed/billed
+    // child counts are read when preparing an invoice or checking whether a
+    // group is full — not while scanning for a group — and they are "— / —"
+    // on every production row today.
+    {
+      key: "enrollment",
+      header: (
+        <SortableHeader
+          label={t("col_enrollment")}
+          sortKey="children_confirmed"
+          activeKey={sortKey}
+          dir={sortDir}
+          onSort={onSort}
+        />
+      ),
+      width: 100,
+      align: "right",
+      render: (g) => (
+        <div className="flex flex-col items-end gap-0.5">
+          <ValueCell value={g.children_confirmed} visible={true} maskedLabel="" maskedTitle="" />
+          <span className="text-muted text-[11px]">
+            <ValueCell value={g.children_billed} visible={true} maskedLabel="" maskedTitle="" />
+          </span>
+        </div>
+      ),
+    },
     {
       key: "clientLegalName",
       header: (
@@ -407,12 +433,15 @@ export function GroupsClient({
       ),
       width: 160,
       render: (g) => (
-        <div className="flex flex-col justify-center gap-1">
-          <span className="font-body bg-brand-pink/10 text-brand-pink inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-medium">
-            {t(`module_${g.module}`)}
-          </span>
-          <span className="text-muted text-[11px]">{t(`format_${g.delivery_format}`)}</span>
-        </div>
+        // The delivery format used to sit under the chip as a second line.
+        // It is ALSO an opt-in column of its own (delivery_format, below), so
+        // it was printed twice — and the copy here wrapped onto two lines
+        // ("Școli private (colaborări recurente)" in a 160px cell), which is
+        // what made these rows ~90px tall instead of 56. One place now: the
+        // column.
+        <span className="font-body bg-brand-pink/10 text-brand-pink inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-medium">
+          {t(`module_${g.module}`)}
+        </span>
       ),
     },
     {
@@ -435,28 +464,6 @@ export function GroupsClient({
       width: 170,
       render: (g) => (
         <TrainersLine principal={g.trainerPrincipalName} secundar={g.trainerSecundarName} none={t("no_trainer")} unnamed={t("unnamed_user")} />
-      ),
-    },
-    {
-      key: "enrollment",
-      header: (
-        <SortableHeader
-          label={t("col_enrollment")}
-          sortKey="children_confirmed"
-          activeKey={sortKey}
-          dir={sortDir}
-          onSort={onSort}
-        />
-      ),
-      width: 100,
-      align: "right",
-      render: (g) => (
-        <div className="flex flex-col items-end gap-0.5">
-          <ValueCell value={g.children_confirmed} visible={true} maskedLabel="" maskedTitle="" />
-          <span className="text-muted text-[11px]">
-            <ValueCell value={g.children_billed} visible={true} maskedLabel="" maskedTitle="" />
-          </span>
-        </div>
       ),
     },
     {

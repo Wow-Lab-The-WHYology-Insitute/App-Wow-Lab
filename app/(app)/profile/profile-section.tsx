@@ -101,7 +101,7 @@ export function ProfileSection({
   }
 
   return (
-    <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-black/5 bg-white p-section shadow-sm">
       <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
         {t("your_profile_heading")}
       </h2>
@@ -157,7 +157,7 @@ export function ProfileSection({
                 setSaved(false);
               }}
               placeholder={t("first_name_placeholder")}
-              className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 sm:flex-1"
+              className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 sm:w-[260px]"
             />
             <input
               type="text"
@@ -167,7 +167,7 @@ export function ProfileSection({
                 setSaved(false);
               }}
               placeholder={t("last_name_placeholder")}
-              className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 sm:flex-1"
+              className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 sm:w-[260px]"
             />
           </div>
           <input
@@ -178,7 +178,12 @@ export function ProfileSection({
               setSaved(false);
             }}
             placeholder={t("phone_placeholder")}
-            className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+            // Width follows the content, not the container. This field was
+            // the card's full ~1180px for a ten-digit phone number, and the
+            // two name fields each took half of whatever was left — so the
+            // same form rendered differently on every viewport and none of
+            // the three widths said anything about what goes in them.
+            className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 sm:w-[220px]"
           />
           {error && (
             <p className="font-body text-ink rounded-lg bg-brand-pink/10 px-4 py-3 text-sm">
