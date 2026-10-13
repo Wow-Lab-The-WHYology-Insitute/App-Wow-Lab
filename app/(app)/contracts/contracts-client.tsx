@@ -364,6 +364,7 @@ export function ContractsClient({
       if (
         q &&
         !normalizeForSearch(c.clientName).includes(q) &&
+        !normalizeForSearch(c.clientLegalName ?? "").includes(q) &&
         !normalizeForSearch(c.clientCui ?? "").includes(q) &&
         !normalizeForSearch(c.exit_number ?? "").includes(q) &&
         !normalizeForSearch(c.entry_number ?? "").includes(q)
