@@ -30,4 +30,25 @@
   --duration-fast: 150ms;
   /* Panels and size changes, where 150ms reads as a jump. */
   --duration-panel: 200ms;
+
+  /* Spacing scale. FOUR values, and the number is the point: the previous
+     screens picked from the whole Tailwind ladder (gap-1, gap-2, gap-3,
+     gap-4, gap-6, p-5, p-6 ...) and no two pages agreed, so nothing lined up
+     across pages and every new screen made the choice again. Each of these
+     answers one question, so there is one right answer per situation:
+
+       tight    inside a single element — label to its value, icon to text
+       snug     between sibling rows inside one card
+       section  a card's own padding, and the gap between cards
+       page     between the page's major blocks (title / actions / content)
+
+     Tailwind v4 reads --spacing-* as a theme namespace, so these become
+     p-section, gap-page, py-snug ... alongside the numeric scale.
+
+     Used by the 2026-10-13 spacing pass only. The rest of the app keeps the
+     numeric utilities until a screen is touched for another reason. */
+  --spacing-tight: 0.5rem;    /*  8px */
+  --spacing-snug: 1rem;       /* 16px */
+  --spacing-section: 1.5rem;  /* 24px */
+  --spacing-page: 2.5rem;     /* 40px */
 }

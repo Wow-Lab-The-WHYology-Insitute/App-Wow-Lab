@@ -33,7 +33,6 @@ export type DataTableColumn<T> = {
   render: (row: T, index: number) => React.ReactNode;
 };
 
-const ROW_NUMBER_WIDTH = 32;
 const CHEVRON_WIDTH = 32;
 
 export function DataTable<T>({
@@ -59,17 +58,21 @@ export function DataTable<T>({
     return <p className="font-body text-muted text-sm">{emptyMessage}</p>;
   }
 
-  // Sticky-left offsets: row-number column is always sticky at 0; the
-  // first column with sticky:true (by convention, the first data column)
-  // stacks right after it. Anything past that isn't tracked — the spec
-  // only asks for these two.
-  let stickyOffset = ROW_NUMBER_WIDTH;
+  // Sticky-left offsets: the first column with sticky:true (by convention,
+  // the first data column) sits at 0. Anything past that isn't tracked.
+  let stickyOffset = 0;
 
+  // NO BORDER AND NO RADIUS HERE, deliberately. Every caller already places
+  // this inside a `rounded-2xl border border-black/5 bg-white p-6 shadow-sm`
+  // section, so a second border 24px inside the first drew a frame within a
+  // frame that marked no boundary anyone needs — the card is the boundary.
+  // The table is already delimited horizontally by the header's border-b and
+  // each row's. overflow-x-auto STAYS: this div owns horizontal scroll (see
+  // the header comment), and that is the only reason it exists.
   return (
-    <div className="overflow-x-auto rounded-xl border border-black/5">
+    <div className="overflow-x-auto">
       <table className="w-full border-collapse text-sm" style={{ tableLayout: "fixed" }}>
         <colgroup>
-          <col style={{ width: ROW_NUMBER_WIDTH }} />
           {columns.map((c) => (
             <col key={c.key} style={{ width: c.width }} />
           ))}
@@ -77,11 +80,6 @@ export function DataTable<T>({
         </colgroup>
         <thead>
           <tr>
-            <th
-              scope="col"
-              className="border-b border-black/5 bg-white sticky top-0 left-0 z-20"
-              aria-hidden="true"
-            />
             {columns.map((c) => {
               const isSticky = c.sticky;
               const thisOffset = isSticky ? stickyOffset : undefined;
@@ -156,8 +154,8 @@ export function DataTableRow<T>({
   renderExpanded?: (row: T) => React.ReactNode;
   ariaLabel?: string;
 }) {
-  const totalCols = columns.length + 2;
-  let stickyOffset = ROW_NUMBER_WIDTH;
+  const totalCols = columns.length + 1;
+  let stickyOffset = 0;
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!onToggle) return;
@@ -183,9 +181,11 @@ export function DataTableRow<T>({
         aria-label={ariaLabel}
         style={{ height: 56 }}
       >
-        <td className="text-muted focus-visible:ring-brand-pink sticky left-0 z-10 bg-white px-2 py-1 text-right text-xs tabular-nums focus-visible:ring-2 focus-visible:outline-none">
-          {index + 1}
-        </td>
+        {/* The row-number column was removed 2026-10-13. These rows are not a
+            sequence: every list here sorts, so "3" named a different row after
+            each click and identified nothing. It cost 32px of the leftmost,
+            most-scanned position on four screens to print a number that was
+            never stable enough to say out loud. */}
         {columns.map((c) => {
           const isSticky = c.sticky;
           const thisOffset = isSticky ? stickyOffset : undefined;

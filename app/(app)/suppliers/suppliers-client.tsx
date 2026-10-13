@@ -121,7 +121,11 @@ export function SuppliersClient({
   ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-page">
+      {/* gap-page / p-section: the four-value scale in globals.css. These two
+          were gap-6 and p-6 — the same 24px for "between the page's major
+          blocks" and "a card's own padding", which is why the title, the
+          button and the table card read as one undifferentiated stack. */}
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl text-brand-pink">{t("page_title")}</h1>
@@ -164,7 +168,7 @@ export function SuppliersClient({
         </div>
       )}
 
-      <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-black/5 bg-white p-section shadow-sm">
         {suppliers.length === 0 ? (
           <p className="font-body text-muted text-sm">{t("empty_no_suppliers")}</p>
         ) : (
@@ -322,7 +326,7 @@ function NewSupplierForm({
   const [notes, setNotes] = useState("");
 
   return (
-    <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-black/5 bg-white p-section shadow-sm">
       <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
         {t("new_supplier_form_title")}
       </h2>

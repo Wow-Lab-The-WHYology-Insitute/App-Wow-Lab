@@ -118,7 +118,18 @@ function SortableHeader({
 }) {
   const active = sortKey === activeKey;
   return (
-    <button type="button" onClick={() => onSort(sortKey)} className="inline-flex items-center gap-1">
+    // `uppercase` and the tracking are repeated here rather than inherited.
+    // The <th> in DataTable sets them, but a <button> does not inherit
+    // text-transform from its ancestor, which is why sortable headers rendered
+    // "Client" while plain-string headers on the same table rendered "ENTITATE".
+    // One case for all headers: uppercase, matching the section headings used
+    // throughout the app, and it keeps the header strip legible now that the
+    // table's own border is gone.
+    <button
+      type="button"
+      onClick={() => onSort(sortKey)}
+      className="inline-flex items-center gap-1 tracking-[0.04em] uppercase"
+    >
       {label}
       <span className="text-[10px]" aria-hidden="true">
         {active ? (dir === "asc" ? "▲" : "▼") : ""}
@@ -469,7 +480,11 @@ export function GroupsClient({
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-page">
+      {/* gap-page / p-section: the four-value scale in globals.css. These two
+          were gap-6 and p-6 — the same 24px for "between the page's major
+          blocks" and "a card's own padding", which is why the title, the
+          button and the table card read as one undifferentiated stack. */}
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl text-brand-pink">
@@ -549,7 +564,7 @@ export function GroupsClient({
         </div>
       )}
 
-      <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-black/5 bg-white p-section shadow-sm">
         {firstWorkshopNotice !== null && (
           <p className="font-body text-ink bg-brand-pink/10 mb-4 rounded-lg px-4 py-3 text-sm">
             {firstWorkshopNotice ? t("first_workshop_created") : t("first_workshop_not_created")}
@@ -793,7 +808,7 @@ function NewGroupForm({
       : "";
 
   return (
-    <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-black/5 bg-white p-section shadow-sm">
       <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
         {t("new_group_form_title")}
       </h2>
