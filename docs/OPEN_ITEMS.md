@@ -6770,6 +6770,56 @@ policy and the implicit-RON note); item 132 above (the current grid, and the bou
 contract corroborates); item 73 above (the hours screen that will read that grid).
 
 ---
+### 134. The same float damage was cleaned in one column and missed in another, from the same spreadsheet, two migrations apart
+
+2026-10-13. Thirteen of the thirty `supplier_contracts.exit_number` values arrived as `83.0`,
+`5881.0`, `155420.0` — Excel reading a contract number as a float. A contract number has no decimal
+part, so the `.0` is damage carrying no information, and until `202610130002` the app disagreed with
+the paper register it mirrors.
+
+**The point of this entry is not the thirteen rows. It is that this exact transformation was CAUGHT
+in the same source file, five days earlier, in a different column.** `202610070003`, the suppliers
+seed, cleaned `cui` of precisely this and wrote it into its own header:
+
+> `cui` — cleaned, not transformed. Two cleanings applied: the spreadsheet's float artifact
+> (`53213832.0` -> `53213832`, from numeric cells) …
+
+Then `202610120010` imported the contracts **out of the same workbook** and did not look at
+`exit_number` for it. Nobody skipped a step: the person cleaning `cui` was looking at `cui`.
+
+**The rule: when one column in a file is found to have gone through a float, every column from that
+file is suspect, including the ones where the damage is invisible.** It is invisible in exactly the
+columns that matter — `83.0` looks like a number someone typed, where a mangled date or name would
+have been obvious on sight. The check is mechanical and takes one query per text column:
+`select … where col ~ '^[0-9]+\.0$'`.
+
+**What made it finally visible was a screen**, not a review: `exit_number` had no renderer until
+item 133 above, and the first screenshot of the supplier sheet put `83.0` on the page as a contract
+number. Data that nothing displays is data nobody checks.
+
+**The cleanup is anchored, and the anchor is the safety.** `~ '^[0-9]+\.0$'` and never
+`like '%.0'`: eleven values were deliberately left alone, and the second pattern would have
+truncated `1/15.01.2026` and `2388738/14.09.2025` into something that looks plausible and is wrong.
+A value with a genuine decimal — none today, nothing stopping one — is not damage and must survive.
+
+**The rollback names the thirteen one by one rather than matching a pattern.** A pattern rollback
+(`where exit_number ~ '^[0-9]+$'`) would also hit a bare-integer number that was always correct, or
+one entered after the migration, and hand it damage it never had. Restoring a value is only safe
+when you can name the value.
+
+**Rendering was NOT changed.** The screen still prints `exit_number` verbatim; it was the value that
+was wrong, and a renderer that trimmed `.0` would have hidden the defect instead of fixing it — and
+would then have disagreed with any export or query that did not.
+
+**Blocked on:** nothing.
+**Re-verify when:** any further import from `Tabel contracte furnizori Wow Lab.xlsx` or a sibling
+workbook. Run the pattern across every text column of the new rows before anything renders them.
+**Lives in:** `supabase/migrations/202610130002_clean_exit_number_float_suffix.sql` and its rollback;
+`db/tests/supplier_contracts.sql` blocks 5 and 6; `supabase/migrations/202610070003` (where the same
+damage was caught, in `cui`); `supabase/migrations/202610120010` (where it was missed);
+item 133 above (the screen that exposed it); item 127 above (the import).
+
+---
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,

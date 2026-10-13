@@ -299,3 +299,69 @@ begin;
          (select val from r where what='finance_operations') as actual, '0' as expected,
          (select val from r where what='finance_operations') = '0' as pass;
 rollback;
+
+-- ============================================================================
+-- Block 5: no exit_number carries the spreadsheet's ".0" (202610130002).
+-- ============================================================================
+-- Thirteen of the thirty rows arrived as "83.0", "5881.0" and the like --
+-- Excel reading a contract number as a float. The migration stripped the
+-- suffix on exactly the rows whose whole value was digits-then-".0".
+--
+-- Asserted against the WHOLE table and not against those thirteen ids,
+-- because the thing worth guarding is not "the migration ran" but "no number
+-- in this column has a decimal part", which is also true of every row added
+-- after it. The eleven values that were deliberately left alone are checked
+-- by name on the other side: a test that only demanded the absence of ".0"
+-- would be satisfied by a migration that had destroyed '1/15.01.2026' too.
+begin;
+  select 'no exit_number ends in the float suffix ".0"' as check_name,
+         (select count(*)::text from public.supplier_contracts where exit_number ~ '^[0-9]+\.0$') as actual,
+         '0' as expected,
+         (select count(*) from public.supplier_contracts where exit_number ~ '^[0-9]+\.0$') = 0 as pass
+  union all
+  -- Nothing at all, not just the fully-numeric shape: catches a later import
+  -- of "ANEXA 2.0" or "1/15.01.2026.0", which the anchored pattern above
+  -- would miss.
+  select 'nor does any exit_number end in ".0" in any other shape',
+         (select count(*)::text from public.supplier_contracts where exit_number like '%.0'),
+         '0',
+         (select count(*) from public.supplier_contracts where exit_number like '%.0') = 0
+  union all
+  -- The other half: the values that were supposed to survive, did. A slash
+  -- followed by a date is exactly what a `like '%.0'` cleanup would have
+  -- truncated, so it is named here rather than left to the count above.
+  select 'the eleven non-numeric exit_numbers were left intact',
+         (select count(*)::text from public.supplier_contracts
+           where exit_number in ('N/A', 'ANEXA 2', '1/15.01.2026', '2388738/14.09.2025',
+                                 '2388729/05.01.2026', 'Act aditional 1', 'Act aditional 2',
+                                 'ACT ADITIONAL 1/ 5881 din 01.07.2025',
+                                 'Act aditional 03 la contract 10/10/2022 din 10.10.2022',
+                                 'Act aditional 03 la contract 18/11/2022 din 18.11.2022')),
+         '10',
+         (select count(*) from public.supplier_contracts
+           where exit_number in ('N/A', 'ANEXA 2', '1/15.01.2026', '2388738/14.09.2025',
+                                 '2388729/05.01.2026', 'Act aditional 1', 'Act aditional 2',
+                                 'ACT ADITIONAL 1/ 5881 din 01.07.2025',
+                                 'Act aditional 03 la contract 10/10/2022 din 10.10.2022',
+                                 'Act aditional 03 la contract 18/11/2022 din 18.11.2022')) = 10
+  union all
+  select 'the thirteen cleaned numbers are present in their bare form',
+         (select count(*)::text from public.supplier_contracts
+           where exit_number in ('4','8','9','23','83','112','152','512','2626','5881','155420','1311175','2388729')),
+         '13',
+         (select count(*) from public.supplier_contracts
+           where exit_number in ('4','8','9','23','83','112','152','512','2626','5881','155420','1311175','2388729')) = 13;
+rollback;
+
+-- ============================================================================
+-- Block 6: SABOTAGE -- put one ".0" back and block 5's first check must fail.
+-- ============================================================================
+begin;
+  update public.supplier_contracts set exit_number = '83.0'
+   where exit_number = '83';
+
+  select 'SABOTAGE: one exit_number is "83.0" again, same assertion as block 5' as check_name,
+         (select count(*)::text from public.supplier_contracts where exit_number ~ '^[0-9]+\.0$') as actual,
+         '0' as expected,
+         (select count(*) from public.supplier_contracts where exit_number ~ '^[0-9]+\.0$') = 0 as pass;
+rollback;
