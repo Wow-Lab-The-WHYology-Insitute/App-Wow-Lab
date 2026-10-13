@@ -9,7 +9,13 @@ export const contractsDict: Dictionary = {
     en: "Contract lifecycle by legal entity. Fiscal invoicing stays in SmartBill/SAGA.",
     ro: "Ciclul de viață al contractelor, pe entitate juridică. Facturarea fiscală rămâne în SmartBill/SAGA.",
   },
-  search_placeholder: { en: "Search by client, entry or exit number…", ro: "Caută după client, nr. intrare sau ieșire…" },
+  // CUI added to the list because the filter now matches it. A placeholder
+  // that under-states what search covers is as wrong as one that over-states
+  // it: nobody types a tax code into a box that does not offer to take one.
+  search_placeholder: {
+    en: "Search by client, CUI, entry or exit number…",
+    ro: "Caută după client, CUI, nr. intrare sau ieșire…",
+  },
   filter_type_all: { en: "All types", ro: "Toate tipurile" },
   filter_status_all: { en: "All statuses", ro: "Toate statusurile" },
   filter_entity_all: { en: "All entities", ro: "Toate entitățile" },

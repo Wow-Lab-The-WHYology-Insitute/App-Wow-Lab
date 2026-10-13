@@ -299,6 +299,7 @@ function Kv({
   external?: boolean;
   sublabel?: string;
 }) {
+  const isEmpty = value === "—";
   // Same two-column treatment as the group sheet's Kv — see the long comment
   // in app/(app)/groups/[id]/group-info-section.tsx for why. In short:
   // justify-between put ~900px of nothing between a label and the value it
@@ -321,7 +322,18 @@ function Kv({
           </a>
         ) : (
           <span
-            className={`min-w-0 text-ink ${mono ? "font-mono text-xs" : "font-body font-medium"}`}
+            className={`min-w-0 ${
+              // An unset field is information, but it must not look like a
+              // filled one. "—" used to render in text-ink font-medium here,
+              // identical to a real value — fixed on /groups/[id] in the first
+              // pass and left behind on this one, so the two sibling sheets
+              // disagreed about what "empty" looks like.
+              isEmpty
+                ? "text-muted font-normal"
+                : mono
+                  ? "text-ink font-mono text-xs"
+                  : "text-ink font-body font-medium"
+            }`}
           >
             {value}
           </span>

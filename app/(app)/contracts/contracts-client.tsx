@@ -354,9 +354,17 @@ export function ContractsClient({
   const filteredContracts = useMemo(() => {
     const q = normalizeForSearch(searchQuery.trim());
     return contracts.filter((c) => {
+      // clientCui added 2026-10-13, together with taking the CUI out of the
+      // client cell's sub-line. The two go together on purpose: this screen's
+      // search did NOT match cui, so cutting the code from the cell alone
+      // would have made it unreachable from the page instead of moving it
+      // into the search — which is why it was left in place when /clients and
+      // /suppliers were cut. The rule is that the search covers the code on
+      // every list or on none, not that two sibling lists quietly differ.
       if (
         q &&
         !normalizeForSearch(c.clientName).includes(q) &&
+        !normalizeForSearch(c.clientCui ?? "").includes(q) &&
         !normalizeForSearch(c.exit_number ?? "").includes(q) &&
         !normalizeForSearch(c.entry_number ?? "").includes(q)
       ) {
@@ -460,7 +468,9 @@ export function ContractsClient({
         <div className="flex flex-col justify-center gap-0.5">
           <TruncatedText value={c.clientName} className="text-ink text-sm font-medium" />
           <TruncatedText
-            value={[c.clientLegalName, c.clientCui].filter(Boolean).join(" · ") || "—"}
+            // Legal name only — same as /clients and /suppliers. Safe here
+            // only because the filter above now matches clientCui.
+            value={c.clientLegalName || "—"}
             className="text-muted text-xs"
           />
         </div>
