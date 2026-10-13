@@ -6820,6 +6820,95 @@ damage was caught, in `cui`); `supabase/migrations/202610120010` (where it was m
 item 133 above (the screen that exposed it); item 127 above (the import).
 
 ---
+### 135. Two defects a real iPhone found and our screenshots could not — one of them is not a defect at all
+
+2026-10-13, both reported from Safari on an iPhone against `app.wowlab.ro`.
+
+#### 1. "Application error: a client-side exception has occurred" on `/suppliers` — NOT a code defect
+
+First visit after a deploy showed a white page with Next.js's client error-boundary message; a
+reload fixed it. **It is stale HTML asking for assets the new build no longer has, and the evidence
+is a 404 rather than a plausible story:**
+
+```
+/_next/static/css/87c5d91ee3bbfa6d.css   (build 2028604)  -> app.wowlab.ro  HTTP 404
+/_next/static/css/fa3509c0036b48d4.css   (build 23e33a3)  -> app.wowlab.ro  HTTP 200
+```
+
+A superseded build's hashed assets are **not** retained on the production domain. The CSS hash
+changed between `2028604` and `23e33a3`, and `23e33a3` went READY at **14:55:54Z**, minutes before
+the phone was used. A page held from before that deploy requests files that have since stopped
+existing, the client runtime cannot load them, and the error boundary renders. A reload fetches
+fresh HTML with current hashes, which is exactly the "worked on reload" that was reported.
+
+**The code hypothesis was tested and refuted, not merely doubted.** `/suppliers`,
+`/suppliers/[id]` and `/groups` were loaded on production with an iPhone user-agent, a cleared
+cache and `Network.setCacheDisabled`, with `Runtime.exceptionThrown`, `consoleAPICalled` and
+`loadingFailed` all recorded: **no exception, no error, no warning, no failed asset.** Separately,
+the specific suspicion about the new supplier-contracts section cannot produce this —
+`usePersistedColumns` sets state to its default and reads `localStorage` in `useEffect` after mount
+precisely so it cannot mismatch, the chain renderer is pure, and the counts are computed on the
+server and passed as props. And a hydration mismatch would have reproduced on the reload.
+
+**So nothing in the code is to be "fixed", and changing anything here would be the mistake this
+project made twice today.** What exists is a platform setting, currently off:
+
+```
+skewProtectionMaxAge:     (not set)
+skewProtectionBoundaryAt: (not set)
+```
+
+Vercel's Skew Protection keeps a previous deployment's assets resolvable for a configured window,
+which is the actual remedy for a client holding older HTML. **Not enabled here, and not enabled by
+this entry** — it is a deployment-settings decision, recorded so the next person meeting this white
+page does not go looking through React.
+
+**How to tell this apart from a real crash, next time, in one step:** if a reload fixes it, it is
+not the code. A code defect reproduces.
+
+#### 2. The Columns menu opened off the left edge of the screen — a real defect, on all four lists
+
+Measured before touching anything, by opening the panel in a browser and reading its box:
+
+```
+  page         viewport   button        panel            verdict
+  /groups      320        [57,150]      [-74, 150]       74px outside the window
+  /clients     320        [57,150]      [-74, 150]       same
+  /contracts   320        [57,150]      [-74, 150]       same
+  /suppliers   320        [57,150]      [-74, 150]       same
+  (and the same at 390; 768 and 1280 were fine)
+```
+
+The panel is `absolute right-0 w-56`. At phone widths the toolbar wraps and the button lands near
+the LEFT, so hanging a 224px panel from its right edge (x=150) starts it at x=-74. Anchored `left-0`
+below `sm:` and `right-0` from `sm:` up, plus a `max-w-[calc(100vw-1rem)]` clamp for a future
+toolbar that moves the button. Re-measured across 4 pages x 4 widths x 2 languages, 32 combinations,
+all inside the window.
+
+#### The lesson, which is the part worth keeping
+
+**Our screenshot verification renders the server's HTML. It has never contained anything that only
+exists after a click — and it has been treated as though it did.** This panel lives in React state
+behind a `<details>`; no capture we have ever taken could have held it, on any width, in either
+language. The same blind spot was named once before, about the create-group form, and then not acted
+on.
+
+**So a screenshot pass is evidence about the page as delivered, and about nothing that opens.**
+Anything behind a click — this dropdown, the create forms, the expanded table row, the locale
+switcher's effect, the mobile drawer — needs the panel actually opened in a browser and, better,
+its box measured, which is what caught this one and what will catch the next one at a width nobody
+photographed.
+
+**Blocked on:** nothing. §1 needs a decision about Skew Protection, which is a settings change
+rather than work.
+**Re-verify when:** a white page is reported after a deploy — check whether a reload clears it
+before reading any code. And whenever a new control opens on click: measure its box at 320, not just
+photograph the page behind it.
+**Lives in:** `components/ui/data-table.tsx` (`ColumnsDropdown`); item 133 above (the deploy whose
+asset-hash change this coincided with); item 109 above (naming a cause before verifying it, the
+mistake §1 exists to avoid).
+
+---
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,

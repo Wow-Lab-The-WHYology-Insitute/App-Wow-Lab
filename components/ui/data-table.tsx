@@ -409,7 +409,22 @@ export function ColumnsDropdown({
         {label}
         <ChevronIcon />
       </summary>
-      <div className="absolute right-0 z-30 mt-1 w-56 rounded-lg border border-black/10 bg-white p-2 shadow-lg">
+      {/* Anchored LEFT below sm:, right from sm: up. Measured on a real phone
+          first, then in the browser: at 320 and 390 the toolbar wraps and this
+          button lands at x=[57,150] on all four list pages, so `right-0` hung
+          the 224px panel from x=150 leftwards and it started at x=-74 — 74px
+          of it outside the window, which is half the options. From sm: up the
+          button sits at the right edge (x=1130 at 1280) and right-0 is the
+          correct side there.
+
+          The max-width is a second belt: it does not fix a bad anchor, but it
+          stops the panel being wider than the window if a future toolbar puts
+          the button somewhere else.
+
+          Found on an iPhone, not in our screenshots, and that is the lesson
+          recorded in item 135: this panel only exists after a click, and
+          server-rendered captures never contained it. */}
+      <div className="absolute left-0 z-30 mt-1 w-56 max-w-[calc(100vw-1rem)] rounded-lg border border-black/10 bg-white p-2 shadow-lg sm:right-0 sm:left-auto">
         {options.map((opt) => (
           <label
             key={opt.key}
