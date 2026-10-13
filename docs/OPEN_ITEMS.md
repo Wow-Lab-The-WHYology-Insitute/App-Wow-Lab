@@ -4570,7 +4570,11 @@ until she says so."*
 20% (Anca 2026-09-24, item 95 above); `ro_en` carries 0. Inferring the language from the school's
 name would have overpaid every session in both groups by 20% for as long as nobody re-asked. This is
 the **third** time in this project that a plausible-looking inference would have corrupted correct
-data — after "Laura Moale" (item 35 below) and the `Asociatia STEMplicity` spelling (item 42 below).
+data — after "Laura Moale" (item 35 below) and the `Asociatia STEMplicity` spelling (item 42 below). **A
+fourth followed on 2026-10-13: Școala Germană is taught in Romanian and English, not German** (item
+132 below). Four for four — every time this project has had a name that implied a fact, the name was
+wrong. The rule that falls out of it is not "ask about schools with foreign names"; it is that **a
+name is never evidence about anything except what to call the thing**.
 The migration raises unless exactly 2 rows change. Verified live: both groups read `ro_en`, and
 `groups_row_history` holds two rows for the write with `actor_user_id = NULL` on both — a migration
 carries no JWT, `app.current_user_id()` reads one, and the actor was **not** faked by setting a
@@ -6587,6 +6591,117 @@ mechanism mistaken for a cause).
 
 ---
 
+### 132. Anca's 2026-10-13 answers — a fourth name-based inference refuted, Raluca's tier boundary closed, and one gap that is a gap rather than a decision
+
+2026-10-13. Three answers, and they are three different kinds of thing: one correction to data, one
+decision that closes an ambiguity, and one admission that nobody has thought about something yet.
+Recording them the same way would lose what matters about the third.
+
+#### 1. Școala Germană is taught in Romanian and English — and it is a STATE, not a property
+
+Anca: the groups run in Romanian and English **at least this year**, because the trainer who speaks
+German is not available. So this is not a fact about the school; it is a fact about this year's
+staffing. **If that trainer comes back, it changes.** That sentence is the whole value of the answer
+and it is why `language_group` must never be back-filled from anything about the client.
+
+`language_group = 'ro_en'` is therefore the right value, carrying the **0%** branch rather than
+`fr_de_es`'s 20% (item 95 above).
+
+**BLOCKED, and the blocker is not a permission — there is nothing to write to.** Școala Germană
+exists as a *client* and has a signed contract (205), but **it has no group**. `language_group` lives
+on `public.groups` and nowhere else; `public.clients` has no such column (checked, not assumed). The
+whole table holds four groups: two for Lycée Français and two in Test Org B. So a migration for this
+would have updated **zero rows** while its comment asserted a fact — a migration that passes and
+means nothing, which is worse than no migration, because the next person reads the comment and
+believes the data carries it.
+
+**What to do instead, when the group is created:** set `ro_en` at creation, and put Anca's reason in
+the group's notes, not just in a migration comment — the reason has an expiry date and the migration
+file does not.
+
+**The fourth name-based inference refuted in this project**, and item 110 above now carries the
+count. German school, not taught in German; French school, taught in English; a surname "corrected"
+that was already right; an association's spelling "fixed" to the wrong one. The useful form is not a
+warning about schools with foreign names: **a name is evidence about what to call a thing and about
+nothing else.**
+
+#### 2. Raluca's per-article tiers — the boundary, and what was actually wrong
+
+Anca settled the boundary in one sentence: **the upper bound belongs to the lower tier.**
+
+| words | RON |
+|---|---|
+| 500 – 1000 | 100 |
+| 1001 – 2000 | 150 |
+| 2001 – 4000 | 250 |
+| over 4000 | 350 |
+| internal newsletter | 150 each |
+
+**The thresholds were not missing. They were overlapping, which is worse.** `202610120012` seeded
+`tier_min_words`/`tier_max_words` for all four tiers as 500–1000, **1000**–2000, **2000**–4000,
+**4000**–null. Every row was individually well-formed and three word counts belonged to two tiers at
+once, so a lookup written against them **returns an answer and the answer depends on row order**. A
+1000-word article was worth either 100 or 150 RON depending on which row Postgres happened to read
+first. An absent threshold fails loudly; an overlapping one pays the wrong amount quietly.
+
+`202610130001` moves the three minimums up by one and relabels to match. **The amounts are
+untouched** — those were already right and were never what was being asked.
+
+**Below 500 there is no tier, deliberately.** Anca confirmed it does not happen. So the hours-entry
+screen, when it is built, **rejects** a word count under 500; it does not round up into the first
+tier. Rounding up is how this same defect would be re-created at a different boundary.
+
+**Two things the fix surfaced that were not visible before it:**
+
+- **`app.resolve_admin_rate` keys on the tier LABEL**, taking `'2000-4000'` as a string parameter.
+  So relabelling a tier is a change to that function's contract, not a cosmetic edit — the suite
+  failed on the first run after the migration with *"incomplete version"*, which is the resolver
+  correctly refusing a tier it no longer has. The only caller in the repo was the test. **A resolver
+  that takes a word count instead of a label is the shape this wants**, and it is the same point as
+  §3 below; not built, because no screen calls it yet.
+- **A CHECK constraint cannot catch what went wrong**, because it sees one row and every row was
+  well-formed on its own. The guard is in `db/tests/admin_rates.sql` instead: a walk over 499, 500,
+  1000, 1001, 2000, 2001, 4000, 4001 and 999999 requiring each to resolve to exactly one tier — and
+  499 to **zero**, so that an assertion of "exactly one" cannot be satisfied by quietly widening the
+  first tier down to 0. A sabotage block re-creates the overlap and requires the walk to notice.
+
+#### 3. Who counts the words — a GAP, not a decision
+
+Raluca declares the word count; nobody verifies it. Asked who checks, Anca's answer was **"nu m-am
+gândit până acum"**.
+
+**That is recorded here as an observed gap and not as a confirmed decision**, because the difference
+matters later: a decision is something to build against, and a gap is something that will be
+answered differently once someone thinks about it. Writing "no verification step — confirmed" would
+hand a future reader a policy nobody set.
+
+**What the application can do without adding an approval step**, which is a smaller and more useful
+question than "who approves":
+
+- the **word count is a field on the row**, entered once by the person doing the work;
+- the **tier is computed from that number**, never chosen from a dropdown.
+
+That is all. No validation of whether the number is true, no second person, no approval state. The
+only thing it buys is that **the declared number and the tier it was paid at cannot diverge** — the
+number stays on the record, and the band is a function of it rather than a parallel claim. If Anca
+later wants a check, it has something to check against; if she does not, nothing was built that
+needs unbuilding.
+
+**Blocked on:** §1 needs a group to exist for Școala Germană. §3 needs nothing — it is a note for
+whoever builds the hours-entry screen (item 73 above), and it is not a decision waiting on Anca
+unless she raises it.
+**Re-verify when:** a group is created for Școala Germană — set `ro_en` and record the reason with
+its expiry ("while the German-speaking trainer is unavailable") in the group's notes. And when the
+hours-entry screen is built: the word count is a field, the tier is derived, and a count under 500 is
+rejected rather than rounded.
+**Lives in:** `supabase/migrations/202610130001_admin_rate_tier_boundaries.sql`;
+`db/tests/admin_rates.sql` blocks 5 and 6 (the boundary walk and its sabotage);
+`supabase/migrations/202610120012_seed_admin_rates.sql` (the overlapping seed this corrects);
+item 110 above (the name-inference count, now four); item 95 above (the 20% / 0% language branch);
+item 73 above (the hours-entry screen §3 is a note for); item 130 above (the other constraint on
+that screen).
+
+---
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,

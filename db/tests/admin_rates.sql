@@ -203,7 +203,13 @@ begin;
     insert into r select 'catalina_invoiced',
       app.resolve_admin_rate(v_org, v_cat, 'hourly', 'admin', null, '2026-10-12')::text;
     insert into r select 'margean_band',
-      app.resolve_admin_rate(v_org, v_margean, 'per_article', null, '2000-4000', '2026-10-12')::text;
+      -- '2001-4000' since 202610130001: app.resolve_admin_rate keys on the
+      -- tier LABEL, so relabelling the tier is a change to that function's
+      -- contract and not a cosmetic edit. This call site was the only caller
+      -- in the repo; the first suite run after the migration failed here, with
+      -- "incomplete version", which is the resolver correctly refusing a tier
+      -- it no longer has.
+      app.resolve_admin_rate(v_org, v_margean, 'per_article', null, '2001-4000', '2026-10-12')::text;
     insert into r select 'margean_newsletter',
       app.resolve_admin_rate(v_org, v_margean, 'per_newsletter', null, null, '2026-10-12')::text;
 
@@ -273,4 +279,109 @@ begin;
   select 'SABOTAGE: 11.1% (50 -> 55.55) is REJECTED, same assertion as block 2, admin_rates_uplift_reconciles_check dropped' as check_name,
          (select ok::text from r where what='eleven_point_one_rejected') as actual, 'true' as expected,
          (select ok from r where what='eleven_point_one_rejected') as pass;
+rollback;
+
+-- ============================================================================
+-- Block 5: the per-article tiers tile the line from 500 upward -- no overlap,
+-- no gap. 202610130001, Anca 2026-10-13.
+-- ============================================================================
+-- This is the assertion the schema cannot make. A CHECK sees one row, and
+-- every single row here was individually well-formed while 1000, 2000 and 4000
+-- each belonged to TWO tiers at once -- so a lookup returned an answer and the
+-- answer depended on row order. The test walks the boundaries instead and
+-- requires each word count to resolve to exactly one tier.
+--
+-- 499 is in the list on purpose: it must resolve to ZERO tiers. Anca confirmed
+-- articles under 500 words do not happen, so the hours-entry screen rejects
+-- them rather than rounding up into the 100 RON tier -- and an assertion that
+-- only ever checked "exactly one" would have been satisfied by a first tier
+-- quietly widened to start at 0.
+begin;
+  create temp table words (n integer, expect integer) on commit drop;
+  insert into words values
+    (499, 0),   -- below the floor: no tier, deliberately
+    (500, 1), (1000, 1),           -- first tier, both ends inclusive
+    (1001, 1), (2000, 1),          -- second
+    (2001, 1), (4000, 1),          -- third
+    (4001, 1), (999999, 1);        -- open-ended top
+
+  select 'every boundary word count resolves to exactly the expected number of tiers' as check_name,
+         (select count(*)::text from words w
+           where (select count(*) from public.admin_rates r
+                   where r.rate_kind = 'per_article'
+                     and w.n >= r.tier_min_words
+                     and (r.tier_max_words is null or w.n <= r.tier_max_words)) <> w.expect) as actual,
+         '0' as expected,
+         (select count(*) from words w
+           where (select count(*) from public.admin_rates r
+                   where r.rate_kind = 'per_article'
+                     and w.n >= r.tier_min_words
+                     and (r.tier_max_words is null or w.n <= r.tier_max_words)) <> w.expect) = 0 as pass
+  union all
+  -- The amounts each boundary lands on, stated rather than implied: the whole
+  -- point of the boundary rule is WHICH price a 1000-word article gets.
+  select '1000 words is the 100 RON tier, not the 150 one (the upper bound belongs to the lower tier)',
+         (select r.amount::text from public.admin_rates r
+           where r.rate_kind = 'per_article' and 1000 between r.tier_min_words and coalesce(r.tier_max_words, 2147483647)),
+         '100',
+         (select r.amount from public.admin_rates r
+           where r.rate_kind = 'per_article' and 1000 between r.tier_min_words and coalesce(r.tier_max_words, 2147483647)) = 100
+  union all
+  select '1001 words is the 150 RON tier',
+         (select r.amount::text from public.admin_rates r
+           where r.rate_kind = 'per_article' and 1001 between r.tier_min_words and coalesce(r.tier_max_words, 2147483647)),
+         '150',
+         (select r.amount from public.admin_rates r
+           where r.rate_kind = 'per_article' and 1001 between r.tier_min_words and coalesce(r.tier_max_words, 2147483647)) = 150
+  union all
+  select '4000 words is the 250 RON tier, not the 350 one',
+         (select r.amount::text from public.admin_rates r
+           where r.rate_kind = 'per_article' and 4000 between r.tier_min_words and coalesce(r.tier_max_words, 2147483647)),
+         '250',
+         (select r.amount from public.admin_rates r
+           where r.rate_kind = 'per_article' and 4000 between r.tier_min_words and coalesce(r.tier_max_words, 2147483647)) = 250
+  union all
+  select 'no per-article tier starts below 500',
+         (select coalesce(min(tier_min_words)::text, 'none') from public.admin_rates where rate_kind = 'per_article'),
+         '500',
+         (select min(tier_min_words) from public.admin_rates where rate_kind = 'per_article') = 500
+  union all
+  select 'the newsletter rate has no word bounds at all',
+         (select count(*)::text from public.admin_rates
+           where rate_kind = 'per_newsletter' and (tier_min_words is not null or tier_max_words is not null)),
+         '0',
+         (select count(*) from public.admin_rates
+           where rate_kind = 'per_newsletter' and (tier_min_words is not null or tier_max_words is not null)) = 0;
+rollback;
+
+-- ============================================================================
+-- Block 6: SABOTAGE -- re-create the overlap and block 5's walk must fail.
+-- ============================================================================
+-- Without this, block 5 above asserts something about data that happens to be
+-- right; it is not a guard until it has been shown to break. This re-introduces
+-- exactly the defect 202610130001 fixed -- the second tier starting at 1000
+-- again -- and then re-runs BLOCK 5'S OWN FIRST ASSERTION, unchanged. The
+-- runner requires a SABOTAGE row to come back pass:false; a true here would
+-- mean the walk cannot see an overlap and has no teeth.
+begin;
+  create temp table words (n integer, expect integer) on commit drop;
+  insert into words values
+    (499, 0), (500, 1), (1000, 1), (1001, 1), (2000, 1),
+    (2001, 1), (4000, 1), (4001, 1), (999999, 1);
+
+  update public.admin_rates set tier_min_words = 1000
+   where rate_kind = 'per_article' and tier_label = '1001-2000';
+
+  select 'SABOTAGE: the second tier starts at 1000 again, same assertion as block 5' as check_name,
+         (select count(*)::text from words w
+           where (select count(*) from public.admin_rates r
+                   where r.rate_kind = 'per_article'
+                     and w.n >= r.tier_min_words
+                     and (r.tier_max_words is null or w.n <= r.tier_max_words)) <> w.expect) as actual,
+         '0' as expected,
+         (select count(*) from words w
+           where (select count(*) from public.admin_rates r
+                   where r.rate_kind = 'per_article'
+                     and w.n >= r.tier_min_words
+                     and (r.tier_max_words is null or w.n <= r.tier_max_words)) <> w.expect) = 0 as pass;
 rollback;
