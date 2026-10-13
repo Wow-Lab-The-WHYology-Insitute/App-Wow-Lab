@@ -240,11 +240,25 @@ function Section({
   );
 }
 
+// The same two-column treatment the client and group sheets got on
+// 2026-10-13 -- this was the third sheet and it was missed, which the
+// supplier-contracts screenshots made obvious: the Notes row rendered
+// "NoteRegister rows 26-28: ..." as one run-on word, because justify-between
+// had nothing left to distribute once the value wrapped to fill the card.
+// Fixed 200px label column, value left-aligned after it, stacked below sm:,
+// and whitespace instead of a hairline between rows.
 function Kv({ label, value }: { label: string; value: string }) {
+  const isEmpty = value === "—";
   return (
-    <div className="flex items-baseline justify-between border-b border-black/5 py-2 text-sm last:border-0">
-      <span className="font-body text-muted">{label}</span>
-      <span className="text-ink font-body font-medium">{value}</span>
+    <div className="py-snug flex flex-col items-start gap-0.5 text-sm sm:flex-row sm:items-start sm:gap-tight">
+      <span className="font-body text-muted sm:w-[200px] sm:shrink-0">{label}</span>
+      <span
+        className={`font-body min-w-0 ${
+          isEmpty ? "text-muted font-normal" : "text-ink font-medium"
+        }`}
+      >
+        {value}
+      </span>
     </div>
   );
 }

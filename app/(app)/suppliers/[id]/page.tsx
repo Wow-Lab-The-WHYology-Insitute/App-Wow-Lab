@@ -3,6 +3,10 @@ import { checkCapability } from "@/lib/capabilities";
 import { displayName } from "@/lib/display-name";
 import { SupplierInfoClient } from "./supplier-info-client";
 import { SupplierHeader } from "./supplier-header";
+import {
+  SupplierContractsSection,
+  type SupplierContractRow,
+} from "./supplier-contracts-section";
 import { AccessDenied } from "@/components/ui/access-denied";
 
 type SupplierRow = {
@@ -58,6 +62,11 @@ export default async function SupplierDetailPage({
   // clients has (clients.create for general fields vs crm_link.* for one
   // field). Everything on this table is Anca/Anka's, uniformly.
   let canEdit = false;
+  // Asked for separately from canEdit even though both read the same
+  // capability today. They answer different questions -- "may this person
+  // change the supplier" and "may this person see its contracts" -- and a
+  // later split of the edit gate must not silently widen who sees contracts.
+  let canSeeContracts = false;
   const { data: memberships } = await supabase
     .from("user_org_roles")
     .select("organization_id")
@@ -66,8 +75,39 @@ export default async function SupplierDetailPage({
     const org = (m as { organization_id: string }).organization_id;
     if (await checkCapability(supabase, "finance.reporting.*", org)) {
       canEdit = true;
+      canSeeContracts = true;
       break;
     }
+  }
+
+  // supplier_contracts' own SELECT policy (202610120009) is owner OR
+  // finance.reporting.*, with NO branch for finance.operations.* -- so for
+  // Laura this query returns an empty array rather than masked values. That is
+  // precisely why the section is told `canSeeContracts` explicitly instead of
+  // inferring from the length: three suppliers genuinely have no contracts,
+  // and a refusal must not render as "none on file" for anyone.
+  let supplierContracts: SupplierContractRow[] = [];
+  if (canSeeContracts) {
+    const { data: rows } = await supabase
+      .from("supplier_contracts")
+      .select(
+        "id, exit_number, signed_date, period_start, period_end, is_open_ended, " +
+          "amends_contract_id, status, price_text, contract_value, drive_ref, notes, " +
+          "legal_entities(name)",
+      )
+      .eq("supplier_id", supplier.id)
+      .order("period_start", { ascending: true, nullsFirst: false })
+      // PostgREST returns the embedded legal_entities as an object for a
+      // to-one relationship, and the generated types widen it to an array on
+      // some shapes -- declared here as both and narrowed below rather than
+      // asserted away, same approach as the other embeds in this app.
+      .returns<(Omit<SupplierContractRow, "legalEntityName"> & {
+        legal_entities: { name: string } | { name: string }[] | null;
+      })[]>();
+    supplierContracts = (rows ?? []).map(({ legal_entities, ...rest }) => {
+      const entity = Array.isArray(legal_entities) ? legal_entities[0] : legal_entities;
+      return { ...rest, legalEntityName: entity?.name ?? null };
+    });
   }
 
   // The linked person's name for the READ view. Fetched on its own, by id,
@@ -118,7 +158,10 @@ export default async function SupplierDetailPage({
   }
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6">
+    // max-w-4xl and gap-page, matching the client sheet. This page was
+    // max-w-2xl while its sibling was max-w-4xl, which was invisible while it
+    // held one card and obvious the moment it held two.
+    <div className="gap-page mx-auto flex max-w-4xl flex-col">
       <SupplierHeader name={supplier.name} status={supplier.status} />
 
       <SupplierInfoClient
@@ -126,6 +169,11 @@ export default async function SupplierDetailPage({
         canEdit={canEdit}
         linkedUserName={linkedUserName}
         memberOptions={memberOptions}
+      />
+
+      <SupplierContractsSection
+        contracts={supplierContracts}
+        canSeeContracts={canSeeContracts}
       />
     </div>
   );

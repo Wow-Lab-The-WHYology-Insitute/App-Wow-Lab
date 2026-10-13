@@ -6702,6 +6702,74 @@ item 73 above (the hours-entry screen §3 is a note for); item 130 above (the ot
 that screen).
 
 ---
+### 133. The supplier-contract screen — built, and the first thing it shows is a 2025 price that contradicts the current grid. That is correct.
+
+2026-10-13. The 30 rows imported into `supplier_contracts` on 2026-10-12 had no screen; they do
+now, as a section on the supplier sheet rather than a list of its own.
+
+**A contract register shows what the contract said, not what is paid today — and the screen must
+not be "corrected" to hide that.** Raluca Mărgean's March 2025 contract carries its own tier table
+in `price_text`:
+
+> ● Pentru un articol mai mare de 2000 de cuvinte 170 RON net
+> ● Pentru un articol intre 1001-2000 cuvinte 120 RON net si
+> ● Pentru un articol intre 500-1000 cuvinte 100 RON net
+
+`admin_rates`, confirmed by Anca on 2026-10-13, says 100 / 150 / 250 / 350 (item 132 above). **These
+do not conflict.** The contract ran 2025-03-01 → 2025-09-01 and was replaced by two amendments whose
+dates are on the same screen, directly beneath it; the grid is from August 2026. A historical price
+beside a current rate is what a register is for. **No question goes to Anca about this**, and if
+someone later reads the two numbers as a contradiction, the chain and its dates already answer it.
+
+**It also corroborates item 132's boundary rule from a signed document rather than a recollection:**
+the 2025 contract already wrote *"intre 1001-2000"*, i.e. the upper bound belonging to the lower
+tier, a year and a half before Anca was asked to settle it.
+
+**Two things the screen surfaced on its first run, both data rather than code:**
+
+- **FLEXIBLE OFFICE SPACE shows "Contracts (3)" over four rows, and two of those three roots are
+  called `Act aditional 03 la contract 10/10/2022` and `... 18/11/2022` in `exit_number` while
+  `amends_contract_id` is null on both.** So the source register names them as amendments to
+  contracts from 2022 that **are not in the register at all**. The app is right to treat them as
+  roots — it has no parent to attach them to — and the screen makes the gap visible, which is the
+  point. Not fixed: inventing a parent row would be worse than showing the truth.
+- **`exit_number` holds values like `83.0` and `5881.0`** — numbers that passed through a float on
+  the way in. Rendered verbatim, because this column is the contract's identifier and quietly
+  trimming `.0` would make the screen disagree with the register it mirrors.
+
+**Decisions, for whoever changes this later:**
+
+| | |
+|---|---|
+| Where | A section on the supplier sheet. Not a list page: every row belongs to one supplier, at most 4 on any of them, and an amendment chain only means anything inside one supplier — a flat sortable list breaks a contract and its two amendments into three equal rows. A list page becomes right when there is an expiry/renewal workflow; `status` is `signed` on all 30 today, so there is none. |
+| Laura | The section renders for **every** viewer, with a lock instead of contracts for anyone without `finance.reporting.*` — **including on the three suppliers that have no contracts**. Rendering it only where rows exist would make its presence the signal, and the lock would announce exactly what it withholds. |
+| The count column on `/suppliers` | **Stricter than the lock.** For a viewer without the capability the column does not exist, is not offered in the Columns dropdown, and the counts are never sent to that browser — they are computed server-side. A count is information: "3" tells Laura precisely what the lock refuses to. |
+| Capability | Checked server-side, **never** from `rows.length`. Three suppliers genuinely have zero contracts and must not render as a refusal. |
+| Price | **One field**, not a value column beside a price column. 10 rows carry `contract_value` and on 9 of those `price_text` is the same number as a string; 14 have only text the number cannot hold (`80 RON/ORA, 90 RON/ORA`, `180 EURO +TVA`, `1000 ron/trimestru`); 6 have neither. Text wins when it says more than the bare number — EDUKIWI's unit (`10099.87 ron/curs`) lives only there. **No total**: the migration states the ten are implicitly RON and that United Media's `1928 EUR` was deliberately excluded, so a sum would add euros to lei. |
+| Periods | **Three** states. A date; the **word** "nedeterminat" for `is_open_ended`; and the muted dash for `period_end` null with `is_open_ended` false. That third case is **7 rows against 5** — the bigger half, not the exception. `period_start` is null on 4 rows and takes the same dash. |
+| Chains | Rendered **recursively**. Raluca's is already two deep — the original is amended by one act and that act by a second — so one level of grouping would have put the third as a sibling of the first. `Contracts (N)` counts **contracts**; an amendment is never one of its own. |
+
+**Corrected while building, against the numbers in the request:** 6 of the 22 suppliers have more
+than one contract (not 9), and only 19 of 22 have any at all; the 5 amendments belong to 4 suppliers
+(not 5). The 5 open-ended rows and the 10 with a numeric value were right.
+
+**Also fixed, because this screen made it visible:** `/suppliers/[id]`'s own `Kv` was still the old
+`justify-between` one — the third sheet, missed when `/clients/[id]` and `/groups/[id]` were
+converted. Its Notes row rendered *"NoteRegister rows 26-28: ..."* as one run-on word. Same
+two-column treatment as its siblings now, and the page moved from `max-w-2xl` to `max-w-4xl` to
+match the client sheet — invisible while it held one card, obvious the moment it held two.
+
+**Blocked on:** nothing.
+**Re-verify when:** `supplier_contracts` gains a currency column — the no-total rule above exists
+only because there isn't one. And when a renewal workflow appears, at which point the list-page
+question is worth re-asking.
+**Lives in:** `app/(app)/suppliers/[id]/supplier-contracts-section.tsx`;
+`app/(app)/suppliers/[id]/page.tsx`; `app/(app)/suppliers/page.tsx` and `suppliers-client.tsx` (the
+opt-in count column); `supabase/migrations/202610120009_create_supplier_contracts.sql` (the RLS
+policy and the implicit-RON note); item 132 above (the current grid, and the boundary rule this
+contract corroborates); item 73 above (the hours screen that will read that grid).
+
+---
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,

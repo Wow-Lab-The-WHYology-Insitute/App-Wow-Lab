@@ -51,9 +51,41 @@ export default async function SuppliersPage() {
     .order("name")
     .returns<SupplierRow[]>();
 
+  // Contract counts, and the gate on them is deliberately STRICTER than the
+  // lock on the supplier sheet. There the section renders for everyone and
+  // says it is withholding something; here the column must not exist at all
+  // for a viewer without the capability -- not empty, and not offered in the
+  // Columns dropdown either. A count IS information: "3" tells Laura exactly
+  // what the lock on the sheet refuses to tell her.
+  //
+  // Counted here rather than in the client because the counts must not reach
+  // a browser that is not allowed to have them. canSeeContracts is the server
+  // capability check, never contracts.length -- three suppliers really do have
+  // zero, and that must not read as a refusal.
+  const canSeeContracts = createOrgId !== null;
+  let contractCounts: Record<string, number> | null = null;
+  if (canSeeContracts) {
+    const { data: contractRows } = await supabase
+      .from("supplier_contracts")
+      // Only the roots: an amendment belongs to the contract it amends and is
+      // not one of its own, so Raluca's three rows are one contract. Same
+      // count the supplier sheet's heading shows.
+      .select("supplier_id")
+      .is("amends_contract_id", null)
+      .returns<{ supplier_id: string }[]>();
+    contractCounts = {};
+    for (const row of contractRows ?? []) {
+      contractCounts[row.supplier_id] = (contractCounts[row.supplier_id] ?? 0) + 1;
+    }
+  }
+
   return (
-    <div className="flex w-full flex-col gap-6">
-      <SuppliersClient suppliers={suppliers ?? []} createOrgId={createOrgId} />
+    <div className="gap-page flex w-full flex-col">
+      <SuppliersClient
+        suppliers={suppliers ?? []}
+        createOrgId={createOrgId}
+        contractCounts={contractCounts}
+      />
     </div>
   );
 }

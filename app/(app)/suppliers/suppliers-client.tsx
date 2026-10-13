@@ -8,9 +8,11 @@ import { LocaleSwitcher } from "@/components/ui/locale-switcher";
 import { suppliersDict } from "./i18n";
 import { normalizeForSearch } from "@/lib/search";
 import {
+  ColumnsDropdown,
   DataTable,
   DataTableToolbar,
   TruncatedText,
+  usePersistedColumns,
   type DataTableColumn,
   type FilterChip,
 } from "@/components/ui/data-table";
@@ -46,9 +48,17 @@ function StatusChip({ status, label }: { status: string; label: string }) {
 export function SuppliersClient({
   suppliers,
   createOrgId,
+  contractCounts,
 }: {
   suppliers: Supplier[];
   createOrgId: string | null;
+  /** Root-contract count per supplier id, or NULL when the viewer has no
+      finance.reporting.* -- in which case the column does not exist at all,
+      not even empty and not even as an entry in the Columns dropdown. A count
+      is information: "3" tells Laura exactly what the lock on the supplier
+      sheet refuses to tell her. Null, never an empty object, so the absence is
+      a distinct value rather than "nobody has any contracts". */
+  contractCounts: Record<string, number> | null;
 }) {
   const t = useTranslations(suppliersDict);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +67,10 @@ export function SuppliersClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // The one optional column this table has. /clients and /groups carry a whole
+  // set; here it is a single key, and it is opt-in rather than default because
+  // a contract count is not what anyone scans a supplier list for.
+  const [extraColumns, setExtraColumns] = usePersistedColumns("suppliers", []);
 
   const filteredSuppliers = useMemo(() => {
     const q = normalizeForSearch(searchQuery.trim());
@@ -83,7 +97,18 @@ export function SuppliersClient({
     setStatusFilter("all");
   }
 
-  const columns: DataTableColumn<Supplier>[] = [
+  const contractsColumn: DataTableColumn<Supplier> | null =
+    contractCounts === null
+      ? null
+      : {
+          key: "contracts",
+          header: t("col_contracts"),
+          width: 100,
+          align: "right",
+          render: (s) => <span className="tabular-nums">{contractCounts[s.id] ?? 0}</span>,
+        };
+
+  const baseColumns: DataTableColumn<Supplier>[] = [
     {
       key: "supplier",
       header: t("col_supplier"),
@@ -120,6 +145,15 @@ export function SuppliersClient({
       render: (s) => <StatusChip status={s.status} label={t(`status_${s.status}`)} />,
     },
   ];
+
+  // The optional column is appended only when the viewer may have it AND has
+  // switched it on. Both halves matter: contractsColumn is null for a viewer
+  // without the capability, so no amount of localStorage tampering can make it
+  // appear -- and the counts were never sent to that browser anyway.
+  const columns =
+    contractsColumn && extraColumns.includes("contracts")
+      ? [...baseColumns, contractsColumn]
+      : baseColumns;
 
   return (
     <div className="flex flex-col gap-page">
@@ -195,6 +229,25 @@ export function SuppliersClient({
               chips={chips}
               onClearAll={chips.length > 0 ? clearAllFilters : undefined}
               clearAllLabel={t("clear_all")}
+              // Undefined, not an empty dropdown, when there is nothing the
+              // viewer may toggle: an empty "Columns" control advertises that
+              // something exists behind it.
+              columnsToggle={
+                contractsColumn ? (
+                  <ColumnsDropdown
+                    label={t("columns")}
+                    options={[
+                      {
+                        key: "contracts",
+                        label: t("col_contracts"),
+                        checked: extraColumns.includes("contracts"),
+                        onChange: (checked) =>
+                          setExtraColumns(checked ? ["contracts"] : []),
+                      },
+                    ]}
+                  />
+                ) : undefined
+              }
             />
 
             <p className="font-body text-muted text-xs">

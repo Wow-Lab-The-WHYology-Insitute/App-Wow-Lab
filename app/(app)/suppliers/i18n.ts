@@ -70,4 +70,36 @@ export const suppliersDict: Dictionary = {
   // [id]-page pass; the RO walk caught both the back-link and the raw
   // status badge below it, see OPEN_ITEMS).
   back_link: { en: "← Suppliers", ro: "← Furnizori" },
+
+  // ---- supplier-contracts-section.tsx ----------------------------------
+  // The count is CONTRACTS, not rows: an amendment belongs to the contract it
+  // amends and is never counted as one of its own. Raluca has three rows and
+  // one contract.
+  contracts_heading: { en: "Contracts ({{count}})", ro: "Contracte ({{count}})" },
+  empty_no_supplier_contracts: {
+    en: "No contracts on file for this supplier.",
+    ro: "Niciun contract la dosar pentru acest furnizor.",
+  },
+  // Rendered to EVERY viewer without finance.reporting.*, on every supplier,
+  // including the three that have no contracts at all. If it appeared only
+  // where rows exist, its presence would leak exactly what it withholds.
+  contracts_locked: {
+    en: "Supplier contracts are not visible for your role.",
+    ro: "Contractele de furnizor nu sunt vizibile pentru rolul tău.",
+  },
+  no_exit_number_supplier: { en: "No contract number", ro: "Fără număr de contract" },
+  amendment_label: { en: "Amendment", ro: "Act adițional" },
+  // The WORD, not a dash: a contract with no end date by agreement and a
+  // contract whose end date nobody recorded are different facts, and seven
+  // rows are the second kind against five of the first.
+  period_open_ended: { en: "open-ended", ro: "nedeterminat" },
+  price_label: { en: "Price", ro: "Preț" },
+  price_unrecorded: { en: "No price recorded", ro: "Preț neînregistrat" },
+  open_drive: { en: "Open document", ro: "Deschide documentul" },
+  show_more: { en: "Show more", ro: "Arată tot" },
+  show_less: { en: "Show less", ro: "Arată mai puțin" },
+
+  // ---- the optional Contracts column on /suppliers ---------------------
+  col_contracts: { en: "Contracts", ro: "Contracte" },
+  columns: { en: "Columns", ro: "Coloane" },
 };
