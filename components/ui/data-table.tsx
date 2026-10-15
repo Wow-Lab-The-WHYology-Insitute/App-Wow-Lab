@@ -319,6 +319,20 @@ function ChevronIcon() {
 // has no opinion on what a "filter" is, only where it sits.
 // ============================================================================
 
+// A note for the `filters` slot below, measured 2026-10-13 and fixed
+// 2026-10-15: every filter <select> a caller puts in here carries
+// `w-full sm:w-auto`. A native select takes its intrinsic width from its
+// LONGEST OPTION, not from the selected one, and `min-width: auto` on a flex
+// child stops it shrinking — so /groups' delivery-format filter, whose longest
+// English option is "Private schools (occasional collaboration)" at 42
+// characters, laid out a 273px box and pushed the whole document to 330px at a
+// 320px viewport. In Romanian the same option is 37 characters and it fit,
+// which is why it looked intermittent.
+//
+// Full width below sm: on ALL of them, not only the one that overflows today:
+// the filters already wrap one per line at phone widths, so full width is the
+// more honest layout anyway, and one select on its own width beside three that
+// are not is how the next long label finds a new place to break.
 export type FilterChip = { key: string; label: string; onRemove: () => void };
 
 export function DataTableToolbar({

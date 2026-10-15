@@ -123,18 +123,37 @@ export function ShellChrome({
               className="h-[22px] w-auto shrink-0 md:hidden"
             />
             <TopbarAvatar url={avatarUrl} label={userEmail} />
-            <div className="font-body min-w-0 truncate text-sm">
+            {/* The Test badge sits OUTSIDE the truncated line, next to the
+                avatar, and never shrinks.
+                It used to live inside the `· {orgLabel}` span, which is inside
+                a `truncate` container: measured at 320px the org span starts at
+                x=319 and the role span at x=398, both past the right edge, so
+                on a phone the badge was simply not on screen. The organisation
+                name and the role can keep truncating — they are context. The
+                badge is a warning, and a warning that disappears on exactly the
+                screen where the mistake is easiest to make is not a warning.
+                This project has already mixed real and test data once. */}
+            {isTestOrg && (
+              <span className="shrink-0">
+                <Badge tone="outline">{t("badge_test")}</Badge>
+              </span>
+            )}
+            {/* In a TEST org below sm:, this line yields to the badge instead
+                of competing with it. Measured: with the badge taking its 43px,
+                the truncated box was left 4px at 320 and rendered a single
+                letter beside it — debris, not context. The order of priority
+                is the one that was decided: the badge is the warning, the
+                email / organisation / role are context, so the context is what
+                goes when there is not room for both. In a non-test org nothing
+                changes at any width, and from sm: up nothing changes at all
+                (74px at 390, 286px at 768). */}
+            <div
+              className={`font-body min-w-0 truncate text-sm ${
+                isTestOrg ? "hidden sm:block" : ""
+              }`}
+            >
               <span className="text-ink font-semibold">{userEmail}</span>
-              {orgLabel && (
-                <span className="text-muted ml-2">
-                  · {orgLabel}
-                  {isTestOrg && (
-                    <span className="ml-1.5 align-middle">
-                      <Badge tone="outline">{t("badge_test")}</Badge>
-                    </span>
-                  )}
-                </span>
-              )}
+              {orgLabel && <span className="text-muted ml-2">· {orgLabel}</span>}
               {roleLabel && <span className="text-muted ml-2">· {roleLabel}</span>}
             </div>
           </div>
