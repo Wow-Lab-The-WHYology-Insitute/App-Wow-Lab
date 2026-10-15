@@ -723,3 +723,152 @@ rollback;
 -- the final report as a deviation from the task's literal wording, in favor
 -- of DATABASE_CONVENTIONS.md, which the task also said to follow throughout.
 -- ============================================================================
+
+-- ============================================================================
+-- The three schools carry their street addresses (202610150001), and an
+-- allocated trainer can read one.
+-- ============================================================================
+-- Two halves, and the second is the one that was never actually exercised.
+-- The `mywork.*` branch on clients has existed since item 66, but until
+-- 2026-10-15 every client it could return had `address = NULL`, so "the
+-- trainer sees the client" had never once meant "the trainer sees an address".
+begin;
+  select set_config('app.test_org_wow_lab', (select id::text from public.organizations where slug = 'wow-lab'), true);
+
+  select 'all three WOW LAB clients have an address' as check_name,
+         (select count(*)::text from public.clients
+           where organization_id = current_setting('app.test_org_wow_lab')::uuid
+             and address is not null) as actual,
+         '3' as expected,
+         (select count(*) from public.clients
+           where organization_id = current_setting('app.test_org_wow_lab')::uuid
+             and address is not null) = 3 as pass
+  union all
+  -- By CUI, because the second client's display name holds two spaces before
+  -- its parenthesis and matching it by name is how a silent no-op happens.
+  select 'Avenor''s address is the one Anca sent',
+         (select address from public.clients where cui = 'RO37336710'),
+         'Drumul Pădurea Pustnicu 125A, 014042 București',
+         (select address from public.clients where cui = 'RO37336710') = 'Drumul Pădurea Pustnicu 125A, 014042 București'
+  union all
+  select 'Lycee Francais'' address is the one Anca sent',
+         (select address from public.clients where cui = '18153988'),
+         'Șoseaua București-Ploiești 160A, 015016 București',
+         (select address from public.clients where cui = '18153988') = 'Șoseaua București-Ploiești 160A, 015016 București'
+  union all
+  select 'Scoala Germana''s address is the one Anca sent',
+         (select address from public.clients where cui = '44600473'),
+         'Strada Coralilor 20G, 013328 București',
+         (select address from public.clients where cui = '44600473') = 'Strada Coralilor 20G, 013328 București'
+  union all
+  -- The diacritics are the data, not decoration: "Pădurea" and "București"
+  -- are how Google Maps writes them and therefore how someone types them
+  -- when searching. A later "cleanup" that strips them fails here.
+  select 'the diacritics survived (no ASCII-folded address)',
+         (select count(*)::text from public.clients
+           where organization_id = current_setting('app.test_org_wow_lab')::uuid
+             and address is not null
+             and address not like '%București%'),
+         '0',
+         (select count(*) from public.clients
+           where organization_id = current_setting('app.test_org_wow_lab')::uuid
+             and address is not null
+             and address not like '%București%') = 0;
+rollback;
+
+-- ============================================================================
+-- The mywork.* branch: a trainer allocated to a session reads that client's
+-- address. Fixture group + session on the REAL Lycee client, rolled back.
+-- ============================================================================
+begin;
+  select set_config('app.test_org_wow_lab', (select id::text from public.organizations where slug = 'wow-lab'), true);
+
+  do $$
+  declare
+    v_org uuid := current_setting('app.test_org_wow_lab')::uuid;
+    v_client uuid := (select id from public.clients where cui = '18153988');
+    v_group uuid;
+  begin
+    insert into public.groups (organization_id, client_id, module, delivery_format, status, notes)
+    values (v_org, v_client, 'wow_mix', 'scoli_private_recurente', 'active',
+            'ADDRESS VISIBILITY TEST -- rolled back')
+    returning id into v_group;
+
+    insert into public.sessions (organization_id, group_id, session_date, trainer_principal_id, status)
+    values (v_org, v_group, '2026-11-02',
+            (select id from public.users where email = 'test+trainer-a@wowlab.dev'), 'planned');
+
+    perform set_config('app.fixture_client', v_client::text, true);
+  end $$;
+
+  select set_config(
+    'request.jwt.claims',
+    json_build_object(
+      'sub', (select id from public.users where email = 'test+trainer-a@wowlab.dev'),
+      'role', 'authenticated'
+    )::text, true);
+  select set_config('role', 'authenticated', true);
+
+  select 'an allocated trainer reads the client row at all (mywork.* branch)' as check_name,
+         (select count(*)::text from public.clients where id = current_setting('app.fixture_client')::uuid) as actual,
+         '1' as expected,
+         (select count(*) from public.clients where id = current_setting('app.fixture_client')::uuid) = 1 as pass
+  union all
+  -- The point of the whole block. clients' SELECT policy gates the ROW, not
+  -- the column, so an address is readable exactly when the row is -- and the
+  -- group sheet falls back to the client's address when the group has none
+  -- (app/(app)/groups/[id]/page.tsx: `group.address ?? clientRow?.address`),
+  -- which is how this reaches a trainer's screen.
+  select 'and gets the real address, not null',
+         (select address from public.clients where id = current_setting('app.fixture_client')::uuid),
+         'Șoseaua București-Ploiești 160A, 015016 București',
+         (select address from public.clients where id = current_setting('app.fixture_client')::uuid)
+           = 'Șoseaua București-Ploiești 160A, 015016 București'
+  ;
+rollback;
+
+-- ============================================================================
+-- The negative half: a trainer with NO session on that client sees no row.
+-- ============================================================================
+-- Its own block because impersonation is per-block, and it is not optional.
+-- Without it, "the allocated trainer sees the address" is equally true of a
+-- policy that returns the row to everyone, and the block above would be
+-- measuring nothing. The first version of this check was written inline with
+-- `and false` in its WHERE and `true` as its pass column -- an assertion that
+-- cannot fail, which is item 100's fourth probe error exactly; replaced rather
+-- than kept.
+begin;
+  select set_config('app.test_org_wow_lab', (select id::text from public.organizations where slug = 'wow-lab'), true);
+
+  do $$
+  declare
+    v_org uuid := current_setting('app.test_org_wow_lab')::uuid;
+    v_client uuid := (select id from public.clients where cui = '18153988');
+    v_group uuid;
+  begin
+    insert into public.groups (organization_id, client_id, module, delivery_format, status, notes)
+    values (v_org, v_client, 'wow_mix', 'scoli_private_recurente', 'active',
+            'ADDRESS VISIBILITY TEST (negative) -- rolled back')
+    returning id into v_group;
+
+    -- trainer A is allocated; trainer B is the one being tested and is not.
+    insert into public.sessions (organization_id, group_id, session_date, trainer_principal_id, status)
+    values (v_org, v_group, '2026-11-02',
+            (select id from public.users where email = 'test+trainer-a@wowlab.dev'), 'planned');
+
+    perform set_config('app.fixture_client', v_client::text, true);
+  end $$;
+
+  select set_config(
+    'request.jwt.claims',
+    json_build_object(
+      'sub', (select id from public.users where email = 'test+trainer-b@wowlab.dev'),
+      'role', 'authenticated'
+    )::text, true);
+  select set_config('role', 'authenticated', true);
+
+  select 'a trainer with NO session on this client reads no row, so no address' as check_name,
+         (select count(*)::text from public.clients where id = current_setting('app.fixture_client')::uuid) as actual,
+         '0' as expected,
+         (select count(*) from public.clients where id = current_setting('app.fixture_client')::uuid) = 0 as pass;
+rollback;
