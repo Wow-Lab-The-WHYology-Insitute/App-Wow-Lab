@@ -243,11 +243,24 @@ export const payrollDict: Dictionary = {
     en: "no duration grid in effect on this date — set one in Payment configuration",
     ro: "nicio grilă de durate valabilă la această dată — se setează în Configurare plăți",
   },
-  // The live one: 30 minutes exists for standard workshops and not for
-  // Școala Altfel / Săptămâna Verde, and the workshop form offers 30.
+  // Since 202610160004 the duration resolver BANDS -- smallest band at or
+  // above the actual length -- so this no longer means "no row for exactly
+  // this length". It means the workshop is longer than anything the grid
+  // prices, which is the grid's own ceiling (120 minutes today). The
+  // wording changed with the meaning; the code stayed, because it is still
+  // the one duration failure a closer can meet.
   pay_reason_no_duration_row: {
-    en: "the duration grid has no entry for this length and workshop type",
-    ro: "grila de durate nu are un rând pentru această durată și acest tip de atelier",
+    en: "longer than the longest length the pay grid covers",
+    ro: "mai lung decât cea mai mare durată acoperită de grila de plată",
+  },
+  // The other half of the resolver's new split: the grid version defines no
+  // bands at all for this workshop type. Unreachable with today's data
+  // (both contexts have bands in both organizations) but representable, and
+  // db/tests/payroll_reason_code_coverage.sql does not accept an
+  // unclassified raise on grounds of reachability.
+  pay_reason_no_duration_bands: {
+    en: "the pay grid has no durations at all for this workshop type",
+    ro: "grila de plată nu are nicio durată pentru acest tip de atelier",
   },
   pay_reason_no_location_version: {
     en: "no location grid in effect on this date — set one in Payment configuration",

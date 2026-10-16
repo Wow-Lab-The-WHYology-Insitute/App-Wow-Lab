@@ -293,7 +293,13 @@ async function main() {
           session_date: currentMonthDay(5),
           trainer_principal_id: trainer.id,
           status: "delivered",
-          duration_minutes: 30,
+          // 150, not 30. Until 202610160004 a 30-minute Scoala Altfel
+          // workshop raised, because the grid had no 30 row for that
+          // context and the resolver matched exactly; it now bands up to
+          // 60 and prices at 218.75. A length above the grid's own top
+          // band (120) is the only unpayable duration left, and it is the
+          // grid's ceiling rather than a case built to fail.
+          duration_minutes: 150,
           location_tier: "imprejurimi",
           notes: MARKER,
         },
@@ -368,8 +374,9 @@ async function main() {
     );
     report.push(
       `2. The raise shows its reason in plain language, not raw SQL -> ${
-        text.includes("the duration grid has no entry for this length and workshop type") &&
-        !text.includes("incomplete version")
+        text.includes("longer than the longest length the pay grid covers") &&
+        !text.includes("longest band") &&
+        !text.includes("resolve_duration_multiplier")
           ? "PASS"
           : "FAIL"
       }`,
@@ -484,7 +491,7 @@ async function main() {
       "Total de plată luna aceasta",
       "Lipsuri în grila de plată — nu se repară din acest ecran",
       "Informații care lipsesc — se pot completa",
-      "grila de durate nu are un rând pentru această durată",
+      "mai lung decât cea mai mare durată acoperită de grila de plată",
       "încă nu sunt de plată",
       "Exclude cele {{n}} ateliere de mai sus",
     ];

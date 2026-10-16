@@ -318,7 +318,12 @@ export const groupsDict: Dictionary = {
   },
   attendance_placeholder: { en: "Attendance count (optional)", ro: "Număr prezenți (opțional)" },
   experiment_placeholder: { en: "Experiment delivered (optional)", ro: "Experiment livrat (opțional)" },
-  duration_placeholder: { en: "Duration (optional)", ro: "Durată (opțional)" },
+  // A number input since 202610160004/6 rather than a four-option select:
+  // the real schedule has 45- and 50-minute classes, which the select could
+  // not even record. The label now carries the unit, because a bare number
+  // field does not say minutes the way "90 min" in an option did.
+  duration_label: { en: "Length (minutes)", ro: "Durată (minute)" },
+  duration_placeholder: { en: "e.g. 45", ro: "ex. 45" },
   experiment_drive_link_placeholder: {
     en: "Experiment Drive link (optional)",
     ro: "Link Drive experiment (opțional)",

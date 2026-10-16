@@ -1161,17 +1161,33 @@ function NewSessionForm({
           placeholder={t("experiment_placeholder")}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         />
-        <select
-          value={duration}
-          onChange={(e) => setDuration(e.target.value)}
-          className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
-        >
-          <option value="">{t("duration_placeholder")}</option>
-          <option value="30">30 min</option>
-          <option value="60">60 min</option>
-          <option value="90">90 min</option>
-          <option value="120">120 min</option>
-        </select>
+        {/* A number input, not a wider select. Until 202610160004 the pay
+            grid was read with an equality key, so the only enterable
+            lengths were the four it held -- and the real 2026-2027
+            schedule has classes of 45 and 50 minutes, which could not be
+            RECORDED at all, let alone priced. The resolver now bands
+            (smallest band at or above the actual length), so the honest
+            control is the real number of minutes rather than a longer
+            list of someone's guesses. min/max mirror
+            sessions_duration_minutes_range_check (15..480) so the form
+            refuses what the column would refuse; the ceiling sits well
+            above the grid's top band on purpose, because a workshop
+            longer than the grid prices must stay recordable and merely
+            unpayable. */}
+        <label className="font-body text-muted flex flex-col gap-1 text-xs">
+          {t("duration_label")}
+          <input
+            type="number"
+            inputMode="numeric"
+            min="15"
+            max="480"
+            step="5"
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+            placeholder={t("duration_placeholder")}
+            className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+          />
+        </label>
         <input
           type="text"
           value={experimentDriveLink}

@@ -121,17 +121,22 @@ rollback;
 -- ============================================================================
 -- Block 2: A RAISE ON ONE SLOT DOES NOT TAKE THE MONTH DOWN.
 --
--- The real gap, confirmed against the live grid before this was written:
--- duration_multiplier_rates holds 30 minutes for context 'standard' and
--- NOT for 'scoala_altfel_saptamana_verde'. It is reachable -- the
--- workshop form's duration select offers 30, and a group's
--- delivery_format can be scoala_altfel -- so this is a live defect the
--- screen has to survive, not a hypothetical.
+-- The unpayable case is a workshop LONGER THAN THE GRID'S TOP BAND. Since
+-- 202610160004 the duration resolver bands (smallest band at or above the
+-- requested length) instead of matching exactly, which closed the gap this
+-- block used to be built on -- 30 minutes in the scoala_altfel context,
+-- which now resolves up to the 60 band. That is an improvement, and it
+-- left this block testing a case that no longer exists.
 --
--- Same trainer, same group, two workshops: one 30-minute (raises) and one
--- 90-minute (127 x 1.2 x 1.45 = 220.98). The 30-minute row must carry a
--- reason, the 90-minute row must still carry its amount, and the
--- trainer's total must be 220.98 rather than null, zero, or an error.
+-- Over the top band is the right replacement because it is the grid's own
+-- ceiling rather than a case constructed to fail: it is the only
+-- no_duration_row reachable after banding, and it stays reachable for as
+-- long as the grid tops out at 120.
+--
+-- Same trainer, same group, three workshops: one 150-minute (raises), one
+-- 90-minute (127 x 1.2 x 1.45 = 220.98), and one 30-minute that used to
+-- raise and must now price through the 60 band (127 x 1.0 x 1.45 =
+-- 184.15) -- asserted here so the closed gap stays closed.
 -- ============================================================================
 begin;
   select set_config(
@@ -149,8 +154,9 @@ begin;
   values ('dd000000-0000-0000-0000-000000000002', current_setting('app.wow_lab')::uuid, current_setting('app.avenor_client')::uuid, 'gaga', 'scoala_altfel', 'fr_de_es');
 
   insert into public.sessions (id, organization_id, group_id, session_date, trainer_principal_id, status, duration_minutes, location_tier)
-  values ('ee000000-0000-0000-0000-000000000003', current_setting('app.wow_lab')::uuid, 'dd000000-0000-0000-0000-000000000002', '2026-09-25', current_setting('app.teodora')::uuid, 'planned', 30, 'imprejurimi'),
-         ('ee000000-0000-0000-0000-000000000004', current_setting('app.wow_lab')::uuid, 'dd000000-0000-0000-0000-000000000002', '2026-09-28', current_setting('app.teodora')::uuid, 'planned', 90, 'imprejurimi');
+  values ('ee000000-0000-0000-0000-000000000003', current_setting('app.wow_lab')::uuid, 'dd000000-0000-0000-0000-000000000002', '2026-09-25', current_setting('app.teodora')::uuid, 'planned', 150, 'imprejurimi'),
+         ('ee000000-0000-0000-0000-000000000004', current_setting('app.wow_lab')::uuid, 'dd000000-0000-0000-0000-000000000002', '2026-09-28', current_setting('app.teodora')::uuid, 'planned', 90, 'imprejurimi'),
+         ('ee000000-0000-0000-0000-000000000005', current_setting('app.wow_lab')::uuid, 'dd000000-0000-0000-0000-000000000002', '2026-09-29', current_setting('app.teodora')::uuid, 'planned', 30, 'imprejurimi');
 
   create temp table pay_rows as
   select p.*
@@ -163,14 +169,23 @@ begin;
   -- statement -- the whole month would have been a 500 because of one
   -- 30-minute workshop.
   insert into check_results values (
-    'the call returns both rows instead of aborting on the raise',
-    (select count(*) = 2 from pay_rows)
+    'the call returns all three rows instead of aborting on the raise',
+    (select count(*) = 3 from pay_rows)
   );
 
   insert into check_results values (
-    '30 min + scoala_altfel: amount is null and reason_code is no_duration_row',
+    '150 min (over the top band): amount is null and reason_code is no_duration_row',
     (select amount is null and reason_code = 'no_duration_row'
      from pay_rows where session_id = 'ee000000-0000-0000-0000-000000000003')
+  );
+
+  -- The gap banding closed. This used to be the raising case in this very
+  -- block; it must now carry money, and the figure proves it went through
+  -- the 60 band rather than a 30 band nobody added.
+  insert into check_results values (
+    '30 min + scoala_altfel now PRICES through the 60 band: 184.15',
+    (select amount = 184.15 and reason_code is null
+     from pay_rows where session_id = 'ee000000-0000-0000-0000-000000000005')
   );
 
   -- The raw message is kept alongside the code, always -- an unmatched
@@ -178,7 +193,7 @@ begin;
   -- vanishing.
   insert into check_results values (
     'the raised message is preserved in error_text, not swallowed',
-    (select error_text like '%minutes / context scoala_altfel_saptamana_verde%'
+    (select error_text like '%150 minutes is longer than the longest band (120 minutes)%'
      from pay_rows where session_id = 'ee000000-0000-0000-0000-000000000003')
   );
 
@@ -189,8 +204,8 @@ begin;
   );
 
   insert into check_results values (
-    'the trainer keeps the total from their calculable workshops: 220.98',
-    (select coalesce(sum(amount), 0) = 220.98 from pay_rows where amount is not null)
+    'the trainer keeps the total from their calculable workshops: 220.98 + 184.15 = 405.13',
+    (select coalesce(sum(amount), 0) = 405.13 from pay_rows where amount is not null)
   );
 
   insert into check_results values (

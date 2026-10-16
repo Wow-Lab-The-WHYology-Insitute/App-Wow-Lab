@@ -7363,6 +7363,360 @@ this corrects), item 131 above (the same class of label failure), item 130 above
 will have to name this work out loud), item 128 above (the rates themselves and the 11% uplift).
 
 ---
+
+### 139. The application cannot record that a workshop did not happen — no RPC, no grant, no path at all. Six real cases a year on two groups of one school
+
+2026-10-16, found while preparing the 2026-2027 schedule import, and bigger than the import.
+Verified at both levels Mihai asked about, because "no table grant" and "no sanctioned function"
+are different claims and only the second one was still open.
+
+**The complete write surface on `public.sessions` after a row is created.** Every `app.*` function
+whose body mentions `public.sessions` was pulled from `pg_proc` and its `UPDATE ... SET` clause
+extracted — not read from memory, not inferred from the actions layer:
+
+| Function | Writes |
+|---|---|
+| `rpc_confirm_session_attendance` | `trainer_principal_confirmed_at` **or** `trainer_secundar_confirmed_at` (the caller's own slot) |
+| `rpc_correct_session_confirmation` | both confirmation timestamps |
+| `rpc_update_session_allocation` | `trainer_principal_id`, `trainer_secundar_id` |
+| `rpc_update_session_attendance` | `attendance_count`, `experiment_delivered` |
+| `calculate_session_pay`, `calculate_org_session_pay` | read only |
+| `rpc_propose_session_lesson_plan` | reads `sessions`; its `status =` writes `session_lesson_plans`, a different table |
+
+**Six of eighteen columns.** Never written after creation by any sanctioned path:
+`session_date`, `start_time`, `duration_minutes`, `location_tier`, **`status`**, `notes`,
+`experiment_drive_link`, plus the keys and timestamps. **No function deletes a session.** And
+`authenticated` holds `INSERT, SELECT` only — no `UPDATE`, no `DELETE` — so the RLS UPDATE policy
+that does mention `sessions.create` is unreachable for want of a column grant. `app_write_owner`
+(the role the DEFINER functions run as) has UPDATE on all 18 columns and none of them sets `status`.
+
+**So `status = 'cancelled'` exists in the CHECK constraint and nothing in the system can ever set
+it.** A workshop that was cancelled, replaced by a school trip, lost to a parents' evening or a
+short day is recorded, permanently, as a workshop that is going to happen. The only route is
+`service_role` / `postgres` raw SQL.
+
+**Six cases a year, on two groups of one school** (Mihai, from last year's centraliser). That is not
+an edge case; at six schools it is a weekly occurrence.
+
+**Why it has not hurt yet, and why that stops in November.** Pay is already safe by accident: pay
+follows the confirmation timestamps, so an unheld workshop that nobody confirms is simply not paid
+(Anca's rule, 2026-09-11). The damage is on the other side and in the reading:
+- **The client invoice.** Avenor and Scoala Germana are priced **per group per session** (700 and
+  770 + VAT), Lycée **per child per session**. A cancelled session must not be billed. Counting it
+  as held is ~700–770 RON of error each time — around 4,200–4,620 RON a year for those six cases,
+  from a screen that is being built to be the source of truth for exactly that count.
+- **The list Anka has to clear.** An unheld workshop sits in `/payroll`'s unconfirmed-slot list
+  forever, indistinguishable from "held, and the trainer forgot". The one signal the schema can
+  express — `attendance_count = 0`, writable via `rpc_update_session_attendance` — means *zero
+  children present*, not *cancelled*, and `calculate_session_pay` never reads it, so a confirmed
+  cancelled workshop still computes full pay for both trainers.
+
+**Why this is a design question and not a missing CRUD endpoint.** Convention 12 is explicit: where a
+table already has a status value meaning "no longer active, keep the row and its history", a
+hard-delete feature is a second contradictory answer and must not be built. `sessions.status` has
+`'cancelled'` for precisely that purpose. So the shape is not "add DELETE" — it is a narrow,
+audited `rpc_cancel_session(p_session_id, p_reason)` that sets `status = 'cancelled'` and nothing
+else, in the column-narrowed DEFINER style item 91 established for every other session write. The
+open questions are **who** may call it (Operations allocates and substitutes; Anka closes the
+month), whether a cancelled workshop may still be confirmed and paid (a trainer who travelled to a
+school that cancelled on the day is a real case, and Anca's *"not paid for a workshop they did not
+deliver"* does not obviously answer it), and whether cancelling after the month is closed is
+allowed.
+
+**A related asymmetry, recorded here because it is the same surface.**
+`rpc_confirm_session_attendance` (the trainer's own) refuses once the month is closed, returning
+`month_closed`. `rpc_correct_session_confirmation` (Operations') has **no such gate** — it checks
+`is_platform_owner` / `org.settings.manage` / `finance.operations.*` and writes. So Operations can
+confirm, or un-confirm, a workshop in a month that is already closed, which is the one thing
+closing a month is meant to prevent. Mihai's decision 2026-10-16: **leave it**, note it. It is
+plausibly correct — corrections are Laura's and Anka's job (Anca, 2026-09-11) — but it is nowhere
+written down as a decision, and the trainer-facing gate's existence implies the other one was
+meant to exist too.
+
+**DECIDED 2026-10-16, Mihai — two of the four questions, and the shape is now fixed.**
+
+**1. The reason is a CATEGORY plus optional free text, never free text alone.** The categories come
+from last year's real data, where the six cases fall into two causes with opposite consequences:
+
+| category | covers |
+|---|---|
+| `scoala_a_anulat` | excursion, parents' evening, short day, school closed |
+| `trainer_indisponibil` | did not arrive, illness, traffic |
+| `vacanta` | a day from the school calendar |
+| `alt_motiv` | free text **mandatory** |
+
+The argument is not tidiness: **free text means Anka can never answer "how many times did Avenor
+cancel this year"** — which is exactly the question you ask when renegotiating a per-session price.
+A category answers it with a `group by`; a text column answers it with somebody reading 200 rows.
+And the two main causes point opposite ways — one is the client's doing and bears on the invoice,
+the other is ours and bears on the trainer.
+
+**2. Cancelling does not touch pay.** Pay keeps following the confirmation timestamps, exactly as
+now. The case of a trainer who travelled to a school that cancelled on the spot goes to Anca; if she
+pays it, **how** it is recorded is a separate conversation, because confirming delivery of something
+that was not delivered would mean paying correctly and recording falsely. That is the one thing this
+function must not be allowed to become a shortcut for.
+
+**The two questions left to me, with my answers.**
+
+**Who may call it: `sessions.create` (plus `org.settings.manage` / platform owner), not the
+trainer.** Mihai's leaning, and the schema already decided it — `202609150002`'s own fork decision
+says *"`sessions.status` stays Operations' scheduling field, set at creation as today"*, and
+cancellation is a fact about the schedule, not about delivery. So this is not a new authority, it is
+the existing one applied: the same capability that may create a workshop may cancel it. Mihai's
+reason stands on its own too — a trainer saying "it did not happen" is making an assertion, not
+recording an observation, and has money on the client side of it.
+**The friction to accept knowingly:** `finance.operations.*` is deliberately NOT on that list, so
+when Anka meets an unheld workshop while closing the month she has to ask Operations rather than fix
+it herself. That is the correct separation and it is also one more handoff in the one workflow that
+is already time-pressured; worth revisiting if it bites, not worth pre-solving.
+
+**Cancellable after the month closes: yes.** Mihai's leaning, and the reason is sharper than
+"blocking it only hides the problem". The month-close gate on
+`app.rpc_confirm_session_attendance` exists because **confirmation is a pay input** — locking it is
+what protects an issued invoice. Cancellation is explicitly not a pay input (decision 2 above), so
+the gate's reason does not transfer, and copying it would be copying a rule without its argument.
+**But** cancelling inside a closed month changes the *client* billing count for a month already
+invoiced, so it must be visible rather than merely permitted: the UPDATE lands in `row_history` with
+its actor automatically, and the closed-month view should say that a workshop in it was cancelled
+after closing. That last part is a screen, not a function, and should ship with it.
+
+**Still open, and genuinely Anca's:** whether a trainer who travelled to a cancelled workshop is
+paid.
+
+**Blocked on:** Anca's answer on the travelled-trainer case, and writing it. The function is ~40
+lines in a shape this repo has written six times; the categories and the pay rule are decided.
+**Re-verify when:** before the schedule import generates anything for the rest of the school year.
+A generated workshop is permanent today — no UPDATE, no DELETE, no `cancelled` — so generation
+without this is how 222 rows become 222 rows nobody can correct.
+**Lives in:** nothing changed; measured live against `pg_proc`, `information_schema.table_privileges`
+and `information_schema.column_privileges`. `supabase/migrations/202609220001_route_column_narrowed_writes_through_security_definer_functions.sql`
+(the four writers and the style a fifth would follow); `docs/DATABASE_CONVENTIONS.md` §12 (why this
+is `cancelled`, not DELETE); item 91's own report; item 140 below (the duration key, the other
+import blocker found the same day).
+
+---
+
+### 140. The duration multiplier was never a rate per minute — so 45 minutes is a wrong lookup key, not a missing row
+
+2026-10-16. Preparing the schedule import found that four of the six real groups have class lengths
+the pay grid raises on: Avenor 15:15–16:00 and 16:15–17:00 are **45 minutes**, Scoala Germana
+15:30–16:20 and 16:25–17:15 are **50**. Verified live: `app.resolve_duration_multiplier` raises for
+both and returns 1.2 for Lycée's 90. **26 of the 38 retroactive workshops are unpayable**, with
+`reason_code = no_duration_row`.
+
+**The obvious fix is the wrong one, and the reason is in the numbers already in the grid.** Adding
+rows for 45 and 50 was this session's first recommendation. Mihai refused it, correctly:
+
+| minutes | multiplier | per-minute rate implied |
+|---|---|---|
+| 30 | 1.0 | 0.0333 |
+| 60 | 1.0 | 0.0167 |
+| 90 | 1.2 | 0.0133 |
+| 120 | 1.5 | 0.0125 |
+
+**The scale is not proportional to time.** If it paid hours, 120 would be 2.0 against 60's 1.0; it
+is 1.5. The four values measure **the shape of the job** — the travel, the setup, the packing down,
+all of which a 45-minute workshop incurs exactly as a 60-minute one does — not the minutes in the
+room. A grid of per-length rows is therefore a **band table being read with an equality key**, and
+adding 45 and 50 would make Avenor work and break the next school that schedules 55 or 80.
+
+**The change is to the resolver, not to the data.** Ceiling instead of equality: the smallest band
+greater than or equal to the actual length, raising only above the top band. The four rows are
+untouched, and `duration_multiplier_rates_minutes_check CHECK (duration_minutes = ANY (ARRAY[30,
+60, 90, 120]))` stays as it is — under the new reading that constraint stops being a list of
+permitted lengths and becomes the definition of the bands, which is what it always was.
+
+**Two things are broken, not one.** `sessions.duration_minutes` is a nullable `integer` with **no
+CHECK constraint of any kind** — the database already accepts 45, and also −5 and 99999. The only
+thing preventing a 45-minute workshop from being *recorded* is the `<select>` on the workshop form,
+which offers 30/60/90/120 and nothing else. So today a real Avenor workshop cannot be entered at
+all, and the fix for that is in the form, not the schema — though the absence of any range check is
+worth closing in the same pass, since nothing stops a typo of 1200 from being stored and then
+raising forever.
+
+**Awaiting Anca:** the principle, stated as *"a 45-minute workshop is paid as a 60-minute one"*.
+Everything above is engineering reasoning from the grid's own numbers; whether the band is the
+intended business rule is hers.
+
+**The migration plan, ready for when she answers** — five parts, in this order:
+
+1. **`app.resolve_duration_multiplier`**: replace `and duration_minutes = p_duration_minutes` with
+   the smallest available band `>= p_duration_minutes`, chosen **from the rows present in that
+   version and context** rather than from a hardcoded list — because the
+   `scoala_altfel_saptamana_verde` context has no 30 row, and a 20-minute workshop there must land
+   on 60 rather than raise for a band that was never defined. Raise above the top band, with a
+   message naming the length and the maximum.
+2. **A consequence to decide, not to discover:** ceiling-from-available-rows **closes the 30-minute
+   Scoala Altfel gap as a side effect** (30 would resolve up to 60), which is the live defect item
+   136's raise-isolation case is built on. `no_duration_row` becomes reachable only above 120. That
+   is an improvement and it invalidates a test fixture — `db/tests/payroll_org_session_pay.sql`
+   block 2 needs a different unpayable case (a length over the top band, or a missing version).
+3. **The reason_code classifier** in `app.calculate_org_session_pay` must change in the same
+   migration: the new raise message will not match `'%minutes / context%'`.
+   `db/tests/payroll_reason_code_coverage.sql` will fail loudly if it is forgotten — which is the
+   first real use of that test, and the reason it was derived from the sources rather than written
+   by hand.
+4. **The form's duration control**: either widen the `<select>` to the real lengths in use, or
+   replace it with a number input. A number input is the honest control once the resolver bands,
+   and it makes the missing range CHECK matter.
+5. **A CHECK on `sessions.duration_minutes`** — a sane floor and ceiling. Not required by the
+   banding, but the banding is the moment someone first types a free-form number into that column.
+
+**BUILT 2026-10-16 (`202610160004`), without waiting for Anca** — Mihai's correction, and it is
+right: the lookup and the rows are independent decisions. If 45 is paid as 60 it falls in the 60
+band; if 45 ever earns its own rate someone adds a 45 band and it hits exactly, while 50 still lands
+on 60. Her answer decides whether rows are added, not how they are found.
+
+Verified live across the real schedule and both edges: 45 -> 1.0, 50 -> 1.0, 90 -> 1.2, exactly 60
+-> 1.0, exactly 120 -> 1.5, 121 and 150 -> raise. The 30-minute Scoala Altfel gap closed as
+predicted (resolves up to the 60 band), and a 20-minute workshop in that context resolves to 60
+rather than raising for a 30 band nobody defined.
+
+All five planned parts shipped: the resolver, the classifier in the same migration, the test fixture
+moved to a 150-minute workshop, the form's number input (`202610160006` + the control), and the
+range CHECK. **Step 3 of the plan paid for itself immediately**: the removed
+`'%minutes / context%'` branch would have matched nothing, and
+`db/tests/payroll_reason_code_coverage.sql`'s reachability assertion was shown to fail and name it
+when the stale pattern was injected back — the first real use of that test, and it worked in the
+direction the sabotage block does not cover.
+
+One decision made while building and not in the plan: the range CHECK is **15..480**, with its
+ceiling far above the grid's top band of 120 on purpose. A workshop longer than the grid prices must
+stay **recordable and merely unpayable** — clamping the CHECK at 120 would make the schema enforce a
+pay rule, which is the wrong layer, and would also make the new test fixture uninsertable.
+
+**Blocked on:** nothing. Anca's answer now only decides whether a 45 band is added, which is a row,
+not a change.
+**Re-verify when:** a new school's schedule arrives with a length not in 30/60/90/120 — under the
+banded resolver that is no longer an event, which is the point.
+**Lives in:** nothing changed. `supabase/migrations/202608310002_payment_config_tables.sql` and
+`202609210006_migrate_groups_delivery_format_to_nine_workshop_types.sql` (the resolver's two
+definitions), `supabase/migrations/202609240001_seed_pay_grids_pfa_inclusive_rates.sql` (the four
+values and their provenance), `app/(app)/groups/[id]/group-detail-client.tsx` (the select);
+item 95 above (the grid), item 136 above (the test fixture this invalidates), item 139 above (the
+other import blocker found the same day).
+
+---
+### 141. Client price and billing entity have no effective date — recorded because Avenor's case dissolved, not because it was solved
+
+2026-10-16. Avenor changed two things mid-year: the price (950 + VAT → 700) and the invoicing entity
+(Experimente Wow → Brandine). Both looked like they needed effective-dating, and
+`contracts.billing_rule` is a single free-text column while `contracts.legal_entity_id` is a single
+FK — editing either rewrites the whole school year, so September's invoices would read as Brandine's
+when Experimente Wow issued them.
+
+**Anca's answer removed the case rather than the gap.** The renegotiation is **retroactive**: 700
+applies from **2026-09-01**, and 700 carries **no VAT** because Brandine is not VAT-registered. Price
+and entity are one decision, from one date, which is the contract's own `period_start`. So Avenor is
+**one** contract with corrected values — Brandine, 700 without VAT, 2026-09-01 → 2027-06-30 — and
+nothing needs two prices over two intervals.
+
+**`amends_contract_id` was therefore NOT built**, on Mihai's instruction, and that is the right
+call: `supplier_contracts` already has the column and the chain shape, so copying it to `contracts`
+is a small migration — but building a mechanism for a case that no longer exists is how a schema
+accumulates structure nobody can later justify. Recorded here so the next mid-year change does not
+start from scratch.
+
+**What the gap actually is, for when it returns:**
+- `contracts.billing_rule` is **free text**, never parsed, read only through the masked view. The
+  amount, the currency, the VAT treatment and the unit all live inside one string — so even after
+  Anca's answer, *"700 without VAT"* is a sentence, not two fields, and nothing can compute from it.
+- `contracts.offer_structure` is a four-value enum that **cannot distinguish Avenor from Scoala
+  Germana** — both carry `fixed_price_group_workshop`, though one is per group and the other per
+  group **per session**. Lycée's `105 lei/copil/ședință`, the one case the enum could express
+  (`price_per_child_present`), has it **unset**.
+- `contracts` has `renewal_of` (year to year) and **no `amends_contract_id`** (within a period).
+  `supplier_contracts` has both. The asymmetry is unexplained by anything written down.
+- **No indicator that an invoice requires an attendance list.** Lycée's does. The enum's
+  `price_per_child_present` vs `_enrolled` distinction *is* that question, and it is unset.
+- **No column anywhere holds a contractual cap on children.** Scoala Germana's contract caps a group
+  at 12; searched every table for `max`/`cap`/`capacity`/`limit`/`seats` — only
+  `admin_rates.tier_max_words` and the two child counters exist. `groups.children_confirmed` and
+  `children_billed` are counts, not ceilings, and both are null on the two live groups.
+
+**The Avenor contract was corrected 2026-10-16 (`202610160007`)**: Brandine Advertising SRL,
+`700 RON fără TVA/grupă/ședință`, period unchanged at 2026-09-01 .. 2027-06-30. One contract, stale
+values replaced — not an amendment chain, because Anca's answer made it one decision from one date.
+`offer_structure` stays `fixed_price_group_workshop`, wrong in the same way it is wrong for Scoala
+Germana, because there is no better value to move it to and swapping one inaccuracy for another
+helps nobody. The VAT treatment is in the free text because there is nowhere else for it — which is
+this item, unchanged.
+
+**Blocked on:** nothing, deliberately. This is the record, not the work.
+**Re-verify when:** a client price or invoicing entity changes **from a date inside a contract's
+period** — the first such case is the one to build for, and the supplier side's
+`amends_contract_id` is the shape to copy. Also when the invoicing generator (`phase1-development-plan.md`
+row 11, still 🔴 Nefăcut) is started, because that is when free text stops being survivable.
+**Lives in:** nothing changed. `supabase/migrations/202608160002` (the `offer_structure` enum),
+`supabase/migrations/202610120009_create_supplier_contracts.sql` (`amends_contract_id`, the shape to
+copy); item 127 above (the supplier register's rate-vs-value argument, the same free-text
+precedent), item 133 above (the supplier screen showing a price that contradicts the current grid).
+
+---
+
+### 142. Roles have drifted from what people actually do, in both directions — a review of all 16 real people, not of the two that surfaced
+
+2026-10-16, opened by Mihai as a standing item rather than a task. Two cases turned up within a day
+of each other, pointing opposite ways, which is what makes it a review and not two fixes:
+
+- **Anka Orban held Trainer and Senior Trainer and delivers no workshops.** Removed 2026-10-16
+  (item 137 above). Her `ateliere` admin rate is administrative work *on* workshops (item 138
+  above).
+- **Cătălina Trușan delivers four of the six real groups and does not hold Trainer.** She has
+  Curriculum Manager + Evaluator + Operations Manager, and grade 6 from 2026-09-01. Pay works
+  regardless — a workshop slot is a plain FK with no role requirement — but
+  `trainerOptions` on the group screen is built by filtering `user_org_roles` on the role keys
+  `trainer` and `senior_trainer`, so **the person who teaches most of the school year does not
+  appear in the trainer dropdown** and cannot be allocated through the UI. Worse, and less
+  visible: `app.rpc_confirm_session_attendance` requires `mywork.*`, which only the trainer roles
+  grant her — so **she cannot confirm her own delivery**, and every one of her workshops would have
+  to be confirmed by Operations on her behalf.
+
+**Measured, for the Cătălina case, before proposing it** (simulated in a rolled-back transaction):
+adding Trainer gives her four capabilities she lacks — `community.read`, `finance.own.read`,
+`materials.custody` (all three with **zero policies and zero code references**, inert today) and
+**`mywork.*`** (8 policies across 7 tables). It gives her **no additional visibility**: rows
+readable before/after are identical on all seven of those tables (sessions 0/0, groups 2/2, clients
+3/3, client_contacts 4/4, users 38/38, session_lesson_plans 0/0, payroll_periods 0/0), because her
+Operations Manager grants already cover more broadly than the own-slot branches do. Landing
+destination unchanged: `has_mywork=true, has_beyond=true` resolves to `/profile`, as before. So the
+role adds exactly the two things she needs — `/my-work` and the ability to confirm her own
+workshops — and nothing else.
+
+**The general shape, which is why this is an item and not a ticket.** Role grants in this org were
+created across several sessions, some by `seed.sql`, some through `/admin/users`, some to make a
+verification script work. Nothing has ever reconciled them against what each person does.
+`user_org_roles` has `assigned_by`, and for every test fixture it is **null** — so there is no actor
+to ask. Anka alone holds **twelve** roles. The review is: for each of the 16 non-test people in
+`wow-lab`, what roles they hold versus what they do, and in particular whether anyone else is in
+Cătălina's position (doing the work without the role, which is invisible until a dropdown is empty)
+or Anka's (holding a role for work they do not do, which is invisible until it grants something that
+matters — as `mywork.*` on a payroll screen nearly did).
+
+**Deliberately not a capability-model change.** Convention 6 says roles and capabilities are data,
+not enums, and that application code must never hard-code a role name to gate a feature. The
+trainer dropdown filtering on the role keys `trainer`/`senior_trainer` is arguably exactly that —
+but the alternative (filtering on `mywork.*`, the capability that means "has own work") would change
+who appears in a dropdown on a screen Operations uses daily, and that is a separate decision from
+fixing the grants.
+
+**The Cătălina grant was applied 2026-10-16 (`202610160005`)**, with the measurements above as its
+justification and the decisive argument being the one that was not about dropdowns: she could not
+confirm her own delivery. Verified after: roles are Curriculum Manager + Evaluator + Operations
+Manager + Trainer, `mywork.*` true, she appears in the trainer dropdown, no stray role-less row. The
+migration refuses to run if she has no grade effective on or before 2026-09-01 — making someone
+selectable but unpayable would be worse than leaving them unselectable.
+
+**Blocked on:** nothing; the review itself is the open work.
+**Re-verify when:** a real person is added to the org, or a verification script needs a role — the
+second is how `test+ui-owner` ended up with Organization Owner in production (item 137 above).
+**Lives in:** nothing changed. `app/(app)/groups/[id]/page.tsx` (the `trainerOptions` role filter),
+`supabase/migrations/202609220001` (`rpc_confirm_session_attendance`'s `mywork.*` gate);
+item 137 above (Anka, the other direction), item 138 above (the label that explained her),
+`docs/DATABASE_CONVENTIONS.md` §6 (roles are data, not enums).
+
+---
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
