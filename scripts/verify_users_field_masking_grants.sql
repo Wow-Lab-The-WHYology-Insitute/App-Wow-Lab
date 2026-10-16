@@ -20,6 +20,12 @@
 -- has_column_privilege() report what a NAMED role can do without ever
 -- becoming that role, so service_role's and postgres's own privileges can
 -- be checked directly, from whatever role is current.
+-- NOTE 2026-10-16: re-pointed from test+ui-owner / test+ui-finance-ops to
+-- test+owner-a / test+finance-ops-a (202610160002 revoked the first two's
+-- roles -- they can sign in, and /payroll now shows real pay). The role sets
+-- are identical, one role each, verified; and SQL impersonation is what the
+-- no-auth.users fixtures exist for (convention 11), while the test+ui-*
+-- accounts exist for browser verification.
 
 begin;
 
@@ -48,7 +54,7 @@ grant select (
 -- ============================================================================
 
 select set_config('app.test_org_a', (select id::text from organizations where slug = 'wow-lab'), true);
-select set_config('app.test_user_manage', (select id::text from users where email = 'test+ui-owner@wowlab.dev'), true);
+select set_config('app.test_user_manage', (select id::text from users where email = 'test+owner-a@wowlab.dev'), true);
 select set_config('app.test_user_fellow', (select id::text from users where email = 'test+ui-ops@wowlab.dev'), true);
 
 -- Ground truth, captured while still privileged -- assertions 3/4 compare

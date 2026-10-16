@@ -7059,10 +7059,87 @@ silent finally** (item 102): it runs as its own announced step, again on the fai
 **effect is re-queried** — `0` marked rows left, Test Org B back to the 3 sessions and 2 groups it
 was found with. Fixtures are deleted **by marker**, never by captured ids (item 124).
 
-**Blocked on:** nothing built here. Two questions are open and neither is engineering: whether the
-**secundar** is paid on the same formula as the principal (asked of Anca; built on the current
-formula, identical for both, until she answers), and whether item 121's pre-close block should be
-replaced by the calculation's own list.
+**UPDATE 2026-10-16 — four changes, and the pattern written down as a pattern.**
+
+**1. The set-returning shape is now a convention, not this screen's exception.**
+`docs/DATABASE_CONVENTIONS.md` §13: *any* screen that computes a value per row and can fail per row
+gets one set-returning function returning a value **or** a classified `reason_code`, never one call
+per row and never one call that aborts because one row was unanswerable. Nothing about it is
+specific to pay — an invoice line per workshop, a client price per session, a margin per contract
+are the same shape. The section carries the whole checklist (null value exactly when reason_code is
+set, `error_text` always returned, classify next to the raises, range-scoped, `SECURITY INVOKER`,
+refuse a nonsense window, round per row) and the test that has to come with it.
+
+**2. The month is in the URL, and the function takes a range** (`202610160001`). `/payroll?month=
+YYYY-MM`, resolved on the server, with the current month as an **explicit** fallback — a malformed,
+absent or impossible value lands on the current month rather than on an empty screen that reads as
+*"nobody is owed anything"*. Validated by reconstruction, not by regex alone: `2026-13` matches
+`/\d{4}-\d{2}/` and is not a month. The immediate reason is that Anca can send a link to a specific
+month and the page survives a refresh; the reason in two years is that the plpgsql loop costs ~6
+indexed lookups per trainer slot, so org-wide at ~500 sessions a year is ~6,000 lookups per load,
+growing forever, to render one month — scoped, it is ~500 and flat. **The sessions fetch is scoped
+to the same bounds**, or the sums and the confirmation list would describe different sets of
+workshops. `p_to_exclusive` is exclusive and named so, which keeps 28/29/30/31 out of TypeScript
+entirely. An inverted or empty range **raises** rather than returning zero rows, because zero rows
+is indistinguishable from a genuinely empty month and on this screen that is a statement about
+money.
+
+**3. The reason_code coverage test is derived from the function sources, not written by hand**
+(`db/tests/payroll_reason_code_coverage.sql`). It reads the six producing functions out of
+`pg_proc`, extracts every `raise exception` literal and every `when v_error like ... then ...`
+branch, substitutes the `%` placeholders, and asserts with `LIKE` that **every raise has a branch
+that matches it** — plus that every branch is reachable, that no raise maps to two different codes
+(the CASE's first match would win silently), and that the derivation itself found all six functions
+and ≥14 raises, so the file cannot pass by testing nothing the way `rls_ws_d_write.sql` did for a
+month.
+
+This replaced fourteen hand-written cases, and the reason is item 120's: *a checker that knows what
+to look for only finds what someone already thought of.* That verifier had six anticipated forms
+and missed the seventh, introduced in the same commit. **Proved to have teeth by sabotage**: inside
+a rolled-back transaction it replaces `app.resolve_language_bonus` with a stub carrying an
+unclassified raise, restates the headline assertion verbatim, and requires it to come back false —
+which it does, naming the function and the message. The first draft of that block asserted the flip
+rather than restating the assertion, which is backwards under the runner's own convention
+(`run_rls_suite.ts` inverts any check named `SABOTAGE`), so it reported two failures until it was
+restated.
+
+Two reason codes were added while doing this, both for raises in `calculate_session_pay` the
+original classifier had skipped as unreachable: `no_trainer` and `no_session`. They are still
+unreachable through this screen — the function only asks about trainers holding a slot on a
+workshop it just read — but *"unreachable today"* is a fact about today's callers, not about the
+function, and the derived test does not accept an unclassified raise on those grounds.
+
+**4. One block, one number** — the presentation change Mihai asked for before the schedule import.
+There were two: item 121's five-question mirror, and the sums total's own *"excludes N workshops"*
+line. **Two blocks counting the same month by two different definitions, able to disagree in front
+of the person closing it.** Now one block with one count, split into two named sections by **who can
+act**: *"Missing information — someone can still enter it"* and *"Gaps in the pay grid — not fixable
+from this screen"*. The second exists so a grid gap is never filed under *"somebody forgot to type
+something"* — that is the difference between a task and a dead end. The total's caveat now *refers*
+to that single count (*"excludes the N workshops listed above"*) instead of carrying a second one.
+
+**The two sources are merged rather than one being picked, because they cover different things.**
+The calculation's reason_codes are the superset — they include the pay-grid gaps the mirror
+provably missed. But the mirror sees one thing the calculation cannot: **a workshop with no trainer
+in either slot produces no pay rows at all**, so there is no row to carry a reason, and *nobody to
+pay* is still a reason not to close the month. So the calculation answers for workshops that have
+slots, the mirror's `no_trainer` for workshops that have none — and the mirror alone when the sums
+are unavailable, which is exactly the screen item 121 shipped. The only new judgement is the
+five-code `FIXABLE_BY_ENTRY` set; a workshop lands in the second section only if **nothing** about
+it can be fixed by entering something.
+
+**Re-verified:** `db/tests/payroll_org_session_pay.sql` now 25 assertions across 4 blocks (block 4
+is the range: `p_from` inclusive, the 31st included, `p_to_exclusive` excluded, the previous
+month's last day excluded, and both nonsense ranges raising).
+`scripts/verify_payroll_sums_test_org_b.ts` now 23 checks, including five for the URL month —
+`?month=2026-01` renders its own empty month and not this one's figures, and `not-a-month`,
+`2026-13` and no-month-at-all all fall back to the current month.
+
+**Blocked on:** one question, and it is not engineering: whether the **secundar** is paid on the
+same formula as the principal. Asked of Anca; built on the current formula, identical for both,
+until she answers. The other question that was open here — whether item 121's block should be
+replaced by the calculation's own list — is answered in the update above: merged into one block,
+because neither source is a superset of the other.
 **Re-verify when:** a resolver's raise message is reworded — the `'unknown'` assertion is the
 tripwire, and the classifier is the thing to update. Also when `/payroll`'s gate or the rate tables'
 SELECT policies change, because the guard's premise ("every viewer who can open this page can read
@@ -7157,15 +7234,133 @@ behaviour and needs no fix** — it is the exact mirror of item 130's problem (C
 first person holding *both* a trainer grade and an admin rate, which is why the hours-entry screen
 cannot key pay on the person).
 
-**Blocked on:** a decision, not work. Whether to revoke payroll roles from the two signed-in test
-accounts, and whether Anka's Senior Trainer / Trainer roles are intentional.
+**RESOLVED 2026-10-16 — both halves acted on, in opposite directions.**
+
+**1. The two signed-in test accounts lost their payroll roles** (`202610160002`).
+`test+ui-owner@wowlab.dev` (Organization Owner) and `test+ui-finance-ops@wowlab.dev` (Finance
+Operations) now hold no role in `wow-lab`. The other four stay, deliberately: the two with no
+`auth.users` row are not an exposure and are load-bearing for four `db/tests/` files, and the two
+`maxdigitalro+` aliases are Mihai's own, needed to view the screens as each role.
+
+**They were not deleted from the org.** Both held exactly one role row, so deleting it would have
+left them with zero `user_org_roles` rows and they would have vanished from `/admin/users`' Members
+list entirely. `app/(app)/admin/users/actions.ts` already refuses to do that — when every role is
+unchecked it re-inserts a single row with `role_id = null`, which is how *"member, no role
+assigned"* is represented (`202609040003`/`202609040004`, enforced by the partial unique index
+`user_org_roles_one_membership_per_org_user`). The migration mirrors that rather than inventing a
+shape. They keep their `auth.users` row, can still sign in, and will now be refused by `/payroll`'s
+own gate.
+
+**The six `scripts/verify_*.sql` that impersonated them were re-pointed, not given the roles back**
+— at `test+owner-a@wowlab.dev` and `test+finance-ops-a@wowlab.dev`, whose role sets are
+**identical** (one role each, the same one, verified before the change). That is the better state
+on its own terms: SQL-impersonation scripts now use the accounts convention 11 says exist for SQL
+impersonation, while the `test+ui-*` accounts exist for browser verification — which is exactly
+why they can sign in and were the exposure. Two `*_test_org_b.ts` scripts mentioned
+`test+ui-owner` only in a run-instruction comment; those were updated too.
+`202608120006_add_is_test_account_flag.sql` still names them and is **not** edited: an applied
+migration records what was true when it was written.
+
+**2. Anka Orban's trainer roles are gone** (`202610160003`), and the question that justified them
+is closed. **Anca, 2026-10-16: Anka does not deliver workshops.** The `ateliere` row in her
+`admin_rates` is *administrative work ON workshops*, not workshops taught — so the second pay path
+this item suspected **does not exist**, `app.calculate_session_pay` is complete as written, and the
+two trainer roles were an anomaly rather than a record of anything.
+
+**What she lost, measured by simulating the removal in a rolled-back transaction before doing it**
+— necessary because she holds **twelve** roles here, so the question was never "do her two finance
+roles cover this" but "do the other ten":
+
+| Capability | After removal | Why |
+|---|---|---|
+| `mywork.*` | **lost** | 8 policies / 7 tables, `/my-work`, the confirm-attendance gate |
+| `finance.own.read` | **lost** | 0 policies, 0 code references — inert |
+| `materials.custody` | **lost** | 0 policies, 0 code references — inert |
+| `community.read` | kept | via `community.*` (Community & People) |
+| `curriculum.read` | kept | via `curriculum.*` (Curriculum Manager) |
+| `presentations.own` | kept | via `presentations.*` (Curriculum Manager) |
+| `sessions.read`, `groups.read`, `finance.operations.*`, `finance.reporting.*` | kept | her finance/ops roles |
+
+**It cost her no visibility at all.** Rows actually readable before/after on all seven tables with a
+`mywork.*` branch: sessions 0/0, groups 2/2, clients 3/3, client_contacts 4/4, users 38/38,
+session_lesson_plans 0/0, payroll_periods 0/0 — her broader grants already covered everything the
+own-slot branches gave her, so `/payroll` is unaffected. Landing destination unchanged:
+`resolve_landing_flags` returns `has_mywork=false, has_beyond=true`, which is `/profile`, where
+`has_beyond=true` already sent her. Confirmed again after the migration, impersonating her: the
+three gone, the rest kept.
+
+So she lost `/my-work` and the ability to confirm her own delivery of a workshop she does not
+deliver. **Not touched:** her ten other roles, including the two finance ones that let her close the
+month.
+
+**Blocked on:** nothing. Both decisions were made and applied 2026-10-16.
 **Re-verify when:** a test account gains a payroll-capable role, or `seed.sql` adds one — the
 question to ask is *"can it sign in?"*, which `is_test_account` does not answer.
-**Lives in:** nothing changed; measured live against `user_org_roles` / `auth.users` /
-`admin_rates` / `suppliers`. Item 136 above (the sums that made this worth asking), item 18 below
+**Lives in:** `supabase/migrations/202610160002_revoke_payroll_roles_from_signed_in_test_accounts.sql`,
+`supabase/migrations/202610160003_revoke_anka_orban_trainer_roles.sql` (+ both rollbacks), and the
+six re-pointed `scripts/verify_*.sql`; measured live against `user_org_roles` / `auth.users` /
+`admin_rates` / `suppliers`. Item 138 below (the `ateliere` label that caused this question). Item 136 above (the sums that made this worth asking), item 18 below
 (`is_test_account = false` does not mean a real person), item 95 above (Luiza's deliberate absence),
 item 130 above (grade *and* admin rate on one person), item 128 above (the admin rates and the
 uplift), item 122 above (a slot is a plain FK with no role requirement).
+
+---
+
+### 138. `admin_rates.task_category = 'ateliere'` means administrative work ON workshops, not workshops taught — a label that already misled once, on the day it was read
+
+2026-10-16. The three categories in `public.admin_rates` are **`admin`**, **`ateliere`** and
+**`financiar`**. Only one of them is named after the thing it is *about* rather than the work it
+pays for, and that one is wrong in the obvious reading:
+
+> **`ateliere` is administrative work ON workshops — organising them, and sales. It is NOT workshops
+> delivered.** Anca, 2026-10-16.
+
+**It misled within hours of being read.** Investigating why Anka Orban holds trainer roles with no
+trainer grade (item 137 above), this session found her `admin_rates` rows — `admin` 80, `ateliere`
+80, `financiar` 90 — and reported the `ateliere` row as evidence of *"a second pay path for
+workshops that app.calculate_session_pay does not know about"*. Mihai asked Anca rather than
+accepting it. There is no second path: she does not deliver workshops, the row pays her for
+administering them, and the function is complete as written. Had the inference stood, the next move
+would have been to make `calculate_session_pay` consult `admin_rates` — wiring an administrative
+hourly rate into workshop pay, for a person who teaches nothing.
+
+**Why this is worth a register entry rather than a column comment.** The label is not wrong in
+context — `202610120011`'s own header says it plainly (*"ateliere is workshop organisation plus
+sales"*), quoting Anca's 2026-08-07 answer. The failure mode is that **nobody reads a table's
+creating migration before reading its rows.** A category value is read in a query result, next to a
+number, with no header in sight; `ateliere` beside `80` reads as *"workshops, 80 lei"*. This is item
+131's shape — a label repeated often enough reads as sourced — except here the label was accurate
+from the start and still produced a false inference, because the word is the name of a different
+thing in the same system. `groups.delivery_format` and `sessions` are *about* ateliere; this column
+is not.
+
+**The two facts that disambiguate it, for whoever reads this next:**
+- `admin_rates.rate_kind = 'hourly'` for all three of Anka's rows. Workshop pay is never hourly in
+  this system — it is grade rate × duration multiplier × bonuses, per workshop
+  (`202609250001`), and the duration multiplier exists precisely because a 2-hour workshop is
+  **1.5×**, not 2×. An hourly row cannot be workshop delivery pay.
+- Workshop delivery pay requires a `trainer_grade_assignments` row, and
+  `app.calculate_session_pay` never reads `admin_rates` at all — by construction, not by omission.
+  A person with an `ateliere` admin rate and no grade is unpayable for a workshop, and that is
+  correct.
+
+**Not renamed.** `task_category` is CHECK-constrained to these three values and
+`app.resolve_admin_rate` resolves on them; a rename is a migration plus a resolver change plus the
+hours-entry screen that does not exist yet (item 130 above). The cost is not the problem — the
+problem is that renaming it to something like `ateliere_admin` would be the third name for this work
+in a system that already has Anca's own words for it, and the right moment to settle the vocabulary
+is when that screen gets built and someone has to label the dropdown. **Recorded here so the next
+reader does not repeat the inference**, and flagged as a decision for the hours-entry screen rather
+than as a defect.
+
+**Blocked on:** nothing. This is a note, not work.
+**Re-verify when:** the hours-entry screen (item 130 above) is built — that is when the label stops
+being read only in query results and gets shown to a person, and when a rename should be decided
+rather than deferred again.
+**Lives in:** `supabase/migrations/202610120011_create_admin_rates.sql` (the header that already
+said this), `supabase/migrations/202610120012_seed_admin_rates.sql`; item 137 above (the inference
+this corrects), item 131 above (the same class of label failure), item 130 above (the screen that
+will have to name this work out loud), item 128 above (the rates themselves and the 11% uplift).
 
 ---
 ### 18. Pending invites — cut deliberately

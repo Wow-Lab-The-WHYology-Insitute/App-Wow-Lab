@@ -10,7 +10,7 @@
  *
  * Run (real WOW LAB org, production, read-only assertions only -- no
  * action calls, since that would move a real client's status):
- *   VERIFY_ORG_NAME="WOW LAB" VERIFY_OWNER_EMAIL="test+ui-owner@wowlab.dev" \
+ *   VERIFY_ORG_NAME="WOW LAB" VERIFY_OWNER_EMAIL="test+owner-a@wowlab.dev" \
  *   VERIFY_SITE_URL="https://app.wowlab.ro" VERIFY_READONLY=1 \
  *   npx tsx --env-file=.env.local scripts/verify_client_effective_status_test_org_b.ts
  */

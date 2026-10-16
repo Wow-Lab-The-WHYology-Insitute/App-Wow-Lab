@@ -23,12 +23,18 @@
 -- request.jwt.claims change, not another role switch.
 --
 -- Verification reads row_history directly, once, from the final
--- authenticated context: test+ui-owner@wowlab.dev (organization_owner)
+-- authenticated context: test+owner-a@wowlab.dev (organization_owner)
 -- holds org.audit.read, so the "authenticated select row_history" policy
 -- (platform owner OR org.audit.read on a non-null organization_id) lets it
 -- see every row this script writes, including the ones written before it
 -- became the active role -- RLS SELECT visibility depends on the row's
 -- own organization_id and the reader's capability, not on who wrote it.
+-- NOTE 2026-10-16: re-pointed from test+ui-owner / test+ui-finance-ops to
+-- test+owner-a / test+finance-ops-a (202610160002 revoked the first two's
+-- roles -- they can sign in, and /payroll now shows real pay). The role sets
+-- are identical, one role each, verified; and SQL impersonation is what the
+-- no-auth.users fixtures exist for (convention 11), while the test+ui-*
+-- accounts exist for browser verification.
 
 begin;
 
@@ -94,7 +100,7 @@ create policy "_test_temp_delete_clients_row_history_verify" on public.clients
 -- ============================================================================
 
 select set_config('app.test_org_a', (select id::text from organizations where slug = 'wow-lab'), true);
-select set_config('app.test_owner', (select id::text from users where email = 'test+ui-owner@wowlab.dev'), true);
+select set_config('app.test_owner', (select id::text from users where email = 'test+owner-a@wowlab.dev'), true);
 select set_config('app.draft_contract', (select id::text from contracts where status = 'draft' and organization_id = current_setting('app.test_org_a')::uuid limit 1), true);
 select set_config('app.legal_entity', (select id::text from legal_entities where organization_id = current_setting('app.test_org_a')::uuid limit 1), true);
 select set_config('app.some_group', (select id::text from groups where organization_id = current_setting('app.test_org_a')::uuid limit 1), true);
@@ -114,7 +120,7 @@ update org_settings set evaluations_confidential = evaluations_confidential
 
 -- ============================================================================
 -- PHASE 2 -- the one switch into authenticated. Every write from here on
--- is test+ui-owner@wowlab.dev (organization_owner -- confirmed live to
+-- is test+owner-a@wowlab.dev (organization_owner -- confirmed live to
 -- hold org.settings.manage, org.entities.manage, org.members.manage,
 -- clients.create, contracts.*, and org.audit.read, satisfying every
 -- policy this script touches, including the one it reads row_history

@@ -6,6 +6,10 @@
 -- same naming choice as calculate_session_pay.sql and
 -- capability_liveness.sql.
 --
+-- Takes a date range since 202610160001 ([p_from, p_to_exclusive)), so
+-- blocks 1-3 pass a year-wide range and scope their own rows by group_id;
+-- block 4 is about the range itself.
+--
 -- Calls the PUBLIC wrapper throughout, not app.*, because that is what
 -- /payroll actually calls through .rpc() -- testing the app function
 -- directly would leave the one thing this migration exists for (the
@@ -74,7 +78,7 @@ begin;
 
   create temp table pay_rows as
   select p.*
-  from public.calculate_org_session_pay(current_setting('app.wow_lab')::uuid) p
+  from public.calculate_org_session_pay(current_setting('app.wow_lab')::uuid, '2026-01-01', '2027-01-01') p
   join public.sessions s on s.id = p.session_id
   where s.group_id = 'dd000000-0000-0000-0000-000000000001';
 
@@ -150,7 +154,7 @@ begin;
 
   create temp table pay_rows as
   select p.*
-  from public.calculate_org_session_pay(current_setting('app.wow_lab')::uuid) p
+  from public.calculate_org_session_pay(current_setting('app.wow_lab')::uuid, '2026-01-01', '2027-01-01') p
   join public.sessions s on s.id = p.session_id
   where s.group_id = 'dd000000-0000-0000-0000-000000000002';
 
@@ -247,7 +251,7 @@ begin;
 
   create temp table pay_rows as
   select p.*
-  from public.calculate_org_session_pay(current_setting('app.wow_lab')::uuid) p
+  from public.calculate_org_session_pay(current_setting('app.wow_lab')::uuid, '2026-01-01', '2027-01-01') p
   join public.sessions s on s.id = p.session_id
   where s.group_id in ('dd000000-0000-0000-0000-000000000003', 'dd000000-0000-0000-0000-000000000004');
 
@@ -281,7 +285,7 @@ begin;
   insert into check_results values (
     'reason_code no_grade_version (grade resolves, no grid version that early)',
     (select p.reason_code = 'no_grade_version'
-     from public.calculate_org_session_pay(current_setting('app.wow_lab')::uuid) p
+     from public.calculate_org_session_pay(current_setting('app.wow_lab')::uuid, '2026-01-01', '2027-01-01') p
      where p.session_id = 'ee000000-0000-0000-0000-00000000000b')
   );
 
@@ -297,6 +301,101 @@ begin;
     'the one complete workshop still returns money among five failures: 220.98',
     (select amount = 220.98 from pay_rows where session_id = 'ee000000-0000-0000-0000-00000000000a')
   );
+
+  select check_name, pass from check_results order by check_name;
+rollback;
+
+-- ============================================================================
+-- Block 4: THE RANGE IS THE SCOPE (202610160001). The function takes
+-- [p_from, p_to_exclusive) rather than scanning the whole organization,
+-- because /payroll's month now comes from the URL and the plpgsql loop
+-- costs ~6 indexed lookups per trainer slot -- org-wide, that grows with
+-- the org's history forever to render one month.
+--
+-- Asserts the three things a range has to get right: it includes p_from,
+-- it EXCLUDES p_to_exclusive (the off-by-one that would silently drop the
+-- 1st of the next month into the wrong payroll period, or the 31st out of
+-- this one), and an inverted range raises rather than returning zero rows
+-- -- because zero rows on this screen reads as "nobody is owed anything".
+-- ============================================================================
+begin;
+  select set_config(
+    'request.jwt.claims',
+    json_build_object('sub', (select id from public.users where email = 'anca.tanasescu@gmail.com'), 'role', 'authenticated')::text,
+    true
+  );
+  select set_config('app.wow_lab', (select id::text from public.organizations where slug = 'wow-lab'), true);
+  select set_config('app.teodora', (select id::text from public.users where email = 'merisanteodora@gmail.com'), true);
+  select set_config('app.avenor_client', (select id::text from public.clients where organization_id = current_setting('app.wow_lab')::uuid and name = 'Scoala Avenor'), true);
+
+  create temp table check_results (check_name text, pass boolean);
+
+  insert into public.groups (id, organization_id, client_id, module, delivery_format, language_group)
+  values ('dd000000-0000-0000-0000-000000000005', current_setting('app.wow_lab')::uuid, current_setting('app.avenor_client')::uuid, 'gaga', 'parteneriate_companii', 'fr_de_es');
+
+  -- One workshop on each boundary and one in the middle of the month.
+  insert into public.sessions (id, organization_id, group_id, session_date, trainer_principal_id, status, duration_minutes, location_tier)
+  values
+    ('ef000000-0000-0000-0000-000000000001', current_setting('app.wow_lab')::uuid, 'dd000000-0000-0000-0000-000000000005', '2026-09-30', current_setting('app.teodora')::uuid, 'planned', 120, 'imprejurimi'),
+    ('ef000000-0000-0000-0000-000000000002', current_setting('app.wow_lab')::uuid, 'dd000000-0000-0000-0000-000000000005', '2026-10-01', current_setting('app.teodora')::uuid, 'planned', 120, 'imprejurimi'),
+    ('ef000000-0000-0000-0000-000000000003', current_setting('app.wow_lab')::uuid, 'dd000000-0000-0000-0000-000000000005', '2026-10-31', current_setting('app.teodora')::uuid, 'planned', 120, 'imprejurimi'),
+    ('ef000000-0000-0000-0000-000000000004', current_setting('app.wow_lab')::uuid, 'dd000000-0000-0000-0000-000000000005', '2026-11-01', current_setting('app.teodora')::uuid, 'planned', 120, 'imprejurimi');
+
+  -- October 2026, exactly as /payroll builds it: first of the month, first
+  -- of the next.
+  create temp table october as
+  select p.session_id
+  from public.calculate_org_session_pay(current_setting('app.wow_lab')::uuid, '2026-10-01', '2026-11-01') p
+  join public.sessions s on s.id = p.session_id
+  where s.group_id = 'dd000000-0000-0000-0000-000000000005';
+
+  insert into check_results values (
+    'p_from is INCLUSIVE: the 1st of the month is in',
+    (select exists (select 1 from october where session_id = 'ef000000-0000-0000-0000-000000000002'))
+  );
+  insert into check_results values (
+    'the last day of the month is in (31 days, not 30)',
+    (select exists (select 1 from october where session_id = 'ef000000-0000-0000-0000-000000000003'))
+  );
+  insert into check_results values (
+    'p_to_exclusive is EXCLUSIVE: the 1st of the NEXT month is out',
+    (select not exists (select 1 from october where session_id = 'ef000000-0000-0000-0000-000000000004'))
+  );
+  insert into check_results values (
+    'the last day of the PREVIOUS month is out',
+    (select not exists (select 1 from october where session_id = 'ef000000-0000-0000-0000-000000000001'))
+  );
+  insert into check_results values (
+    'exactly the two October workshops are returned, nothing else',
+    (select count(*) = 2 from october)
+  );
+
+  -- An inverted range refuses. Zero rows would be indistinguishable from a
+  -- month with no workshops, which on this screen is a statement about
+  -- money.
+  do $$
+  declare
+    v_caught boolean := false;
+  begin
+    begin
+      perform * from public.calculate_org_session_pay(current_setting('app.wow_lab')::uuid, '2026-11-01', '2026-10-01');
+    exception when others then
+      v_caught := true;
+    end;
+    insert into check_results values ('an inverted range raises rather than returning zero rows', v_caught);
+  end $$;
+
+  do $$
+  declare
+    v_caught boolean := false;
+  begin
+    begin
+      perform * from public.calculate_org_session_pay(current_setting('app.wow_lab')::uuid, '2026-10-01', '2026-10-01');
+    exception when others then
+      v_caught := true;
+    end;
+    insert into check_results values ('an empty range (from = to) raises rather than returning zero rows', v_caught);
+  end $$;
 
   select check_name, pass from check_results order by check_name;
 rollback;

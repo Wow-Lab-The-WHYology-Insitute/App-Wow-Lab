@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "@/lib/i18n";
 import { payrollDict } from "./i18n";
 import { closePayrollPeriod } from "./actions";
@@ -29,11 +30,6 @@ type Session = {
   principal: SessionSlot | null;
   secundar: SessionSlot | null;
 };
-
-function currentMonthValue() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
 
 // period is always "YYYY-MM-01" (the CHECK constraint on payroll_periods
 // enforces this) -- parsed as local-time y/m/1 rather than through the
@@ -77,12 +73,19 @@ export type UnpriceableWorkshop = {
 
 export function PayrollClient({
   orgId,
+  monthKey,
   periods,
   sessions,
   unpriceable,
   paySumsAvailable,
 }: {
   orgId: string;
+  // The month on display, "YYYY-MM", resolved on the server from
+  // ?month= with the current month as the explicit fallback. Not state
+  // here any more: changing it navigates, so a month can be linked to and
+  // survives a refresh, and the server can ask the database for one month
+  // instead of the whole org.
+  monthKey: string;
   periods: Period[];
   sessions: Session[];
   unpriceable: UnpriceableWorkshop[];
@@ -96,7 +99,8 @@ export function PayrollClient({
   const { locale } = useLocale();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [monthValue, setMonthValue] = useState(currentMonthValue());
+  const router = useRouter();
+  const [isNavigating, startNavigation] = useTransition();
   const [confirming, setConfirming] = useState(false);
   // Same pendingCreate shape the create forms use, extended here: the
   // close action's own promise resolves (isPending ends) a microtask
@@ -106,7 +110,7 @@ export function PayrollClient({
   // view. Cleared only once `periods` actually contains this period.
   const [pendingClose, setPendingClose] = useState<string | null>(null);
 
-  const period = `${monthValue}-01`;
+  const period = `${monthKey}-01`;
   const alreadyClosed = periods.some((p) => p.period === period);
   const monthLabel = formatPeriodLabel(period, locale);
 
@@ -125,22 +129,48 @@ export function PayrollClient({
   // re-fetched per month change, same reasoning the month <input>'s own
   // plain client state already relies on.
   const monthSlots = useMemo(() => {
-    const monthSessions = sessions.filter((s) => s.sessionDate.slice(0, 7) === monthValue);
+    // No month filter here any more: `sessions` arrives already scoped to
+    // the displayed month by the server, from the same [from, toExclusive)
+    // bounds the pay call used. Filtering again on a prefix match would be
+    // a second, weaker definition of "this month" sitting beside the real
+    // one -- and the two could disagree.
+    const monthSessions = sessions;
     const slots: { session: Session; slot: SessionSlot }[] = [];
     for (const s of monthSessions) {
       if (s.principal) slots.push({ session: s, slot: s.principal });
       if (s.secundar) slots.push({ session: s, slot: s.secundar });
     }
     return { sessionCount: monthSessions.length, slots };
-  }, [sessions, monthValue]);
+  }, [sessions]);
 
   const unconfirmedSlots = monthSlots.slots.filter(({ slot }) => !slot.confirmed);
 
-  // Scoped to the month on display, the same way monthSlots is -- the server
-  // sends the whole org and the month picker is local state.
-  const unpriceableThisMonth = unpriceable.filter((w) => w.sessionDate.slice(0, 7) === monthValue);
+  // Already the month on display -- built on the server from the same
+  // month-scoped `sessions` fetch, so no second filter here either.
   const reasonLabel = (r: UnpriceableReason) =>
     r.key === "no_grade" ? t("unpriceable_no_grade", { name: r.name ?? "" }) : t(`unpriceable_${r.key}`);
+
+  // Which reason_codes are a missing FACT somebody can go and enter, and
+  // which are a hole in the pay grid that nobody can close from a payroll
+  // screen. This is the only new judgement in the consolidation below --
+  // everything else is the same data presented once instead of twice.
+  const FIXABLE_BY_ENTRY = new Set([
+    "no_duration",
+    "no_location",
+    "no_language",
+    "no_trainer",
+    "no_grade",
+  ]);
+
+  // The raw SQL message is the fallback for an unmapped raise shape only.
+  // It names table and column and sometimes a UUID, so it is never the
+  // first choice -- but it is always better than silence, and 'unknown'
+  // means a resolver's wording changed without this screen being told.
+  const payReasonLabel = (reasonCode: string | null, errorText: string | null) => {
+    if (!reasonCode) return null;
+    if (reasonCode === "unknown") return t("pay_reason_unknown", { message: errorText ?? "" });
+    return t(`pay_reason_${reasonCode}`);
+  };
 
   // ---- What each trainer is owed for the month on display ----
   // Grouped by trainer because that is the unit of payment: the timesheet
@@ -222,15 +252,91 @@ export function PayrollClient({
     };
   }, [monthSlots, locale]);
 
-  // The raw SQL message is the fallback for an unmapped raise shape only.
-  // It names table and column and sometimes a UUID, so it is never the
-  // first choice -- but it is always better than silence, and 'unknown'
-  // means a resolver's wording changed without this screen being told.
-  const payReasonLabel = (reasonCode: string | null, errorText: string | null) => {
-    if (!reasonCode) return null;
-    if (reasonCode === "unknown") return t("pay_reason_unknown", { message: errorText ?? "" });
-    return t(`pay_reason_${reasonCode}`);
-  };
+  // ---- One block, one number: every workshop that cannot be paid yet ----
+  // Two sources genuinely cover different things, which is why this merges
+  // rather than picks:
+  //   * the calculation's own reason_codes are the superset -- they include
+  //     gaps in the pay grid, which item 121's five-question mirror cannot
+  //     see and provably missed.
+  //   * the mirror sees one thing the calculation cannot: a workshop with
+  //     NO trainer in either slot produces no pay rows at all, so there is
+  //     no row to carry a reason. Nobody to pay is still a reason not to
+  //     close the month.
+  // So: the calculation for workshops that have slots, the mirror's
+  // no_trainer for workshops that have none -- and the mirror alone when
+  // the sums are unavailable, which is exactly the screen item 121 shipped.
+  const unpayable = useMemo(() => {
+    type Row = { id: string; clientName: string; sessionDate: string; reasons: string[] };
+
+    if (!paySumsAvailable) {
+      // Fallback: no grid access, so there are no reason_codes to merge and
+      // the mirror is the whole answer. Its five reasons are all
+      // fill-in-able by definition, so the second section stays empty.
+      return {
+        fixable: unpriceable.map((w) => ({
+          id: w.id,
+          clientName: w.clientName,
+          sessionDate: w.sessionDate,
+          reasons: w.reasons.map(reasonLabel),
+        })),
+        notFixableHere: [] as Row[],
+        count: unpriceable.length,
+      };
+    }
+
+    const bySession = new Map<string, { clientName: string; sessionDate: string; codes: Set<string>; labels: string[] }>();
+    const note = (session: Session, code: string, label: string) => {
+      let e = bySession.get(session.id);
+      if (!e) {
+        e = { clientName: session.clientName, sessionDate: session.sessionDate, codes: new Set(), labels: [] };
+        bySession.set(session.id, e);
+      }
+      if (e.codes.has(code)) return;
+      e.codes.add(code);
+      e.labels.push(label);
+    };
+
+    for (const { session, slot } of monthSlots.slots) {
+      if (slot.bani !== null || !slot.reasonCode) continue;
+      note(session, slot.reasonCode, payReasonLabel(slot.reasonCode, slot.errorText) ?? "");
+    }
+
+    // The no-trainer case, from the mirror, for workshops the loop above
+    // could not have reached because they contributed no slots.
+    for (const w of unpriceable) {
+      for (const r of w.reasons) {
+        if (r.key !== "no_trainer") continue;
+        const synthetic: Session = {
+          id: w.id,
+          sessionDate: w.sessionDate,
+          clientName: w.clientName,
+          principal: null,
+          secundar: null,
+        };
+        note(synthetic, "no_trainer", reasonLabel(r));
+      }
+    }
+
+    const all = [...bySession.entries()]
+      .map(([id, e]) => ({
+        id,
+        clientName: e.clientName,
+        sessionDate: e.sessionDate,
+        reasons: e.labels,
+        // A workshop goes in the second section only if NOTHING about it can
+        // be fixed by entering something -- otherwise it belongs where
+        // somebody can act on it, with the grid gap listed alongside.
+        anyFixable: [...e.codes].some((c) => FIXABLE_BY_ENTRY.has(c)),
+      }))
+      .sort((a, b) => (a.sessionDate < b.sessionDate ? -1 : a.sessionDate > b.sessionDate ? 1 : 0));
+
+    return {
+      fixable: all.filter((w) => w.anyFixable),
+      notFixableHere: all.filter((w) => !w.anyFixable),
+      count: all.length,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthSlots, unpriceable, paySumsAvailable, locale]);
 
   function handleClose() {
     setError(null);
@@ -266,18 +372,32 @@ export function PayrollClient({
           {t("close_section_heading")}
         </h2>
 
+        {/* Navigation, not state. Changing the month pushes ?month=YYYY-MM
+            so the view can be linked and survives a refresh, and so the
+            server fetches one month rather than the org's whole history.
+            An empty value (the native control allows clearing) is ignored
+            rather than pushed -- /payroll with no month is the current
+            month, and clearing the field is not a request to go there. */}
         <label className="font-body text-muted flex w-fit flex-col gap-1 text-xs">
           {t("month_label")}
           <input
             type="month"
-            value={monthValue}
+            value={monthKey}
             onChange={(e) => {
-              setMonthValue(e.target.value);
+              const next = e.target.value;
+              if (!next) return;
               setConfirming(false);
               setError(null);
+              startNavigation(() => router.push(`/payroll?month=${next}`));
             }}
             className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
           />
+          {/* The month round-trips to the server now, so the wait is real
+              and gets said out loud rather than leaving the old month's
+              figures on screen looking like the new month's. */}
+          {isNavigating && (
+            <span className="font-body text-muted text-[11px] normal-case">{t("month_loading")}</span>
+          )}
         </label>
 
         <div className="mt-4">
@@ -318,38 +438,74 @@ export function PayrollClient({
             </div>
           )}
 
-          {/* Rendered ONLY when something is missing. There is deliberately no
-              "everything can be priced" line: a line that is always there
-              becomes a line nobody reads, and this check earns attention by
-              being absent most of the time. The unconfirmed block above does
-              show a positive line (summary_all_confirmed) -- a difference on
-              purpose, because confirmation is a thing the closer is waiting
-              for, while an unpriceable workshop is an exception. */}
-          {unpriceableThisMonth.length > 0 && (
+          {/* ONE block, ONE number. This replaced two: item 121's five-question
+              mirror and the sums total's own "excludes N workshops" line,
+              which counted the same month by two different definitions and
+              could therefore disagree in front of the person closing it.
+              Same data, presented once, split by WHO CAN ACT rather than by
+              where the fact happens to live.
+
+              Rendered only when something is missing. There is deliberately
+              no "everything can be paid" line: a line that is always there
+              becomes a line nobody reads, and this earns attention by being
+              absent most of the time. The unconfirmed block above does show
+              a positive line, on purpose -- confirmation is something the
+              closer is waiting for, while an unpayable workshop is an
+              exception. */}
+          {unpayable.count > 0 && (
             <div className="mt-3 flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4">
               <span className="font-body text-sm font-semibold text-red-800">
-                {t("unpriceable_heading", { n: unpriceableThisMonth.length, month: monthLabel })}
+                {t("unpayable_heading", { n: unpayable.count, month: monthLabel })}
               </span>
-              <p className="font-body text-xs text-red-700">{t("unpriceable_hint")}</p>
-              <div className="flex flex-col gap-1.5 border-t border-red-200/70 pt-3">
-                <span className="font-body text-xs font-bold tracking-wide text-red-800 uppercase">
-                  {t("unpriceable_list_heading")}
-                </span>
-                <ul className="flex flex-col gap-2">
-                  {unpriceableThisMonth.map((w) => (
-                    <li key={w.id} className="font-body text-xs text-red-900">
-                      <span className="font-semibold">
-                        {w.clientName} · {formatShortDate(w.sessionDate, locale)}
-                      </span>
-                      <ul className="mt-0.5 ml-4 list-disc text-red-700">
-                        {w.reasons.map((r, i) => (
-                          <li key={i}>{reasonLabel(r)}</li>
-                        ))}
-                      </ul>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <p className="font-body text-xs text-red-700">{t("unpayable_hint")}</p>
+
+              {unpayable.fixable.length > 0 && (
+                <div className="flex flex-col gap-1.5 border-t border-red-200/70 pt-3">
+                  <span className="font-body text-xs font-bold tracking-wide text-red-800 uppercase">
+                    {t("unpayable_section_fixable")}
+                  </span>
+                  <ul className="flex flex-col gap-2">
+                    {unpayable.fixable.map((w) => (
+                      <li key={w.id} className="font-body text-xs text-red-900">
+                        <span className="font-semibold">
+                          {w.clientName} · {formatShortDate(w.sessionDate, locale)}
+                        </span>
+                        <ul className="mt-0.5 ml-4 list-disc text-red-700">
+                          {w.reasons.map((r, i) => (
+                            <li key={i}>{r}</li>
+                          ))}
+                        </ul>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* The second section exists so a grid gap is never filed under
+                  "somebody forgot to type something". Nobody can close these
+                  from a payroll screen, and saying so is the difference
+                  between a task and a dead end. */}
+              {unpayable.notFixableHere.length > 0 && (
+                <div className="flex flex-col gap-1.5 border-t border-red-200/70 pt-3">
+                  <span className="font-body text-xs font-bold tracking-wide text-red-800 uppercase">
+                    {t("unpayable_section_not_fixable")}
+                  </span>
+                  <ul className="flex flex-col gap-2">
+                    {unpayable.notFixableHere.map((w) => (
+                      <li key={w.id} className="font-body text-xs text-red-900">
+                        <span className="font-semibold">
+                          {w.clientName} · {formatShortDate(w.sessionDate, locale)}
+                        </span>
+                        <ul className="mt-0.5 ml-4 list-disc text-red-700">
+                          {w.reasons.map((r, i) => (
+                            <li key={i}>{r}</li>
+                          ))}
+                        </ul>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -463,13 +619,15 @@ export function PayrollClient({
                 {t("sums_total_pending", { amount: formatLei(trainerSums.pendingBani, locale) })}
               </p>
             )}
-            {/* The caveat is attached to the total, not hidden in the rows:
-                a total that quietly omits workshops is the one number on
-                this screen that must never be read as complete when it
-                isn't. */}
-            {trainerSums.uncalculableCount > 0 && (
+            {/* The caveat stays attached to the total -- a total that quietly
+                omits workshops must never read as complete -- but it now
+                REFERS to the single count in the block above instead of
+                carrying a second one of its own. That is the whole point of
+                the consolidation: one number, named once, pointed at from
+                wherever else it matters. */}
+            {unpayable.count > 0 && (
               <p className="font-body text-xs text-red-700">
-                {t("sums_total_excludes", { n: trainerSums.uncalculableCount })}
+                {t("sums_total_excludes", { n: unpayable.count })}
               </p>
             )}
           </div>

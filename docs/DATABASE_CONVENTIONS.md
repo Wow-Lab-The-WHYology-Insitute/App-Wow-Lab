@@ -124,3 +124,61 @@ until someone finds deleting more convenient.
 
 This is a general principle, not just about clients — check whether a table already has a
 "soft-gone" status before ever proposing hard delete for it.
+
+## 13. Per-row calculations that can fail per row: one set-returning function, an amount **or** a reason_code
+
+Any screen that computes a value per row and can fail per row gets **one set-returning function
+that returns, for every row, either the value or a classified reason there isn't one** — never one
+call per row, and never a single call that aborts because one row was unanswerable.
+
+First built as `app.calculate_org_session_pay` (`202610150003`, range-scoped in `202610160001`) for
+`/payroll`'s per-trainer pay. It is written down here because **nothing about it is specific to
+pay**: pay per trainer slot, an invoice line per workshop, a client price per session, a margin per
+contract — each computes per row from several lookups, each can be missing an input for one row and
+fine for the next, and each is read by a screen where a wrong number is worse than no number.
+
+**The shape.**
+
+```
+returns table (<row key...>, value numeric, reason_code text, error_text text)
+```
+
+- **One call per screen, not per row.** PostgREST has no way to ask for "the value, or the reason
+  there isn't one" per row, so a per-row wrapper means N round trips *and* no isolation.
+- **A raise aborts the statement**, so the catching has to happen inside plpgsql: a `begin ...
+  exception when others then ... end` block around each row's computation, writing to variables, with
+  `return next` *after* the block rather than inside it.
+- **`value` is null exactly when `reason_code` is set.** Never zero for "could not compute" — on a
+  money screen a zero is a wrong number that becomes a payment.
+- **`error_text` is returned alongside, always.** An unmatched shape classifies as `'unknown'` and
+  the screen prints the raw message: degraded and ugly, never silent. No failure may vanish by
+  failing to match.
+- **Classify inside the function, next to the raises**, not in the application. The alternatives are
+  worse in both directions: re-asking each input question in SQL duplicates the computing function's
+  own guards (and such mirrors drift — item 121's missed every pay-grid gap), while matching in
+  TypeScript puts the match a repo away from the raise it matches.
+- **Scope by range, not by "everything".** The caller passes the window it is about to display
+  (`[p_from, p_to_exclusive)` — exclusive upper bound, so no caller does month-end arithmetic). An
+  org-wide version is only correct while the org is empty; the cost of rendering one screen must not
+  grow with the org's history. That means the window has to be a **server-side** fact — in the URL,
+  not in client state.
+- **`SECURITY INVOKER`**, unless the function has an authorization check of its own. These functions
+  compose lookups over rate/config tables with their own RLS; `SECURITY DEFINER` would let any
+  caller reconstruct those tables row by row from the values returned.
+- **Refuse a nonsense window** (inverted or empty range) with a raise rather than returning zero
+  rows. Zero rows is indistinguishable from "this window is genuinely empty", which on these screens
+  is a statement about money.
+- **Round per row, in `numeric`, if the screen shows a rounded figure** — and let totals be the sum
+  of the rounded rows. Someone adds the displayed rows up by hand; the total has to agree with a
+  calculator. Rounding in the application instead means the language's float representation decides
+  the answer.
+
+**The test that has to come with it.** A hand-written list of the failure shapes tests the shapes
+someone already thought of. Derive them: read the producing functions' source out of `pg_proc`,
+extract every `raise exception` literal and every classifier branch, and assert that **every raise
+has a branch that matches it** and every branch is reachable — then sabotage it (add an
+unclassified raise inside a rolled-back transaction) and assert the check flips to false.
+`db/tests/payroll_reason_code_coverage.sql` is the worked example. Without this, a raise added six
+months later becomes a silent `'unknown'` and every existing assertion still passes — which is
+item 120's lesson, where a checker written with six anticipated forms missed the seventh added in
+the same commit.

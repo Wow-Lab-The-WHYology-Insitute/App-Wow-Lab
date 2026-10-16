@@ -35,11 +35,61 @@ type PayRow = {
   error_text: string | null;
 };
 
+// ---- The month, from the URL ----
+// ?month=YYYY-MM. It was client state until 202610160001; moving it into
+// the URL is what lets Anca send a link to a specific month and what lets
+// the page survive a refresh, and it is the precondition for asking the
+// database for one month instead of the whole org.
+//
+// The fallback is explicit and is the current month: a malformed, absent
+// or out-of-range value must land somewhere real rather than render an
+// empty screen that looks like "nobody is owed anything". Validated by
+// reconstruction rather than by regex alone -- "2026-13" matches
+// /\d{4}-\d{2}/ and is not a month, so the parsed value has to round-trip
+// back to the same string to be accepted.
+function currentMonthKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function resolveMonth(raw: string | string[] | undefined): string {
+  const candidate = Array.isArray(raw) ? raw[0] : raw;
+  if (!candidate || !/^\d{4}-\d{2}$/.test(candidate)) return currentMonthKey();
+  const [year, month] = candidate.split("-").map(Number);
+  if (month < 1 || month > 12) return currentMonthKey();
+  // Years outside this range are not a month Anka meant to look at; they
+  // are a hand-edited URL, and a date-range query on them is pointless.
+  if (year < 2000 || year > 2100) return currentMonthKey();
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+// [from, toExclusive). The exclusive upper bound is the first day of the
+// NEXT month, so nothing here has to know whether a month has 28, 29, 30
+// or 31 days -- the single most common way a date-range filter quietly
+// loses the last day. Month 12 rolls to January of the next year via the
+// Date constructor's own normalisation.
+function monthRange(monthKey: string) {
+  const [year, month] = monthKey.split("-").map(Number);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const nextYear = month === 12 ? year + 1 : year;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  return {
+    from: `${year}-${pad(month)}-01`,
+    toExclusive: `${nextYear}-${pad(nextMonth)}-01`,
+  };
+}
+
 // finance.operations.* OR org.settings.manage -- matches
 // closePayrollPeriod's own gate (app/(app)/payroll/actions.ts) exactly,
 // so nobody who can act on this page is kept from reaching it, and
 // nobody who can reach it is denied by the action underneath.
-export default async function PayrollPage() {
+export default async function PayrollPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const monthKey = resolveMonth((await searchParams).month);
+  const { from, toExclusive } = monthRange(monthKey);
   const supabase = await createClient();
   const {
     data: { user },
@@ -77,18 +127,24 @@ export default async function PayrollPage() {
     .order("period", { ascending: false })
     .returns<PeriodRow[]>();
 
-  // Org-wide, not month-scoped: the month picker on the client is plain
-  // state (no navigation), so the summary for whichever month Anka has
-  // selected is computed there from this one fetch, the same way the
-  // create forms elsewhere in this app hold their own client-side state.
-  // WOW LAB's session volume makes one unfiltered fetch the simpler
-  // choice over wiring a server round-trip to the month picker.
+  // Month-scoped, since 202610160001. This fetch used to be org-wide
+  // because the month picker was client state and the server could not
+  // know which month to ask for; now that the month comes from the URL,
+  // leaving it unfiltered would just move the growing scan from the
+  // plpgsql loop to PostgREST. Same reasoning, same range, as the pay
+  // call below -- and the two MUST use the same bounds, or the sums and
+  // the confirmation list would describe different sets of workshops.
+  //
+  // `periods` above stays unscoped on purpose: it is the history of closed
+  // months, not a view of one month.
   const { data: sessions } = await supabase
     .from("sessions")
     .select(
       "id, session_date, group_id, trainer_principal_id, trainer_secundar_id, trainer_principal_confirmed_at, trainer_secundar_confirmed_at, duration_minutes, location_tier",
     )
     .eq("organization_id", orgId)
+    .gte("session_date", from)
+    .lt("session_date", toExclusive)
     .returns<SessionRow[]>();
 
   const groupIds = [...new Set((sessions ?? []).map((s) => s.group_id))];
@@ -190,13 +246,13 @@ export default async function PayrollPage() {
   });
 
   // ---- What each trainer is owed (the money this screen never showed) ----
-  // One call for the whole org, not one per slot: app.calculate_session_pay
-  // raises on fourteen shapes of missing input, and a raise aborts the
-  // statement -- so the per-slot catching has to happen inside plpgsql.
-  // public.calculate_org_session_pay (202610150003) returns one row per
-  // trainer slot with the amount ALREADY ROUNDED to 2 decimals, or a
-  // reason_code naming why there isn't one. Org-wide for the same reason
-  // the sessions fetch above is: the month picker is client state.
+  // One call for the displayed month, not one per slot:
+  // app.calculate_session_pay raises on sixteen shapes of missing input,
+  // and a raise aborts the statement -- so the per-slot catching has to
+  // happen inside plpgsql. public.calculate_org_session_pay (202610160001)
+  // returns one row per trainer slot in [from, toExclusive) with the
+  // amount ALREADY ROUNDED to 2 decimals, or a reason_code naming why
+  // there isn't one.
   //
   // Gated on being able to read the grids at all, not on /payroll's own
   // gate, because the two differ. The rate tables admit SELECT to
@@ -219,6 +275,8 @@ export default async function PayrollPage() {
   if (canReadPayGrids) {
     const { data, error } = await supabase.rpc("calculate_org_session_pay", {
       p_organization_id: orgId,
+      p_from: from,
+      p_to_exclusive: toExclusive,
     });
     if (error) {
       // Loudly, and into Vercel's function logs, same as resolve_landing_flags'
@@ -261,6 +319,7 @@ export default async function PayrollPage() {
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
       <PayrollClient
         orgId={orgId}
+        monthKey={monthKey}
         paySumsAvailable={payRows !== null}
         periods={(periods ?? []).map((p) => ({
           id: p.id,

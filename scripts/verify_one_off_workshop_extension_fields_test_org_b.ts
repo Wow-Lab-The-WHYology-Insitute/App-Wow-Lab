@@ -19,7 +19,7 @@
  * omitted deliberately: no second WOW LAB trainer fixture with a working
  * auth identity was available, per item 70; assertion 9 is skipped in
  * that case, not faked):
- *   VERIFY_ORG_NAME="WOW LAB" VERIFY_OWNER_EMAIL="test+ui-owner@wowlab.dev" \
+ *   VERIFY_ORG_NAME="WOW LAB" VERIFY_OWNER_EMAIL="test+owner-a@wowlab.dev" \
  *   VERIFY_PRINCIPAL_EMAIL="maxdigitalro+trainer@gmail.com" VERIFY_SITE_URL="https://app.wowlab.ro" \
  *   npx tsx --env-file=.env.local scripts/verify_one_off_workshop_extension_fields_test_org_b.ts
  */

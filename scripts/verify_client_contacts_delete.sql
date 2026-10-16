@@ -10,6 +10,12 @@
 --
 -- Run with: supabase db query --linked --file scripts/verify_client_contacts_delete.sql
 -- Expect: a P0001 error whose message is the assertion report below.
+-- NOTE 2026-10-16: re-pointed from test+ui-owner / test+ui-finance-ops to
+-- test+owner-a / test+finance-ops-a (202610160002 revoked the first two's
+-- roles -- they can sign in, and /payroll now shows real pay). The role sets
+-- are identical, one role each, verified; and SQL impersonation is what the
+-- no-auth.users fixtures exist for (convention 11), while the test+ui-*
+-- accounts exist for browser verification.
 
 begin;
 
@@ -41,7 +47,7 @@ grant delete on public.client_contacts to authenticated;
 select set_config('app.test_org_a', (select id::text from organizations where slug = 'wow-lab'), true);
 select set_config('app.test_contract_admin', (select id::text from users where email = 'test+ui-contract-admin@wowlab.dev'), true);
 select set_config('app.test_ops', (select id::text from users where email = 'test+ui-ops@wowlab.dev'), true);
-select set_config('app.test_owner', (select id::text from users where email = 'test+ui-owner@wowlab.dev'), true);
+select set_config('app.test_owner', (select id::text from users where email = 'test+owner-a@wowlab.dev'), true);
 select set_config('app.lycee_client', (select client_id::text from client_contacts limit 1), true);
 
 with ins as (
@@ -106,7 +112,7 @@ begin
 
   -- ---- 3. row_history captured the successful delete, with the real actor ----
   -- Switch jwt.claims (not role -- still 'authenticated') to
-  -- test+ui-owner@wowlab.dev, which holds org.audit.read: RLS SELECT
+  -- test+owner-a@wowlab.dev, which holds org.audit.read: RLS SELECT
   -- visibility on row_history depends on the READER's capability, not on
   -- who wrote the row (same reasoning as
   -- scripts/verify_row_history_actor_user_id.sql). Neither

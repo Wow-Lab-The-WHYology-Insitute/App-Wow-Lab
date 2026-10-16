@@ -11,6 +11,12 @@
 --
 -- Run with: supabase db query --linked --file scripts/verify_suppliers.sql
 -- Expect: a P0001 error whose message is the assertion report below.
+-- NOTE 2026-10-16: re-pointed from test+ui-owner / test+ui-finance-ops to
+-- test+owner-a / test+finance-ops-a (202610160002 revoked the first two's
+-- roles -- they can sign in, and /payroll now shows real pay). The role sets
+-- are identical, one role each, verified; and SQL impersonation is what the
+-- no-auth.users fixtures exist for (convention 11), while the test+ui-*
+-- accounts exist for browser verification.
 
 begin;
 
@@ -81,8 +87,8 @@ grant select, insert, update on public.suppliers to authenticated;
 select set_config('app.org_a', (select id::text from organizations where slug = 'wow-lab'), true);
 select set_config('app.org_b', (select id::text from organizations where slug = 'wow-lab-test-b'), true);
 select set_config('app.anka', (select id::text from users where email = 'test+ui-finance-admin@wowlab.dev'), true);
-select set_config('app.anca', (select id::text from users where email = 'test+ui-owner@wowlab.dev'), true);
-select set_config('app.laura', (select id::text from users where email = 'test+ui-finance-ops@wowlab.dev'), true);
+select set_config('app.anca', (select id::text from users where email = 'test+owner-a@wowlab.dev'), true);
+select set_config('app.laura', (select id::text from users where email = 'test+finance-ops-a@wowlab.dev'), true);
 select set_config('app.contract_admin', (select id::text from users where email = 'test+ui-contract-admin@wowlab.dev'), true);
 select set_config('app.ops', (select id::text from users where email = 'test+ui-ops@wowlab.dev'), true);
 

@@ -19,6 +19,12 @@
 -- SET LOCAL ROLE authenticated happens exactly once, in Phase 2. After
 -- that, every different simulated user is a change to request.jwt.claims
 -- only -- never another role switch.
+-- NOTE 2026-10-16: re-pointed from test+ui-owner / test+ui-finance-ops to
+-- test+owner-a / test+finance-ops-a (202610160002 revoked the first two's
+-- roles -- they can sign in, and /payroll now shows real pay). The role sets
+-- are identical, one role each, verified; and SQL impersonation is what the
+-- no-auth.users fixtures exist for (convention 11), while the test+ui-*
+-- accounts exist for browser verification.
 
 begin;
 
@@ -86,7 +92,7 @@ grant select on public.users_masked to authenticated;
 -- ============================================================================
 
 select set_config('app.test_org_a', (select id::text from organizations where slug = 'wow-lab'), true);
-select set_config('app.test_user_manage', (select id::text from users where email = 'test+ui-owner@wowlab.dev'), true);
+select set_config('app.test_user_manage', (select id::text from users where email = 'test+owner-a@wowlab.dev'), true);
 select set_config('app.test_user_fellow', (select id::text from users where email = 'test+ui-ops@wowlab.dev'), true);
 select set_config('app.test_user_platform', (select id::text from users where email = 'test+platform@wowlab.dev'), true);
 select set_config('app.test_user_orgb_only', (select id::text from users where email = 'test+cascade-check@wowlab.dev'), true);

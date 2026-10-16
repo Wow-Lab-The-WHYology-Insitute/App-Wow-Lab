@@ -8,6 +8,10 @@ import type { Dictionary } from "@/lib/i18n";
 export const payrollDict: Dictionary = {
   page_title: { en: "Payroll", ro: "Salarizare" },
   month_label: { en: "Month", ro: "Lună" },
+  // The month lives in ?month=YYYY-MM since 202610160001, so changing it is
+  // a server round-trip. Said out loud, because the alternative is the
+  // previous month's figures sitting there looking like the new month's.
+  month_loading: { en: "Loading…", ro: "Se încarcă…" },
   close_section_heading: { en: "Close a month", ro: "Închide o lună" },
   close_month_button: { en: "Close {{month}}", ro: "Închide {{month}}" },
   confirm_prompt: {
@@ -80,15 +84,32 @@ export const payrollDict: Dictionary = {
   // dodge, which avoids being wrong but reads as machine output and is STILL
   // wrong in Romanian at 20+ (needs "de"). As a heading the count belongs in
   // brackets anyway.
-  unpriceable_heading: {
-    en: "Workshops in {{month}} that cannot be priced yet ({{n}})",
+  // ONE heading, ONE count. Replaced unpriceable_heading and the sums
+  // total's separate "excludes N" count, which described the same month by
+  // two definitions and could disagree. unpriceable_list_heading is gone
+  // with them: the list now has two named sections instead of one generic
+  // "what is missing".
+  unpayable_heading: {
+    en: "Workshops in {{month}} that cannot be paid yet ({{n}})",
     ro: "Ateliere din {{month}} care nu pot fi încă plătite ({{n}})",
   },
-  unpriceable_hint: {
-    en: "Closing the month is still possible — but pay cannot be computed for these until the gaps are filled, and a trainer can no longer fix them afterwards.",
-    ro: "Luna poate fi închisă oricum — dar plata nu poate fi calculată pentru acestea până nu se completează, iar după închidere trainerul nu le mai poate corecta.",
+  unpayable_hint: {
+    en: "Closing the month is still possible — but no pay can be computed for these, and once the month is closed a trainer can no longer fix their part.",
+    ro: "Luna poate fi închisă oricum — dar pentru acestea nu se poate calcula nicio plată, iar după închidere trainerul nu își mai poate corecta partea.",
   },
-  unpriceable_list_heading: { en: "What is missing", ro: "Ce lipsește" },
+  // The two sections, split by who can act rather than by where the fact
+  // lives. Neither is fixable on THIS screen -- duration and location sit
+  // on the workshop, language on the group, the grade on trainer grades --
+  // so the first heading says "somebody can still enter it", not "fix it
+  // here", which would be a promise this screen cannot keep.
+  unpayable_section_fixable: {
+    en: "Missing information — someone can still enter it",
+    ro: "Informații care lipsesc — se pot completa",
+  },
+  unpayable_section_not_fixable: {
+    en: "Gaps in the pay grid — not fixable from this screen",
+    ro: "Lipsuri în grila de plată — nu se repară din acest ecran",
+  },
   unpriceable_no_duration: {
     en: "no length recorded on the workshop",
     ro: "atelierul nu are durata înregistrată",
@@ -154,9 +175,12 @@ export const payrollDict: Dictionary = {
   // genuinely needs the number inline. Romanian's three plural forms are
   // sidestepped by "de ateliere", which is correct for 20+ and reads
   // acceptably below it -- the alternative ("1 ateliere") is simply wrong.
+  // Points at the single count in the block above rather than carrying a
+  // second one. "the {{n}} workshops listed above" is deliberate wording:
+  // it tells the reader these are the same workshops, not a further set.
   sums_total_excludes: {
-    en: "Excludes {{n}} workshop(s) that cannot be calculated — see the reasons above.",
-    ro: "Exclude {{n}} ateliere care nu pot fi calculate — vezi motivele mai sus.",
+    en: "Excludes the {{n}} workshop(s) listed above that cannot be paid yet.",
+    ro: "Exclude cele {{n}} ateliere de mai sus care nu pot fi încă plătite.",
   },
 
   // ---- Why a row has no amount ----
@@ -182,6 +206,20 @@ export const payrollDict: Dictionary = {
   pay_reason_no_grade: {
     en: "no grade effective on this date",
     ro: "nu are un grad valabil la această dată",
+  },
+  // Both of these are unreachable through this screen -- the function only
+  // asks about trainers who hold a slot on a workshop it just read from the
+  // table. They exist because db/tests/payroll_reason_code_coverage.sql
+  // derives the required branches from the function sources and will not
+  // accept a raise with no reason_code, reachable or not: "unreachable
+  // today" is a fact about today's callers, not about the function.
+  pay_reason_no_trainer: {
+    en: "no trainer in this slot",
+    ro: "niciun trainer în acest slot",
+  },
+  pay_reason_no_session: {
+    en: "this workshop no longer exists",
+    ro: "acest atelier nu mai există",
   },
   // Should be unreachable: the function is only ever asked about a trainer
   // who holds one of the two slots on that workshop. Worded plainly anyway

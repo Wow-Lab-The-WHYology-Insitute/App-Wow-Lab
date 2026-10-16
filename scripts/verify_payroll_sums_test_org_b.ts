@@ -307,8 +307,20 @@ async function main() {
     // Signed in first, because the function is SECURITY INVOKER and the
     // caller's own SELECT rights on the pay grids are the whole gate.
     const { cookie, client: viewer } = await signIn(a, VIEWER_EMAIL);
+    // The month on display, as [from, toExclusive) -- the same bounds
+    // /payroll builds from ?month=. The function takes a range since
+    // 202610160001 rather than scanning the org.
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const from = `${monthKey}-01`;
+    const toExclusive =
+      now.getMonth() === 11
+        ? `${now.getFullYear() + 1}-01-01`
+        : `${now.getFullYear()}-${String(now.getMonth() + 2).padStart(2, "0")}-01`;
     const { data: fnRows, error: fnErr } = await viewer.rpc("calculate_org_session_pay", {
       p_organization_id: orgId,
+      p_from: from,
+      p_to_exclusive: toExclusive,
     });
     if (fnErr) throw new Error(`calculate_org_session_pay failed as ${VIEWER_EMAIL}: ${fnErr.message}`);
     const mine = (fnRows as { session_id: string; amount: number | string | null; reason_code: string | null }[])
@@ -332,11 +344,13 @@ async function main() {
     );
 
     // ---- 2. The screen, rendered, for the same viewer ----
-    const res = await fetch(`${SITE_URL}/payroll`, { headers: { Cookie: cookie } });
+    // Explicitly with ?month=, which is the path Anca uses when she sends
+    // someone a link to a specific month (202610160001).
+    const res = await fetch(`${SITE_URL}/payroll?month=${monthKey}`, { headers: { Cookie: cookie } });
     const html = await res.text();
     const text = visibleText(html);
 
-    report.push(`2. /payroll responds ${res.status} for ${VIEWER_EMAIL} -> ${res.ok ? "PASS" : "FAIL"}`);
+    report.push(`2. /payroll?month=${monthKey} responds ${res.status} for ${VIEWER_EMAIL} -> ${res.ok ? "PASS" : "FAIL"}`);
     report.push(
       `2. The sums section renders (EN heading "What each trainer is owed") -> ${text.includes("What each trainer is owed") ? "PASS" : "FAIL"}`,
     );
@@ -360,8 +374,31 @@ async function main() {
           : "FAIL"
       }`,
     );
+    // ONE block, ONE number (the consolidation): the heading carries the
+    // count, the two sections classify by who can act, and the total REFERS
+    // to that same count instead of carrying its own.
     report.push(
-      `2. The month total says it excludes 1 workshop -> ${text.includes("Excludes 1 workshop") ? "PASS" : "FAIL"}`,
+      `2. One consolidated block names the count once -> ${text.includes("that cannot be paid yet (1)") ? "PASS" : "FAIL"}`,
+    );
+    report.push(
+      `2. The grid gap is filed under "not fixable from this screen" -> ${
+        text.includes("Gaps in the pay grid — not fixable from this screen") ? "PASS" : "FAIL"
+      }`,
+    );
+    // Nothing in this fixture is a missing-information case, so that section
+    // must be ABSENT -- a section that renders empty is the "line nobody
+    // reads" this screen keeps refusing to add.
+    report.push(
+      `2. The "someone can still enter it" section is absent when nothing qualifies -> ${
+        !text.includes("Missing information — someone can still enter it") ? "PASS" : "FAIL"
+      }`,
+    );
+    report.push(
+      `2. The total refers to that same count, not a second one -> ${text.includes("Excludes the 1 workshop") ? "PASS" : "FAIL"}`,
+    );
+    // The old pair of blocks is gone.
+    report.push(
+      `2. item 121's separate heading no longer renders -> ${!text.includes("cannot be priced yet") ? "PASS" : "FAIL"}`,
     );
     // Confirmed vs unconfirmed, never one figure: one of the two priced
     // workshops is confirmed, so payable is 328.13 and the other 328.13 is
@@ -374,6 +411,43 @@ async function main() {
       }`,
     );
 
+    // ---- 2b. The month comes from the URL (202610160001) ----
+    // A different month must render its own (empty) state rather than the
+    // current month's figures -- which is what would happen if the param
+    // were ignored and the picker were still client state.
+    const otherMonth = "2026-01";
+    const resOther = await fetch(`${SITE_URL}/payroll?month=${otherMonth}`, { headers: { Cookie: cookie } });
+    const textOther = visibleText(await resOther.text());
+    report.push(
+      `2b. ?month=${otherMonth} renders ITS month, not this one's sums (no 656.26, no 328.13) -> ${
+        !textOther.includes("656.26") && !textOther.includes("328.13") ? "PASS" : "FAIL"
+      }`,
+    );
+    report.push(
+      `2b. ?month=${otherMonth} says it has no workshops -> ${textOther.includes("No workshops in") ? "PASS" : "FAIL"}`,
+    );
+
+    // The explicit fallback. A malformed month must land on the current
+    // month rather than on an empty screen that reads as "nobody is owed
+    // anything" -- so this response must look like the first fetch did.
+    const resBad = await fetch(`${SITE_URL}/payroll?month=not-a-month`, { headers: { Cookie: cookie } });
+    const textBad = visibleText(await resBad.text());
+    report.push(
+      `2b. ?month=not-a-month falls back to the current month (shows 656.26) -> ${textBad.includes("656.26 lei") ? "PASS" : "FAIL"}`,
+    );
+    // "2026-13" passes a /\d{4}-\d{2}/ regex and is not a month.
+    const resImpossible = await fetch(`${SITE_URL}/payroll?month=2026-13`, { headers: { Cookie: cookie } });
+    const textImpossible = visibleText(await resImpossible.text());
+    report.push(
+      `2b. ?month=2026-13 (regex-shaped but impossible) also falls back -> ${textImpossible.includes("656.26 lei") ? "PASS" : "FAIL"}`,
+    );
+    // No month at all is the same fallback, and is the link in the nav.
+    const resNone = await fetch(`${SITE_URL}/payroll`, { headers: { Cookie: cookie } });
+    const textNone = visibleText(await resNone.text());
+    report.push(
+      `2b. /payroll with no month is the current month -> ${textNone.includes("656.26 lei") ? "PASS" : "FAIL"}`,
+    );
+
     // ---- 3. RO strings: shipment, not rendering ----
     // The dictionary lives in a client component's chunk, not inline in the
     // HTML -- the first version of this script searched the HTML and
@@ -382,12 +456,24 @@ async function main() {
     // diacritics arrive as \xNN / \uNNNN in minified output.
     const srcs = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1]);
     let bundle = "";
+    let chunkFailures = 0;
     for (const s of srcs) {
       const url = s.startsWith("http") ? s : `${SITE_URL}${s}`;
       try {
-        bundle += await (await fetch(url)).text();
+        const r = await fetch(url);
+        // COUNTED, not swallowed. The first version of this had a bare
+        // `catch {}`, and when a run came back with 140 KB of chunks
+        // instead of 9 MB every RO assertion failed and read as missing
+        // wording. A chunk that does not arrive is not evidence about
+        // translations, and a check that cannot tell those apart is worse
+        // than no check.
+        if (!r.ok) {
+          chunkFailures++;
+          continue;
+        }
+        bundle += await r.text();
       } catch {
-        /* a chunk that fails to fetch contributes nothing */
+        chunkFailures++;
       }
     }
     const decoded = bundle
@@ -396,13 +482,22 @@ async function main() {
     const roShipped = [
       "Cât i se cuvine fiecărui trainer",
       "Total de plată luna aceasta",
+      "Lipsuri în grila de plată — nu se repară din acest ecran",
+      "Informații care lipsesc — se pot completa",
       "grila de durate nu are un rând pentru această durată",
       "încă nu sunt de plată",
-      "Exclude {{n}} ateliere care nu pot fi calculate",
+      "Exclude cele {{n}} ateliere de mai sus",
     ];
     const missingRo = roShipped.filter((s) => !decoded.includes(s));
+    // Reported before the wording result, because it decides whether the
+    // wording result means anything at all.
     report.push(
-      `3. RO wording SHIPPED in the client bundle, ${srcs.length} chunks / ${bundle.length} bytes (weaker claim than rendered: the locale is client-only) -> ${missingRo.length === 0 ? "PASS" : `FAIL (missing: ${missingRo.join(" | ")})`}`,
+      `3. All ${srcs.length} client chunks fetched (${chunkFailures} failed, ${bundle.length} bytes) -> ${chunkFailures === 0 ? "PASS" : "FAIL — the RO result below is not evidence"}`,
+    );
+    report.push(
+      `3. RO wording SHIPPED in the client bundle (weaker claim than rendered: the locale is client-only) -> ${
+        chunkFailures > 0 ? "INCONCLUSIVE (chunks missing)" : missingRo.length === 0 ? "PASS" : `FAIL (missing: ${missingRo.join(" | ")})`
+      }`,
     );
 
     // ---- 4. Cleanup, as its own announced step on the happy path ----
