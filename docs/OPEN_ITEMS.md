@@ -6909,6 +6909,265 @@ asset-hash change this coincided with); item 109 above (naming a cause before ve
 mistake §1 exists to avoid).
 
 ---
+
+### 136. `/payroll` shows money — a year after the function that computes it was written and left uncalled, and the rounding rule is the part that had to be decided rather than discovered
+
+2026-10-15. `app.calculate_session_pay` (item 99, `202609250001`) had been tested and **uncalled**
+since 2026-09-25 — its own header said so: *"nothing calls this function yet (no UI, no payroll
+screen)"*. `/payroll` showed confirmation state and the pre-close check (item 121) and **no money
+at all**, so Anka closed the month without seeing what she was closing. This is the caller.
+
+**What it is: one set-returning function, not the ten-line wrapper the scope report promised.** The
+report said `public.calculate_session_pay(session, trainer)`, ~10 lines, forwarding only. Two
+things found while building made that wrong:
+
+1. **A raise aborts the statement.** `calculate_session_pay` raises on fourteen distinct shapes of
+   missing input, and PostgREST gives no way to ask for "the amount, or the reason there isn't
+   one". Catching per slot is only possible inside plpgsql. A per-slot wrapper would have meant one
+   round trip per trainer slot **and no isolation** — one 30-minute Școala Altfel workshop would
+   have turned the whole month's total into a 500.
+2. **The month picker is client state**, not navigation (`page.tsx`'s own comment says why), so the
+   server component cannot know which month to ask about. The function returns the whole org, for
+   the same reason the sessions fetch above it already does.
+
+Still `SECURITY INVOKER`, like every resolver underneath and like `calculate_session_pay` itself.
+`SECURITY DEFINER` would let any caller reconstruct the whole pay grid row by row from the amounts
+— exactly what that function's own header refused one level down.
+
+**THE ROUNDING RULE, which is a decision and not a detail.** Every workshop row rounds to 2
+decimals; a trainer's total is the sum of the **rounded** rows, never the unrounded sum rounded
+once at the end. Mihai's reason, and it is the right one: *Anca emite factura din ecranul asta și va
+aduna rândurile de mână; totalul trebuie să dea cu calculatorul.*
+
+The two rules differ for real, and the suite asserts the discriminating pair:
+
+> Two slots at **276.225** each → `276.23 + 276.23 = **552.46**`, while rounding the `552.45` sum at
+> the end gives **552.45**. One ban apart, and the second makes the screen look wrong to the person
+> adding it up.
+
+**Rounded in Postgres `numeric`, never in JS** — 276.225 is not representable in binary floating
+point, so the language doing the rounding decides the answer. `numeric` rounds half away from zero,
+exactly once, in the function. TypeScript then converts each already-rounded amount to **integer
+bani** and sums integers: `276.23 + 276.23` in float64 is `552.4599999999999`. The only float
+arithmetic left in the pay path is the single division by 100 at render.
+
+`calculate_session_pay` itself stays **unrounded**, deliberately — item 95's finding (444 of 1,456
+real approved historical amounts carry bani) is unchanged. The unrounded product is still the
+calculation's truth; this round added a display layer that asks for two decimals.
+
+**A raise costs its own row and nothing else.** The row shows the reason, the trainer keeps the
+total from their other workshops, and the month total says explicitly that it excludes N workshops —
+counted by distinct **workshop**, not by slot, because two bad slots on one workshop are one thing
+to go and look at. The caveat sits on the total rather than only in the rows: a total that quietly
+omits workshops is the one number on this screen that must never read as complete when it isn't.
+
+**Reasons in plain language, classified in SQL next to nothing.** The fourteen raise shapes map to a
+`reason_code`, matched on substrings **in the function**, because the two alternatives are both
+worse: re-asking the five input questions in SQL duplicates `calculate_session_pay`'s own guards
+(the mirror item 121 keeps, which **provably drifted** — it misses every grid gap), and matching in
+TypeScript would put the match a repo away from the raise it matches. `error_text` is returned
+alongside, always: an unmatched shape gets `'unknown'` and the screen prints the raw message —
+degraded and ugly, never silent, and never a wrong amount.
+
+**Confirmed and unconfirmed are never summed.** Anca's rule, 2026-09-11: a trainer who did not
+confirm is not paid for that workshop. So per trainer there are two figures, and the close prompt
+(`confirm_prompt_with_unconfirmed`) already said as much — one number mixing them would contradict
+the sentence on the button directly below it.
+
+**Per trainer, because the unit of payment is the trainer.** Anca, 2026-09-11: *the timesheet closes
+at month end and the invoice is issued from it* — per person (PFA/SRL). Per workshop alone would
+leave Anka adding rows up by hand, which is the spreadsheet work this replaces; a single month total
+could not be checked against anything. Grouped by trainer **id**, not name: two people can share a
+display name and a sum is the last place to merge two of them.
+
+**Test Org B had no pay grid at all — a hole, not an obstacle.** Zero rows in all four rate tables,
+while holding the only three sessions in the database and six graded trainers. `scripts/
+verify_pay_inputs_through_app.ts` had seeded grids exactly like these **as fixtures and deleted
+them in cleanup**, which is why the org had none. A grid is not a fixture: it is the standing
+configuration that makes a test org a test org. Now seeded (`202610150004`), with deliberately
+synthetic values that are **not** WOW LAB's, so a test cannot pass by reading production numbers.
+Two deliberate choices in it: **grade 2 is 175**, an odd rate, because the rounding rule is only
+testable against a value that produces a third decimal; and **30 minutes is absent for the
+Școala Altfel context**, mirroring production's real gap so the raise-isolation case is reproducible
+there instead of only against production data.
+
+**`groups.language_group` filled on the MAX group** — the one existing row this round changed. A
+fill, not a correction, guarded on `is null` so a real value set later is never overwritten. Without
+it all three of Test Org B's sessions failed on the third guard before any grid was consulted.
+
+**Three mistakes of mine, each caught by running the thing rather than reading it:**
+- **The test asserted `no_grade_version` where the data can only produce `no_grade`.**
+  `calculate_session_pay` calls `resolve_trainer_grade` **before**
+  `resolve_trainer_grade_rate`, so a date before the grids is also a date before any assignment and
+  the grade fails first. An earlier live probe had called the rate resolver *directly*, which
+  bypasses that order — the probe was right about the resolver and wrong about the path. Corollary
+  worth keeping: **`no_grade_version` is unreachable with today's real data**, because every grade
+  assignment and all four grid versions are effective 2026-09-01; it becomes reachable the moment a
+  grid version is added with an effective date after an existing assignment. The suite now reaches
+  it with a fixture that gives one trainer an earlier grade.
+- **The verification script called the function as `service_role`** and died on *permission denied*
+  — the right failure for the wrong call. `service_role` bypasses RLS, so it would have proved
+  nothing about whether a real finance viewer can get a number out of a `SECURITY INVOKER`
+  function. It now signs in and calls as the Org Owner.
+- **It asserted the screen renders `656.26` with one confirmed and one unconfirmed workshop.** It
+  does not, and correctly so — the two buckets are never summed. Two workshops have to be in the
+  **same** bucket for the sum of rounded rows to appear at all. The fixture is now four sessions:
+  two confirmed (the visible 656.26), one unconfirmed, one that raises.
+
+**The readability guard, carried forward from item 123.** The rate tables admit SELECT to
+`finance.operations.*` / `finance.reporting.*` / platform owner, while `/payroll` **also** admits
+`org.settings.manage`. For a viewer holding only the latter every row would come back as a raise,
+and rendering that as "nothing can be calculated" is item 123's mistake exactly. Verified before
+building that **no live role lands there** — `org.settings.manage` is granted only to Organization
+Owner and Platform Owner, both of which also carry `finance.operations.*` — so the guard is against
+a role change, not against today's data. It asks the **capability** rather than counting rows, so a
+capable viewer of an org with no grid seeded reads as "no grid", never as "not for your eyes". On
+failure the screen renders without sums rather than with zeroes: a zero beside a trainer's name is a
+wrong number, and this is the screen where a wrong number becomes a payment.
+
+**Two counts of "what's missing" now coexist, and that is not settled.** Item 121's pre-close block
+answers *"what can a human still fix before closing?"* (the five enterable gaps); the sums block
+answers *"why is there no number here?"* and is a **superset** — it includes gaps in the pay grid
+itself, which nobody can fix from this screen. The wording distinguishes them, but two blocks
+reporting different counts about the same month is a real risk to trust in the screen, and the
+honest long-term answer is probably that the calculation's own list replaces the mirror. **Not done
+this round**, and not a silent decision: item 121 is shipped, documented behaviour and replacing it
+was not in scope.
+
+**Deliberately NOT built:** no payments register, no stored amount, no trainer-facing screen.
+Computed at read time, displayed, discarded. One consequence stated rather than discovered later:
+because nothing is stored, the figure is **as of now, not as of close** — a grid version backdated
+later would make the same closed month display a different number. Correct for a displayed
+calculation; the moment *"the number we actually invoiced"* must be reproducible, that is the
+payments register. `/my-work` is untouched and still shows a trainer their grade and minutes and
+never a rate.
+
+**Performance, stated rather than optimised:** each slot costs ~6 indexed lookups inside the
+function, so a year of a few hundred sessions is a few thousand cheap lookups in one call. Fine
+today (the real org has **zero** sessions); the thing to watch is that it is org-wide and
+unpaginated, for the same reason the sessions fetch beside it is.
+
+**Verified live.** `db/tests/payroll_org_session_pay.sql`, 18 assertions across 3 blocks, against
+WOW LAB's **real production grids** — the rounding pair, the 30-min Școala Altfel isolation, and one
+reason_code per gap including the assertion that **no real case falls through to `'unknown'`** (the
+assertion that fails, deliberately, if a resolver's wording is ever changed without this screen
+being told). Full suite: **273 passed, 0 failed, 17 files.** And
+`scripts/verify_payroll_sums_test_org_b.ts`, 17 checks against a running app as the Org Owner —
+sums render per trainer, `656.26` appears and `656.25` appears nowhere, the raise shows plain
+language and not `incomplete version`, the total says it excludes 1 workshop. Cleanup is **not a
+silent finally** (item 102): it runs as its own announced step, again on the failure path, and its
+**effect is re-queried** — `0` marked rows left, Test Org B back to the 3 sessions and 2 groups it
+was found with. Fixtures are deleted **by marker**, never by captured ids (item 124).
+
+**Blocked on:** nothing built here. Two questions are open and neither is engineering: whether the
+**secundar** is paid on the same formula as the principal (asked of Anca; built on the current
+formula, identical for both, until she answers), and whether item 121's pre-close block should be
+replaced by the calculation's own list.
+**Re-verify when:** a resolver's raise message is reworded — the `'unknown'` assertion is the
+tripwire, and the classifier is the thing to update. Also when `/payroll`'s gate or the rate tables'
+SELECT policies change, because the guard's premise ("every viewer who can open this page can read
+the grids") is a measured fact about today's roles, not an invariant.
+**Lives in:** `supabase/migrations/202610150003_expose_org_session_pay_via_public_wrapper.sql`,
+`supabase/migrations/202610150004_seed_test_org_b_pay_grids.sql` (+ both rollbacks),
+`app/(app)/payroll/page.tsx`, `payroll-client.tsx`, `payroll/i18n.ts`,
+`db/tests/payroll_org_session_pay.sql`, `scripts/verify_payroll_sums_test_org_b.ts`; item 99 above
+(the function that waited), item 95 above (the grids and the no-rounding finding), item 121 above
+(the mirror this is a superset of), item 123 above (the readability guard), item 124 above
+(cleanup by marker), item 102 above (the announce-cleanup rule), item 137 below (the test accounts
+holding payroll roles in production, and Anka Orban's missing grade).
+
+---
+### 137. Six test accounts hold payroll-capable roles in the production org — and Anka Orban's missing trainer grade is correct for a third reason
+
+2026-10-15, reported and **not acted on**, by instruction. Both halves came out of asking who can
+see the sums item 136 above added.
+
+**1. The accounts. Six, not the four named** — `is_test_account = true` also covers two
+`maxdigitalro+` aliases. `/payroll`'s gate is `finance.operations.*` **or** `org.settings.manage`:
+
+| Account | Role | Role assigned | Assigned by | Can sign in |
+|---|---|---|---|---|
+| `test+finance-ops-a@wowlab.dev` | Finance Operations | 2026-07-09 | — (`seed.sql`) | **No** |
+| `test+owner-a@wowlab.dev` | Organization Owner | 2026-07-09 | — (`seed.sql`) | **No** |
+| `test+ui-finance-ops@wowlab.dev` | Finance Operations | 2026-08-10 | — (`seed.sql`) | **Yes** |
+| `test+ui-owner@wowlab.dev` | Organization Owner | 2026-08-11 | — (`seed.sql`) | **Yes** |
+| `maxdigitalro+finops@gmail.com` | Finance Operations | 2026-08-05 | `maxdigitalro@gmail.com` | **Yes** |
+| `maxdigitalro+master@gmail.com` | Organization Owner | 2026-08-05 | `maxdigitalro@gmail.com` | **Yes** |
+
+The four non-test holders: Anca Tanasescu (Platform Owner), **Anka Orban** (Finance Operations — the
+intended user), Laura Moale (Finance Operations), `maxdigitalro@gmail.com` (Organization Owner).
+
+**The distinction that matters is `auth.users`, not the flag.** Two of the six have **no
+`auth.users` row** (convention 11: `seed.sql` fixtures exist in `public.users` only and cannot
+authenticate) — they are SQL-impersonation fixtures and cannot open a browser session at all. The
+other **four can sign in and would see real money** on `/payroll`. That is the actual exposure, and
+it is four accounts, not six.
+
+**`is_test_account` does not help here.** Its own column comment: *"purely a display label, does not
+affect RLS, sorting, or filtering"* — it drives the Test badge in `/admin/users` and nothing else.
+Item 18 below already recorded the matching trap from the other side: `is_test_account = false`
+does not mean "a real person", it only means "not inserted by `seed.sql`" — which is exactly why the
+two `maxdigitalro+` aliases above are flagged `true` while eight sibling aliases are not.
+
+**What breaks if the payroll roles are removed — measured, not guessed:**
+- `test+finance-ops-a@wowlab.dev` — **the standing RLS suite breaks.** Its `finance.operations.*`
+  grant is impersonated by four `db/tests/` files (`rls_clients_contracts.sql`, `rls_users.sql`,
+  `rls_ws_d_write.sql`, `capability_liveness.sql`) plus four `scripts/verify_*`. This one is load-
+  bearing and removing its role would fail `run_rls_suite.ts`.
+- `test+owner-a@wowlab.dev` — three `db/tests/` files (`rls_clients_contracts.sql`,
+  `rls_ws_d_write.sql`, `rls_ws_d_read.sql`) and `seed.sql` itself. Also load-bearing.
+- `test+ui-owner@wowlab.dev` — no `db/tests/` dependency; used by ~8 one-off `scripts/verify_*`,
+  several already spent. Removable at the cost of re-pointing those scripts.
+- `test+ui-finance-ops@wowlab.dev` — one script (`verify_suppliers.sql`). The cheapest to remove.
+
+**So the two that can sign in are the two that are nearly free to change, and the two that are
+load-bearing cannot sign in anyway.** That is a better position than it first looked, and it means
+the exposure can be closed without touching the suite: revoke on `test+ui-finance-ops` and
+`test+ui-owner`, and decide separately what the two `maxdigitalro+` aliases are for. **Not done** —
+Mihai said not to touch them yet.
+
+**2. Anka Orban has no trainer grade, and that is correct — but not for Luiza's reason.** The
+question asked was whether she is salaried, in which case the absence would be right the way item
+95's is for Luiza Mirt (*"grade 3 if she returns"*). **She is not salaried.** Measured:
+
+- `suppliers` → **ASISMART SRL**, CUI `53213832`, service type *asistență administrativă*, status
+  active, linked to her `users.id` through `suppliers.user_id` (item 110's column). She invoices
+  through an SRL.
+- `admin_rates` → three hourly rows of her own: `admin` **80**, `ateliere` **80**, `financiar`
+  **90**, all with `is_uplift_applied = false` — consistent with SRL invoicing at a gross rate,
+  unlike the trainer grid whose rates are PFA-inclusive (item 95) and unlike the 50 → 55.50 uplifted
+  admin rows (item 128).
+- `trainer_grade_assignments` → **no row**. `trainer_home_cities` → **no row**.
+- Roles held in `wow-lab`: Finance Administration & Reporting, Finance Operations, **Senior
+  Trainer**, **Trainer**.
+
+**So the absence of a grade is right for a third reason: she is not in the trainer pay model at
+all.** She is a supplier paid hourly for administrative and financial work, with her own rate table.
+Not Luiza's case (a trainer whose grade is pending a return) and not an artefact of a missing row.
+**The anomaly is the two trainer roles, not the missing grade** — and her documented workflow is
+Toggl plus a monthly PDF to Anca for approval (item 127's §2), which is not a workshop slot.
+
+**Can she be put in a paid slot, and what happens?** Yes — a slot is a plain FK to `users` with
+**no role requirement** (item 122), and she holds trainer roles besides. If she is allocated, that
+workshop becomes uncalculable with `reason_code = 'no_grade'` and `/payroll` prints *"nu are un grad
+valabil la această dată"* under her name. It does **not** fall back to her admin rate:
+`calculate_session_pay` never consults `admin_rates`, by construction. So she would be unpayable for
+that workshop through this screen, and the month total would exclude it. **That is the correct
+behaviour and needs no fix** — it is the exact mirror of item 130's problem (Cătălina Trușan is the
+first person holding *both* a trainer grade and an admin rate, which is why the hours-entry screen
+cannot key pay on the person).
+
+**Blocked on:** a decision, not work. Whether to revoke payroll roles from the two signed-in test
+accounts, and whether Anka's Senior Trainer / Trainer roles are intentional.
+**Re-verify when:** a test account gains a payroll-capable role, or `seed.sql` adds one — the
+question to ask is *"can it sign in?"*, which `is_test_account` does not answer.
+**Lives in:** nothing changed; measured live against `user_org_roles` / `auth.users` /
+`admin_rates` / `suppliers`. Item 136 above (the sums that made this worth asking), item 18 below
+(`is_test_account = false` does not mean a real person), item 95 above (Luiza's deliberate absence),
+item 130 above (grade *and* admin rate on one person), item 128 above (the admin rates and the
+uplift), item 122 above (a slot is a plain FK with no role requirement).
+
+---
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,

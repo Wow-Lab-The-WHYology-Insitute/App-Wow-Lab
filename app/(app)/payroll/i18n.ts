@@ -116,4 +116,123 @@ export const payrollDict: Dictionary = {
     en: "someone allocated to this workshop has no grade effective on this date, and their name is not visible to your role",
     ro: "o persoană alocată acestui atelier nu are un grad valabil la această dată, iar numele ei nu este vizibil pentru rolul tău",
   },
+
+  // ---- The sums, per trainer ----
+  // The unit is the trainer because the unit of payment is the trainer:
+  // "timesheet-ul se închide la sfârșit de lună și factura se emite din el"
+  // (Anca, 2026-09-11), and the invoice is issued per person (PFA/SRL).
+  sums_heading: {
+    en: "What each trainer is owed — {{month}}",
+    ro: "Cât i se cuvine fiecărui trainer — {{month}}",
+  },
+  sums_hint: {
+    en: "Each workshop is rounded to the ban; a trainer's total is the sum of those rounded rows, so adding them up by hand gives the same figure. Unconfirmed workshops are listed but not included.",
+    ro: "Fiecare atelier este rotunjit la ban; totalul unui trainer este suma rândurilor rotunjite, deci adunarea lor de mână dă aceeași cifră. Atelierele neconfirmate sunt listate, dar nu sunt incluse.",
+  },
+  // "lei" after the number, as every Romanian invoice writes it. Kept as a
+  // key rather than hardcoded so the currency is in one place if a second
+  // one ever appears (the supplier register already carries euro rows).
+  sums_amount: { en: "{{amount}} lei", ro: "{{amount}} lei" },
+  sums_pending: {
+    en: "{{amount}} lei more, not confirmed — not payable yet",
+    ro: "încă {{amount}} lei, neconfirmați — încă nu sunt de plată",
+  },
+  sums_row_unconfirmed: { en: "not confirmed", ro: "neconfirmat" },
+  // Grouped by trainer id, so an unreadable name still gets its own row and
+  // its own correct total instead of being merged with another unnamed
+  // person under the word "Unknown" (item 122's rule, applied to a sum).
+  sums_trainer_unnamed: {
+    en: "A person whose name is not visible to your role",
+    ro: "O persoană al cărei nume nu este vizibil pentru rolul tău",
+  },
+  sums_total_label: { en: "Total payable this month", ro: "Total de plată luna aceasta" },
+  sums_total_pending: {
+    en: "Plus {{amount}} lei not confirmed, excluded from the total above.",
+    ro: "Plus {{amount}} lei neconfirmați, excluși din totalul de mai sus.",
+  },
+  // Count in brackets would read oddly mid-sentence here, and this sentence
+  // genuinely needs the number inline. Romanian's three plural forms are
+  // sidestepped by "de ateliere", which is correct for 20+ and reads
+  // acceptably below it -- the alternative ("1 ateliere") is simply wrong.
+  sums_total_excludes: {
+    en: "Excludes {{n}} workshop(s) that cannot be calculated — see the reasons above.",
+    ro: "Exclude {{n}} ateliere care nu pot fi calculate — vezi motivele mai sus.",
+  },
+
+  // ---- Why a row has no amount ----
+  // One key per reason_code from app.calculate_org_session_pay
+  // (202610150003), which classifies the fourteen shapes
+  // app.calculate_session_pay and its five resolvers can raise. Deliberately
+  // a separate set from the unpriceable_* keys above: that block answers
+  // "what can a human still fix before closing?", this one answers "why is
+  // there no number here?", and the second is a superset — it includes gaps
+  // in the pay grid itself, which nobody can fix from this screen.
+  pay_reason_no_duration: {
+    en: "no length recorded",
+    ro: "durata nu este înregistrată",
+  },
+  pay_reason_no_location: {
+    en: "no location tier recorded",
+    ro: "nivelul de locație nu este înregistrat",
+  },
+  pay_reason_no_language: {
+    en: "the group has no language recorded",
+    ro: "grupa nu are limba înregistrată",
+  },
+  pay_reason_no_grade: {
+    en: "no grade effective on this date",
+    ro: "nu are un grad valabil la această dată",
+  },
+  // Should be unreachable: the function is only ever asked about a trainer
+  // who holds one of the two slots on that workshop. Worded plainly anyway
+  // rather than left to the 'unknown' fallback.
+  pay_reason_not_on_session: {
+    en: "not allocated to this workshop",
+    ro: "nu este alocat acestui atelier",
+  },
+  // The grid gaps. These are not data entry errors — they are holes in the
+  // pay grid, and the sentence says who can close them, because /payroll is
+  // not where they get fixed.
+  pay_reason_no_grade_version: {
+    en: "no rate grid in effect on this date — set one in Payment configuration",
+    ro: "nicio grilă de tarife valabilă la această dată — se setează în Configurare plăți",
+  },
+  pay_reason_no_grade_rate_row: {
+    en: "the rate grid in effect has no rate for this trainer's grade",
+    ro: "grila de tarife valabilă nu are tarif pentru gradul acestui trainer",
+  },
+  pay_reason_no_duration_version: {
+    en: "no duration grid in effect on this date — set one in Payment configuration",
+    ro: "nicio grilă de durate valabilă la această dată — se setează în Configurare plăți",
+  },
+  // The live one: 30 minutes exists for standard workshops and not for
+  // Școala Altfel / Săptămâna Verde, and the workshop form offers 30.
+  pay_reason_no_duration_row: {
+    en: "the duration grid has no entry for this length and workshop type",
+    ro: "grila de durate nu are un rând pentru această durată și acest tip de atelier",
+  },
+  pay_reason_no_location_version: {
+    en: "no location grid in effect on this date — set one in Payment configuration",
+    ro: "nicio grilă de locații valabilă la această dată — se setează în Configurare plăți",
+  },
+  pay_reason_no_location_row: {
+    en: "the location grid has no entry for this tier",
+    ro: "grila de locații nu are un rând pentru acest nivel",
+  },
+  pay_reason_no_language_version: {
+    en: "no language grid in effect on this date — set one in Payment configuration",
+    ro: "nicio grilă de limbi valabilă la această dată — se setează în Configurare plăți",
+  },
+  pay_reason_no_language_row: {
+    en: "the language grid has no entry for this group's language",
+    ro: "grila de limbi nu are un rând pentru limba acestei grupe",
+  },
+  // Only reachable if a resolver's message is reworded without the
+  // classifier being updated. Shows the raw message: ugly and technical,
+  // but a failure nobody can see is worse than one that looks wrong.
+  // db/tests/payroll_org_session_pay.sql asserts no real case lands here.
+  pay_reason_unknown: {
+    en: "could not be calculated: {{message}}",
+    ro: "nu a putut fi calculat: {{message}}",
+  },
 };

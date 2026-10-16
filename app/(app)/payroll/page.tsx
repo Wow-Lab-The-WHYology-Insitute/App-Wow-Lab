@@ -21,6 +21,19 @@ type SessionRow = {
 type GroupRow = { id: string; client_id: string; language_group: string | null };
 type GradeRow = { trainer_id: string; grade_level: number; effective_from: string };
 type ClientRow = { id: string; name: string };
+// One row per trainer slot per workshop, from
+// public.calculate_org_session_pay (202610150003). `amount` is already
+// rounded to 2 decimals in numeric and is null exactly when reason_code is
+// set; error_text carries the raw raised message, kept for the 'unknown'
+// case so no failure can render as silence.
+type PayRow = {
+  session_id: string;
+  trainer_id: string;
+  slot: "principal" | "secundar";
+  amount: number | string | null;
+  reason_code: string | null;
+  error_text: string | null;
+};
 
 // finance.operations.* OR org.settings.manage -- matches
 // closePayrollPeriod's own gate (app/(app)/payroll/actions.ts) exactly,
@@ -176,10 +189,79 @@ export default async function PayrollPage() {
     }];
   });
 
+  // ---- What each trainer is owed (the money this screen never showed) ----
+  // One call for the whole org, not one per slot: app.calculate_session_pay
+  // raises on fourteen shapes of missing input, and a raise aborts the
+  // statement -- so the per-slot catching has to happen inside plpgsql.
+  // public.calculate_org_session_pay (202610150003) returns one row per
+  // trainer slot with the amount ALREADY ROUNDED to 2 decimals, or a
+  // reason_code naming why there isn't one. Org-wide for the same reason
+  // the sessions fetch above is: the month picker is client state.
+  //
+  // Gated on being able to read the grids at all, not on /payroll's own
+  // gate, because the two differ. The rate tables admit SELECT to
+  // finance.operations.* / finance.reporting.* / platform owner
+  // (202608310002), while this page also admits org.settings.manage. For a
+  // viewer holding only the latter, every single row would come back as a
+  // raise -- and rendering that as "nothing can be calculated" would be
+  // item 123's mistake exactly: an absence under RLS read as evidence.
+  // No live role actually lands there (org.settings.manage is granted only
+  // to Organization Owner and Platform Owner, both of which also carry
+  // finance.operations.*), so this is a guard against a role change, not
+  // against today's data -- which is why it asks the capability rather
+  // than counting rows: a capable viewer of an org with no grid seeded
+  // yet must read as "no grid", never as "not for your eyes".
+  const canReadPayGrids =
+    (await checkCapability(supabase, "finance.operations.*", orgId)) ||
+    (await checkCapability(supabase, "finance.reporting.*", orgId));
+
+  let payRows: PayRow[] | null = null;
+  if (canReadPayGrids) {
+    const { data, error } = await supabase.rpc("calculate_org_session_pay", {
+      p_organization_id: orgId,
+    });
+    if (error) {
+      // Loudly, and into Vercel's function logs, same as resolve_landing_flags'
+      // own failure path. Then render the screen WITHOUT sums rather than with
+      // zeroes: a zero beside a trainer's name is a wrong number, and this is
+      // the one screen where a wrong number becomes a payment.
+      console.error(
+        "calculate_org_session_pay RPC failed — /payroll renders confirmations and the pre-close check, without sums:",
+        error,
+      );
+    } else {
+      payRows = (data ?? []) as PayRow[];
+    }
+  }
+
+  const payBySlot = new Map<string, PayRow>();
+  for (const r of payRows ?? []) {
+    payBySlot.set(`${r.session_id}:${r.slot}`, r);
+  }
+
+  // Integer bani, never a float. Every amount arrives already rounded to 2
+  // decimals (rounded in numeric, inside the function -- see its migration
+  // header for why the language doing the rounding decides the answer), and
+  // the totals are sums of those rounded rows. Summing 2-decimal floats
+  // drifts (276.23 + 276.23 is 552.4599999999999 in float64), so the sums
+  // are done on integers and divided once, at render.
+  const baniOf = (r: PayRow | undefined) =>
+    r && r.amount !== null ? Math.round(Number(r.amount) * 100) : null;
+
+  const slotPay = (sessionId: string, slot: "principal" | "secundar") => {
+    const r = payBySlot.get(`${sessionId}:${slot}`);
+    return {
+      bani: baniOf(r),
+      reasonCode: r?.reason_code ?? null,
+      errorText: r?.error_text ?? null,
+    };
+  };
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
       <PayrollClient
         orgId={orgId}
+        paySumsAvailable={payRows !== null}
         periods={(periods ?? []).map((p) => ({
           id: p.id,
           period: p.period,
@@ -194,14 +276,26 @@ export default async function PayrollPage() {
             clientName,
             principal: s.trainer_principal_id
               ? {
+                  // Grouped by id on the client, displayed by name: two people
+                  // can share a display name, and a sum is the last place to
+                  // merge two of them. The "Unknown" fallback stays for the
+                  // existing confirmation list, which item 122 already records
+                  // as owed a fix; the sums block renders the unnamed case
+                  // through its own key instead of printing this word.
+                  id: s.trainer_principal_id,
                   name: nameById.get(s.trainer_principal_id) ?? "Unknown",
+                  named: nameById.has(s.trainer_principal_id),
                   confirmed: s.trainer_principal_confirmed_at !== null,
+                  ...slotPay(s.id, "principal"),
                 }
               : null,
             secundar: s.trainer_secundar_id
               ? {
+                  id: s.trainer_secundar_id,
                   name: nameById.get(s.trainer_secundar_id) ?? "Unknown",
+                  named: nameById.has(s.trainer_secundar_id),
                   confirmed: s.trainer_secundar_confirmed_at !== null,
+                  ...slotPay(s.id, "secundar"),
                 }
               : null,
           };

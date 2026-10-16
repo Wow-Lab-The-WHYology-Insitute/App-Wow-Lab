@@ -7,7 +7,21 @@ import { closePayrollPeriod } from "./actions";
 import { PAYROLL_PERIOD_ALREADY_CLOSED_ERROR } from "./close-error";
 
 type Period = { id: string; period: string; closedByName: string };
-type SessionSlot = { name: string; confirmed: boolean };
+type SessionSlot = {
+  id: string;
+  name: string;
+  // Whether `name` is a real readable name or the "Unknown" fallback. The
+  // sums block groups by `id` and renders the unnamed case through its own
+  // label rather than printing "Unknown" as if it were a person (item 122).
+  named: boolean;
+  confirmed: boolean;
+  // Already rounded to 2 decimals in Postgres numeric, carried as integer
+  // bani so the totals below are exact integer sums. Null exactly when
+  // reasonCode is set.
+  bani: number | null;
+  reasonCode: string | null;
+  errorText: string | null;
+};
 type Session = {
   id: string;
   sessionDate: string;
@@ -40,6 +54,19 @@ function formatShortDate(iso: string, locale: "en" | "ro") {
   });
 }
 
+// Integer bani in, two decimals out. The division by 100 is the ONLY
+// arithmetic done on a float anywhere in the pay path: the per-row rounding
+// happened in Postgres numeric (202610150003), and every total above is an
+// integer sum of those rounded rows. Doing it the other way round -- float
+// amounts summed in JS -- is what produces 552.4599999999999 for two rows
+// of 276.23, and Anca adds these rows up by hand to issue the invoice.
+function formatLei(bani: number, locale: "en" | "ro") {
+  return new Intl.NumberFormat(locale === "ro" ? "ro-RO" : "en-GB", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(bani / 100);
+}
+
 export type UnpriceableReason = { key: string; name?: string };
 export type UnpriceableWorkshop = {
   id: string;
@@ -53,11 +80,17 @@ export function PayrollClient({
   periods,
   sessions,
   unpriceable,
+  paySumsAvailable,
 }: {
   orgId: string;
   periods: Period[];
   sessions: Session[];
   unpriceable: UnpriceableWorkshop[];
+  // False when the viewer cannot read the pay grids, or when the call
+  // failed. The sums section then does not render at all -- rather than
+  // rendering zeroes, which on this screen is a wrong number that becomes
+  // a payment.
+  paySumsAvailable: boolean;
 }) {
   const t = useTranslations(payrollDict);
   const { locale } = useLocale();
@@ -108,6 +141,96 @@ export function PayrollClient({
   const unpriceableThisMonth = unpriceable.filter((w) => w.sessionDate.slice(0, 7) === monthValue);
   const reasonLabel = (r: UnpriceableReason) =>
     r.key === "no_grade" ? t("unpriceable_no_grade", { name: r.name ?? "" }) : t(`unpriceable_${r.key}`);
+
+  // ---- What each trainer is owed for the month on display ----
+  // Grouped by trainer because that is the unit of payment: the timesheet
+  // closes at month end and the invoice is issued from it, per trainer
+  // (Anca, 2026-09-11). Per workshop alone would leave Anka adding the rows
+  // up by hand -- the spreadsheet work this screen replaces -- and a single
+  // month total could not be checked against anything.
+  //
+  // Confirmed and unconfirmed are kept apart and NEVER summed together.
+  // Anca's rule is explicit: a trainer who did not confirm is not paid for
+  // that workshop. The close prompt already says so
+  // (confirm_prompt_with_unconfirmed); one number mixing the two would
+  // contradict the sentence on the button directly below it.
+  //
+  // A slot that raised keeps its row, with its reason, and contributes to
+  // neither total -- so one 30-minute scoala_altfel workshop costs its own
+  // row and nothing else. The trainer keeps every other workshop's money.
+  const trainerSums = useMemo(() => {
+    const byTrainer = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        named: boolean;
+        payableBani: number;
+        pendingBani: number;
+        rows: {
+          key: string;
+          clientName: string;
+          sessionDate: string;
+          confirmed: boolean;
+          bani: number | null;
+          reasonCode: string | null;
+          errorText: string | null;
+        }[];
+      }
+    >();
+
+    for (const { session, slot } of monthSlots.slots) {
+      let entry = byTrainer.get(slot.id);
+      if (!entry) {
+        entry = { id: slot.id, name: slot.name, named: slot.named, payableBani: 0, pendingBani: 0, rows: [] };
+        byTrainer.set(slot.id, entry);
+      }
+      entry.rows.push({
+        key: `${session.id}-${slot.id}`,
+        clientName: session.clientName,
+        sessionDate: session.sessionDate,
+        confirmed: slot.confirmed,
+        bani: slot.bani,
+        reasonCode: slot.reasonCode,
+        errorText: slot.errorText,
+      });
+      if (slot.bani !== null) {
+        if (slot.confirmed) entry.payableBani += slot.bani;
+        else entry.pendingBani += slot.bani;
+      }
+    }
+
+    const trainers = [...byTrainer.values()].sort((a, b) =>
+      a.name.localeCompare(b.name, locale === "ro" ? "ro-RO" : "en-GB"),
+    );
+    for (const tr of trainers) {
+      tr.rows.sort((a, b) => (a.sessionDate < b.sessionDate ? -1 : a.sessionDate > b.sessionDate ? 1 : 0));
+    }
+
+    // Counted by distinct WORKSHOP, not by slot: two unpriceable slots on
+    // one workshop are one workshop Anka has to go and look at, and the
+    // total's caveat is about workshops.
+    const uncalculableSessions = new Set(
+      monthSlots.slots.filter(({ slot }) => slot.bani === null).map(({ session }) => session.id),
+    );
+
+    return {
+      trainers,
+      payableBani: trainers.reduce((sum, tr) => sum + tr.payableBani, 0),
+      pendingBani: trainers.reduce((sum, tr) => sum + tr.pendingBani, 0),
+      uncalculableCount: uncalculableSessions.size,
+    };
+  }, [monthSlots, locale]);
+
+  // The raw SQL message is the fallback for an unmapped raise shape only.
+  // It names table and column and sometimes a UUID, so it is never the
+  // first choice -- but it is always better than silence, and 'unknown'
+  // means a resolver's wording changed without this screen being told.
+  const payReasonLabel = (reasonCode: string | null, errorText: string | null) => {
+    if (!reasonCode) return null;
+    if (reasonCode === "unknown") return t("pay_reason_unknown", { message: errorText ?? "" });
+    return t(`pay_reason_${reasonCode}`);
+  };
 
   function handleClose() {
     setError(null);
@@ -270,6 +393,88 @@ export function PayrollClient({
           )}
         </div>
       </section>
+
+      {/* ---- The sums, per trainer ---- */}
+      {paySumsAvailable && monthSlots.slots.length > 0 && (
+        <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+          <h2 className="font-body text-muted mb-1 text-xs font-bold tracking-wide uppercase">
+            {t("sums_heading", { month: monthLabel })}
+          </h2>
+          <p className="font-body text-muted mb-4 text-xs">{t("sums_hint")}</p>
+
+          <ul className="flex flex-col gap-4">
+            {trainerSums.trainers.map((tr) => (
+              <li key={tr.id} className="border-b border-black/5 pb-4 last:border-0 last:pb-0">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                  <span className="font-body text-ink text-sm font-semibold">
+                    {tr.named ? tr.name : t("sums_trainer_unnamed")}
+                  </span>
+                  <span className="font-body text-ink text-sm font-bold tabular-nums">
+                    {t("sums_amount", { amount: formatLei(tr.payableBani, locale) })}
+                  </span>
+                </div>
+
+                {/* Stated as its own line, never folded into the figure above:
+                    an unconfirmed workshop is not payable, and the close
+                    prompt below says exactly that. */}
+                {tr.pendingBani > 0 && (
+                  <p className="font-body mt-0.5 text-xs text-orange-700">
+                    {t("sums_pending", { amount: formatLei(tr.pendingBani, locale) })}
+                  </p>
+                )}
+
+                <ul className="mt-2 flex flex-col gap-1">
+                  {tr.rows.map((row) => (
+                    <li
+                      key={row.key}
+                      className="font-body flex flex-wrap items-baseline justify-between gap-x-3 text-xs"
+                    >
+                      <span className="text-muted">
+                        {row.clientName} · {formatShortDate(row.sessionDate, locale)}
+                        {!row.confirmed && (
+                          <span className="text-orange-700"> · {t("sums_row_unconfirmed")}</span>
+                        )}
+                      </span>
+                      {row.bani !== null ? (
+                        <span className="text-ink tabular-nums">
+                          {t("sums_amount", { amount: formatLei(row.bani, locale) })}
+                        </span>
+                      ) : (
+                        <span className="text-right text-red-700">
+                          {payReasonLabel(row.reasonCode, row.errorText)}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-5 flex flex-col gap-1 border-t border-black/10 pt-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+              <span className="font-body text-ink text-sm font-bold">{t("sums_total_label")}</span>
+              <span className="font-body text-ink text-base font-bold tabular-nums">
+                {t("sums_amount", { amount: formatLei(trainerSums.payableBani, locale) })}
+              </span>
+            </div>
+            {trainerSums.pendingBani > 0 && (
+              <p className="font-body text-xs text-orange-700">
+                {t("sums_total_pending", { amount: formatLei(trainerSums.pendingBani, locale) })}
+              </p>
+            )}
+            {/* The caveat is attached to the total, not hidden in the rows:
+                a total that quietly omits workshops is the one number on
+                this screen that must never be read as complete when it
+                isn't. */}
+            {trainerSums.uncalculableCount > 0 && (
+              <p className="font-body text-xs text-red-700">
+                {t("sums_total_excludes", { n: trainerSums.uncalculableCount })}
+              </p>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
         <h2 className="font-body text-muted mb-4 text-xs font-bold tracking-wide uppercase">
