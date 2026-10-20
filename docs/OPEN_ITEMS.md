@@ -7466,23 +7466,85 @@ cancellation is a fact about the schedule, not about delivery. So this is not a 
 the existing one applied: the same capability that may create a workshop may cancel it. Mihai's
 reason stands on its own too — a trainer saying "it did not happen" is making an assertion, not
 recording an observation, and has money on the client side of it.
-**The friction to accept knowingly:** `finance.operations.*` is deliberately NOT on that list, so
-when Anka meets an unheld workshop while closing the month she has to ask Operations rather than fix
-it herself. That is the correct separation and it is also one more handoff in the one workflow that
-is already time-pressured; worth revisiting if it bites, not worth pre-solving.
+**The handoff this creates is not friction to be removed — it is the system refusing to let Finance
+guess.** `finance.operations.*` is deliberately NOT on that list, so when Anka meets an unheld
+workshop while closing the month she has to ask Operations. That is the point. What she sees is
+"not confirmed", which is **ambiguous between two different facts**: the workshop did not happen, and
+the workshop happened and the trainer forgot to confirm. Operations knows which, because the school
+tells *them*. A gate that let Finance resolve that ambiguity alone would be inviting a guess about
+money.
 
-**Cancellable after the month closes: yes.** Mihai's leaning, and the reason is sharper than
-"blocking it only hides the problem". The month-close gate on
+**So if it bites, the repair is NOT to add `finance.operations.*` to the gate** — that is the
+comfortable change someone will reach for in six months, and it widens an authority to save a
+message. The repair is a button on the unconfirmed row that flags it for Operations, in the
+application, so the handoff happens where the work is instead of over a phone. Written down here
+specifically so the gate does not quietly widen out of convenience.
+
+**Cancellable after the month closes: yes.** The month-close gate on
 `app.rpc_confirm_session_attendance` exists because **confirmation is a pay input** — locking it is
-what protects an issued invoice. Cancellation is explicitly not a pay input (decision 2 above), so
-the gate's reason does not transfer, and copying it would be copying a rule without its argument.
+what stops someone altering an invoice that has already been issued. Cancellation is explicitly not
+a pay input (decision 2 above), so **the reason for that gate does not transfer**, and copying it
+would be copying a rule without its argument.
+
+That is the whole justification, and it is deliberately the only one. "Blocking it in the
+application does not stop the problem, it only hides it" was also offered and is **rejected as a
+reason**: it is true of practically any gate, including the one on confirmation that this system
+rightly keeps, so it cannot distinguish the gates that should exist from the ones that should not.
 **But** cancelling inside a closed month changes the *client* billing count for a month already
 invoiced, so it must be visible rather than merely permitted: the UPDATE lands in `row_history` with
 its actor automatically, and the closed-month view should say that a workshop in it was cancelled
 after closing. That last part is a screen, not a function, and should ship with it.
 
-**Still open, and genuinely Anca's:** whether a trainer who travelled to a cancelled workshop is
-paid.
+**ANSWERED 2026-10-20** — see the revision below.
+
+**REVISED 2026-10-20 — the pay rule was wrong, and `202610190001` is superseded before it ever shipped.**
+
+Decision 2 above ("cancelling does not touch pay") is **withdrawn**. Anca's rule, verbatim: the
+school gives notice and the trainer does not travel → **not paid**; the school gives notice and the
+trainer travels anyway because they missed it → their mistake, **not paid**; the school forgets to
+give notice and the trainer finds an empty room → **PAID**.
+
+**So the determinant is not who cancelled — it is WHETHER THE SCHOOL GAVE NOTICE.** The categories
+change accordingly:
+
+| category | paid? |
+|---|---|
+| `scoala_a_anulat_anuntat` | no |
+| `scoala_a_anulat_neanuntat` | **yes** |
+| `trainer_indisponibil` | no |
+| `vacanta` | no |
+| `alt_motiv` | note required; decided by hand |
+
+`202610190001` was applied (not pushed) with the four old categories and a header stating pay is
+untouched. It is **superseded by a new migration rather than edited**, since it is already on the
+database.
+
+**(b) Paying without a confirmation is not a second source of authority — it is a second way of
+recording the same fact.** The fact is *the trainer's time was spent*. The trainer asserts it by
+confirming; Operations asserts it by cancelling with "the school gave no notice". **One fact, two
+witnesses.** The rule, written once, in one place:
+
+> **payable = confirmed OR (cancelled AND reason = `scoala_a_anulat_neanuntat`)**
+
+**And the confirmation columns must NOT be reused for this case.** They already carry two documented
+meanings — *"Pay follows this timestamp"* in one migration and *"when the trainer asserted delivery"*
+in another. A third meaning ("or when Operations asserted the trainer's time was spent") makes the
+column unusable for reasoning: nobody reading `trainer_principal_confirmed_at` could then say what it
+attests. The cancellation row is the witness; the pay rule reads both.
+
+**(c) The third display state is not a third state.** The function returns **0, with no
+`reason_code`**. A calculable workshop never produces 0 — the smallest real product is a rate times a
+multiplier times at least 1.00 — so **0 is unambiguously "a decided zero"**. The screen explains it
+from the session's own cancellation data, which it already has.
+
+`reason_code` stays **exclusively** for reasons that *block* the calculation: a failure, not an
+answer. Mixing "could not be computed" and "computed, and the answer is nothing" into one field would
+destroy the distinction the whole classifier exists to make — and would put a decided zero under
+*"Gaps in the pay grid — not fixable from this screen"*, which is the opposite of true.
+
+**Build order:** after Anca answers item 147 below (the possible double uplift), because every amount
+on the screen moves by 11% if that resolves the other way, and a cancellation screen showing decided
+zeros beside wrong non-zeros is worse than no screen.
 
 **Blocked on:** Anca's answer on the travelled-trainer case, and writing it. The function is ~40
 lines in a shape this repo has written six times; the categories and the pay rule are decided.
@@ -7583,8 +7645,14 @@ direction the sabotage block does not cover.
 
 One decision made while building and not in the plan: the range CHECK is **15..480**, with its
 ceiling far above the grid's top band of 120 on purpose. A workshop longer than the grid prices must
-stay **recordable and merely unpayable** — clamping the CHECK at 120 would make the schema enforce a
-pay rule, which is the wrong layer, and would also make the new test fixture uninsertable.
+stay **recordable and merely unpayable**.
+
+**That has been promoted out of this item into `docs/DATABASE_CONVENTIONS.md` §14**, because it is
+not a note about one CHECK — it is the rule *the schema records what happened; the grid decides what
+gets paid*, and it is the same principle as §13's "a raise does not take the month down" one layer
+lower. It lives in the conventions so that the next person who thinks about tightening a CHECK to
+match a configuration table runs into it before they do, rather than finding it in a migration
+header for a column they are not reading.
 
 **Blocked on:** nothing. Anca's answer now only decides whether a 45 band is added, which is a row,
 not a change.
@@ -7715,6 +7783,244 @@ second is how `test+ui-owner` ended up with Organization Owner in production (it
 `supabase/migrations/202609220001` (`rpc_confirm_session_attendance`'s `mywork.*` gate);
 item 137 above (Anka, the other direction), item 138 above (the label that explained her),
 `docs/DATABASE_CONVENTIONS.md` §6 (roles are data, not enums).
+
+---
+
+### 143. The trainer selector knows the workshop's date and ignores it — the role is global, the grade is dated, and selectability belongs to the date
+
+2026-10-19, generalised out of a guard rather than found as a bug. `202610160005` (granting Cătălina
+Trușan the Trainer role) refuses to run unless she already holds a grade effective on or before
+2026-09-01, on the reasoning that *making someone selectable but unpayable is worse than leaving
+them unselectable*. That guard is right and it is in the wrong place: it protects one migration on
+one date for one person, when the thing it implies is a rule about the selector.
+
+**The mismatch.** `trainerOptions` on the group screen is built by filtering `user_org_roles` on the
+role keys `trainer` / `senior_trainer` — a **global, undated** question. But pay needs
+`app.resolve_trainer_grade(trainer, session_date)`, which is a **dated** one:
+`trainer_grade_assignments` carries `effective_from`, and the resolver takes the workshop's own date
+as `p_as_of`. So the two disagree by construction:
+
+- A trainer whose first grade starts 2026-11-01, allocated to a workshop on 2026-09-15, is offered
+  in the dropdown and produces `reason_code = no_grade` — on a date they were never graded for,
+  while being perfectly payable three weeks later.
+- The reverse exists too: Cătălina was **unselectable while fully payable**, for three weeks, which
+  is what `202610160005` fixed by granting the role. Had the selector asked the dated question, the
+  role would have been irrelevant to her selectability.
+
+**The rule.** *Who may be put in a slot is decided by whether they have a grade effective on that
+workshop's date, not by whether they hold a role today.* The form already knows the date — it is the
+first field in it — so this costs a `where effective_from <= <the date in the form>` and a re-fetch
+when the date changes, not new data.
+
+**Why it is not simply "filter on `mywork.*` instead".** That was the first idea and it is a
+different fix to a different problem. `mywork.*` is still global and still undated; swapping one
+undated predicate for another would keep the defect and merely change who it mis-lists. It would
+also entangle this with convention 6 (*application code must never hard-code a role name to gate a
+feature*), which the current role-key filter arguably violates — a real objection, but a separate
+one, and fixing selectability by date happens to dissolve it: the selector would be keyed on a dated
+grade, which is data, rather than on a role name at all.
+
+**What this is not.** Not a pay-model change: `app.calculate_session_pay` already does the dated
+thing correctly and needs nothing. Not an authorisation change: a workshop slot stays a plain FK to
+`users` with no role requirement (item 122), so the database keeps permitting what the form would
+stop offering — which is the right division, since a date-driven dropdown is help, not enforcement.
+
+**Blocked on:** nothing but a decision to do it. One screen, one predicate, one re-fetch.
+**Re-verify when:** a trainer joins mid-year, or a grade is backdated — both make the undated
+selector wrong in a way nobody will notice until a `no_grade` appears on `/payroll` for someone who
+is obviously a trainer. Lorina Ciurusniuc is the live instance in waiting: she took Scoala Germana
+over from Teodora mid-year, so her grade's `effective_from` and the handover date are the same
+question, and the workshops before it are Teodora's.
+**Lives in:** nothing changed. `app/(app)/groups/[id]/page.tsx` (the role-key filter),
+`supabase/migrations/202610160005_grant_catalina_trusan_trainer_role.sql` (the guard this
+generalises), `supabase/migrations/202608310002_payment_config_tables.sql`
+(`app.resolve_trainer_grade`, the dated question); item 142 above (the role drift this is the
+selector-side half of), item 122 above (a slot is a plain FK), `docs/DATABASE_CONVENTIONS.md` §6.
+
+---
+
+### 144. The location bonus belongs to the school, and the application asks the trainer — proved on 345 real rows before importing a single workshop
+
+2026-10-19, found by reading the real payroll sheet ("New Wow Lab Trainer Calculations Table") against the schema. A money error on every workshop, in the direction of underpaying.
+
+**Where the application gets the location tier today.** `sessions.location_tier`, a per-session text column, CHECK-constrained to `bucuresti` / `imprejurimi` / `alte_orase`, **typed by hand in the workshop form**. `app.resolve_location_bonus` reads nothing else. The only automatic input is a prefill in `group-detail-client.tsx` which sets `bucuresti` **only when** `trainer_home_cities[principal] = 'bucuresti'` **and** the group's address contains "bucur", and otherwise **clears the field**. `trainer_home_cities` (11 rows) feeds that prefill and nothing else — it has no part in the calculation.
+
+**So the model is trainer-and-school. The process is school alone.** Measured across 1,416 timesheet rows:
+
+| school | trainers | locations recorded |
+|---|---|---|
+| FUNDATIA LYCEE FRANCAIS ANNA DE NOAILLES | **12 different** | Surroundings 128, Bucharest 1 |
+| SCOALA GIMNAZIALA "AVENOR" | **6 different** | Surroundings 161, Bucharest 5 |
+| DEUTSCHE SCHULE BUKAREST DSBU SRL | 4 different | **Bucharest 44**, Surroundings 6 |
+
+**The decisive test is not the majority, it is where the minority sits.** If location depended on the trainer, each trainer would be internally consistent and differ from the others. The opposite holds: Cătălina Trușan has both Surroundings (2) *and* Bucharest (1) at Lycée; Andreea Tudor is 5/5 at Avenor; Teodora Merișan is 39 Bucharest / 6 Surroundings at DSBU. **Same person, same school, two answers** — which rules out trainer-dependence and marks the minority as typing errors in a hand-filled column. 10 of 31 schools carry more than one location.
+
+The authoritative mapping (sheet "Mapari Tip Trainer", columns *Denumire Scoala / CUI / Locatia*) agrees and is school-keyed: `18153988` → Surroundings, `RO37336710` → Surroundings. Bonuses: Bucharest 0%, Surroundings 25%, Other cities 100%.
+
+**The import consequence is worse than a wrong default.** Both Lycée groups and both Avenor groups have `address = NULL`, so the prefill **never fires at all** and the field opens empty — 38 workshops, 38 manual choices, no guidance, and `bucuresti` is the plausible wrong pick for a Bucharest-*area* school tariffed at Surroundings. At grade 6 that is 150 × 1.2 × 1.00 = 180.00 instead of 150 × 1.2 × 1.25 = **225.00**: 45 lei short per workshop, per trainer.
+
+**The faithful model** is a location tier on the client (or the group), resolved from there, with the session column kept only as a per-workshop override for the genuine exceptions — `Scoala Altfel`, `Saptamana Verde` and `Wow Lab Party` rows in the sheet really do vary by venue, which is why the column should not simply be deleted. `clients.address` already exists and `clients` already carries the CUI the mapping is keyed by.
+
+**SCOALA GERMANA'S TIER IS UNRESOLVED, and that is a finding rather than a gap in the search.** CUI **44600473 appears nowhere** in the sheet (all 1,045,664 characters searched). The German school present is **DEUTSCHE SCHULE BUKAREST DSBU SRL**, which carries **no Tax ID on any of its rows** and is **absent from the mapping sheet entirely**. By practice it is **Bucharest, 0%** — the opposite of the other two. So the identification is **by name only** and needs Anca: is DSBU SRL our *Scoala Germana* (CUI 44600473), and is its tier really Bucharest?
+
+**A second discrepancy inside the same number, worth separating out.** The sheet's grade-6 rate is **135**, not our 150, and its own total for 1.5h at Surroundings is **202.50**, not 225.00:
+
+| grade | sheet "Cost Total Net" | our `trainer_grade_rates` |
+|---|---|---|
+| 1 Junior | 100 | 111 |
+| 2 Rising Star | 107 | 119 |
+| 3 Enthusiastic Mid | 114 | 127 |
+| 4 Experienced Mid 2 | 121 | 134 |
+| 5 Magic Senior 1 | 128 | 142 |
+| 6 Glowing Senior 2 | 135 | 150 |
+
+Ours is the sheet **× 1.11, rounded** — which confirms item 95's PFA-inclusive uplift and item 128's 11% from the source for the first time. Both figures are right on their own basis and they are 11% apart. **Anka must not compare them directly:** checking our 225.00 against last year's 202.50 reads as a 22.50 overpayment when it is the uplift working as designed.
+
+**THE MODEL IS APPROVED, 2026-10-20: tier on the client, the session column kept as an override.**
+
+**And the FORM OF THE PROOF is the part to carry forward, not just its conclusion.** The table above
+shows 128-vs-1 and 161-vs-5, and a majority is not an argument — it is a vote, and a vote about
+somebody else's data proves nothing about the rule that generated it. What settles it is **where the
+minority sits**: Cătălina Trușan recorded both Surroundings *and* Bucharest at Lycée; Andreea Tudor
+is 5/5 at Avenor; Teodora Merișan is 39/6 at DSBU. **The same person, at the same school, with two
+different answers.** If location were a function of the trainer, that is the one thing that could not
+happen. So trainer-dependence is **excluded**, not outvoted — and the minority values are
+identifiable as typing errors rather than merely outnumbered.
+
+The general rule, for next time: to disprove *"X depends on Y"*, do not count how often X agrees
+with Z. Find a single Y whose X varies with Y held constant. One such case ends the question; ten
+thousand majority rows do not.
+
+**An unnamed consequence, now named: `trainer_home_cities` becomes dead.** Once the tier comes from
+the client, that table has **no consumer left**. Confirmed exhaustively rather than assumed — its
+only reader is a single chain: fetched in `app/(app)/groups/[id]/page.tsx` (line ~365), passed
+through `group-detail-client.tsx`, and consumed at one line (~1067) by the `location_tier` prefill
+and nowhere else. No RLS policy references it, no database function reads it, and
+`app.resolve_location_bonus` takes the tier as an argument and never looks a city up. **It is marked
+dead here and deliberately NOT dropped in the same migration as the model change** — a table and its
+last caller should not disappear in one step, because that leaves nothing to roll back to if the
+client-side tier turns out to need a per-trainer exception after all.
+
+**Blocked on:** Anca, for the DSBU identification and tier. The model change itself is blocked on
+nothing but a decision.
+**Re-verify when:** before any workshop is imported. Every imported row carries whatever tier the person typed, and `location_tier` is write-once (item 139) — a wrong tier cannot be corrected through the application.
+**Lives in:** nothing changed. `app/(app)/groups/[id]/group-detail-client.tsx` (the prefill), `supabase/migrations/202608310002_payment_config_tables.sql` (`resolve_location_bonus`); item 95 above (the uplifted grid, now confirmed against its source), item 128 above (the 11%), item 139 above (why a wrong tier is permanent), item 143 above (the other thing the selector asks wrongly).
+
+---
+### 145. Grade 7 "Lesson plan writer" cannot be represented, and lesson-plan writing has no home
+
+2026-10-19. The real payroll sheet pays a seventh trainer classification: **`7 / Lesson plan writer / 120,00 lei`**, recorded in the same timesheet with `School Name = "New Lesson Plan"`, `Tax ID = "-"`, duration 1 hour, location Bucharest, 0% bonuses. Observed writers: Diana Cocea, Diego Samayoa, Elena Bacalum.
+
+**It is not merely unbuilt, it is unrepresentable.** `trainer_grade_rates_level_check CHECK (grade_level >= 1 AND grade_level <= 6)` — grade 7 cannot be stored in the pay grid at all, and `trainer_grade_assignments_level_check` has the same bound. And `sessions` is a table of workshops at schools: a lesson plan has no school, no group, no attendance, no location, and no trainer slot.
+
+**It is also not a seventh rung on the same ladder.** The sheet's own increase column reads 0%, 7%, 14%, 21%, 28%, 35% for grades 1-6 and **0% for grade 7** — the six are a progression off a 100 lei base, while 120 is a flat rate for a different kind of work. Treating it as grade 7 in the grid would make `resolve_trainer_grade_rate` return it for a *workshop*, which is the one thing it must never do.
+
+**Elena Bacalum is both** — grade 3 as a trainer and a lesson-plan writer in the same sheet. That is item 130's shape exactly (Cătălina holding a trainer grade and an admin rate), now with a third rate kind, and it is the reason the eventual hours-entry screen cannot key pay on the person.
+
+**The nearest existing home is `admin_rates`**, which already holds hourly work keyed by (person, task category) with its own versioning — adding a `lesson_plan` category there is a smaller change than a seventh grade, and it keeps workshop pay and hourly pay in different tables, which is what they are. Not proposed as a decision; recorded as the obvious candidate.
+
+**Blocked on:** a decision about where this work lives. Not urgent — nobody is being paid through this application yet.
+**Re-verify when:** the hours-entry screen (item 130 above) is designed, because that screen is where all three rate kinds meet.
+**Lives in:** nothing changed. `supabase/migrations/202608310002_payment_config_tables.sql` (the 1-6 CHECK), `supabase/migrations/202610120011_create_admin_rates.sql` (the candidate home); item 130 above, item 138 above (the `ateliere` label, the same confusion from the other side).
+
+---
+### 146. Proposed Total Cost and Approved Cost do differ — so "calculated and displayed, never stored" is an incomplete scope decision
+
+2026-10-19, and it contradicts a decision this project made deliberately. `/payroll` computes pay at read time and stores nothing, on the reasoning that a payments register was out of scope (item 136). The real process has an **approval step with two separate amount columns**, and they are not always equal.
+
+**Measured, on the 1,417 rows readable through the Drive connector:**
+- **11 rows where `Proposed Total Cost` ≠ `Approved Cost`** (~0.8%), every one of the shape **Proposed = 0,00 / Approved = the real figure** — the proposal was blank and the amount was entered by hand.
+- **Five distinct approval statuses** beyond `Aprobat`: `Nu` (1), `De achitat` (1), `platit in martie` (2), `Verifica Statusul de Aprobare` (2). The column is free text in practice.
+- One row carries status **`Nu`** with `Approved Cost = 133,75 lei` — a contradiction inside the source.
+
+**The measurement is indicative, not exhaustive**, and the limit is stated rather than hidden: the connector truncated at ~1.04M characters, so this is **1,417 of ~10,954 rows**. The exact answer is two cells in the sheet:
+`=SUMPRODUCT(--(R5:R10958<>S5:S10958))` and `=COUNTIF(T5:T10958,"<>Aprobat")`.
+
+**CLOSED 2026-10-20 — the scope decision stands, and the earlier reading of these 11 rows was wrong.**
+
+Anca's answer: **the approval does not overwrite the amount.** It withholds the approval until the
+data is corrected, and `Approved Cost` is then **the same number** as the corrected proposal, not a
+different one.
+
+And the 11 rows say so themselves, which the first reading of them missed. **All 11 are
+Proposed = 0,00 / Approved = the real figure** — not "approved at a different amount" but *a formula
+that collapsed to zero, with the amount typed in by hand*. In this application a calculation does
+not collapse to zero: it **raises, with a named reason** (`reason_code`), and the screen shows the
+reason instead of a number. The failure mode those 11 rows record cannot occur here.
+
+So the scope decision — **the amount stays calculated, the register stays out of scope** — is
+confirmed, and this is recorded with Anca's answer as the reason **so it is not reopened from
+assumption in three months**. The reason is not the one offered earlier (*"it is a displayed
+calculation, not a stored amount"*, which was a restatement of the decision rather than a reason for
+it); the reason is that **the approval step never produces a second, different amount.**
+
+**The approval statuses are a different matter and are split out into item 148 below.**
+`platit in martie` and `De achitat` do not say *how much* — they say **whether the money moved**,
+which is a process stage this application does not model at all, and not the same thing as storing
+an amount.
+
+**Blocked on:** nothing. Closed.
+**Lives in:** nothing changed. Item 136 above (the scope decision this confirms), item 148 below
+(the payment cycle, which is the part that is genuinely missing).
+
+---
+
+### 148. There is no payment cycle — owed / approved / paid is a missing domain, and it is not the same thing as storing an amount
+
+2026-10-20, split out of item 146 above, because conflating the two is what made that item's first reading wrong. The *amount* question is closed: it stays calculated. This is the other half, and it is open.
+
+The real timesheet's `Approval Status` column carries, beyond `Aprobat`: **`De achitat`** (1 row), **`platit in martie`** (2), **`Nu`** (1), **`Verifica Statusul de Aprobare`** (2). Those are not amounts and not approvals of amounts. *"Paid in March"* and *"to be paid"* say **whether the money moved**.
+
+**What the application has today:** nothing. `payroll_periods` records that a month was closed, by whom and when. `/payroll` computes what is owed. Between "the month is closed and this is owed" and "this has been paid" there is **no state at all** — no stage, no date, no actor, and nothing that could answer *"what is still unpaid from September?"*
+
+**Why it is a domain and not a column.** The stages in the sheet are at least three (owed → approved → paid) and the real vocabulary is messier than that — `De achitat` is a *stage*, `platit in martie` is a stage **plus a date**, and `Verifica Statusul de Aprobare` is a *flag for a human* rather than a stage at all. A single text column is how the sheet ended up with five values that do not form a sequence, and copying that into a column here reproduces the problem rather than solving it. It needs a decided set of stages, a transition per stage with an actor and a date, and a rule about what may still change after each.
+
+**It is also where the register question comes back, honestly this time.** A paid-ness stage needs to point at *a specific sum that was paid*. The moment that is recorded, the amount is stored — not because the calculation was insufficient but because **a payment is a historical event and a calculation is a current answer**, and the two cannot be the same field. So this domain and the payments register are one decision, not two, and item 146's closure does not pre-empt it: that closed *"does the approval produce a different amount"* (no), not *"does a payment need recording"* (unanswered).
+
+**The trap to avoid**, stated because it is the cheap-looking move: adding `paid boolean` to `payroll_periods`. A month is not paid; **a trainer's invoice** is paid, and a trainer may invoice two entities for the same month (item 136's per-entity grouping exists for exactly that). Month-level paid-ness would be wrong on the first month Cătălina bills Brandine and Experimente Wow separately.
+
+**Blocked on:** a decision that nobody needs yet — no money moves through this application. Worth settling before the first real month is invoiced, not before the import.
+**Re-verify when:** Anka asks *"what is still unpaid"* and the answer is a spreadsheet. That is this item arriving.
+**Lives in:** nothing changed. Item 146 above (the amount half, closed), item 136 above (per-entity grouping, which is what makes month-level paid-ness wrong), item 139 above (the other place where a stage was missing and the status column could not express it), `docs/phase1-development-plan.md` row 11.
+
+---
+
+### 147. The pay grid may be the real table with the uplift applied twice — and the operational record has never used our numbers, up to eight days ago
+
+2026-10-20. Two facts from separate reports, unrelated until put together, and together they stop the import. **Nothing may be imported until Anca answers.**
+
+- Item 144 established: our `trainer_grade_rates` = the real payroll table **× 1.11 on all six grades** (100→111, 107→119, 114→127, 121→134, 128→142, 135→150).
+- The same sheet carries **Lorina Ciurusniuc, 30.09.2026, grade 2, 107,00 lei/hour** — two rows, the exact workshops queued for import.
+
+Our grid says grade 2 is **119**, effective 2026-09-01. The dates overlap. So either **107 is the trainer's net and the company pays 118.77** (our grid is right), or **107 is what the company already pays and the 11% was applied on top of a base that already contained it** — in which case **every amount in the application is 11% too high**.
+
+That the grid is the table × 1.11 *on all six grades* is what makes this a real risk rather than a coincidence: it was plainly derived from the table by applying the uplift. If that base was already gross, it was applied twice.
+
+**What the sheet decides, and what it does not.** Asked of the data: do rows after the "Incadrare actualizata 30.05.2026" note carry the new scale? Measured on 1,446 dated rows:
+
+| grade | before 30.05.2026 | **on/after 30.05.2026** |
+|---|---|---|
+| 1 | 100 (192 rows) | **100** (9) |
+| 2 | 107 (152) | **107** (2) |
+| 3 | 114 (215) | **114** (20) |
+| 4 | 121 (127) | — |
+| 5 | 128 (175) | — |
+| 6 | 135 (378) | **135** (41) |
+| 7 | 120 (119) | **120** (15) |
+
+**The scale never changed.** And the sheet is not stale: its rows run to **2026-10-12**, eight days ago, covering the workshops in scope. Searched for our figures across all 1,045,664 characters: **`111,00`, `118,77`, `119,00`, `126,54`, `127,00`, `134,31`, `142,08`, `149,85` — zero occurrences each.** Not one of our six rates has ever been paid through this table.
+
+**It still does not settle which reading is right, and the two column headers point opposite ways.** Column M of the timesheet is titled **"Classification Salary / Hour Taught"** — *salary*, which is the trainer's side. The grade table's rate column renders as **"Cost Total Net…"** (truncated by the connector, so not quotable in full) — *total cost*, which is the company's side. One name says what the trainer earns; the other says what the company pays. They cannot both be true of the same number.
+
+**And Anca's own recorded words support our grid, which is why this is not simply "the sheet wins".** Item 95 quotes her: *"in contractul cu trainerii PFA sau SRL vom avea direct 111 lei/ora tarif de baza junior"* — **111 for junior in the PFA/SRL contract**, against the sheet's 100. Both numbers exist in her account, describing different bases. So the plausible story is that the sheet records the pre-uplift basis and the PFA contract adds 11% — our grid being correct for PFA/SRL trainers and simply never reflected in the sheet.
+
+**The one question that decides it, already with Anca:** what amount appeared on Lorina's invoice for the two workshops of 30 September — **214,00** (2 × 107) or **238,00** (2 × 119)?
+
+**Why this cannot be resolved by reasoning.** Both readings are internally consistent with everything else known. The uplift's existence is documented (item 128 measured it as 11%, not the 11.1% this project wrote down for two months — item 131), and the sheet's constancy is now measured. An invoice is the only artefact that states which side of the uplift the 107 sits on.
+
+**Blocked on:** Anca, and the import is blocked behind it. Note that the arithmetic in item 144 (180.00 vs 225.00 for a Lycée workshop) is unaffected in its *point* — the location bonus is wrong either way — but its *figures* assume our grid, so they move by 11% if this resolves the other way.
+**Re-verify when:** answered. And if our grid turns out to be doubly uplifted, `202609240001`'s seeded grid is wrong at the source and every figure this project has quoted since item 95 needs restating.
+**Lives in:** nothing changed. `supabase/migrations/202609240001_seed_pay_grids_pfa_inclusive_rates.sql` (the grid, and the migration whose correctness is in question); item 95 above (Anca's 111 quote), item 128 above (the 11%), item 131 above (the mislabelled 11.1%), item 144 above (where the ×1.11 relationship was measured).
 
 ---
 ### 18. Pending invites — cut deliberately

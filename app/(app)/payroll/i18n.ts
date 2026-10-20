@@ -166,11 +166,37 @@ export const payrollDict: Dictionary = {
     en: "A person whose name is not visible to your role",
     ro: "O persoană al cărei nume nu este vizibil pentru rolul tău",
   },
-  sums_total_label: { en: "Total payable this month", ro: "Total de plată luna aceasta" },
-  sums_total_pending: {
-    en: "Plus {{amount}} lei not confirmed, excluded from the total above.",
-    ro: "Plus {{amount}} lei neconfirmați, excluși din totalul de mai sus.",
+  // One heading per invoicing entity. The entity is the outer grouping
+  // because a trainer issues one invoice PER ENTITY (Anca: "mai ales acum,
+  // cand facturam de pe trei entitati diferite, de multe ori trebuie sa
+  // specificam ce suma se factureaza de pe fiecare entitate"), so there is
+  // no cross-entity total anywhere on this screen.
+  sums_entity_pending: {
+    en: "{{amount}} lei more for this entity, not confirmed — not payable yet",
+    ro: "încă {{amount}} lei pe această entitate, neconfirmați — încă nu sunt de plată",
   },
+  // The broken chain: the group has no contract, so there is no entity to
+  // invoice from. The amount is known — this is not a pay failure, which is
+  // why it is a heading and not a reason_code.
+  sums_entity_unlinked: {
+    en: "No invoicing entity — the group has no contract",
+    ro: "Fără entitate de facturare — grupa nu are contract",
+  },
+  sums_entity_unlinked_hint: {
+    en: "These amounts are correct but cannot be assigned to an entity. Link the group to its contract, and they move to the right one.",
+    ro: "Sumele sunt corecte, dar nu pot fi atribuite unei entități. Leagă grupa de contractul ei și trec la cea corectă.",
+  },
+  // Distinct from the above: the contract exists and names an entity, but
+  // the entity row is not readable by this viewer. Item 123's rule — an
+  // absence under RLS is not evidence of absence.
+  sums_entity_unreadable: {
+    en: "Entity not visible to your role",
+    ro: "Entitate nevizibilă pentru rolul tău",
+  },
+  // sums_total_label / sums_total_pending were REMOVED, not left unused:
+  // they rendered a single payable total across all entities, and since the
+  // per-entity grouping there is no such number to show. A key kept "just in
+  // case" is a key someone re-renders.
   // Count in brackets would read oddly mid-sentence here, and this sentence
   // genuinely needs the number inline. Romanian's three plural forms are
   // sidestepped by "de ateliere", which is correct for 20+ and reads

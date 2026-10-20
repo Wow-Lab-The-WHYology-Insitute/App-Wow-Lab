@@ -18,7 +18,9 @@ type SessionRow = {
   duration_minutes: number | null;
   location_tier: string | null;
 };
-type GroupRow = { id: string; client_id: string; language_group: string | null };
+type GroupRow = { id: string; client_id: string; language_group: string | null; contract_id: string | null };
+type ContractEntityRow = { id: string; legal_entity_id: string };
+type LegalEntityRow = { id: string; name: string };
 type GradeRow = { trainer_id: string; grade_level: number; effective_from: string };
 type ClientRow = { id: string; name: string };
 // One row per trainer slot per workshop, from
@@ -150,10 +152,53 @@ export default async function PayrollPage({
   const groupIds = [...new Set((sessions ?? []).map((s) => s.group_id))];
   const { data: groups } =
     groupIds.length > 0
-      ? await supabase.from("groups").select("id, client_id, language_group").in("id", groupIds).returns<GroupRow[]>()
+      ? await supabase.from("groups").select("id, client_id, language_group, contract_id").in("id", groupIds).returns<GroupRow[]>()
       : { data: [] as GroupRow[] };
   const clientIdByGroupId = new Map((groups ?? []).map((g) => [g.id, g.client_id]));
   const languageByGroupId = new Map((groups ?? []).map((g) => [g.id, g.language_group]));
+
+  // ---- Which entity invoices this workshop ----
+  // session -> group -> contract -> legal_entity. It matters because a
+  // trainer issues one invoice PER ENTITY, not one per month: WOW LAB bills
+  // from three (Brandine Advertising SRL, Experimente Wow SRL, Asociatia
+  // STEMplicity), and Anka currently works out by hand which amount goes on
+  // which. Verified on the real chain before building: Cătălina's 26
+  // workshops resolve to Brandine, Teodora's 6 and Lorina's 6 to
+  // Experimente Wow.
+  //
+  // The chain has exactly ONE break point, and it is deliberate:
+  // groups.contract_id is nullable because a group can legitimately exist
+  // before its contract is signed (202608290001). contracts.legal_entity_id
+  // is NOT NULL, so it never breaks there. A workshop whose group has no
+  // contract is therefore PAYABLE BUT UNATTRIBUTABLE -- the amount is known,
+  // the invoicing entity is not. That is a third state, not a pay failure,
+  // and it gets its own reason rather than being dropped into whichever
+  // bucket a join happens to put it in.
+  const contractIds = [...new Set((groups ?? []).map((g) => g.contract_id).filter((v): v is string => v !== null))];
+  const { data: contractEntities } =
+    contractIds.length > 0
+      ? await supabase.from("contracts").select("id, legal_entity_id").in("id", contractIds).returns<ContractEntityRow[]>()
+      : { data: [] as ContractEntityRow[] };
+  const entityIdByContractId = new Map((contractEntities ?? []).map((c) => [c.id, c.legal_entity_id]));
+
+  const entityIds = [...new Set((contractEntities ?? []).map((c) => c.legal_entity_id))];
+  const { data: legalEntities } =
+    entityIds.length > 0
+      ? await supabase.from("legal_entities").select("id, name").in("id", entityIds).returns<LegalEntityRow[]>()
+      : { data: [] as LegalEntityRow[] };
+  const entityNameById = new Map((legalEntities ?? []).map((e) => [e.id, e.name]));
+
+  // Null entityId is the broken chain. Null entityName with a non-null id
+  // would mean RLS hid the entity row, which is a different thing and must
+  // not read as "no contract" -- kept distinct for the same reason item 123
+  // keeps "unreadable" apart from "absent".
+  const entityOfGroup = (groupId: string) => {
+    const group = (groups ?? []).find((g) => g.id === groupId);
+    if (!group || group.contract_id === null) return { id: null, name: null, unlinked: true };
+    const id = entityIdByContractId.get(group.contract_id) ?? null;
+    if (id === null) return { id: null, name: null, unlinked: true };
+    return { id, name: entityNameById.get(id) ?? null, unlinked: false };
+  };
 
   const clientIds = [...new Set((groups ?? []).map((g) => g.client_id))];
   const { data: clients } =
@@ -329,10 +374,20 @@ export default async function PayrollPage({
         sessions={(sessions ?? []).map((s) => {
           const clientId = clientIdByGroupId.get(s.group_id);
           const clientName = (clientId ? clientNameById.get(clientId) : undefined) ?? "Unknown";
+          const entity = entityOfGroup(s.group_id);
           return {
             id: s.id,
             sessionDate: s.session_date,
             clientName,
+            // The invoicing entity, from session -> group -> contract ->
+            // legal_entity. A trainer issues one invoice per entity, so this
+            // is the outer grouping on the screen. `unlinked` means the
+            // group has no contract (contract_id is nullable by design,
+            // 202608290001) -- the workshop is PAYABLE BUT UNATTRIBUTABLE,
+            // which is neither an amount problem nor a pay failure.
+            entityId: entity.id,
+            entityName: entity.name,
+            entityUnlinked: entity.unlinked,
             principal: s.trainer_principal_id
               ? {
                   // Grouped by id on the client, displayed by name: two people

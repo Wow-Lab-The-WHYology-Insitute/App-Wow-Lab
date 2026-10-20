@@ -410,6 +410,20 @@ async function main() {
     // Confirmed vs unconfirmed, never one figure: one of the two priced
     // workshops is confirmed, so payable is 328.13 and the other 328.13 is
     // reported separately as not payable.
+    // Test Org B's groups carry contract_id = null, so this run also
+    // exercises the broken chain: the amounts are correct and there is no
+    // entity to invoice them from. That is a heading, not a reason_code.
+    report.push(
+      `2. Per-entity grouping renders; the unlinked chain is named, not silently bucketed -> ${
+        text.includes("No invoicing entity — the group has no contract") &&
+        text.includes("cannot be assigned to an entity")
+          ? "PASS"
+          : "FAIL"
+      }`,
+    );
+    report.push(
+      `2. No cross-entity payable total is rendered -> ${!text.includes("Total payable this month") ? "PASS" : "FAIL"}`,
+    );
     report.push(
       `2. Confirmed and unconfirmed are two figures, not one sum -> ${
         text.includes("not confirmed — not payable yet") || text.includes("not confirmed, excluded from the total above")
@@ -488,7 +502,8 @@ async function main() {
       .replace(/\\u([0-9a-fA-F]{4})/g, (_m, h) => String.fromCharCode(parseInt(h, 16)));
     const roShipped = [
       "Cât i se cuvine fiecărui trainer",
-      "Total de plată luna aceasta",
+      "Fără entitate de facturare — grupa nu are contract",
+      "încă {{amount}} lei pe această entitate",
       "Lipsuri în grila de plată — nu se repară din acest ecran",
       "Informații care lipsesc — se pot completa",
       "mai lung decât cea mai mare durată acoperită de grila de plată",

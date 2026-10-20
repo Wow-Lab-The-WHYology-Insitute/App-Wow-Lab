@@ -27,6 +27,13 @@ type Session = {
   id: string;
   sessionDate: string;
   clientName: string;
+  // Which of WOW LAB's legal entities invoices this workshop, resolved on
+  // the server through group -> contract -> legal_entity. `entityUnlinked`
+  // is the broken chain: the group has no contract, so the amount is known
+  // and the invoicing entity is not.
+  entityId: string | null;
+  entityName: string | null;
+  entityUnlinked: boolean;
   principal: SessionSlot | null;
   secundar: SessionSlot | null;
 };
@@ -188,6 +195,14 @@ export function PayrollClient({
   // A slot that raised keeps its row, with its reason, and contributes to
   // neither total -- so one 30-minute scoala_altfel workshop costs its own
   // row and nothing else. The trainer keeps every other workshop's money.
+  // Grouped by ENTITY first, then by trainer. Anca's reason, verbatim:
+  // "mai ales acum, cand facturam de pe trei entitati diferite, de multe ori
+  // trebuie sa specificam ce suma se factureaza de pe fiecare entitate."
+  // A trainer issues one invoice PER ENTITY, so (entity, trainer) is the
+  // real unit and the entity is the outer heading -- which also makes
+  // summing across entities structurally impossible rather than merely
+  // discouraged. There is deliberately NO month-wide payable total for the
+  // same reason: it is a number nobody invoices.
   const trainerSums = useMemo(() => {
     const byTrainer = new Map<
       string,
@@ -195,6 +210,9 @@ export function PayrollClient({
         id: string;
         name: string;
         named: boolean;
+        entityId: string | null;
+        entityName: string | null;
+        entityUnlinked: boolean;
         payableBani: number;
         pendingBani: number;
         rows: {
@@ -210,10 +228,21 @@ export function PayrollClient({
     >();
 
     for (const { session, slot } of monthSlots.slots) {
-      let entry = byTrainer.get(slot.id);
+      const key = `${session.entityId ?? (session.entityUnlinked ? "__unlinked__" : "__unreadable__")}::${slot.id}`;
+      let entry = byTrainer.get(key);
       if (!entry) {
-        entry = { id: slot.id, name: slot.name, named: slot.named, payableBani: 0, pendingBani: 0, rows: [] };
-        byTrainer.set(slot.id, entry);
+        entry = {
+          id: slot.id,
+          name: slot.name,
+          named: slot.named,
+          entityId: session.entityId,
+          entityName: session.entityName,
+          entityUnlinked: session.entityUnlinked,
+          payableBani: 0,
+          pendingBani: 0,
+          rows: [],
+        };
+        byTrainer.set(key, entry);
       }
       entry.rows.push({
         key: `${session.id}-${slot.id}`,
@@ -244,10 +273,31 @@ export function PayrollClient({
       monthSlots.slots.filter(({ slot }) => slot.bani === null).map(({ session }) => session.id),
     );
 
+    // One bucket per entity, each with its own totals. Entities are ordered
+    // by name so the list is stable between months; the unattributable
+    // bucket sorts last because it is an exception, not an entity.
+    const buckets = new Map<
+      string,
+      { key: string; name: string | null; unlinked: boolean; trainers: typeof trainers; payableBani: number; pendingBani: number }
+    >();
+    for (const tr of trainers) {
+      const key = tr.entityId ?? (tr.entityUnlinked ? "__unlinked__" : "__unreadable__");
+      let b = buckets.get(key);
+      if (!b) {
+        b = { key, name: tr.entityName, unlinked: tr.entityUnlinked, trainers: [], payableBani: 0, pendingBani: 0 };
+        buckets.set(key, b);
+      }
+      b.trainers.push(tr);
+      b.payableBani += tr.payableBani;
+      b.pendingBani += tr.pendingBani;
+    }
+    const entities = [...buckets.values()].sort((a, b) => {
+      if (a.unlinked !== b.unlinked) return a.unlinked ? 1 : -1;
+      return (a.name ?? "").localeCompare(b.name ?? "", locale === "ro" ? "ro-RO" : "en-GB");
+    });
+
     return {
-      trainers,
-      payableBani: trainers.reduce((sum, tr) => sum + tr.payableBani, 0),
-      pendingBani: trainers.reduce((sum, tr) => sum + tr.pendingBani, 0),
+      entities,
       uncalculableCount: uncalculableSessions.size,
     };
   }, [monthSlots, locale]);
@@ -310,6 +360,11 @@ export function PayrollClient({
           id: w.id,
           sessionDate: w.sessionDate,
           clientName: w.clientName,
+          // This path exists only for the no-trainer case, which contributes
+          // no slots and so never reaches the per-entity grouping.
+          entityId: null,
+          entityName: null,
+          entityUnlinked: false,
           principal: null,
           secundar: null,
         };
@@ -558,8 +613,36 @@ export function PayrollClient({
           </h2>
           <p className="font-body text-muted mb-4 text-xs">{t("sums_hint")}</p>
 
+          {/* One section per invoicing entity, each with its own total. There
+              is no total across entities on purpose: a trainer bills each
+              entity separately, so a combined figure is a number nobody
+              invoices and the one most likely to be copied by mistake. */}
+          <ul className="flex flex-col gap-6">
+            {trainerSums.entities.map((ent) => (
+              <li key={ent.key}>
+                <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-black/10 pb-2">
+                  <span className="font-body text-ink text-sm font-bold">
+                    {ent.unlinked
+                      ? t("sums_entity_unlinked")
+                      : ent.name ?? t("sums_entity_unreadable")}
+                  </span>
+                  <span className="font-body text-ink text-sm font-bold tabular-nums">
+                    {t("sums_amount", { amount: formatLei(ent.payableBani, locale) })}
+                  </span>
+                </div>
+                {/* Said once per entity, because "not payable yet" is a fact
+                    about that entity's invoice, not about the month. */}
+                {ent.pendingBani > 0 && (
+                  <p className="font-body -mt-2 mb-2 text-xs text-orange-700">
+                    {t("sums_entity_pending", { amount: formatLei(ent.pendingBani, locale) })}
+                  </p>
+                )}
+                {ent.unlinked && (
+                  <p className="font-body -mt-2 mb-2 text-xs text-red-700">{t("sums_entity_unlinked_hint")}</p>
+                )}
+
           <ul className="flex flex-col gap-4">
-            {trainerSums.trainers.map((tr) => (
+            {ent.trainers.map((tr) => (
               <li key={tr.id} className="border-b border-black/5 pb-4 last:border-0 last:pb-0">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                   <span className="font-body text-ink text-sm font-semibold">
@@ -606,25 +689,16 @@ export function PayrollClient({
               </li>
             ))}
           </ul>
+              </li>
+            ))}
+          </ul>
 
           <div className="mt-5 flex flex-col gap-1 border-t border-black/10 pt-4">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-              <span className="font-body text-ink text-sm font-bold">{t("sums_total_label")}</span>
-              <span className="font-body text-ink text-base font-bold tabular-nums">
-                {t("sums_amount", { amount: formatLei(trainerSums.payableBani, locale) })}
-              </span>
-            </div>
-            {trainerSums.pendingBani > 0 && (
-              <p className="font-body text-xs text-orange-700">
-                {t("sums_total_pending", { amount: formatLei(trainerSums.pendingBani, locale) })}
-              </p>
-            )}
-            {/* The caveat stays attached to the total -- a total that quietly
-                omits workshops must never read as complete -- but it now
-                REFERS to the single count in the block above instead of
-                carrying a second one of its own. That is the whole point of
-                the consolidation: one number, named once, pointed at from
-                wherever else it matters. */}
+            {/* The caveat now sits under the entity sections rather than under
+                a combined total, because there is no combined total any more.
+                It still REFERS to the single count in the block above instead
+                of carrying one of its own -- one number, named once, pointed
+                at from wherever else it matters. */}
             {unpayable.count > 0 && (
               <p className="font-body text-xs text-red-700">
                 {t("sums_total_excludes", { n: unpayable.count })}

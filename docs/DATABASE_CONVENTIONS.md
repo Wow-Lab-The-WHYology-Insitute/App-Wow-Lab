@@ -182,3 +182,39 @@ unclassified raise inside a rolled-back transaction) and assert the check flips 
 months later becomes a silent `'unknown'` and every existing assertion still passes — which is
 item 120's lesson, where a checker written with six anticipated forms missed the seventh added in
 the same commit.
+
+## 14. The schema records what happened; the grid decides what gets paid
+
+**A constraint on an operational column must not enforce a pricing rule.** When the two disagree —
+when something real happened that the pay configuration cannot price — the record of it is kept and
+the *payment* is what fails, loudly and by name. Never the entry.
+
+The worked case is `sessions.duration_minutes`. Its CHECK allows **15 to 480 minutes** while the pay
+grid's top band is **120**. That 120–480 gap is a decision, not an oversight:
+
+- A four-hour Școala Altfel day is a real thing that can happen. With a ceiling of 120 it would be
+  **unenterable** — Operations would have to lie about the length, or not record the workshop at
+  all, and the lie would then be the input to pay.
+- With a ceiling of 480 it is **recorded truthfully and simply unpayable**:
+  `app.resolve_duration_multiplier` raises above the top band,
+  `app.calculate_org_session_pay` classifies that as `no_duration_row`, and `/payroll` shows it
+  under *"Gaps in the pay grid — not fixable from this screen"*. Operations records what happened;
+  Finance finds out it cannot be priced, and by whom it can be fixed.
+
+**This is the same principle as "a raise does not take the month down" (§13), one layer lower.**
+There, one unanswerable row must not cost the other rows their figures. Here, one unpriceable fact
+must not cost the organisation its record of the fact. In both cases the failure is **named and
+contained** rather than prevented by refusing the input.
+
+**So: before tightening any CHECK on an operational column to match a configuration table, stop.**
+The question is not "what values can we price?" but "what values can occur?" — and if the answer is
+that something can occur which cannot be priced, that belongs in the resolver's raise and on the
+screen, not in a constraint that makes the occurrence unrecordable. A CHECK on such a column is for
+**impossible** values (a negative length, a typo of 1200), not for unprofitable or unconfigured
+ones.
+
+A side effect worth knowing, since it is how this gets caught: constraints that encode pay rules
+also make the test suite unable to construct the unpayable case. `db/tests/payroll_org_session_pay.sql`
+needs to insert a workshop above the top band in order to assert that one raise does not take the
+month down; a CHECK clamped at 120 would have made that fixture uninsertable, and the test would
+have had to be weakened to fit the constraint.
