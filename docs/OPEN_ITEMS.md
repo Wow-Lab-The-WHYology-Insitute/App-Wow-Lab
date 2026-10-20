@@ -7986,6 +7986,14 @@ unfilled row, not a business state. Recounted over dated rows only: **1,446 date
 rows are Teodora on 30.08.2026 at 120,00, which is the grade-7 lesson-plan rate (item 145), and one
 is Alexandra Nuțu on 12.10.2026 at 228,00 (114 × 2.00, Other cities).
 
+**That concentration weakens the register argument further, and is worth stating as such.** Nine of
+eleven divergences sit in **lesson-plan writing** — the one domain this application does not model
+at all (item 145), where there is no formula to collapse because there is no formula. So the
+divergence is not evidence that a calculated figure needs a stored counterpart; it is evidence that
+**a domain with no calculation was being recorded in a sheet built for one.** Of the two remaining
+rows, one is a `Nu` status and one is a grade whose own value is in question (item 149 below). There
+is no case left in which a working calculation produced one number and a human approved another.
+
 And the 11 rows say so themselves, which the first reading of them missed. **All 11 are
 Proposed = 0,00 / Approved = the real figure** — not "approved at a different amount" but *a formula
 that collapsed to zero, with the amount typed in by hand*. In this application a calculation does
@@ -8160,6 +8168,74 @@ empty on purpose.
 `is_uplift_applied` on the same invariants, so that "is 119 gross or net" is answerable from the row
 rather than from a migration comment. That is a schema change and it is not urgent; writing the base
 down is what stops this question recurring.
+
+**CORRECTION 2026-10-20 — the arithmetic was never evidence, and a third reading explains everything without it.**
+
+The claim *"all six are the timesheet's scale × 1.11 and all six round correctly, so the grid was
+derived by applying the uplift"* **does not hold.** An 11% **raise** produces exactly the same six
+numbers as an 11% **uplift**. The match is equally consistent with both hypotheses, so it
+distinguishes nothing.
+
+**And it is the same error dismantled two items earlier, in item 144.** There, the point was that
+counting agreements does not disprove a rule — you need a case that only one hypothesis permits
+(the same trainer with two locations at one school). Arithmetic is not such a case: it is the one
+observation both readings predict identically. Having made that argument correctly about location, it
+was then dropped two days later about rates.
+
+**Why it looked like proof, which is the part worth keeping.** Item 128's evidence table contains
+the row `100 → 111.00 — exact`, labelled *"item 95 above's trainer grade 1"* — so the arithmetic
+appeared to be *corroborating a derivation the repo had already documented*. But item 128's table is
+the **same arithmetic**, applied in a domain where the uplift is independently known:
+`admin_rates` has `net_amount`, so 50 → 55.50 is a measured uplift, not an inferred one. Reading
+that domain's certainty across into this one — where no `net_amount` exists — is what made a
+coincidence look like a citation. **A number that two hypotheses both predict cannot inherit
+confidence from a domain where only one of them applies.**
+
+**THE THIRD READING, which neither of us had considered.** Row 36 of the feedback does not stand
+alone. Row 34, immediately beside it, is cited in `docs/phase1-development-plan.md` (table row 11,
+*"feedback rd. 34"*) and says: *"Generator cod facturare amestecă 2 lucruri diferite: codul de
+facturare CLIENT vs. plata trainerului PFA. De separat în 2 instrumente."*
+
+If the 11% *"added artificially to the invoice"* in row 36 was on the **CLIENT's** invoice, then
+*"junior base rate 111 lei (not 100)"* is simply **a higher rate — a raise**, there is **no uplift
+anywhere in the trainer scale**, and Mihai's *"we don't add them"* is consistent precisely because
+they were never added there. **This reading accounts for every measurement without invoking
+anything further**: the scale rising from 100 to 111, the timesheet still paying 100-135, the
+future-tense quote, and the absence of any net figure in the trainer domain. The repo carries only
+the *reference* to rows 34 and 36, not their text, so the quotes above are Mihai's.
+
+**THE VERIFICATION THAT WAS ASKED FOR AND NOT DONE: trainer supplier contracts.** The previous
+report covered the grid's columns and the repo's derivation and silently skipped the one place where
+what was actually agreed would be written down. Done now, and the answer is that **the contracts are
+mute because they do not exist**:
+
+- **`trainer_contracts` — the table does not exist.** Item 127 above records why: it was blocked on
+  `initial_grade_level` being `NOT NULL` while the source register carries no grade for anyone.
+- The three trainer PFAs are present as **suppliers**, correctly linked to their users, with
+  `service_type = "Onorarii trainer"` — and **zero contracts each**: `TRUȘAN FLORINA CĂTĂLINA PFA`
+  (Cătălina), `MERIȘAN IOANA-TEODORA PFA` (Teodora), `POPA C. RALUCA-MARIA-DIETETICIAN` (Raluca
+  Popa).
+- All 30 `supplier_contracts` rows belong to non-trainers. **No `price_text` anywhere contains 111,
+  119, 127, 134, 142 or 150** — zero matches. The single hit on the older scale is Raluca Margean's
+  article bands (`100 RON net` / `120 RON net` / `170 RON net`), which is copyright-assignment work,
+  not an hourly trainer rate.
+- Anka Orban's three contracts read `price_text = '80 RON/ORA, 90 RON/ORA'` — matching her
+  `admin_rates` rows exactly, at `is_uplift_applied = false`. **A contract states what is invoiced.**
+- **One weak signal, flagged as weak:** Margean's contract writes *"RON **net**"* explicitly, so this
+  register does say "net" when it means net. Anka's says neither — just `80 RON/ORA`. That is
+  consistent with "contracts quote the invoiced figure and only mark a net when one is meant", but it
+  is one contract's wording, not a convention, and it cannot be stretched to cover a trainer contract
+  that does not exist.
+
+**So the evidence is ABSENT, not ambiguous.** There is no artefact in this database that states
+whether 111 is a gross or a raise.
+
+**RETRACTED, on Mihai's instruction: the recommendation to add `net_amount` and `is_uplift_applied`
+to `trainer_grade_rates`.** Those columns would **assert** that 119 is the gross of 107 — and if 111
+is merely a higher rate, there is no net to record, and the schema would encode a wrong reading
+permanently, with invariants defending it. Item 128's guard protects a **known** fact (80 is gross
+because Anka invoices through an SRL, and her contract says so). Here the equivalent fact is not
+known. **Declaring a base is only safe once there is a base to declare.**
 
 **Blocked on:** a decision about the effective date, which is Mihai's and does not need Anca.
 
