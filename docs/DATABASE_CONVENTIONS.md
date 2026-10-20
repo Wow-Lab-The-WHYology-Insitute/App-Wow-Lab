@@ -218,3 +218,35 @@ also make the test suite unable to construct the unpayable case. `db/tests/payro
 needs to insert a workshop above the top band in order to assert that one raise does not take the
 month down; a CHECK clamped at 120 would have made that fixture uninsertable, and the test would
 have had to be weakened to fit the constraint.
+
+## 15. A migration awaiting a decision lives in `supabase/proposed/`, not in `supabase/migrations/`
+
+A migration that is written and reviewed but **deliberately not applied** — waiting on a decision
+rather than on effort — goes in `supabase/proposed/`, with its rollback beside it. It is armed by
+moving it to `supabase/migrations/<timestamp>_<name>.sql` and its rollback to
+`supabase/rollbacks/<same timestamp>_<name>_rollback.sql`.
+
+**Why a directory and not a naming convention.** The first attempt named the file
+`202610200001_PROPOSED_restate_trainer_grade_scale.sql` and left it in `supabase/migrations/`,
+reasoning that `PROPOSED` in the name was warning enough. It was not: **`supabase db push` selects
+files by the leading timestamp alone and ignores the rest of the filename.** Checked immediately
+after writing it, the file was listed as *pending* — it would have been applied by the next
+`db push` anyone ran, for any unrelated reason, with nobody deciding anything. Moving it out of the
+directory made `pending` go back to `none`.
+
+> **A marker the tool does not read is not a marker.** It is a comment addressed to whoever happens
+> to look, on a path where the thing that acts is a command nobody is watching.
+
+This generalises past migrations. Before relying on a filename, a prefix, a suffix or a comment to
+hold something back, check what the tool that would act on it actually parses — and if the answer is
+"not that", the guard has to be structural: a different directory, a different branch, a missing
+file. Naming conventions are for humans reading; they stop nothing.
+
+**What belongs in a proposed file.** The same quality as any migration — full header, guards,
+rollback — plus, in the header, **the decision it is waiting on** and, where the proposal differs
+from what was asked for, the argument for the difference. A proposed migration is how a
+disagreement gets made concrete enough to settle: `restate_trainer_grade_scale.sql` was written
+arguing against the instruction that prompted it, and the argument was accepted from reading the
+file.
+
+`docs/OPEN_ITEMS.md` carries the reasoning; `supabase/proposed/README.md` carries the mechanics.

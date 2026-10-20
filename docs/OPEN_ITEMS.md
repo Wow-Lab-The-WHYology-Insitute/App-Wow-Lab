@@ -6399,6 +6399,34 @@ without which "sees zero" could be a mis-specified fixture rather than a working
 
 **Still blocked, unchanged:** `trainer_contracts` and its 9 rows. `initial_grade_level` is NOT NULL
 and the register carries no grade for anyone (item 105 above).
+
+**RE-ASSESSED 2026-10-20 — the blocker is two-thirds gone, and the remaining third is a date, not a
+grade.** `initial_grade_level` records *the grade at signing* (SAD §12: a plain constrained 1-6
+value, deliberately not an FK to a versioned grid row). The register still carries no grade — but the
+real timesheet now supplies the grade on any date, so the grade at signing is **derivable** rather
+than missing. Timelines built from workshop rows only (grade-7 lesson-plan rows excluded):
+
+| trainer | grade timeline in the timesheet |
+|---|---|
+| Cătălina Trușan | grade 6 @ 135, **unchanged** 2024-08-07 .. 2026-09-30 (328 rows) |
+| Raluca Popa | grade 1 @ 100, **unchanged** 2026-03-09 .. 2026-09-08 (20 rows) |
+| Teodora Merișan | grade 1 @ 100 (2025-04-24 .. 2026-01-29), grade 2 @ 107 (2026-02-03 .. 2026-04-29), grade 3 @ 114 (2026-05-05 .. 2026-09-23) |
+
+**So six of the nine contracts have an unambiguous `initial_grade_level` whatever their signing
+date** — Cătălina's three are 6 and Raluca Popa's three are 1, because neither grade ever moved in
+the covered period. Only **Teodora's three** depend on when each was signed, and her transitions are
+dated to the day, so each resolves the moment the register's `signed_date` is read.
+
+**What is genuinely still missing** is therefore not a grade but the nine signing dates, which live
+in the source register (`Tabel contracte furnizori Wow Lab.xlsx`) and not in this database. That is a
+read, not a decision — and it is the same read the import needs anyway.
+
+**And this is why item 147 below spent a week unresolved.** The gross-versus-raise question had no
+artefact in this database capable of settling it, because **the one table that records what a trainer
+agreed to was never built.** `supplier_contracts` answered it for Anka in one line
+(`price_text = '80 RON/ORA, 90 RON/ORA'`); for the three trainer PFAs there was nothing to read.
+Item 147's rule — *a rate enters the grid when a signed contract states it* — is unenforceable until
+this table exists.
 **Lives in:** `supabase/migrations/202610120009`, `202610120010` and both rollbacks;
 `scripts/generate_supplier_contract_import.py`; `db/tests/supplier_contracts.sql`;
 `docs/WOWLAB_SAD_Contracte_Trainer_Furnizor.md` §3.3 (deviated from), §4, §5, §7; item 105 above
@@ -8067,9 +8095,138 @@ and *"to be paid"* say **whether the money moved**.
 
 **Why this is worth recording even though only one row is wrong.** The check itself is the finding: *"which of our grades disagrees with what was actually paid"* is answerable in one pass over the timesheet, and nobody had run it. It should be re-run whenever the grid or the assignments are touched, because a grade that drifts does not fail — it quietly pays the wrong rate, and `/payroll` will show a confident figure either way.
 
-**Blocked on:** Anca, for the effective date of Alexandra Nuțu's promotion to grade 3. One row.
+**RESOLVED 2026-10-20 FROM THE TIMESHEET — it is a real promotion, derived, not asked.** Row 69 of
+the feedback (Cătălina): *"Trainerul vede nivelul la care e încadrat. Trecere automată de nivel la
+nr. ore prag (azi manual, Laura) — de automatizat."* A grade is **a crossed hours threshold**, not a
+chosen date, so the question to Anca was the wrong instrument. Her 88 readable rows:
+
+| grade | rate | from | to |
+|---|---|---|---|
+| 1 | 100 | 2024-11-18 | 2025-03-31 |
+| **2** | **107** | **2025-05-05** | 2026-04-03 |
+| (7) | (120) | 2025-07-07 | 2025-07-30 — lesson plans, a different rate kind |
+| **3** | **114** | **2026-10-12** | (most recent row in the sheet) |
+
+**The rate moves with the grade every time** — 100 → 107 → 114 — so each transition is corroborated
+by the money, and this is a promotion rather than a transcription error.
+
+**Our record is wrong in both directions:** we hold *grade 2 effective 2026-09-01*, but she had been
+grade 2 since **2025-05-05** (so that effective date is sixteen months late) and was already being
+paid as **grade 3 by 2026-10-12**. The second matters for the import, the first does not — the
+import window starts 2026-09-01, by which time grade 2 was long since correct.
+
+**Caveat on the grade-3 date, stated because it is one row:** 2026-10-12 is the first *readable*
+grade-3 row, and the connector returned ~1,448 of ~10,954 timesheet rows. An earlier grade-3 row may
+exist in the unread portion, which would move the date earlier — never later, since 2026-10-12 is the
+sheet's own last date.
+
+**Blocked on:** nothing from Anca. The correction is a data fix whose date comes from the sheet.
 **Re-verify when:** `trainer_grade_assignments` is edited, or a new timesheet period is read. Also after item 147 below resolves, since if the grid's effective date moves, every assignment's own date wants checking against the same boundary.
 **Lives in:** nothing changed. `supabase/migrations/202609240002` (the assignments); item 147 below (the scale and its date), item 145 above (why grade 7 rows had to be excluded from this comparison), item 142 above (the same class of drift, in roles).
+
+---
+
+### 150. Two requirements were derived from a spreadsheet over three days — both were written down in July. The feedback file is read FIRST, before any new module
+
+2026-10-20, and it is a process finding, not a technical one.
+
+`wowlab_feedback_analiza` (Google Sheet `1HWOtFYkCCCJe7e_BkVDPWrFFedOU8eGH_4P48pYp8kI`, 73 observations, rows 3–77 of *Feedback centralizat*, dated 2026-07-30) **row 8**, verbatim — Anka, screen *Plata traineri*:
+
+> *"Adaugă rolul ei la acest ecran; **sumă separată pe entitate**; **statusuri (de plată/facturat/plătit)**; **link către contract**."*
+
+Three of those four were treated as discoveries this week:
+
+| row 8 asked, July 2026 | what happened |
+|---|---|
+| **sumă separată pe entitate** | built 2026-10-19 as though it came from Anca's answer of 2026-10-18 |
+| **statusuri (de plată/facturat/plătit)** | written 2026-10-20 as item 148, "a missing domain", derived from status values in the timesheet |
+| **link către contract** | **nowhere** — not built, not recorded, not noticed until now |
+
+The per-entity grouping took a verification pass, a rolled-back 38-workshop simulation and a day's work to justify. The justification was correct and the build is right. **It was also already a written requirement, with a named author, a named screen and a date.** The payment-cycle domain was reconstructed from `De achitat` and `platit in martie` appearing in a column — when row 8 names the three stages outright, and row 36 names a more granular set (`cost validat / așteptăm factură / emisă / plătită`).
+
+**THE RULE:**
+
+> **Before scoping or building any module, `wowlab_feedback_analiza` is read first — all 73 rows,
+> filtered to the screens the module touches.** Not after the design, not to validate it, and not
+> the cluster summary alone: the per-row table carries the author, the screen and the exact words,
+> and the summary drops details (row 8's "link către contract" survives only in the per-row table).
+
+Not "read the requirements" as a platitude. The specific failure was that **this file was read once, in July, summarised into clusters, and then never consulagain while building against the screens it describes.** Three days of inference produced what one filtered read would have produced in ten minutes — and the inference, being inference, missed the third item entirely.
+
+**A mechanical note that caused part of this:** the connector returns a truncated sample by default — the first read of this file came back with 13 of 73 rows and no indication that the rest existed. The full content requires `snippetVerbosity: MAX_ALLOWED`, which exceeds the response limit and is written to a file on disk to be processed locally. **A partial read of a requirements document is worse than no read**, because it produces false confidence about coverage. Whatever is read, the row count read must be compared against the row count claimed.
+
+**WHAT ELSE IN THE 73 TOUCHES WORK ALREADY BUILT OR ABOUT TO BE** — the filtered read, done now:
+
+*Already built, and the row confirms it (no action):*
+- **rd. 43 + 75** — trainer principal/secundar per group. Built (`trainer_principal_id` / `trainer_secundar_id`). Row 75 (Cătălina) asks who decides principal vs secundar, preset or chosen — **still unanswered**, and it is a process question, not a schema one.
+- **rd. 20** — *"Disciplină" → "Tip atelier"* with 14 modules + Altfel/Verde + Party + Chimie + Custom + Corporate. Built as `delivery_format`'s nine values + `custom`. Row 20 also asks to separate *copii confirmați* from *copii facturați* — built as `children_confirmed` / `children_billed`, both still null on every live group.
+- **rd. 40** — audit log with actor + date. Built (`audit_log`, `row_history`).
+- **rd. 53** — Evaluator as an adjacent/temporary role. Built.
+- **rd. 18** — CUI on clients. Built.
+
+*Directly relevant to the import, and unbuilt:*
+- **rd. 65** (Laura) — *"datele afișate ar trebui asociate unui an școlar și stocate separat pe an"*. **A school-year dimension on every report.** Nothing in the schema has one; `/payroll` is keyed on calendar months. This is the kind of requirement that is cheap now and expensive after the first year closes.
+- **rd. 62** (Laura) — nominal monthly attendance export per school, *"unele școli (Lycée Français) cer un tabel nominal"*. This is the attendance-list half of item 141's invoicing question, named by the school that needs it.
+- **rd. 6** — balance import, *"coloană cu entitatea"*, three entities. Same entity dimension as row 8.
+
+*Directly relevant to cancellations (item 139), and unbuilt:*
+- **rd. 21** — planning view with *"status înlocuire (solicitat/acceptat/descoperit)"*. A **substitution** state machine, adjacent to and distinct from cancellation: a workshop that happens with a different trainer, versus one that does not happen.
+- **rd. 77** (Cătălina) — *"la înlocuiri, de completat automat realocarea grupei — un fel de status check pe școală"*.
+- **rd. 44** — real calendar dates, and automatic substitute suggestion explicitly deferred by Anca herself (*"nu e cazul acum"*).
+
+*Directly relevant to the hours screen (item 130) and the grade question (item 149):*
+- **rd. 64** (Laura) — *"Diferențiere sesiuni recurente / punctuale (Școala Altfel/Party) / ore admin. Structură propusă: Nume, Total ore, Sesiuni recurente, Sesiuni punctuale, Admin, Total plată, Status."* **A column-by-column specification of the hours screen, from the person who will use it.** The analysis calls it *"aproape gata de implementat direct"*. It also confirms that recurring, one-off and admin hours are three separate buckets — which is the distinction item 138's `ateliere` label blurs and item 145's grade 7 sits outside.
+- **rd. 69** (Cătălina) — *"Trainerul vede nivelul la care e încadrat. Trecere automată de nivel la nr. ore prag (azi manual, Laura)."* Grade progression is **a crossed hours threshold**, computed. See item 151 below.
+- **rd. 60** — the manager sees the performance criteria, *"tabel real atașat (Google Sheet)"*, the basis on which Laura computes the monthly bonus. **The link is not in the file** — all 73 rows and the cluster summary contain no URL, and a Drive search for it returns only the feedback file itself. It is either in the upstream *Feedback centralizat* or attached outside the cell values, and it is owned elsewhere (`hello@hyperfit.ro` owns the feedback file).
+- **rd. 24 / 5 / 50 / 59 / 68** — the trainer profile module these all belong to, including a **`KPI eficiență (cost vs. venit generat)`** which needs both the pay side (built) and the client-price side (item 141, free text).
+
+*Directly relevant to the grid (item 147):*
+- **rd. 36** — the new rate and the 11% removal. See item 147 below; this is the row the whole week came from.
+- **rd. 34** — separate the client billing-code generator from the trainer pay calculator. Two instruments, not one. `/payroll` is the second; the first does not exist.
+- **rd. 63** (Laura) — *"Păstrăm distincția Surroundings/Other City dacă încă se aplică?"* **An open question about the location tiers, from July, still unanswered** — asked while item 144 was spending this week proving the tiers belong to the school. Also asks for a monthly per-trainer pay report *stored in the application* for periodic reporting, which is item 148's territory.
+
+*A conflict flagged in July and still undecided:*
+- **rd. 7, 8, 9, 10, 15** — Anka repeatedly asks that **Finance Admin & Reporting** see screens scoped to Finance Operations / Operations / Inventory. The analysis marks this `🔴 CONFLICT CU O DECIZIE DEJA TESTATĂ` against the Phase 0 finance segregation (D5b) and says it needs **a conscious decision from Anca, not a silent widening**. Directly relevant: item 136's `/payroll` gate admits `finance.operations.*` or `org.settings.manage` and **not** `finance.reporting.*` — which is item 139's handoff argument, and row 8 is Anka asking for exactly that widening. **The decision is still outstanding and the gate currently answers it by omission.**
+
+**Blocked on:** nothing. The rule is the deliverable; the list above is the backlog it produces.
+**Re-verify when:** any module is scoped. And the row count: 73.
+**Lives in:** nothing changed. `wowlab_feedback_analiza` (the source); item 136 above (per-entity grouping, requirement rd. 8), item 148 above (payment cycle, requirement rd. 8 and rd. 36), item 147 below (the rate, rd. 36), item 144 above (location tiers, open question rd. 63), item 139 above (the visibility conflict, rd. 7-10/15), item 151 below (grade progression, rd. 69).
+
+---
+### 151. `trainer_grade_assignments.source` accepts `'computed'` and nothing computes — the automation it was built for needs an hours history we do not have
+
+2026-10-20. All **11** assignments in the real org carry `source = 'manual'`; the CHECK admits `'computed' | 'manual'` and the second value has never been written. That is not an oversight — it is a placeholder for a requirement, and the requirement is named.
+
+Row 69 of the feedback (Cătălina): *"Trainerul vede nivelul la care e încadrat. **Trecere automată de nivel la nr. ore prag** (azi manual, făcut de Laura) — de automatizat."*
+
+**So a grade is a crossed hours threshold, computed from cumulative hours taught.** Which is why asking Anca for *"the date of Alexandra's promotion"* was the wrong instrument (item 149 above): the date is an output, not an input. Laura computes it by hand today.
+
+**And it is not buildable yet, for a reason that is about data volume rather than logic.** Progression is on **cumulative** hours — the whole history, not the current month. Against that:
+
+- the import brings **38 workshops** from three schools, covering 2026-09-01 .. 2026-10-16;
+- the real history is **~10,954 rows** in the timesheet, running from 2024-08-06.
+
+A threshold rule run against 38 workshops would place every trainer at the bottom of the ladder and then "promote" them as the application accumulates what the spreadsheet already knows. Cătălina would compute as a junior for a year.
+
+**So grades stay `'manual'`, seeded from the timesheet, until the hours history is in.** That is the honest sequence, and it has a consequence worth stating: **`'computed'` must not be written by anything until the history is complete**, because the first `'computed'` row is also the moment the application starts claiming the ladder is its own.
+
+**A related observation, measured while checking this:** all ten seeded assignments carry
+`effective_from = 2026-09-01`, which is **the seeding date, not the promotion date**. The timesheet
+has the real ones — Teodora reached grade 3 on 2026-05-05, Alexandra grade 2 on 2025-05-05. For
+current pay this is harmless; for any calculation dated before a real promotion it is wrong. **It
+does not affect the 38**, whose window opens 2026-09-01, by which time every one of those grades was
+already correct — Alexandra's move to grade 3 (2026-10-12) is the only transition inside the window,
+and she has no workshop among the 38.
+
+**Blocked on:** the hours history, which is item 130's hours-entry screen plus a timesheet import
+that nobody has scoped. Not urgent.
+**Re-verify when:** anything writes `source = 'computed'`, or the timesheet is imported. Also when
+`effective_from` on the seeded assignments is corrected to the real promotion dates, which is a
+separate and larger data fix than item 149's single row.
+**Lives in:** nothing changed. `supabase/migrations/202609240002` (the assignments and the `source`
+CHECK); item 149 above (Alexandra, derived rather than asked), item 150 above (rd. 69 and the rule
+that would have found it sooner), item 130 above (the hours screen), item 145 above (grade 7, which
+no hours threshold reaches).
 
 ---
 
@@ -8237,7 +8394,66 @@ permanently, with invariants defending it. Item 128's guard protects a **known**
 because Anka invoices through an SRL, and her contract says so). Here the equivalent fact is not
 known. **Declaring a base is only safe once there is a base to declare.**
 
-**Blocked on:** a decision about the effective date, which is Mihai's and does not need Anca.
+**RESOLVED 2026-10-20 FROM THE SOURCE. There is no uplift in the trainer scale, and `202609240001`'s central claim is a misreading.**
+
+Row 36 of `wowlab_feedback_analiza`, verbatim (Anca, Platform Owner, screen *Plata traineri*, July 2026):
+
+> *"Coloană observații; statusuri mai granulare (cost validat/așteptăm factură/emisă/plătită); coloană bonusuri; **RATĂ NOUĂ: 111 lei bază junior (nu 100) + eliminare 11% artificial din factură.**"*
+
+Flag: `Nu, dar schimbare de bani reali`. Recommendation: *"Schimbarea de rată afectează calculul real de plată — de confirmat explicit cu Anca + Laura înainte de codificare."*
+
+**That is one row containing TWO separate changes:**
+
+1. **A NEW RATE** — *"RATĂ NOUĂ: 111 lei bază junior (nu 100)"*. The source calls it a rate change, a raise from 100 to 111. Not a restatement of 100 on a gross basis.
+2. **Removing an artificial 11% from the INVOICE** — *"eliminare 11% artificial din factură"*. Row 34, beside it, says what that invoice is: *"Generator cod facturare amestecă 2 lucruri diferite: codul de facturare client (KPI profitabilitate) vs. plata trainerilor PFA (nu pun coduri pe facturi)"*.
+
+**So the 11% was never inside the trainer scale — it was on the client side, and the instruction was to delete it.** `202609240001` fused the two halves of row 36 into a single claim about the trainer grid: *"the 11.1% PFA/SRL uplift is already inside these rates."* It is not inside them. **111 is simply a higher number than 100.**
+
+The one thing that survives unchanged is the decision to keep `contract_type_uplift` empty — but **for a different reason than the one written on it**. The migration says "because the uplift is already inside these rates"; the correct reason is **because there is no uplift to apply**. Both conclusions keep the table empty, so nothing was computed wrongly — but the stated reason has been wrong since 2026-09-24 and would have justified the opposite change just as easily.
+
+**And this retires the question that could not be answered.** "Is 111 a gross or a raise" is answered: **a raise**. The arithmetic could not separate the two (an 11% raise and an 11% uplift produce identical numbers — see the correction above), no trainer contract exists to state it, and the two column headers in the timesheet point opposite ways. **The requirement document says it outright**, and it was readable the whole time.
+
+**What is still open is only the DATE.** Row 36 is flagged **Blocant** and explicitly *"de confirmat explicit cu Anca + Laura înainte de codificare"* — as of the feedback's date, **July 2026, the rate change was proposed and unconfirmed.** The timesheet then paid 100/107/114/121/128/135 on every row through **2026-10-12**. So the new scale had **not taken effect** three months after being proposed, and `202609240001` dated it **2026-09-01**.
+
+**`supabase/proposed/restate_trainer_grade_scale.sql` is therefore confirmed in direction and sharpened in reason:** the 2026-09-01 version should carry the scale that was paid, and 111-150 is a **pending, unconfirmed rate change** rather than a backdated restatement — which also means it must not be seeded at *any* date until someone confirms it took effect, since row 36 itself says the confirmation had not happened.
+
+**And `net_amount` / `is_uplift_applied` on `trainer_grade_rates` stays retracted, now for a settled reason rather than a cautious one: there is no base, because there was never an uplift.**
+
+**APPLIED 2026-10-20 (`202610200001`).** The 2026-09-01 version now carries **100/107/114/121/128/135**, the scale that was paid, with assertions on three real payments rather than on the literals written (grade 2 on 2026-09-30 = 107, grade 3 on 2026-09-16 = 114, grade 3 on 2026-10-12 = 114). 111-150 is not seeded at any date. Mihai, accepting the single-version variant: *"Registrul de plati bate un citat."*
+
+**THE RULE FOR SEEDING 111-150, written as a rule because this entire week came out of its absence:**
+
+> **A rate enters the grid when a signed trainer contract states it, with that contract's own start
+> date. Not when someone says it will.**
+
+`202609240001` put 111-150 into the grid on the strength of *"vom avea direct 111 lei/ora"* — **future
+tense, in a requirements document, flagged `Blocant` and "de confirmat explicit cu Anca + Laura
+înainte de codificare"** — and dated it 2026-09-01, three weeks before the sentence was even written.
+Everything that followed came from that: a week spent asking whether every amount in the application
+was 11% too high, a proposal to add `net_amount` and `is_uplift_applied` to a table that needs
+neither, and a grid that disagreed with every payment made in the two months it claimed to cover.
+
+**The rule is not "be careful with quotes".** It is that a pay grid is a record of an agreement, and
+the artefact that carries an agreement is a signed contract. A requirement document carries an
+*intention*. The two are different kinds of thing, and only one of them has a start date that means
+anything. Which is also why **item 127 above matters more than it looked**: the absence of
+`trainer_contracts` is exactly why the gross-versus-raise question had no evidence in this database
+to settle it — the only artefact that could have answered it is the one table that was never built.
+
+**THE LESSON ABOUT THE ARITHMETIC, kept here deliberately and not as a footnote**, because it is the
+transferable part:
+
+> We imported the certainty of one domain into another that had no net figure at all. A number that
+> two hypotheses predict identically cannot inherit confidence from a domain in which only one of
+> them applies.
+
+`admin_rates` has `net_amount`, so 50 → 55.50 is a *measured* uplift. `trainer_grade_rates` has no
+such column, so 100 → 111 is an *observed difference* and nothing more. Running the same
+multiplication in both places produced the same number and two entirely different epistemic
+statuses — and the second was read as if it were the first.
+
+**Blocked on:** nothing. 111-150 waits on a signed contract, per the rule above — not on a date
+somebody chooses.
 
 **Blocked on:** Anca, and the import is blocked behind it. Note that the arithmetic in item 144 (180.00 vs 225.00 for a Lycée workshop) is unaffected in its *point* — the location bonus is wrong either way — but its *figures* assume our grid, so they move by 11% if this resolves the other way.
 **Re-verify when:** answered. And if our grid turns out to be doubly uplifted, `202609240001`'s seeded grid is wrong at the source and every figure this project has quoted since item 95 needs restating.

@@ -45,14 +45,20 @@
 -- a trainer's total is the sum of the ROUNDED rows -- not the unrounded
 -- sum rounded once at the end.
 --
--- Grade 3 (Teodora, rate 127) x 1.5 (120 min, standard context) x
--- (1 + 25/100 imprejurimi + 20/100 fr_de_es) = 127 x 1.5 x 1.45 =
--- 276.225 exactly. A third decimal, which is the whole point: 276.225
--- rounds to 276.23, so two such rows total 552.46 -- while the unrounded
--- pair sums to 552.45 and rounding THAT at the end gives 552.45. One ban
+-- Grade 6 (Catalina, rate 135) x 1.5 (120 min, standard context) x
+-- (1 + 25/100 imprejurimi + 20/100 fr_de_es) = 135 x 1.5 x 1.45 =
+-- 293.625 exactly. A third decimal, which is the whole point: 293.625
+-- rounds to 293.63, so two such rows total 587.26 -- while the unrounded
+-- pair sums to 587.25 and rounding THAT at the end gives 587.25. One ban
 -- apart. Anca adds these rows up by hand off the screen to issue the
 -- invoice, so the screen's total has to be the one her calculator
 -- produces.
+--
+-- The trainer changed from Teodora to Catalina on 2026-10-20: 202610200001
+-- restated the grid to the scale actually paid (100/107/114/121/128/135),
+-- and grade 3's new rate of 114 produces 247.95 -- two decimals, which
+-- cannot exercise the rounding rule at all. Grade 6's 135 still produces a
+-- third decimal. The fixture follows the arithmetic, not the person.
 -- ============================================================================
 begin;
   select set_config(
@@ -61,7 +67,7 @@ begin;
     true
   );
   select set_config('app.wow_lab', (select id::text from public.organizations where slug = 'wow-lab'), true);
-  select set_config('app.teodora', (select id::text from public.users where email = 'merisanteodora@gmail.com'), true);
+  select set_config('app.catalina', (select id::text from public.users where email = 'catalina_moale@yahoo.com'), true);
   select set_config('app.avenor_client', (select id::text from public.clients where organization_id = current_setting('app.wow_lab')::uuid and name = 'Scoala Avenor'), true);
 
   create temp table check_results (check_name text, pass boolean);
@@ -70,11 +76,11 @@ begin;
   values ('dd000000-0000-0000-0000-000000000001', current_setting('app.wow_lab')::uuid, current_setting('app.avenor_client')::uuid, 'gaga', 'parteneriate_companii', 'fr_de_es');
 
   -- Two workshops, same trainer, identical priced inputs. Two rows at
-  -- 276.225 is the smallest fixture that can tell the two rounding rules
+  -- 293.625 is the smallest fixture that can tell the two rounding rules
   -- apart at all.
   insert into public.sessions (id, organization_id, group_id, session_date, trainer_principal_id, status, duration_minutes, location_tier)
-  values ('ee000000-0000-0000-0000-000000000001', current_setting('app.wow_lab')::uuid, 'dd000000-0000-0000-0000-000000000001', '2026-09-25', current_setting('app.teodora')::uuid, 'planned', 120, 'imprejurimi'),
-         ('ee000000-0000-0000-0000-000000000002', current_setting('app.wow_lab')::uuid, 'dd000000-0000-0000-0000-000000000001', '2026-09-28', current_setting('app.teodora')::uuid, 'planned', 120, 'imprejurimi');
+  values ('ee000000-0000-0000-0000-000000000001', current_setting('app.wow_lab')::uuid, 'dd000000-0000-0000-0000-000000000001', '2026-09-25', current_setting('app.catalina')::uuid, 'planned', 120, 'imprejurimi'),
+         ('ee000000-0000-0000-0000-000000000002', current_setting('app.wow_lab')::uuid, 'dd000000-0000-0000-0000-000000000001', '2026-09-28', current_setting('app.catalina')::uuid, 'planned', 120, 'imprejurimi');
 
   create temp table pay_rows as
   select p.*
@@ -88,26 +94,26 @@ begin;
   -- own header refuses to round (444 of 1,456 historical amounts carry
   -- bani).
   insert into check_results values (
-    'app.calculate_session_pay itself is still unrounded: 276.225',
-    app.calculate_session_pay('ee000000-0000-0000-0000-000000000001', current_setting('app.teodora')::uuid) = 276.225
+    'app.calculate_session_pay itself is still unrounded: 293.625',
+    app.calculate_session_pay('ee000000-0000-0000-0000-000000000001', current_setting('app.catalina')::uuid) = 293.625
   );
 
   insert into check_results values (
-    'each workshop row rounds to 2 decimals: 276.225 -> 276.23',
-    (select count(*) = 2 and bool_and(amount = 276.23) from pay_rows)
+    'each workshop row rounds to 2 decimals: 293.625 -> 293.63',
+    (select count(*) = 2 and bool_and(amount = 293.63) from pay_rows)
   );
 
   insert into check_results values (
-    'trainer total is the SUM OF ROUNDED rows: 552.46',
-    (select sum(amount) = 552.46 from pay_rows)
+    'trainer total is the SUM OF ROUNDED rows: 587.26',
+    (select sum(amount) = 587.26 from pay_rows)
   );
 
   -- The discriminating assertion, stated as the negative on purpose: this
   -- is the number the screen would show if the rule were "sum, then
   -- round", and it is the bug this test exists to prevent regressing to.
   insert into check_results values (
-    'trainer total is NOT the rounded unrounded-sum: 552.45 is wrong',
-    (select sum(amount) <> 552.45 from pay_rows)
+    'trainer total is NOT the rounded unrounded-sum: 587.25 is wrong',
+    (select sum(amount) <> 587.25 from pay_rows)
   );
 
   insert into check_results values (
@@ -134,9 +140,9 @@ rollback;
 -- long as the grid tops out at 120.
 --
 -- Same trainer, same group, three workshops: one 150-minute (raises), one
--- 90-minute (127 x 1.2 x 1.45 = 220.98), and one 30-minute that used to
--- raise and must now price through the 60 band (127 x 1.0 x 1.45 =
--- 184.15) -- asserted here so the closed gap stays closed.
+-- 90-minute (114 x 1.2 x 1.45 = 198.36), and one 30-minute that used to
+-- raise and must now price through the 60 band (114 x 1.0 x 1.45 =
+-- 165.30) -- asserted here so the closed gap stays closed.
 -- ============================================================================
 begin;
   select set_config(
@@ -183,8 +189,8 @@ begin;
   -- block; it must now carry money, and the figure proves it went through
   -- the 60 band rather than a 30 band nobody added.
   insert into check_results values (
-    '30 min + scoala_altfel now PRICES through the 60 band: 184.15',
-    (select amount = 184.15 and reason_code is null
+    '30 min + scoala_altfel now PRICES through the 60 band: 165.30',
+    (select amount = 165.30 and reason_code is null
      from pay_rows where session_id = 'ee000000-0000-0000-0000-000000000005')
   );
 
@@ -198,14 +204,14 @@ begin;
   );
 
   insert into check_results values (
-    'the other workshop keeps its amount: 220.98',
-    (select amount = 220.98 and reason_code is null
+    'the other workshop keeps its amount: 198.36',
+    (select amount = 198.36 and reason_code is null
      from pay_rows where session_id = 'ee000000-0000-0000-0000-000000000004')
   );
 
   insert into check_results values (
-    'the trainer keeps the total from their calculable workshops: 220.98 + 184.15 = 405.13',
-    (select coalesce(sum(amount), 0) = 405.13 from pay_rows where amount is not null)
+    'the trainer keeps the total from their calculable workshops: 198.36 + 165.30 = 363.66',
+    (select coalesce(sum(amount), 0) = 363.66 from pay_rows where amount is not null)
   );
 
   insert into check_results values (
@@ -313,8 +319,8 @@ begin;
   );
 
   insert into check_results values (
-    'the one complete workshop still returns money among five failures: 220.98',
-    (select amount = 220.98 from pay_rows where session_id = 'ee000000-0000-0000-0000-00000000000a')
+    'the one complete workshop still returns money among five failures: 198.36',
+    (select amount = 198.36 from pay_rows where session_id = 'ee000000-0000-0000-0000-00000000000a')
   );
 
   select check_name, pass from check_results order by check_name;

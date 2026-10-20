@@ -1,10 +1,13 @@
--- ⚠ PROPOSED, NOT APPLIED. Lives in supabase/proposed/, NOT in
--- supabase/migrations/, because `supabase db push` parses only the leading
--- timestamp in a filename and would have applied this regardless of a
--- PROPOSED marker in the name -- confirmed: with the file in migrations/ it
--- showed up as pending. To arm it, move it to
--- supabase/migrations/<timestamp>_restate_trainer_grade_scale.sql and its
--- sibling to supabase/rollbacks/<same>_rollback.sql.
+-- ARMED 2026-10-20. Written and reviewed in supabase/proposed/ first
+-- (see docs/DATABASE_CONVENTIONS.md §15), then moved here once Mihai
+-- accepted the single-version variant: "Registrul de plati bate un citat."
+--
+-- The instruction this file originally argued against -- two versions, with
+-- 111-150 starting 2026-09-24 -- was withdrawn on the same reasoning the
+-- file gives: 2026-09-24 is the date Anca STATED the figure, not the date it
+-- took effect. Row 36 of the feedback (July 2026) flags the rate change as
+-- Blocant and "de confirmat explicit cu Anca + Laura inainte de codificare",
+-- and the payment record shows it still unconfirmed on 2026-10-12.
 --
 -- ===========================================================================
 -- WHAT THIS DOES: restates the 2026-09-01 trainer grade scale as 100-135,

@@ -13,4 +13,9 @@ To arm one: move it to `supabase/migrations/<timestamp>_<name>.sql` and its
 rollback to `supabase/rollbacks/<same timestamp>_<name>_rollback.sql`.
 
 Each file's own header says what decision it is waiting on, and
-`docs/OPEN_ITEMS.md` carries the argument.
+`docs/OPEN_ITEMS.md` carries the argument. The rule itself is
+`docs/DATABASE_CONVENTIONS.md` §15 — including the general form: a marker the
+tool does not read is not a marker.
+
+Currently empty: `restate_trainer_grade_scale.sql` was armed on 2026-10-20 and
+now lives in `supabase/migrations/202610200001_restate_trainer_grade_scale.sql`.
