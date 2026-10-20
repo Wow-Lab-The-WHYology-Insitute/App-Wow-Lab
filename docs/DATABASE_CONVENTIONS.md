@@ -250,3 +250,52 @@ arguing against the instruction that prompted it, and the argument was accepted 
 file.
 
 `docs/OPEN_ITEMS.md` carries the reasoning; `supabase/proposed/README.md` carries the mechanics.
+
+## 16. The school year is 1 September – 31 August, labelled by its starting year
+
+`2026-2027` runs from **2026-09-01** to **2027-08-31**. A date belongs to the school year whose
+September it follows, so `2026-10-16` and `2027-06-30` are both in `2026-2027`.
+
+**It is derived, never stored.** Any date yields its school year arithmetically, so there is no
+column for it and no backfill to get wrong:
+
+```sql
+-- the starting year of the school year containing a date
+case when extract(month from d) >= 9
+     then extract(year from d)
+     else extract(year from d) - 1
+end
+```
+
+**The convention exists because the expensive failure is not storage, it is disagreement.** One
+report grouping from September, another from August, a third from the first Monday of term, produce
+three different answers to "how much did we bill this year" and no way to tell which is wrong.
+Requirement rd. 65 (Laura) asked for a school-year dimension on every report; fixing the boundary
+once is the whole of what that needs until something groups by it.
+
+Where the boundary is used, it must be used as written: not "the academic year", not "the contract
+period" (client contracts here run 1 September – 30 June, which is a *shorter* window inside the
+school year and must not be confused with it), and not the calendar year.
+
+## 17. A correct decision with a wrong reason written beside it
+
+When a decision is recorded, the **reason** recorded with it is load-bearing, because the next
+person to touch it will re-derive the decision from that reason — and a wrong reason justifies the
+opposite change just as comfortably as the right one.
+
+The worked case: `contract_type_uplift` is deliberately kept at zero rows, and the comment on
+`app.resolve_contract_type_uplift` explains why — *"the PFA-inclusive rates in
+trainer_grade_rates already have the 11.1% uplift baked in; calling this would double it."* **The
+decision was right and the reason was wrong.** There was never an uplift inside those rates
+(item 147): the 11% belonged to the client invoice and the instruction was to delete it. The table
+should stay empty **because there is no uplift to apply**, not because it has already been applied.
+
+Nothing was ever computed wrongly, which is exactly what makes this dangerous: a wrong reason
+beside a correct decision produces **no failing test and no wrong number**. It sits there until
+someone reasons from it — and the reason as written would have licensed seeding
+`contract_type_uplift` the moment anyone concluded the rates were net.
+
+**So at every revision, the reason is checked, not just the decision.** The question is not "is this
+still the right call" but **"is this still the right call for the reason written here"**. The two
+come apart silently, and only the first one has tests. Worth looking for deliberately — a decision
+whose stated reason no longer holds is a trap with no tripwire.

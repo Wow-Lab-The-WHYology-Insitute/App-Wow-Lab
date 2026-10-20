@@ -7946,6 +7946,13 @@ paid at 25%, which is what made this worth asking rather than assuming — three
 city, two tariffed as Surroundings and one as Bucharest. It stays absent from the mapping sheet and
 still carries no Tax ID, so the mapping tab is incomplete; the timesheet is the authority here.
 
+**ROW 63 IS CLOSED FROM DATA, 2026-10-20.** Laura asked in July: *"Păstrăm distincția Surroundings/Other City dacă încă se aplică?"* — and it was still listed as an open question while this item spent a week proving which entity the tier belongs to. **It applies.** Both non-zero tiers appear on rows paid up to and including 2026-10-12:
+
+- **Surroundings, 25%** — Teodora Merișan, Wow Lab Party, 19.09.2026: `135,00 lei` base with a 25% location bonus, total `142,50`.
+- **Other cities, 100%** — Alexandra Nuțu, Scoala Altfel, 12.10.2026: `114,00` base at 100%, total `228,00`. That row is also the most recent in the entire timesheet.
+
+So the three-tier scale is live, not legacy, and `location_bonus_rates`' 0 / 25 / 100 is correct as seeded. Recorded as **a verified fact rather than an open question** — the question was answerable from rows that already existed when it was asked.
+
 **Blocked on:** nothing. The model change is blocked on nothing but a decision.
 **Re-verify when:** before any workshop is imported. Every imported row carries whatever tier the person typed, and `location_tier` is write-once (item 139) — a wrong tier cannot be corrected through the application.
 **Lives in:** nothing changed. `app/(app)/groups/[id]/group-detail-client.tsx` (the prefill), `supabase/migrations/202608310002_payment_config_tables.sql` (`resolve_location_bonus`); item 95 above (the uplifted grid, now confirmed against its source), item 128 above (the 11%), item 139 above (why a wrong tier is permanent), item 143 above (the other thing the selector asks wrongly).
@@ -8165,13 +8172,12 @@ Not "read the requirements" as a platitude. The specific failure was that **this
 - **rd. 18** — CUI on clients. Built.
 
 *Directly relevant to the import, and unbuilt:*
-- **rd. 65** (Laura) — *"datele afișate ar trebui asociate unui an școlar și stocate separat pe an"*. **A school-year dimension on every report.** Nothing in the schema has one; `/payroll` is keyed on calendar months. This is the kind of requirement that is cheap now and expensive after the first year closes.
+- **rd. 65** (Laura) — *"datele afișate ar trebui asociate unui an școlar și stocate separat pe an"*. **Answered as a convention, not as a column:** the school year is **derivable from any date**, so this was never a storage problem. What is expensive is two reports drawing the boundary differently — one from September, another from August, a third from the first Monday of term. So the boundary is fixed once, in `docs/DATABASE_CONVENTIONS.md` §16: **1 September – 31 August, labelled by the starting year.** Nothing to build until a report needs grouping by it.
 - **rd. 62** (Laura) — nominal monthly attendance export per school, *"unele școli (Lycée Français) cer un tabel nominal"*. This is the attendance-list half of item 141's invoicing question, named by the school that needs it.
 - **rd. 6** — balance import, *"coloană cu entitatea"*, three entities. Same entity dimension as row 8.
 
 *Directly relevant to cancellations (item 139), and unbuilt:*
-- **rd. 21** — planning view with *"status înlocuire (solicitat/acceptat/descoperit)"*. A **substitution** state machine, adjacent to and distinct from cancellation: a workshop that happens with a different trainer, versus one that does not happen.
-- **rd. 77** (Cătălina) — *"la înlocuiri, de completat automat realocarea grupei — un fel de status check pe școală"*.
+- **rd. 21 + rd. 77 — and substitution is not hypothetical: the 2025-2026 centraliser's FIRST TAB is called "Replacement during year".** An entire sheet, kept for a whole school year, which is the measure of how often this happens. Row 21 asks for the planning view with *"status înlocuire (solicitat/acceptat/descoperit)"*; row 77 (Cătălina) for *"la înlocuiri, de completat automat realocarea grupei — un fel de status check pe școală"*. **Half of it already exists:** `app.rpc_update_session_allocation` writes `trainer_principal_id` / `trainer_secundar_id`, so reassigning a workshop to a different trainer is a solved, audited operation. What is missing is the **state machine** — requested, accepted, uncovered — and the record that a substitution happened at all, rather than the slot simply reading differently afterwards. **Adjacent to but distinct from cancellation (item 139):** a substitution is a workshop that HAPPENS with a different trainer; a cancellation is one that does not happen. Collapsing them would be the same category error as putting a decided zero in `reason_code`. The pay consequence differs too — a substitute is paid at their own grade, which the existing allocation write already handles correctly.
 - **rd. 44** — real calendar dates, and automatic substitute suggestion explicitly deferred by Anca herself (*"nu e cazul acum"*).
 
 *Directly relevant to the hours screen (item 130) and the grade question (item 149):*
