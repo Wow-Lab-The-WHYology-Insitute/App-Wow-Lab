@@ -7059,6 +7059,15 @@ silent finally** (item 102): it runs as its own announced step, again on the fai
 **effect is re-queried** — `0` marked rows left, Test Org B back to the 3 sessions and 2 groups it
 was found with. Fixtures are deleted **by marker**, never by captured ids (item 124).
 
+**THE PER-ENTITY GROUPING IS NO LONGER HYPOTHETICAL — proof from the real timesheet, 2026-10-20.**
+Teodora Merișan, September 2026, one month: **four DSBU workshops invoiced from Experimente WOW**
+(16.09, 23.09 among them) **plus a Wow Lab Party on 19.09 invoiced from Brandine**. Same trainer,
+same month, **two entities, two invoices** — which is exactly the case a single per-trainer total
+cannot express and the reason the entity is the outer grouping rather than a label on a row. It also
+rules out the cheaper design that was briefly tempting: one invoice per trainer per month with the
+entity shown per workshop. That would have produced one figure Anka then has to split by hand, which
+is the work Anca described having to do.
+
 **UPDATE 2026-10-16 — four changes, and the pattern written down as a pattern.**
 
 **1. The set-returning shape is now a convention, not this screen's exception.**
@@ -7901,8 +7910,15 @@ dead here and deliberately NOT dropped in the same migration as the model change
 last caller should not disappear in one step, because that leaves nothing to roll back to if the
 client-side tier turns out to need a per-trainer exception after all.
 
-**Blocked on:** Anca, for the DSBU identification and tier. The model change itself is blocked on
-nothing but a decision.
+**DSBU'S TIER IS CONFIRMED 2026-10-20 — Bucharest, 0%, and the question to Anca is closed.** Read
+off real timesheet rows rather than inferred from the name match: Teodora Merișan at DSBU on
+16.09.2026 and 23.09.2026, **Bucharest, 114,00 lei with no location bonus**, and Lorina Ciurusniuc
+at DSBU on 30.09.2026, **Bucharest, 107,00**. The school is paid at 0% while Lycée and Avenor are
+paid at 25%, which is what made this worth asking rather than assuming — three schools in the same
+city, two tariffed as Surroundings and one as Bucharest. It stays absent from the mapping sheet and
+still carries no Tax ID, so the mapping tab is incomplete; the timesheet is the authority here.
+
+**Blocked on:** nothing. The model change is blocked on nothing but a decision.
 **Re-verify when:** before any workshop is imported. Every imported row carries whatever tier the person typed, and `location_tier` is write-once (item 139) — a wrong tier cannot be corrected through the application.
 **Lives in:** nothing changed. `app/(app)/groups/[id]/group-detail-client.tsx` (the prefill), `supabase/migrations/202608310002_payment_config_tables.sql` (`resolve_location_bonus`); item 95 above (the uplifted grid, now confirmed against its source), item 128 above (the 11%), item 139 above (why a wrong tier is permanent), item 143 above (the other thing the selector asks wrongly).
 
@@ -7918,6 +7934,26 @@ nothing but a decision.
 **Elena Bacalum is both** — grade 3 as a trainer and a lesson-plan writer in the same sheet. That is item 130's shape exactly (Cătălina holding a trainer grade and an admin rate), now with a third rate kind, and it is the reason the eventual hours-entry screen cannot key pay on the person.
 
 **The nearest existing home is `admin_rates`**, which already holds hourly work keyed by (person, task category) with its own versioning — adding a `lesson_plan` category there is a smaller change than a seventh grade, and it keeps workshop pay and hourly pay in different tables, which is what they are. Not proposed as a decision; recorded as the obvious candidate.
+
+**WORKSHOP TYPES RECONCILED 2026-10-20, and `New Lesson Plan` is the only gap.** Every non-school
+value in the timesheet's School Name column, checked against `groups_delivery_format_check`'s ten
+values:
+
+| timesheet | rows | our `delivery_format` |
+|---|---|---|
+| `Scoala Altfel` | 174 | `scoala_altfel` ✓ |
+| `ELECTRICA FURNIZARE S.A` | 150 | a corporate client → `parteneriate_companii` ✓ |
+| **`New Lesson Plan`** | **134** | **none — this item** |
+| `Saptamana Verde` | 59 | `saptamana_verde` ✓ |
+| `Wow Lab Party` | 26 | `wow_lab_party` ✓ (it does exist) |
+| `Universitatea Nationala de Stiinta si Tehnologie` | 13 | a client, not a format |
+| `Other cities` / `00 lei` | 1 each | **data errors** — a location and a money value typed into the School Name column |
+
+So the nine workshop types cover everything the timesheet records **except lesson-plan writing**,
+which is this item. `Wow Lab Party` and `Scoala Altfel` were both already present — and both are
+billed from Brandine at non-zero location bonuses (Surroundings 25% and Other cities 100%
+respectively on the rows seen), which is a reminder that the location override on the session is
+needed: these are venues, not schools, and their tier genuinely varies (item 144).
 
 **Blocked on:** a decision about where this work lives. Not urgent — nobody is being paid through this application yet.
 **Re-verify when:** the hours-entry screen (item 130 above) is designed, because that screen is where all three rate kinds meet.
@@ -7941,6 +7977,14 @@ nothing but a decision.
 Anca's answer: **the approval does not overwrite the amount.** It withholds the approval until the
 data is corrected, and `Approved Cost` is then **the same number** as the corrected proposal, not a
 different one.
+
+**The counts are corrected 2026-10-20, on Mihai's observation.** `Verifica Statusul de Aprobare`
+appears on **exactly the two rows that have no date at all** — it is the sheet's placeholder for an
+unfilled row, not a business state. Recounted over dated rows only: **1,446 dated, 2 undated**; the
+**11 differing rows are all dated** (so that figure stands), and the real non-`Aprobat` statuses are
+**three, not five** — `De achitat` (1), `Nu` (1), `platit in martie` (2). Nine of the 11 differing
+rows are Teodora on 30.08.2026 at 120,00, which is the grade-7 lesson-plan rate (item 145), and one
+is Alexandra Nuțu on 12.10.2026 at 228,00 (114 × 2.00, Other cities).
 
 And the 11 rows say so themselves, which the first reading of them missed. **All 11 are
 Proposed = 0,00 / Approved = the real figure** — not "approved at a different amount" but *a formula
@@ -7969,7 +8013,11 @@ an amount.
 
 2026-10-20, split out of item 146 above, because conflating the two is what made that item's first reading wrong. The *amount* question is closed: it stays calculated. This is the other half, and it is open.
 
-The real timesheet's `Approval Status` column carries, beyond `Aprobat`: **`De achitat`** (1 row), **`platit in martie`** (2), **`Nu`** (1), **`Verifica Statusul de Aprobare`** (2). Those are not amounts and not approvals of amounts. *"Paid in March"* and *"to be paid"* say **whether the money moved**.
+The real timesheet's `Approval Status` column carries, beyond `Aprobat` and counting **dated rows
+only**: **`De achitat`** (1 row), **`platit in martie`** (2), **`Nu`** (1). (`Verifica Statusul de
+Aprobare` is excluded — it sits on the two undated rows and is the sheet's own placeholder, not a
+state anybody chose.) Those three are not amounts and not approvals of amounts. *"Paid in March"*
+and *"to be paid"* say **whether the money moved**.
 
 **What the application has today:** nothing. `payroll_periods` records that a month was closed, by whom and when. `/payroll` computes what is owed. Between "the month is closed and this is owed" and "this has been paid" there is **no state at all** — no stage, no date, no actor, and nothing that could answer *"what is still unpaid from September?"*
 
@@ -7982,6 +8030,38 @@ The real timesheet's `Approval Status` column carries, beyond `Aprobat`: **`De a
 **Blocked on:** a decision that nobody needs yet — no money moves through this application. Worth settling before the first real month is invoiced, not before the import.
 **Re-verify when:** Anka asks *"what is still unpaid"* and the answer is a spreadsheet. That is this item arriving.
 **Lives in:** nothing changed. Item 146 above (the amount half, closed), item 136 above (per-entity grouping, which is what makes month-level paid-ness wrong), item 139 above (the other place where a stage was missing and the status column could not express it), `docs/phase1-development-plan.md` row 11.
+
+---
+
+### 149. Our grades are not stale — 10 of 11 match the timesheet, and the one that differs is not the one the mapping tab would have caused
+
+2026-10-20. The worry was systematic: Alexandra Nuțu reads **grade 3** in the timesheet (12.10.2026) and **grade 1** in the mapping tab, so the mapping tab is behind — and if our ten assignments had been seeded from it, they were seeded from a stale source.
+
+**Measured against the most recent WORKSHOP row per person** (lesson-plan rows and grade 7 excluded, because that is a different rate kind — item 145 — and Răzvan's latest row of any sort is a grade-7 one, which would have read as a six-grade discrepancy it is not):
+
+| person | ours | timesheet | last workshop |
+|---|---|---|---|
+| **Alexandra Nuțu** | **2** | **3** | 2026-10-12 |
+| Alina Garofil | 1 | 1 | 2026-06-08 |
+| Andrada Eremia | 6 | 6 | 2026-06-17 |
+| Cătălina Trușan | 6 | 6 | 2026-09-30 |
+| Elena Bacalum | 4 | 4 | 2026-05-22 |
+| Lorina Ciurusniuc | 2 | 2 | 2026-09-30 |
+| Raluca Popa | 1 | 1 | 2026-09-08 |
+| Răzvan Alexandru Bălașov | 1 | 1 | 2025-12-05 |
+| Sonia Ganea | 6 | 6 | 2026-09-08 |
+| Teodora Merișan | 3 | 3 | 2026-09-23 |
+| Viorel Toboșaru | 2 | 2 | 2025-10-20 |
+
+**One of eleven differs.** So the grades were **not** taken from the mapping tab: that tab says Alexandra is 1, we say 2, the timesheet says 3 — our value matches neither, and it matches the timesheet everywhere else. We are holding a stale intermediate for one person, not a stale source for all of them.
+
+**Alexandra Nuțu has progressed 1 → 2 → 3** (the mapping tab's own `Data` column puts her at grade 1 from 18.11.2024). Ours says 2 effective 2026-09-01; the timesheet pays her 3 on 12.10.2026 — and the 228,00 on that row is 114 × 2.00 (grade 3's rate at Other cities), so the grade and the rate agree with each other there. Hers is the correction to make, with the effective date Anca gives for the promotion — and the date matters for the same reason Lorina's did: a grade effective too early calculates a workshop that should raise.
+
+**Why this is worth recording even though only one row is wrong.** The check itself is the finding: *"which of our grades disagrees with what was actually paid"* is answerable in one pass over the timesheet, and nobody had run it. It should be re-run whenever the grid or the assignments are touched, because a grade that drifts does not fail — it quietly pays the wrong rate, and `/payroll` will show a confident figure either way.
+
+**Blocked on:** Anca, for the effective date of Alexandra Nuțu's promotion to grade 3. One row.
+**Re-verify when:** `trainer_grade_assignments` is edited, or a new timesheet period is read. Also after item 147 below resolves, since if the grid's effective date moves, every assignment's own date wants checking against the same boundary.
+**Lives in:** nothing changed. `supabase/migrations/202609240002` (the assignments); item 147 below (the scale and its date), item 145 above (why grade 7 rows had to be excluded from this comparison), item 142 above (the same class of drift, in roles).
 
 ---
 
@@ -8017,6 +8097,71 @@ That the grid is the table × 1.11 *on all six grades* is what makes this a real
 **The one question that decides it, already with Anca:** what amount appeared on Lorina's invoice for the two workshops of 30 September — **214,00** (2 × 107) or **238,00** (2 × 119)?
 
 **Why this cannot be resolved by reasoning.** Both readings are internally consistent with everything else known. The uplift's existence is documented (item 128 measured it as 11%, not the 11.1% this project wrote down for two months — item 131), and the sheet's constancy is now measured. An invoice is the only artefact that states which side of the uplift the 107 sits on.
+
+**NARROWED 2026-10-20 — Anca is no longer needed, and the question is now about a date, not a number.**
+
+Mihai read the timesheet directly. Real rows:
+
+| trainer | grade | date | school | location | rate |
+|---|---|---|---|---|---|
+| Teodora Merișan | 3 | 16.09.2026 | DSBU | Bucharest | 114,00 |
+| Teodora Merișan | 3 | 23.09.2026 | DSBU | Bucharest | 114,00 |
+| Teodora Merișan | 3 | 19.09.2026 | Wow Lab Party | Surroundings | 142,50 |
+| Lorina Ciurusniuc | 2 | 30.09.2026 | DSBU | Bucharest | 107,00 |
+| Alexandra Nuțu | 3 | 12.10.2026 | Scoala Altfel | Other cities | 228,00 |
+
+**The scale in force in September-October 2026 is 107/114/135. Ours says 119/127/150, effective
+2026-09-01. Those two statements are about the same period and they contradict.**
+
+**Where our grid came from, from the repo.** `202609240001` presents all six as *"Anca's confirmed
+figures (2026-09-24)"*, and its version note quotes only one of them: *"in contractul cu trainerii
+PFA sau SRL vom avea direct 111 lei/ora tarif de baza junior."* No derivation is shown. But **item
+128 shows it**: its evidence table for the 11% uplift contains the row `100 → 111.00 — exact`,
+labelled *"item 95 above's trainer grade 1"*. So the project did treat the sheet's 100 as the **net**
+base and 111 as its gross counterpart. All six of ours are the sheet's scale × 1.11, rounded, and
+every one rounds correctly — so whoever produced them worked from that scale on that assumption.
+
+**The quote is in the future tense.** *"vom avea"* — we **will have** 111 as the junior base in the
+PFA/SRL contract. Said on 2026-09-24. The grid was dated **2026-09-01**, three weeks earlier, and the
+operational record kept paying 100/107/114/135 through **2026-10-12**.
+
+So the most defensible reading is no longer "the rates are wrong" but **"the effective_date is
+wrong"**: 111-150 may be right for the renegotiated PFA contracts and was simply backdated to a
+month in which the old scale was still being paid. That distinction matters because it changes the
+fix from *re-seed the grid* to *move its effective_date and seed the prior scale before it* — and
+because importing September-October workshops against a grid effective 2026-09-01 computes them at a
+scale nobody was paid.
+
+**Either way the import stays blocked**, and either way `202609240001` is wrong about something: the
+rates, or the date they start.
+
+**THE ASYMMETRY THAT LET THIS HAPPEN, which is the part to fix regardless.** `admin_rates` declares
+its base in the data, in three columns, and item 128 built them for exactly this reason:
+
+| | `amount` (invoiced) | `net_amount` | `is_uplift_applied` |
+|---|---|---|---|
+| Laura / Teodora / Alexandra, admin | 55.50 | 50 | **true** |
+| Cătălina, admin | 79.92 | 72 | **true** |
+| Anka (SRL, gross) | 80 | null | **false** |
+
+with the invariants `is_uplift_applied = (net_amount is not null)` and
+`amount = round(net_amount * 1.11, 2)`, and a resolver that returns only the invoiced figure *"so a
+caller cannot uplift by accident"*.
+
+**`trainer_grade_rates` has one column: `rate`.** No net, no flag, nothing in the data that says
+which side of the uplift it sits on — the claim lives only in a free-text `note` on the version row
+and in the prose of two migrations. One domain declares its base and the other does not, and the
+screen will show **225,00** where Anca's sheet shows **202,50** with nothing in the data to explain
+the difference. Item 128's own guard against double-uplifting Anka's 80 has no equivalent here; the
+only thing standing between this grid and a second uplift is that `contract_type_uplift` is kept
+empty on purpose.
+
+**What to do about it, not done here:** `trainer_grade_rates` should carry `net_amount` and
+`is_uplift_applied` on the same invariants, so that "is 119 gross or net" is answerable from the row
+rather than from a migration comment. That is a schema change and it is not urgent; writing the base
+down is what stops this question recurring.
+
+**Blocked on:** a decision about the effective date, which is Mihai's and does not need Anca.
 
 **Blocked on:** Anca, and the import is blocked behind it. Note that the arithmetic in item 144 (180.00 vs 225.00 for a Lycée workshop) is unaffected in its *point* — the location bonus is wrong either way — but its *figures* assume our grid, so they move by 11% if this resolves the other way.
 **Re-verify when:** answered. And if our grid turns out to be doubly uplifted, `202609240001`'s seeded grid is wrong at the source and every figure this project has quoted since item 95 needs restating.
