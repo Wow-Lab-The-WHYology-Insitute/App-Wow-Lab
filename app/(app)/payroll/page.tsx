@@ -5,7 +5,19 @@ import { PayrollClient } from "./payroll-client";
 import { AccessDenied } from "@/components/ui/access-denied";
 
 type MembershipRow = { organization_id: string };
-type PeriodRow = { id: string; period: string; closed_by: string | null };
+type PeriodRow = { id: string; period: string; closed_by: string | null; closed_at: string | null };
+// A cancellation, for the closed-month check only. Fetched org-wide and
+// unscoped by month on purpose: the closed-months list is itself the whole
+// history, so scoping this to the displayed month would answer a different
+// question. Bounded by the number of cancellations that have ever happened
+// -- six a year on two groups of one school, by last year's centraliser --
+// which is why one unfiltered read is acceptable here and is not acceptable
+// for sessions (202610160001).
+type CancellationRow = {
+  session_date: string;
+  cancelled_at: string | null;
+  cancellation_category: string | null;
+};
 type UserLookupRow = { id: string; full_name: string; first_name: string | null; last_name: string | null };
 type SessionRow = {
   id: string;
@@ -137,7 +149,7 @@ export default async function PayrollPage({
 
   const { data: periods } = await supabase
     .from("payroll_periods")
-    .select("id, period, closed_by")
+    .select("id, period, closed_by, closed_at")
     .eq("organization_id", orgId)
     .order("period", { ascending: false })
     .returns<PeriodRow[]>();
@@ -226,6 +238,40 @@ export default async function PayrollPage({
   const trainerIds = [
     ...new Set((sessions ?? []).flatMap((s) => [s.trainer_principal_id, s.trainer_secundar_id]).filter((v): v is string => v !== null)),
   ];
+  // ---- Cancellations made AFTER a month was closed ----
+  // app.rpc_cancel_session (202610200003) deliberately has no month-closed
+  // gate: that gate exists on confirmation because confirmation is a pay
+  // input, and cancellation is not. But cancelling inside a closed month
+  // changes the CLIENT billing count for a month already invoiced, so it
+  // has to be VISIBLE rather than merely permitted -- which was decided to
+  // ship with the function and did not (item 139). This is that guard.
+  //
+  // cancelled_at is compared against payroll_periods.closed_at, which is
+  // why cancelled_at is a stored column rather than left to row_history:
+  // the comparison is the whole feature.
+  const { data: cancellations } = await supabase
+    .from("sessions")
+    .select("session_date, cancelled_at, cancellation_category")
+    .eq("organization_id", orgId)
+    .eq("status", "cancelled")
+    .not("cancelled_at", "is", null)
+    .returns<CancellationRow[]>();
+
+  // Counted per month, and only where the cancellation came after the close.
+  // A cancellation BEFORE the close is ordinary -- the closer saw it.
+  const lateCancellationsByPeriod = new Map<string, number>();
+  for (const p of periods ?? []) {
+    if (p.closed_at === null) continue;
+    const month = p.period.slice(0, 7);
+    const n = (cancellations ?? []).filter(
+      (c) =>
+        c.session_date.slice(0, 7) === month &&
+        c.cancelled_at !== null &&
+        c.cancelled_at > p.closed_at!,
+    ).length;
+    if (n > 0) lateCancellationsByPeriod.set(p.id, n);
+  }
+
   const closerIds = (periods ?? []).map((p) => p.closed_by).filter((v): v is string => v !== null);
   const allUserIds = [...new Set([...closerIds, ...trainerIds])];
   const { data: users } =
@@ -383,6 +429,7 @@ export default async function PayrollPage({
           id: p.id,
           period: p.period,
           closedByName: p.closed_by ? nameById.get(p.closed_by) ?? "Unknown" : "Unknown",
+          lateCancellations: lateCancellationsByPeriod.get(p.id) ?? 0,
         }))}
         sessions={(sessions ?? []).map((s) => {
           const clientId = clientIdByGroupId.get(s.group_id);

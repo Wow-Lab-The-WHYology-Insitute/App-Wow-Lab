@@ -196,3 +196,114 @@ begin;
 
   select check_name, pass from check_results order by check_name;
 rollback;
+
+-- ============================================================================
+-- Block 3: a cancellation inside a CLOSED month is permitted AND visible.
+--
+-- app.rpc_cancel_session has no month-closed gate, deliberately: that gate
+-- exists on app.rpc_confirm_session_attendance because CONFIRMATION IS A PAY
+-- INPUT, and cancellation is not. But cancelling inside a closed month
+-- changes the CLIENT billing count for a month already invoiced, so it must
+-- be VISIBLE rather than merely allowed -- which is /payroll's closed-months
+-- list saying so (item 155).
+--
+-- This block asserts the query behind that line, including the distinction
+-- the line depends on: a cancellation BEFORE the close is ordinary (the
+-- closer saw it) and must NOT be counted.
+--
+-- A note on how this check was first written wrong, kept because the lesson
+-- is the same one item 142 records: it picked its sessions with `limit 1` on
+-- a date that carries four workshops (Avenor x2 + Scoala Germana x2) and no
+-- ORDER BY, so it silently selected an Avenor row at 168.75 while the
+-- expectation was hardcoded at Teodora's 114.00. The code was right and the
+-- fixture was arbitrary. Rows are now pinned by group id, and the money
+-- assertion is COMPUTED from the rows it cancelled rather than written as a
+-- literal -- a test that hardcodes an amount it did not measure is asserting
+-- its author's arithmetic, not the system's.
+-- ============================================================================
+begin;
+  select set_config('app.wow_lab', (select id::text from public.organizations where slug='wow-lab'), true);
+  select set_config('app.cat', (select id::text from public.users where email='catalina_moale@yahoo.com'), true);
+
+  create temp table check_results (check_name text, pass boolean);
+
+  -- September closed on 1 October, by Anka.
+  insert into public.payroll_periods (organization_id, period, closed_at, closed_by)
+  values (current_setting('app.wow_lab')::uuid, '2026-09-01', '2026-10-01 09:00:00+00',
+          (select id from public.users where email='anka@asismart.ro'));
+
+  -- Two real imported workshops on one Scoala Germana group, pinned.
+  create temp table picked as
+  select s.id, p.amount as before_amount
+  from public.sessions s
+  join public.calculate_org_session_pay(current_setting('app.wow_lab')::uuid,'2026-09-01','2026-10-01') p
+       on p.session_id = s.id
+  where s.organization_id = current_setting('app.wow_lab')::uuid
+    and s.group_id = 'c1000000-0000-0000-0000-0000000000b1'
+    and s.session_date in ('2026-09-09','2026-09-16');
+
+  insert into check_results values ('fixture: two workshops pinned on one group',
+    (select count(*) = 2 from picked));
+
+  select set_config('app.before_total',
+    (select sum(p.amount)::text from public.calculate_org_session_pay(current_setting('app.wow_lab')::uuid,'2026-09-01','2026-10-01') p), true);
+
+  -- Cancel both as Operations. The first is backdated to BEFORE the close.
+  select set_config('request.jwt.claims',
+    json_build_object('sub', current_setting('app.cat'), 'role','authenticated')::text, true);
+  do $$
+  declare rec record; res text; n int := 0; begin
+    for rec in select id from picked order by id loop
+      n := n + 1;
+      select app.rpc_cancel_session(rec.id,
+        case when n = 1 then 'vacanta' else 'scoala_a_anulat_anuntat' end, null) into res;
+      if res <> 'ok' then raise exception 'cancel failed: %', res; end if;
+      if n = 1 then
+        update public.sessions set cancelled_at = '2026-09-20 10:00:00+00' where id = rec.id;
+      end if;
+    end loop;
+  end $$;
+
+  insert into check_results values (
+    'cancelling inside a closed month is PERMITTED -- no month gate',
+    (select count(*) = 2 from public.sessions where id in (select id from picked) and status = 'cancelled')
+  );
+
+  -- THE GUARD: exactly one is late, and it is the one cancelled after the close.
+  insert into check_results values (
+    'exactly 1 LATE cancellation is detected for the closed month',
+    (select count(*) = 1
+     from public.sessions s, public.payroll_periods pp
+     where s.organization_id = current_setting('app.wow_lab')::uuid
+       and pp.organization_id = s.organization_id
+       and pp.period = '2026-09-01' and pp.closed_at is not null
+       and s.status = 'cancelled' and s.cancelled_at is not null
+       and to_char(s.session_date,'YYYY-MM') = to_char(pp.period,'YYYY-MM')
+       and s.cancelled_at > pp.closed_at)
+  );
+
+  insert into check_results values (
+    'a cancellation BEFORE the close is NOT counted as late',
+    (select count(*) = 1
+     from public.sessions s, public.payroll_periods pp
+     where s.organization_id = current_setting('app.wow_lab')::uuid
+       and pp.organization_id = s.organization_id and pp.period = '2026-09-01'
+       and s.status = 'cancelled' and s.cancelled_at <= pp.closed_at)
+  );
+
+  -- And the money really moved, by exactly what was cancelled -- computed.
+  insert into check_results values (
+    'the month total dropped by exactly the cancelled amounts',
+    (select sum(p.amount) from public.calculate_org_session_pay(current_setting('app.wow_lab')::uuid,'2026-09-01','2026-10-01') p)
+      = current_setting('app.before_total')::numeric - (select sum(before_amount) from picked)
+  );
+
+  insert into check_results values (
+    'both cancelled rows are decided zeros: amount 0, reason_code null',
+    (select count(*) = 2 and bool_and(p.amount = 0 and p.reason_code is null)
+     from public.calculate_org_session_pay(current_setting('app.wow_lab')::uuid,'2026-09-01','2026-10-01') p
+     where p.session_id in (select id from picked))
+  );
+
+  select check_name, pass from check_results order by check_name;
+rollback;

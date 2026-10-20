@@ -17,5 +17,16 @@ Each file's own header says what decision it is waiting on, and
 `docs/DATABASE_CONVENTIONS.md` §15 — including the general form: a marker the
 tool does not read is not a marker.
 
-Currently empty: `restate_trainer_grade_scale.sql` was armed on 2026-10-20 and
-now lives in `supabase/migrations/202610200001_restate_trainer_grade_scale.sql`.
+Armed so far: `restate_trainer_grade_scale.sql`, on 2026-10-20 — now
+`supabase/migrations/202610200001_restate_trainer_grade_scale.sql`.
+
+Waiting, both from 2026-10-20 (OPEN_ITEMS item 155):
+
+- `cancel_19_21_october_school_holidays.sql` — cancels the six workshops of
+  19–21 October as `vacanta`. All three schools were on their autumn holiday;
+  the week we protected was the wrong one.
+- `schedule_28_october_avenor_and_german.sql` — inserts the four of Wednesday
+  28 October that the same wrong reading withheld. Deliberately a **second**
+  file: cancelling removes something known to be false, inserting writes
+  something forward on a published calendar alone. Arm the cancellation
+  first; this one asserts that it ran.

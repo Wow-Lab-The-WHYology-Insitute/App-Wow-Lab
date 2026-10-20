@@ -8324,7 +8324,163 @@ So the calendar is **not a single list of national dates**. It needs a **per-sch
 **THE NEXT WORKSHOPS ARE THE WEEK OF 2 NOVEMBER** — Monday 2 and Tuesday 3 at Lycée, Wednesday 4 at Avenor (×2) and Scoala Germana (×2). Six again. Until then **the application is up to date for the first time since this started**: 44 workshops, the last six of them scheduled rather than historical, and nothing between 21 October and the return from holiday.
 
 **Re-verify when:** schedule generation is built, or the next holiday approaches (**23 December 2026**, the winter break, which is the next boundary that will silently produce wrong workshops).
+
+---
+
+**CORRECTED THE SAME DAY, 2026-10-20, by reading the three schools' own calendars (item 155).** Everything above about the *shape* of the problem was right — per-school, overrides, the link that already knew. **The dates were wrong for every school we have**, and the mistake was not in the table: it was in treating the national structure as the default that covers Avenor and the exception as the other two.
+
+| | 19–23 Oct | 24 Oct – 1 Nov | 26–30 Oct |
+|---|---|---|---|
+| national structure | school | **HOLIDAY** | holiday |
+| Lycée Français | **HOLIDAY** | **HOLIDAY** | **HOLIDAY** |
+| Deutsche Schule | **HOLIDAY** | weekend / school | school |
+| Avenor | **HOLIDAY** | weekend / school | school |
+
+**Avenor does not follow the national structure.** Its own published calendar shades 19–23 October as `Holidays` and leaves 26–30 October white. That is the sentence above — "These dates govern **Avenor** — a Romanian private school following the national structure" — contradicted by the school's own PDF. It was an inference from what kind of school Avenor is, written in the voice of a finding. Nothing was checked.
+
+So three consequences, each the opposite of what this item claimed:
+
+- **The six of 19–21 October were all scheduled into a holiday**, not two of them under suspicion. `202610200004` asserted "nothing dated inside 24 October – 1 November" and that assertion *passed* — it was pointed at a week that two of the three schools teach.
+- **"THE NEXT WORKSHOPS ARE THE WEEK OF 2 NOVEMBER" is wrong.** Avenor and the Deutsche Schule teach on **Wednesday 28 October**; four workshops were withheld that should exist. Only the Lycée is out until 2 November.
+- **"the application is up to date for the first time since this started"** was the least supported sentence in the item, and it was the one written with most confidence.
+
+**The ski week: the county question is answered, and it is still not enough.** Point 3 above said "nothing in the schema records a school's county". It does not need to — **`clients.address` carries all three, and all three are Bucharest**: Avenor `Drumul Pădurea Pustnicu 125A, 014042`, Lycée `Șoseaua București-Ploiești 160A, 015016`, Deutsche Schule `Strada Coralilor 20G, 013328`. One municipality, one inspectorate, **and ISMB has published its choice: 22–27 February 2027** ([edupedu](https://www.edupedu.ro/vacanta-mobila-2027-pentru-elevii-din-bucuresti-este-programata-in-perioada-22-27-februarie-2027-anunta-ismb/), Ordin 3194/2026, chosen from the 15 Feb – 7 Mar window). So the derivation works: address → municipality → inspectorate → week, with nothing new in the schema.
+
+**And then two of the three schools do not take that week as published.** Avenor shades exactly **22–26 February**, the ISMB week — the derivation's one clean confirmation. The Lycée takes **22 February – 7 March**, a fortnight that *contains* it. The **Deutsche Schule takes 15–19 February** — the *first* week of the national window, not Bucharest's. It is an `Anerkannte deutsche Auslandsschule` on the Baden-Württemberg curriculum and is not bound by ISMB's pick at all.
+
+So the county answers *which week the inspectorate chose*, which is a different question from *which week this school is shut*. Deriving the first and storing it as the second would be wrong for two schools out of three — the same substitution that produced the autumn error above, one layer down. **The county is worth deriving and is not a substitute for the per-school rows.**
+
+**THE WHOLE YEAR, all three schools, 2026-2027** — Mihai asked for the year rather than the week, and this is it. Read from each school's own published calendar; the Lycée's from the PDF's colour bands, since its holidays are colour-coded and extracting the text loses the colour.
+
+| | **Lycée Français** | **Deutsche Schule** | **Avenor College** | *(national)* |
+|---|---|---|---|---|
+| term starts | 2 Sep 2026 (*pré-rentrée* 1 Sep) | — | 1 Sep 2026 | 7 Sep 2026 |
+| **autumn** | **19 Oct – 1 Nov** | **19 – 23 Oct** | **19 – 23 Oct** | *24 Oct – 1 Nov* |
+| **winter** | **21 Dec – 3 Jan** | **21 Dec – 8 Jan** | **21 Dec – 8 Jan** | *23 Dec – 10 Jan* |
+| back after winter | Mon 4 Jan 2027 | Mon 11 Jan 2027 | Mon 11 Jan 2027 | Mon 11 Jan |
+| **ski / mobile week** | **22 Feb – 7 Mar** (two weeks) | **15 – 19 Feb** | **22 – 26 Feb** | *one week, 15 Feb – 7 Mar; ISMB chose 22–27 Feb* |
+| **spring** | **26 Apr – 9 May** | **26 Apr – 3 May** | **26 Apr – 3 May** | *24 Apr – 4 May* |
+| last teaching day | Fri 2 Jul 2027 | Wed 30 Jun 2027 | Wed 30 Jun 2027 | Fri 18 Jun 2027 |
+| summer from | 7 Jul (5–6 Jul *journées pédagogiques*) | 1 Jul | 1 Jul | 19 Jun |
+
+**Days off inside term that are not holidays**, and they matter because two of them land on a Lycée teaching day: **Mon 30 Nov** (Sf. Andrei) and **Tue 1 Dec** (Ziua Națională) are legal holidays at all three — and the Lycée's workshops are Monday and Tuesday, so that week loses both. Then **6 and 7 Jan** (Epiphany, Sf. Ion) fall inside everyone's winter break; **30 Apr – 3 May** (Orthodox Easter) inside everyone's spring break; **1 Jun** (Children's Day, a Tuesday — a Lycée day) and **Mon 21 Jun** (Rusalii — another Lycée day) are term-time losses. Each school also publishes single days its students are off that nothing else predicts — Avenor's teacher inset days (25 Mar 2027 among them), the Deutsche Schule's *Brückentag* on Mon 31 May 2027, the Lycée's *journées pédagogiques* on 5–6 Jul. Per-school, and not derivable from anything.
+
+**The pattern under the table:** the three schools agree on *winter* and *spring* within a couple of days and disagree hardest on *autumn* and the *ski week* — which are exactly the two we needed first.
+
+**The three calendar sources, which is what item 144 and this item were both blocked on:**
+
+| school | source | autumn 2026 |
+|---|---|---|
+| Lycée Français | `https://www.lyceefrancais.ro/pdf/calendrier/calendrier.pdf` | 19 Oct – 1 Nov |
+| Deutsche Schule | `https://www.dsbu.ro/calendar-vacante/` | 19–23 Oct |
+| Avenor College | `https://www.avenor.ro/wp-content/uploads/2026/02/2026-2027-Avenor-School-Calendar.pdf` | 19–23 Oct |
+
+These belong in `groups.school_year_calendar_link`, replacing the unreadable Drive folder on the two Lycée groups and filling the four nulls — one line of work, not done here because item 155 holds the decision about what else changes with it.
+
+**Re-verify when:** unchanged in form, different in date. The next boundary is **Monday 30 November** — Sf. Andrei, a legal holiday at all three, and a **Monday**, so it takes a Lycée workshop; **Tuesday 1 December** is Ziua Națională and takes the other. The winter break then starts **21 December** at Avenor and the Deutsche Schule and **21 December** at the Lycée — not 23 December, which is the national date this item recorded.
 **Lives in:** nothing changed. `groups.school_year_calendar_link` (the column that anticipated the per-school dimension); `supabase/migrations/202610200004_schedule_to_21_october_unconfirmed.sql` (the first migration to assert against a holiday); item 139 above (cancellation as the precondition, and why the calendar is no longer one), item 144 above (the unreadable links), item 150 above (rd. 65 and the school-year boundary convention, §16).
+
+---
+### 155. All six workshops of 19–21 October were scheduled into a school holiday, and four more were withheld from a teaching week — one wrong calendar, both errors
+
+2026-10-20. Mihai asked whether the two Lycée workshops of 19 and 20 October fell inside the French *Toussaint* break, and asked for the whole year resolved at once rather than this week. The answer is yes — **and it is not the interesting part.** Reading all three schools' calendars instead of one turned a two-row question into a six-row error plus a four-row omission.
+
+**What the three calendars say about autumn 2026:**
+
+| | source | autumn holiday | back |
+|---|---|---|---|
+| Lycée Français Anna de Noailles | the PDF Mihai named | **19 Oct – 1 Nov** (two weeks) | Mon 2 Nov |
+| Deutsche Schule Bukarest | `dsbu.ro/calendar-vacante` | **19 – 23 Oct** (one week) | Mon 26 Oct |
+| Avenor College | its own 2026-2027 PDF | **19 – 23 Oct** (one week) | Mon 26 Oct |
+| *(national structure)* | *Ordin 3194/2026* | *24 Oct – 1 Nov* | *Mon 2 Nov* |
+
+**Every one of the six planned workshops is inside a holiday.** Lycée Monday 19 and Tuesday 20; Avenor ×2 and Scoala Germana ×2 on Wednesday 21. `/payroll` is showing **956.50 of pending pay that can never be earned**, and the two we were not even suspicious about — the German school's, tomorrow — are as wrong as the two we asked about.
+
+**And the same mistake withheld four real ones.** `202610200004` declined to insert 26, 27 and 28 October because the national calendar says holiday. Avenor and the Deutsche Schule teach that week: **Wednesday 28 October is four workshops, worth 551.50.** The guard that was supposed to protect the schedule removed real rows and admitted false ones, in the same decision, from the same source.
+
+**THE METHOD ERROR, which is the part worth keeping.** Item 154 asked three schools' question and answered one school's. It got the *design* right — per-school dimension, national default, overrides — and then wrote a default nobody had checked, as a finding:
+
+> "These dates govern **Avenor** — a Romanian private school following the national structure."
+
+Avenor's calendar was one link from its homepage and took two minutes to read. Nobody read it. The sentence is an inference from what *kind* of institution Avenor is, written in the grammar of an observation, and the two schools flagged as exceptions were flagged because they are *foreign*, not because anything about them had been checked either.
+
+> **A default is a claim about a specific case, and it has to be checked case by case.** The moment a model says "these are the exceptions", the exceptions get evidence and the default gets none — it is the thing that looks like it needs no source. Here the default was wrong for the one school it was written for, and two of the three "exceptions" turned out to be the *same* exception.
+
+This is item 144's shape pointed the other way. There, the location bonus looked trainer-dependent and the proof had to come from a minority value *inside the same trainer at the same school*, because that excludes trainer-dependence rather than outvoting it. Here, "Avenor follows the national calendar" was never excluded by anything — it was assumed, and the one source that could have excluded it was never opened.
+
+**WHAT WAS NOT WRONG, and it matters for what gets written down next.** Nothing false was asserted to anybody. All six rows are `planned` and unconfirmed, which is the application saying *scheduled*, not *delivered* — exactly the distinction `202610200004` drew in its own header and the reason it refused to confirm anything in advance. That discipline is what makes this repairable as a cancellation rather than a falsified record, and it is the second time in two days that refusing to assert more than was known has paid for itself.
+
+**THE REPAIR, written and deliberately not applied** (`supabase/proposed/`, convention §15, both with rollbacks):
+
+- `cancel_19_21_october_school_holidays.sql` — the six, as `vacanta`, which is a category the enum already has because a holiday is not a school cancelling. Asserts the six price at **0** afterwards, and that the 38 delivered are untouched. **Actor: Cătălina**, and getting that name right took three checks — see item 157 below, which is where the first draft of this file was caught putting a name on the rows that could not have performed the act.
+- `schedule_28_october_avenor_and_german.sql` — the four of 28 October. **A separate file on purpose.** Cancelling removes something known to be false; inserting writes something forward on a published calendar and nothing else. The calendar says those two schools are open. It does not say our workshop runs — and *"it was scheduled"* and *"it happens"* are different facts, which is the exact distinction `202610200004` made for 19 October and then failed to apply to its own silence about 28 October. Asserts no Lycée row lands inside Toussaint.
+
+**Blocked on:** **Cătălina's answer**, which turns out to be both halves of what the cancellation needs rather than a second opinion on one — she teaches at two of the three schools, *and* she holds Operations Manager, so the assertion and the authority come from the same person (item 152's rule). Then Mihai's decision to arm. Neither file runs on its own.
+
+**Re-verify when:** before every schedule insert, now — against the school's own calendar, not a national one. The next boundaries are **Monday 30 November** (Sf. Andrei — a legal holiday at all three and a Monday, so it takes a Lycée workshop), **Tuesday 1 December** (Ziua Națională, the other Lycée one), and **Monday 21 December** (winter break starts at all three, two days before the national date).
+
+**Lives in:** `supabase/proposed/cancel_19_21_october_school_holidays.sql` and `supabase/proposed/schedule_28_october_avenor_and_german.sql` (+ rollbacks); `supabase/migrations/202610200004_schedule_to_21_october_unconfirmed.sql` (the header that got it wrong, applied and therefore corrected here rather than edited — §17's handling); item 154 above (corrected in place, with the three calendar URLs and the Bucharest ski week); item 144 above (the form of proof this failed to use); item 152 below (whose name goes on a row).
+
+---
+### 156. The closed-month cancellation screen slipped a day behind the function it was decided with — and the reason is structural
+
+2026-10-20. `app.rpc_cancel_session` and the screen that makes its damage visible were decided together on 2026-10-19: a cancellation has **no month-closed gate**, so a workshop can be cancelled after Finance has closed and invoiced the month, and the agreed guard was not a gate but **visibility** — the closed month shows that it happened. The function shipped that day with the pay rule and a test. The screen shipped today.
+
+Mihai named the reason, and it is not "it was forgotten":
+
+> *o funcție și garda ei decise să livreze împreună nu livrează împreună dacă una e o migrare și cealaltă un ecran — una trece prin aserțiuni, cealaltă prin judecată. Aia e un tipar, nu o scăpare.*
+
+**The two halves are not the same kind of work and do not finish the same way.** A migration ends when `raise exception` stops firing: the pay rule, the five categories and the gate all have a row that proves them, and `db/tests/cancel_session_pay_rule.sql` either passes or does not. The screen ends when somebody decides the wording is right — what a finance manager should read on a closed month, whether to name the mechanism or the consequence, whether a count is enough. There is no assertion that fails when that sentence is wrong. (The wording chosen, in the end, names the consequence: *"{{n}} workshop(s) cancelled after this month closed — fewer are billable than when it was closed"*, not *"late cancellations detected"*.)
+
+> **A pair decided together ships together only if both halves end the same way.** When one is settled by assertions and the other by judgement, the assertions finish first — not because the judgement is harder, but because nothing tells you it is unfinished. The migration announces its own completion; the screen has to be *remembered*.
+
+**Why this is a pattern and not an incident.** Three of the guards this project has agreed to are of exactly this shape — a mechanism plus the thing that makes its effect visible: this one; the unconfirmed-slot list beside the pay sums (a slot is *listed*, never summed, and the listing is the whole protection); and the `reason_code` classifier beside the raises, which only held because `db/tests/payroll_reason_code_coverage.sql` derives both sides from `pg_get_functiondef` and asserts they match. **The third one survived because somebody turned the judgement half into an assertion.** That is the available fix, and it is not always available.
+
+**What it costs when it slips.** Here, nothing — nothing was closed, so no closed month existed to be wrong about, and the gap was a day. The exposure is real in the general case: between the function shipping and the screen shipping, the system can do the thing the guard was agreed to make visible, invisibly.
+
+**What to do about it, in order of cost:**
+1. **Say which half is the guard** when a pair is agreed, and ship that half first or not at all. Here the function was the capability and the screen was the guard, and they went out in that order.
+2. **Where the judgement half can be made assertable, make it** — the coverage test is the proof it is sometimes possible.
+3. **Where it cannot**, write the pair into the same register item with the screen named, so the open half is a line somebody reads rather than a thing somebody remembers.
+
+**Built today, verified, not an open task:** `app/(app)/payroll/page.tsx` fetches `closed_at` on periods and the cancelled sessions, and derives `lateCancellationsByPeriod` by comparing `cancelled_at > closed_at`; `payroll-client.tsx` renders the line on the closed-month list; `i18n.ts` carries the wording in both languages; `db/tests/cancel_session_pay_rule.sql` block 3 covers it with 6 assertions.
+
+**Re-verify when:** the next time a mechanism and its visibility are agreed in one decision — which is the trigger, not a date.
+
+**Lives in:** `supabase/migrations/202610200003_cancel_session_five_categories_and_pay_rule.sql` (the no-month-closed-gate decision and its reasoning); `app/(app)/payroll/page.tsx`, `payroll-client.tsx`, `i18n.ts`; `db/tests/cancel_session_pay_rule.sql`; `db/tests/payroll_reason_code_coverage.sql` (the one case where the judgement half became an assertion); item 139 above (why the gate was not widened instead).
+
+---
+### 157. `app.is_platform_owner()` returns false for the holder of the role called `Platform Owner` — two mechanisms, one name, and an applied migration names the wrong one
+
+2026-10-20. Found by writing a guard that was expected to pass. A proposed migration (item 155 above) impersonated `hello@maxdigital.ro` and asserted, before writing anything, that the actor clears `rpc_cancel_session`'s gate. **It refused.** Three facts came out of chasing why, and none of them is about that migration.
+
+**1. `app.is_platform_owner()` reads a boolean column, not a role.**
+
+```sql
+select coalesce((select u.is_platform_owner from public.users u
+                 where u.id = app.current_user_id()), false);
+```
+
+**The only row in the real organization with `users.is_platform_owner = true` is `test+platform@wowlab.dev` — a test account.** Anca Tanasescu holds the *role* named `Platform Owner` (plus `Sales Manager`), and the function named `is_platform_owner()` returns **false** for her. She has `org.settings.manage` and `sessions.create` through the role's capabilities, so every gate written as `is_platform_owner() OR <capability>` admits her — through the second clause, never the first.
+
+So the first clause of that gate is, in production, **a clause only a test account satisfies.** It has never been true for a real person. Nothing is broken today, because the capability clauses carry it; what is broken is that reading the gate tells you something false about who gets in and why.
+
+**2. An applied migration states the wrong mechanism.** `202610200002`'s header reads "`request.jwt.claims` is set to Anca (platform owner) for the duration". True of her role, false of the function that bears its name. The import is correct — she had the capabilities, the 38 confirmations are hers, and item 152 already fixed the *reason* her name belongs there. This is the **mechanism** stated wrongly in the same sentence, and it is §17's shape again: a correct action resting on a description that does not hold. Corrected here rather than in the applied file, per §9's precedent.
+
+**3. `hello@maxdigital.ro` has no roles in this organization at all**, `is_platform_owner = false`, `full_name` null. It is a stub row. Whatever it is for, it is not an identity that can act — and a migration had been written putting its name on six rows as the actor of an act it could not have performed. The guard caught it; nothing else would have, because `rpc_cancel_session` returns `'not_permitted'` as a *string* rather than raising, so the loop would have written the string into a variable and carried on.
+
+> **A function whose name repeats a role's name will be read as that role.** Nobody checks whether `is_platform_owner()` means the column or the role, because the name answers the question before it is asked. Here the two disagree completely, and the disagreement survived every gate that quotes the function, because the clause that was wrong was never the clause that let anyone in.
+
+**And a fourth thing, smaller and already known in another form:** `Cătălina Trușan` holds `Operations Manager` alongside `Trainer`, which is why she has `sessions.create`. That is the same double role that made an earlier authorization test pick Anka Orban and prove nothing (item 142 above — *a test that picks its subject by role name tests the name, not the gate*). In item 155's cancellation it is not a hazard but the answer: she clears the gate as Operations, not as a trainer.
+
+**What to decide, and it is genuinely a decision rather than a fix:**
+1. **Is `users.is_platform_owner` meant to be set for Anca at all?** If platform ownership is the role, the column is redundant and the function should read the role; if it is a separate, deliberately rarer thing (a break-glass flag that no customer-facing account holds), then the gate clause is working as designed and the *name* is the problem. These point in opposite directions and only one person can say which.
+2. Either way, **the test account is the only holder of a production-gating flag**, which is worth looking at on its own terms (item 136's territory: what the `test+*` accounts can do).
+3. If the column stays, **rename what reads it** — `has_break_glass()`, `is_superadmin()`, anything that does not collide with a role name.
+
+**Re-verify when:** anything new is gated on `is_platform_owner()`, which is the moment the first clause starts mattering; or when the `test+*` accounts are reviewed.
+
+**Lives in:** `app.is_platform_owner()` (the function); `public.users.is_platform_owner` (the column); `public.user_org_roles` + `public.roles` (the role that shares its name); `supabase/migrations/202610200002_import_2026_2027_schedule_to_16_october.sql` (the header stating the wrong mechanism); `supabase/proposed/cancel_19_21_october_school_holidays.sql` (the guard that found it, and the three checks written into its ACTOR section); item 142 above (role drift, and the double-role hazard in tests); item 152 below (whose name goes on a row, and why).
 
 ---
 ### 151. `trainer_grade_assignments.source` accepts `'computed'` and nothing computes — the automation it was built for needs an hours history we do not have

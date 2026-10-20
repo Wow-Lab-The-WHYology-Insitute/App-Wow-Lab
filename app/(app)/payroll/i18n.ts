@@ -45,6 +45,21 @@ export const payrollDict: Dictionary = {
   history_heading: { en: "Closed months", ro: "Luni închise" },
   history_empty: { en: "No months closed yet.", ro: "Nicio lună închisă încă." },
   closed_by_prefix: { en: "Closed by ", ro: "Închisă de " },
+  // app.rpc_cancel_session has no month-closed gate, deliberately: that gate
+  // exists on confirmation because confirmation is a pay input, and
+  // cancellation is not. But a cancellation inside a closed month changes
+  // the CLIENT billing count for a month already invoiced, so the closed
+  // month has to SAY it rather than merely allow it (item 139's own
+  // condition, which shipped late -- item 155).
+  //
+  // The wording names the consequence, not the mechanism. "A workshop was
+  // cancelled" would read as housekeeping; "fewer workshops are billable
+  // than when this month closed" is the fact somebody has to act on, and it
+  // points at the invoice rather than at the schedule.
+  history_late_cancellations: {
+    en: "{{n}} workshop(s) cancelled after this month closed — fewer are billable than when it was closed",
+    ro: "{{n}} ateliere anulate după închiderea lunii — sunt mai puține de facturat decât la închidere",
+  },
 
   // Pre-close summary. The two "nothing to flag" states (no sessions /
   // all confirmed) are plain text, deliberately not a colored box of any

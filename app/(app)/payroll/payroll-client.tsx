@@ -7,7 +7,16 @@ import { payrollDict } from "./i18n";
 import { closePayrollPeriod } from "./actions";
 import { PAYROLL_PERIOD_ALREADY_CLOSED_ERROR } from "./close-error";
 
-type Period = { id: string; period: string; closedByName: string };
+type Period = {
+  id: string;
+  period: string;
+  closedByName: string;
+  // How many workshops in this month were cancelled AFTER it was closed.
+  // app.rpc_cancel_session has no month-closed gate on purpose, so this is
+  // the guard that makes such a cancellation visible rather than silent --
+  // it changes the client billing count for a month already invoiced.
+  lateCancellations: number;
+};
 type SessionSlot = {
   id: string;
   name: string;
@@ -719,10 +728,25 @@ export function PayrollClient({
             {periods.map((p) => (
               <li
                 key={p.id}
-                className="font-body text-ink flex items-center justify-between border-b border-black/5 py-2 text-sm last:border-0"
+                className="font-body text-ink flex items-start justify-between gap-3 border-b border-black/5 py-2 text-sm last:border-0"
               >
-                <span>{formatPeriodLabel(p.period, locale)}</span>
-                <span className="text-muted text-xs">
+                <span className="flex flex-col gap-0.5">
+                  {formatPeriodLabel(p.period, locale)}
+                  {/* Cancelling inside a closed month is permitted -- the
+                      month-closed gate exists on confirmation because
+                      confirmation is a pay input, and cancellation is not.
+                      But it changes the CLIENT billing count for a month
+                      already invoiced, so it is said out loud here. The
+                      wording names the consequence, not the mechanism: the
+                      number of sessions billable for that month is no
+                      longer what it was when it closed. */}
+                  {p.lateCancellations > 0 && (
+                    <span className="font-body text-xs font-semibold text-red-700">
+                      {t("history_late_cancellations", { n: p.lateCancellations })}
+                    </span>
+                  )}
+                </span>
+                <span className="text-muted shrink-0 text-xs">
                   {t("closed_by_prefix")}
                   {p.closedByName}
                 </span>
