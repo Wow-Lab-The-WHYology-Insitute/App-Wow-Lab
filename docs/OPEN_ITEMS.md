@@ -7579,9 +7579,21 @@ answer. Mixing "could not be computed" and "computed, and the answer is nothing"
 destroy the distinction the whole classifier exists to make — and would put a decided zero under
 *"Gaps in the pay grid — not fixable from this screen"*, which is the opposite of true.
 
-**Build order:** after Anca answers item 147 below (the possible double uplift), because every amount
-on the screen moves by 11% if that resolves the other way, and a cancellation screen showing decided
-zeros beside wrong non-zeros is worse than no screen.
+**BUILD ORDER — THIS GOES FIRST, and not because of the Tuesday morning.** Item 147's scale question
+is settled, so the original reason to wait is gone. The new reason to go first is stronger:
+**cancellation is the precondition for generating a schedule at all.**
+
+The chain, which this item named without drawing the conclusion: a generated workshop is
+**permanent** — no UPDATE, no DELETE, no reachable `cancelled`. That is why schedule generation was
+held behind a holiday calendar: without one, generation would put workshops into school holidays and
+nobody could remove them. **`rpc_cancel_session` dissolves that dependency.** Once a workshop can be
+cancelled, one generated into a holiday is *repairable*, and the calendar stops being an absolute
+precondition and becomes a quality improvement — it stops the mistake happening rather than being
+the only thing standing between generation and an unfixable mess.
+
+So the order is: cancellation, then generation, then the calendar when it can be obtained — rather
+than calendar, then generation, with cancellation as a later nicety. Which is the reverse of how it
+was queued, and the difference is that the first order can start today.
 
 **Blocked on:** Anca's answer on the travelled-trainer case, and writing it. The function is ~40
 lines in a shape this repo has written six times; the categories and the pay rule are decided.
@@ -8233,6 +8245,61 @@ separate and larger data fix than item 149's single row.
 CHECK); item 149 above (Alexandra, derived rather than asked), item 150 above (rd. 69 and the rule
 that would have found it sooner), item 130 above (the hours screen), item 145 above (grade 7, which
 no hours threshold reaches).
+
+---
+
+### 152. The 38 workshops imported — and the first application of §17 is to this migration's own reason
+
+2026-10-20. The first real data in the operational tables. `wow-lab` held **zero sessions** until this migration; `/payroll` had been correct and empty since it was built.
+
+**What went in:** four missing groups (Avenor ×2 Wednesday 15:15 and 16:15 `wow_mix`; Scoala Germana ×2 Wednesday 15:30 `chem_me` and 16:25 `wow_mix`) and **38 workshops** from 2026-09-02 to 2026-10-16. Before: 0 sessions, 2 groups. After: 38 sessions, 6 groups. Total **6,118.50**, which Mihai had computed independently beforehand and which matched to the ban.
+
+**Nothing was left to a default, because item 144 is written and not built.** There is no tier on the client yet, and the only automatic input — a prefill firing when the trainer's home city is Bucharest *and* the group's address contains "bucur" — could never fire, since every group has `address = null`. So `location_tier` is written explicitly on all 38, from values read off real paid rows: Lycée `imprejurimi`, Avenor `imprejurimi`, Scoala Germana `bucuresti`.
+
+`duration_minutes` carries the **real** length — 45, 50, 90 — never the band. 45 and 50 both resolve through the 60 band and pay identically, so writing 60 would produce the same money and make the row lie about the class.
+
+**The migration asserts its own result** and refuses otherwise: 6,118.50 across 38 slots; 4,792.50 / 684.00 / 642.00 by trainer and invoicing entity; every row carrying its school's real duration and tier; zero unconfirmed; the before and after counts.
+
+---
+
+**THE REASON CORRECTION — §17's first application, to the migration that was written the same day the convention was.**
+
+The migration impersonates Anca (`request.jwt.claims`) so that
+`app.rpc_correct_session_confirmation`'s gate passes and `row_history` records a real actor on all 38
+confirmations. The reason written beside that choice was:
+
+> *"The actor on all 38 confirmations is therefore her, which is accurate: this import is being run
+> on her instruction."*
+
+**That is not accurate, and the inaccuracy is the dangerous kind.** The import was run on **Mihai's**
+instruction, not Anca's. And as written, the reason licenses *any* import Anca asks for — including
+one nobody has checked — because its justification is the existence of an instruction rather than
+anything about these particular rows.
+
+**The true reason is narrower and better: Anca has already approved these exact 38 workshops.** Every
+one of them appears in the real timesheet with `Approval Status = "Aprobat"`, and
+`Proposed Total Cost = Approved Cost` on each. The import **carries her existing approval forward; it
+does not invent one.** Her name on the confirmations is accurate because she is the person who
+approved these workshops, in that document, before this application existed.
+
+Stated that way it licenses **exactly this import** and nothing else: a future import of workshops
+that are *not* already approved in the timesheet would need a different actor, or a different
+mechanism, and would not be able to borrow this justification.
+
+**The applied migration is NOT edited.** House rule, the same one `DATABASE_CONVENTIONS.md` §9
+records for `202608270001`: an applied migration records what was believed when it was written, and
+the correction lives here. Which is also the point of §17 — the decision (impersonate Anca) was
+right, the reason beside it was wrong, and **nothing failed**: 38 correct confirmations, a correct
+actor, no wrong number, no failing test. It would have sat there until someone reasoned from it.
+
+**Blocked on:** nothing.
+**Re-verify when:** any further import writes confirmations. The question to ask is not "who asked
+for this import" but **"who already approved these specific rows, and where"**.
+**Lives in:** `supabase/migrations/202610200002_import_2026_2027_schedule_to_16_october.sql` (+ its
+rollback); `docs/DATABASE_CONVENTIONS.md` §17 (the convention this applies), §9 (the don't-edit-an-
+applied-migration precedent); item 144 above (why every tier is explicit), item 147 below (the scale
+these amounts use), item 149 above (Lorina's grade boundary, which is what makes the handover safe),
+item 136 above (the per-entity grouping these totals are split by).
 
 ---
 
