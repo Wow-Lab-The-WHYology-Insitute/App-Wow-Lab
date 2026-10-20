@@ -8320,7 +8320,7 @@ So the calendar is **not a single list of national dates**. It needs a **per-sch
 2. A nullable school/client reference, so Lycée's and DSBU's own dates can override it.
 3. The one open question the data cannot answer: the ski week is **per county**, one of three. Avenor's county determines which, and nothing in the schema records a school's county — `clients.address` is free text (item 144 relies on exactly that for the Bucharest check).
 
-**Blocked on:** nothing any more. All three calendars were read on 2026-10-20 and are tabulated above; the design question this item posed — default plus overrides — was **answered in the negative** by `DATABASE_CONVENTIONS.md` §18: there is no default. The national structure matches none of the three schools on any boundary, so it is a fourth calendar nothing uses, and a school without a loaded calendar makes the generator refuse rather than fall back. What remains is building the table, which nothing needs until schedule generation does.
+**RESOLVED 2026-10-20.** The design question this item posed — default plus overrides — was **answered in the negative** by `DATABASE_CONVENTIONS.md` §18: there is no default. The national structure matches none of the three schools on any boundary, so it is a fourth calendar nothing uses, and a school without a loaded calendar makes the generator refuse rather than fall back. **The table is built:** `public.school_calendar_closures` (`202610200008`), 58 rows, per school, carrying each school's own wording and its source URL — and one column this item did not anticipate, `blocks_workshop`, because an early-dismissal day is a day the school is *open* and an afternoon workshop still cannot run (item 159 below).
 **THE NEXT WORKSHOPS ARE THE WEEK OF 2 NOVEMBER** — Monday 2 and Tuesday 3 at Lycée, Wednesday 4 at Avenor (×2) and Scoala Germana (×2). Six again. Until then **the application is up to date for the first time since this started**: 44 workshops, the last six of them scheduled rather than historical, and nothing between 21 October and the return from holiday.
 
 **Re-verify when:** schedule generation is built, or the next holiday approaches (**23 December 2026**, the winter break, which is the next boundary that will silently produce wrong workshops).
@@ -8415,7 +8415,9 @@ This is item 144's shape pointed the other way. There, the location bonus looked
 - `cancel_19_21_october_school_holidays.sql` — the six, as `vacanta`, which is a category the enum already has because a holiday is not a school cancelling. Asserts the six price at **0** afterwards, and that the 38 delivered are untouched. **Actor: Cătălina**, and getting that name right took three checks — see item 157 below, which is where the first draft of this file was caught putting a name on the rows that could not have performed the act.
 - `schedule_28_october_avenor_and_german.sql` — the four of 28 October. **A separate file on purpose.** Cancelling removes something known to be false; inserting writes something forward on a published calendar and nothing else. The calendar says those two schools are open. It does not say our workshop runs — and *"it was scheduled"* and *"it happens"* are different facts, which is the exact distinction `202610200004` made for 19 October and then failed to apply to its own silence about 28 October. Asserts no Lycée row lands inside Toussaint.
 
-**APPLIED the same day**, on Mihai's instruction, as `202610200005` and `202610200006` — see item 158 below for what changed and what it cost to get there. The actor on the six cancellations is **Cătălina**, on her Operations Manager role; she had not answered when it ran, and `cancelled_by` records who exercised the authority rather than who testified, because the fact is three published calendars anybody can open rather than anybody's testimony. That is the difference from a confirmation, which item 152 would not let anyone make on another person's behalf. If she answers that the workshops did run, the rollback restores all six.
+**APPLIED the same day**, on Mihai's instruction, as `202610200005` and `202610200006` — see item 158 below for what changed and what it cost to get there.
+
+**And the actor on those six was wrong, corrected within the hour by `202610200007`.** `202610200005` named **Cătălina** because she holds `Operations Manager` and the gate would admit her, defending it as *"`cancelled_by` records who exercised the authority"*. **She exercised nothing** — not asked, did not decide, had not answered. Her role *would have* permitted it, which is a fact about her permissions and not about these rows. The actor is **Mihai** (`maxdigitalro@gmail.com`, `Organization Owner`), and the fact that makes it his is independent of any role: *he read the three calendars, decided, and ran it.* This was the third instance of one substitution in two days, so the rule is now `DATABASE_CONVENTIONS.md` **§19** rather than another item.
 
 **No longer blocked on anything.** The rule that replaced the reasoning is `DATABASE_CONVENTIONS.md` §18: **no school gets dates without its own calendar, and a missing calendar is a refusal rather than a fallback to the national structure.**
 
@@ -8515,6 +8517,52 @@ October now reads **1913.00 payable, 0.00 pending** after the cancellations — 
 **Re-verify when:** never for these rows. For the rule, §18 governs: no school gets dates without its own calendar, and a missing calendar is a refusal, not a fallback.
 
 **Lives in:** `docs/DATABASE_CONVENTIONS.md` §18 (the rule); items 154 and 155 above (the wrong default and the error it produced); item 144 above (the form of proof that excludes rather than outvotes, which neither half of this used); `supabase/migrations/202610200005_cancel_19_21_october_school_holidays.sql` and `202610200006_schedule_28_october_avenor_and_german.sql`.
+
+---
+### 159. A school calendar has more than two states, and the third one costs money — `Early Dismissal 12:00` is a teaching day with no afternoon
+
+2026-10-20. Asked by Mihai before generation rather than after: *"Dacă există un marcaj «Early Dismissal 12:00», calendarele au și alte stări decât vacanță/zi-de-curs."* They do. The 174 workshops reported an hour earlier contained **two days with no children on them, counted as teaching days because they were not holidays.**
+
+**The three calendars re-classified, every marking that is neither a holiday nor an ordinary teaching day:**
+
+| school | states its calendar has | the ones that are not holidays |
+|---|---|---|
+| **Lycée Français** | 3 | `Journées Pedagogiques sans accueil d'enfants à l'école` — **1 Sep 2026, 5–6 Jul 2027**. Plus 13 `Jours fériés sans ecole`. **No short-day concept exists.** |
+| **Avenor College** | 6 colours + 3 kinds of outlined box | **`Early Dismissal for Students - 12:00` — 18 Dec 2026 and 30 Jun 2027.** Plus `Inset Days for Management` (2, both Saturdays), `Nursery Teachers Inset Day & Student Holiday` (4–5 Jan, 1–2 Jul), `All Teachers Inset Day & Student Holiday` (8 Jan, 25 Mar), `Summer School` (5–16 Jul), 14 `Legal Holidays`. |
+| **Deutsche Schule** | an event list, not a grid | `Rumänischer Feiertag`, `Rumänischer Nationalfeiertag`, `Heilige drei Könige`, `Rumänischer Feiertag Heiliger Johannes`, `Katholische Ostern`, `Brückentag`, `Kindertag`, `Orthodoxer Pfingstmontag`. **No short day and no inset day published.** |
+
+**The one that bites: Wednesday 30 June 2027 at Avenor.** The school is **open**. The children leave at **12:00**. Our workshops are at **15:15 and 16:15**. Two workshops, 337.50 lei, in an empty building — and a holidays-only calendar would have counted that day as a normal Wednesday, because it is not a holiday and the school is not shut. The other early dismissal, 18 December 2026, is a Friday and hits nothing.
+
+**And there is a precedent in the school's own records**, which is what settles it rather than our inference: the 2025-2026 centraliser, 19 December, carries the note **"zi scurtă — cluburi suspendate"**. Same situation, recorded by them, with the outcome written beside it. The afternoon clubs do not run on a short day; that is not a deduction about what happens after the children leave, it is a consequence they have already written down once.
+
+**So 174 was wrong and 172 is right.** Avenor's last workshop is **Wednesday 23 June**, not 30 June.
+
+| | per group | last workshop |
+|---|---|---|
+| Lycée Mon / Tue | 27 / 27 | 28 / 29 June (teaching continues to Fri 2 July) |
+| Avenor ×2 | 29 | 23 June (30 June is the short day) |
+| Deutsche Schule ×2 | 30 | 30 June |
+| | **172 total, 27 142,50 lei** | three different endings, none of them chosen by us |
+
+**WHERE THE DATES NOW LIVE: `public.school_calendar_closures`** (`202610200008`), 58 rows for 2026-2027 across the three schools — item 154's table, built at last, and built **without the national default** because §18 says there is none. One row per marking, carrying the school's **own wording** verbatim (`Early Dismissal for Students - 12:00`, `Journées Pedagogiques sans accueil d'enfants à l'école`, `Brückentag`) and the URL it was read from.
+
+**`blocks_workshop` is a stored column, not derived from `kind`**, and that is the whole lesson in one schema decision:
+
+> **"The school is shut" and "a workshop cannot run" are different predicates.** An early-dismissal day is open and blocks. A management inset day on a Saturday is shut-ish and blocks nothing. Anything that computes one from the other is wrong about both.
+
+The three non-blocking rows are recorded anyway, so that *checked and irrelevant* never becomes indistinguishable from *never looked* — which is exactly the failure mode of item 158.
+
+**ONE SOURCE IS WEAKER THAN THE OTHER TWO, and it is written into the table's header rather than left for someone to discover.** The Deutsche Schule publishes an **event list**; Avenor and the Lycée publish **day grids**. An absent entry in a list is not the same as a white cell in a grid. If a `letzter Schultag` half day exists at the Deutsche Schule on 30 June, this table does not know about it, and the 30 workshops on that group assume it does not.
+
+**THE YEAR IS GENERATED** (`202610200009`): 172 workshops, 2 November to each school's own last day, all `planned`, none confirmed. **Not one date is typed in that migration.** The weekday comes from `groups.schedule_pattern`; duration, tier, trainer and start time are templated from each group's most recent non-cancelled session; the excluded weeks come from the closures table; and even the *end* is unchosen — the range runs to 31 August and each school's summer closure cuts it off, which is why the three schools stop on three different days.
+
+The last assertion joins every generated session back to its own school's calendar and requires zero overlaps. **Derived from the table, not from a list of expected dates typed in the same file** — an assertion against a hand-written list proves only that the typing was self-consistent.
+
+**Why generating a year is safe now and would not have been a week ago:** `app.rpc_cancel_session` exists. If a school moves a day, the row is repairable with a reason. Generating 172 rows with no cancellation path would have been writing a year nobody could correct — which is item 139's argument, now spent for the purpose it was saved for.
+
+**Re-verify when:** a school publishes its 2027-2028 calendar; or the Deutsche Schule's 30 June turns out to be a half day. **The next in-term boundary is Monday 30 November** (Sf. Andrei at all three, and a Lycée teaching day) and **Tuesday 1 December**.
+
+**Lives in:** `docs/DATABASE_CONVENTIONS.md` §18 (no national default) and §19 (the recorded actor); `public.school_calendar_closures`; `supabase/migrations/202610200008_school_calendar_closures.sql` and `202610200009_generate_schedule_to_end_of_school_year.sql`; items 154, 155 and 158 above (the design, the error and the diagnosis); item 139 above (cancellation as the precondition, now spent).
 
 ---
 ### 151. `trainer_grade_assignments.source` accepts `'computed'` and nothing computes — the automation it was built for needs an hours history we do not have

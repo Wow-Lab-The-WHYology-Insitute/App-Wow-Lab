@@ -381,3 +381,54 @@ measurement changes nothing.
 **Lives in:** `OPEN_ITEMS.md` items 154, 155 and 158; `groups.school_year_calendar_link` (the
 per-group column that anticipated this); `supabase/migrations/202610200005` and `202610200006`
 (the repair).
+
+## 19. The recorded actor is who did the thing, not who was allowed to do it
+
+**Decided 2026-10-20 by Mihai, on the third instance of the same mistake in two days.**
+
+Every `*_by` column — `cancelled_by`, `confirmed_by`, `actor_user_id` in `row_history` — answers
+**"who did this"**. It never answers "who could have". A migration that has to impersonate somebody
+in order to pass a gate is choosing a name for a row, and the only correct choice is the person who
+actually took the decision.
+
+> **A capability is permission to act. It is not evidence that anyone acted.**
+
+**The three instances, which is why this is a convention and not an item.**
+
+1. `202610200002` recorded Anca on 38 confirmations because *"this import is being run on her
+   instruction"*. It was run on Mihai's. Corrected (item 152) to the real reason: **she had already
+   approved those exact 38 rows in the timesheet**, which is a specific fact about her and about
+   these rows.
+2. `202610200005` recorded Cătălina on six cancellations because she holds `Operations Manager` and
+   **the gate would admit her**. She had not been asked, had not decided, and had not answered. The
+   argument offered — that `cancelled_by` records who exercised the authority — is the same
+   substitution in a new coat: **she exercised nothing.** Corrected by `202610200007`.
+3. The ski week, the same day, one layer out: the county answers *which week the inspectorate
+   chose*, not *which week this school is shut* (§18).
+
+All three replace **a specific fact about a specific person** with **a category that person belongs
+to**. The category is always true and always irrelevant.
+
+**The test, before writing any name into a `*_by` column:**
+
+> Name one fact about **this person** and **these rows** that is true independently of their role.
+> If the only sentence available is about their permissions, it is the wrong person.
+
+Anca's fact: *she approved these 38 rows in the timesheet.* Mihai's fact on the cancellations: *he
+read the three calendars, decided, and ran it.* Cătălina had no such fact. **Being the right person
+to ask is not the same as having been asked.**
+
+**Where this bites hardest.** A confirmation is irreducibly personal — the trainer asserting they
+taught a class — and nobody may make one on another person's behalf under any role. A cancellation
+is weaker: the fact can be public (a published school calendar), so it does not need testimony.
+**But "does not need testimony" licenses nothing about whose name goes on it.** It only means the
+fact survives without a witness; the actor column still records the person who acted, and that is
+whoever decided.
+
+**And if nobody suitable can pass the gate**, that is information, not an obstacle to route around
+by borrowing a name. `202610200005`'s first draft tried to use an account with no roles at all; the
+right response was to find the account that genuinely holds `Organization Owner` — not to reach for
+someone whose role happened to fit.
+
+**Lives in:** `OPEN_ITEMS.md` items 152, 157 and 159; §17 (the general form — a correct decision
+with a wrong reason); `supabase/migrations/202610200007_correct_cancellation_actor.sql`.
