@@ -324,3 +324,60 @@ obligation is to **reopen the item rather than choose freshly** — because choo
 indistinguishable from the decision never having been made. Where the decision exists only as
 intent, say so in it; an item that reads as though it governs five screens when it can only defend
 two is itself a wrong reason of the §17 kind.
+
+## 18. No school gets dates without its own calendar — the national structure is not a default
+
+**Decided 2026-10-20 by Mihai, after the national structure was wrong for all three schools we
+have, on every boundary.**
+
+| | autumn | winter | ski week | spring | last day |
+|---|---|---|---|---|---|
+| Lycée Français | 19 Oct – 1 Nov | 21 Dec – 3 Jan | 22 Feb – 7 Mar | 26 Apr – 9 May | 2 Jul |
+| Deutsche Schule | 19 – 23 Oct | 21 Dec – 8 Jan | 15 – 19 Feb | 26 Apr – 3 May | 30 Jun |
+| Avenor College | 19 – 23 Oct | 21 Dec – 8 Jan | 22 – 26 Feb | 26 Apr – 3 May | 30 Jun |
+| **national structure** | *24 Oct – 1 Nov* | *23 Dec – 10 Jan* | *per county* | *24 Apr – 4 May* | *18 Jun* |
+
+**Not one row of the national structure matches any school we have, on any boundary.** It is not a
+default with overrides. **It is a fourth calendar that nothing uses.**
+
+So:
+
+> **A school gets dates only from its own calendar. If a school has no calendar loaded, the
+> generator refuses — it does not fall back to the national structure.**
+
+Refusing is the whole point. A fallback produces workshops that look exactly like correct ones:
+right group, right trainer, right price, wrong week. A refusal produces nothing, and somebody goes
+and gets the calendar. **The failure mode of the fallback is silent and the failure mode of the
+refusal is loud**, and only one of those is survivable in a system whose output is somebody being
+told to show up at a locked school.
+
+**Why the earlier framing was wrong, and it was not a detail.** `OPEN_ITEMS.md` item 154 designed
+this table as "the national structure as the default, with per-school overrides" and got the
+*shape* right — per-school, a link that already knew schools differ. It then wrote a default
+nobody had checked. Avenor's calendar was one link from its homepage; the sentence "Avenor — a
+Romanian private school following the national structure" is an inference from *what kind of
+institution Avenor is*, written in the grammar of an observation.
+
+> **A default is a claim about a specific case and has to be checked case by case.** The moment
+> anything is labelled "the exceptions", the exceptions get evidence and the default gets none —
+> it is the thing that looks like it needs no source.
+
+**The same substitution, twice, one layer apart.** The ski week has a clean version of this: the
+county *is* derivable from `clients.address`, all three schools are Bucharest, and ISMB published
+22–27 February 2027. But **the county answers which week the inspectorate chose, which is a
+different question from which week this school is shut** — the Deutsche Schule takes 15–19
+February and is not bound by ISMB at all. Deriving the first and storing it as the second is the
+same move as deriving a school's holidays from its nationality. Both replace a measurement with a
+category.
+
+**And the measurement is only half done until it is turned on what is already written.** The
+three-school table that proves this was produced and tabulated before the rows written three hours
+earlier were re-read against it. The table said "Avenor 19–23 October" while six workshops sat in
+the database on exactly those dates, and the two facts were not put next to each other. **A
+correct measurement that is not turned back on the decisions already taken is half a
+measurement** — the cost of the second half is one query, and the cost of skipping it is that the
+measurement changes nothing.
+
+**Lives in:** `OPEN_ITEMS.md` items 154, 155 and 158; `groups.school_year_calendar_link` (the
+per-group column that anticipated this); `supabase/migrations/202610200005` and `202610200006`
+(the repair).

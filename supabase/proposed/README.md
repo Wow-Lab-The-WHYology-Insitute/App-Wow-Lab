@@ -20,13 +20,19 @@ tool does not read is not a marker.
 Armed so far: `restate_trainer_grade_scale.sql`, on 2026-10-20 — now
 `supabase/migrations/202610200001_restate_trainer_grade_scale.sql`.
 
-Waiting, both from 2026-10-20 (OPEN_ITEMS item 155):
+Also armed 2026-10-20, both within hours of being written (OPEN_ITEMS items
+155 and 158):
 
-- `cancel_19_21_october_school_holidays.sql` — cancels the six workshops of
-  19–21 October as `vacanta`. All three schools were on their autumn holiday;
-  the week we protected was the wrong one.
-- `schedule_28_october_avenor_and_german.sql` — inserts the four of Wednesday
-  28 October that the same wrong reading withheld. Deliberately a **second**
-  file: cancelling removes something known to be false, inserting writes
-  something forward on a published calendar alone. Arm the cancellation
-  first; this one asserts that it ran.
+- `cancel_19_21_october_school_holidays.sql` →
+  `supabase/migrations/202610200005_...`
+- `schedule_28_october_avenor_and_german.sql` →
+  `supabase/migrations/202610200006_...`
+
+Worth recording because it is the first time this directory did the job it
+exists for rather than holding something back: both files were written,
+reviewed, dry-run against the live database inside `begin; … rollback;`,
+and only then applied — with the second one left as a separate file after
+approval, because cancelling removes something known to be false while
+inserting writes something forward on a published calendar alone.
+
+Currently empty.

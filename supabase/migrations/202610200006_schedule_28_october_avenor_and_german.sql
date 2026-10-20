@@ -3,27 +3,28 @@
 -- week; only the Lycee is still on holiday.
 --
 -- ===========================================================================
--- THE DECISION THIS IS WAITING ON
+-- DECIDED 2026-10-20 BY MIHAI, in the same instruction as the cancellation
 -- ===========================================================================
--- Mihai's, and it is a different decision from the cancellation beside it.
--- That one removes something known to be false. This one WRITES SOMETHING
--- FORWARD, on the authority of two published school calendars and nothing
--- else -- no timetable from Avenor, no message from the Deutsche Schule
--- saying "yes, 28 October, as usual".
+-- "INTRODU cele 4 de miercuri 28 octombrie, neconfirmate, aceleasi garzi
+-- ca ieri."
 --
--- The evidence says those two schools are open. It does not say our workshop
--- runs. Those are different facts, and only one of them is in evidence --
--- the same distinction 202610200004 drew for 19 and 20 October and then
--- failed to apply to its own omission.
+-- This file stayed separate from the cancellation beside it even after both
+-- were approved together, and the reason survives the approval: cancelling
+-- removes something known to be false, inserting writes something forward
+-- on a published calendar and nothing else. The calendars say those two
+-- schools are open on 28 October. They do not say our workshop runs -- and
+-- "it was scheduled" and "it happens" are different facts, which is the
+-- exact distinction 202610200004 drew for 19 October and then failed to
+-- apply to its own silence about 28 October.
 --
--- So: separate file, separate decision, arm one without the other.
+-- That is why these four go in UNCONFIRMED, like the six before them: the
+-- application knows they are scheduled. It will know they were delivered
+-- when Catalina and Lorina say so.
 --
 --
--- VERIFIED 2026-10-20, not applied: this file and its rollback were run
--- against the live database inside `begin; ... rollback;` -- forward,
--- then schedule_28_october, then both rollbacks -- and the state came back
--- to exactly 1/1/4 planned workshops with no category. Every assertion in
--- all four files held. Nothing was committed.
+-- VERIFIED BEFORE APPLYING: run against the live database inside
+-- `begin; ... rollback;` together with 202610200005 and both rollbacks.
+-- Every assertion held before any of it was committed.
 -- ===========================================================================
 -- WHY THIS IS NOT "SIX MORE WORKSHOPS"
 -- ===========================================================================
@@ -56,9 +57,9 @@
 -- record and nothing to impersonate for.
 --
 -- ORDERING: this file assumes the six of 19-21 October have already been
--- cancelled, and asserts it. Arming this one alone would leave the app
--- showing a holiday week as pending pay next to a real teaching week, which
--- is worse than either repair on its own.
+-- cancelled by 202610200005, and asserts it. Applying this one alone would
+-- leave the app showing a holiday week as pending pay next to a real
+-- teaching week, which is worse than either repair on its own.
 
 do $$
 declare
@@ -86,7 +87,7 @@ begin
       where organization_id = v_org
         and session_date between '2026-10-19' and '2026-10-21'
         and status = 'cancelled' and cancellation_category = 'vacanta') <> 6 then
-    raise exception 'schedule-28oct: the six workshops of 19-21 October are not cancelled as vacanta -- arm cancel_19_21_october_school_holidays.sql first';
+    raise exception 'schedule-28oct: the six workshops of 19-21 October are not cancelled as vacanta -- apply 202610200005 first';
   end if;
 
   select count(*) into v_before from public.sessions where organization_id = v_org;

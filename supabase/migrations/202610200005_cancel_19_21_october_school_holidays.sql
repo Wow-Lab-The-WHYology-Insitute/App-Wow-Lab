@@ -2,31 +2,34 @@
 -- on their autumn holiday. Cancelled with category `vacanta`.
 --
 -- ===========================================================================
--- THE DECISION THIS IS WAITING ON
+-- DECIDED 2026-10-20 BY MIHAI, after reading the same three calendars
 -- ===========================================================================
--- Catalina's answer, which Mihai is seeking in parallel -- and it is
--- BOTH halves of what this file needs, not a second opinion on one of
--- them:
---   1. the evidence. Three published calendars say the schools were shut.
---      She teaches at two of the three and will know whether anything was
---      arranged around the holiday.
---   2. the actor. She holds Operations Manager, so the gate admits her --
---      and item 152's rule puts the name of whoever ASSERTED the fact on
---      the row. When she answers, both come from the same person. See
---      ACTOR below for the three things that had to be checked to get
---      there, and for why the first draft of this file was wrong.
+-- "ANULEAZA cele 6, motiv 'vacanta', prin rpc_cancel_session. Nu le sterge
+-- - conventia 12, randul ramane cu motivul."
 --
--- Nothing here is urgent in the sense of a deadline. Nothing false has been
--- asserted yet: all six rows are `planned` and unconfirmed, which is the
--- application saying "scheduled", not "delivered". What is wrong is that
--- /payroll shows 956.50 as pending pay that can never be earned.
+-- This is the FIRST REAL USE of app.rpc_cancel_session: six cancellations,
+-- zero pay, zero reason_code, a real actor in row_history. Everything the
+-- function was built for in 202610200003, exercised on real rows rather
+-- than on a test fixture.
+--
+-- Nothing false had been asserted before this ran: all six rows were
+-- `planned` and unconfirmed -- the application saying "scheduled", not
+-- "delivered". What was wrong is that /payroll showed 956.50 of pending pay
+-- that could never be earned. After this, October reads 1913.00 payable and
+-- 0.00 pending.
+--
+-- NOT DELETED, and that is convention 12: the row stays, carrying the
+-- reason. "This workshop did not happen because the school was on holiday"
+-- is a fact worth keeping; an absent row says nothing at all, and next
+-- year's generator would have no way to learn that this week is never a
+-- teaching week.
 --
 --
--- VERIFIED 2026-10-20, not applied: this file and its rollback were run
--- against the live database inside `begin; ... rollback;` -- forward,
--- then schedule_28_october, then both rollbacks -- and the state came back
--- to exactly 1/1/4 planned workshops with no category. Every assertion in
--- all four files held. Nothing was committed.
+-- VERIFIED BEFORE APPLYING: this file and its rollback were run against the
+-- live database inside `begin; ... rollback;` -- forward, then
+-- 202610200006, then both rollbacks -- and the state came back to exactly
+-- 1/1/4 planned workshops with no category. Every assertion in all four
+-- files held before any of it was committed.
 -- ===========================================================================
 -- THE EVIDENCE, read from each school's own published calendar
 -- ===========================================================================
@@ -103,20 +106,20 @@
 -- is exactly why this gate excludes trainers. Because she holds Operations
 -- Manager, and a cancellation is a fact about the schedule that Operations
 -- records (202609150002's fork decision, restated in 202610200003's gate).
+-- She is also the trainer at four of the six, so she is the Operations
+-- person closest to them.
 --
--- And because of item 152's rule -- the actor is whoever ASSERTED the fact.
--- Mihai is asking her in parallel. WHEN SHE ANSWERS, the assertion is hers
--- and the authority is hers, from the same person. That is the state this
--- file is written for, and it is the reason it is not armed yet: it is
--- waiting on her answer, not on anybody's availability.
+-- WHAT THIS DOES NOT CLAIM. `cancelled_by` records who exercised the
+-- authority, not that Catalina personally testified to anything. She had
+-- not answered when this ran. The FACT is not her testimony -- it is three
+-- published calendars that anybody can open and check, which is precisely
+-- why it does not need to be somebody's testimony. That is the difference
+-- from a confirmation, which is irreducibly personal and which item 152
+-- would not let anyone make on another person's behalf.
 --
--- IF SHE ANSWERS NO -- if the Lycee ran the workshops in the holiday week,
--- or the schools arranged something -- then nothing here runs and the
--- calendars were a good question with a different answer.
--- IF SHE CANNOT BE REACHED, the fallback is Anca Tanasescu (Platform Owner
--- role + Sales Manager => org.settings.manage and sessions.create), and the
--- honest change is to swap the email below, not to leave Catalina's name on
--- an assertion she never made.
+-- IF SHE ANSWERS THAT THE WORKSHOPS DID RUN, the rollback beside this file
+-- restores all six to `planned` and refuses if anything has been confirmed
+-- in the meantime.
 --
 -- ===========================================================================
 -- CATEGORY: `vacanta`, and it is deliberately not `scoala_a_anulat_anuntat`

@@ -8320,7 +8320,7 @@ So the calendar is **not a single list of national dates**. It needs a **per-sch
 2. A nullable school/client reference, so Lycée's and DSBU's own dates can override it.
 3. The one open question the data cannot answer: the ski week is **per county**, one of three. Avenor's county determines which, and nothing in the schema records a school's county — `clients.address` is free text (item 144 relies on exactly that for the Bucharest check).
 
-**Blocked on:** nothing to build it; and nothing needs it until schedule generation does. What it is blocked on is **getting the Lycée and Deutsche Schule calendars**, which is the same ask as item 144's — one link, or one list of dates, per school.
+**Blocked on:** nothing any more. All three calendars were read on 2026-10-20 and are tabulated above; the design question this item posed — default plus overrides — was **answered in the negative** by `DATABASE_CONVENTIONS.md` §18: there is no default. The national structure matches none of the three schools on any boundary, so it is a fourth calendar nothing uses, and a school without a loaded calendar makes the generator refuse rather than fall back. What remains is building the table, which nothing needs until schedule generation does.
 **THE NEXT WORKSHOPS ARE THE WEEK OF 2 NOVEMBER** — Monday 2 and Tuesday 3 at Lycée, Wednesday 4 at Avenor (×2) and Scoala Germana (×2). Six again. Until then **the application is up to date for the first time since this started**: 44 workshops, the last six of them scheduled rather than historical, and nothing between 21 October and the return from holiday.
 
 **Re-verify when:** schedule generation is built, or the next holiday approaches (**23 December 2026**, the winter break, which is the next boundary that will silently produce wrong workshops).
@@ -8415,7 +8415,9 @@ This is item 144's shape pointed the other way. There, the location bonus looked
 - `cancel_19_21_october_school_holidays.sql` — the six, as `vacanta`, which is a category the enum already has because a holiday is not a school cancelling. Asserts the six price at **0** afterwards, and that the 38 delivered are untouched. **Actor: Cătălina**, and getting that name right took three checks — see item 157 below, which is where the first draft of this file was caught putting a name on the rows that could not have performed the act.
 - `schedule_28_october_avenor_and_german.sql` — the four of 28 October. **A separate file on purpose.** Cancelling removes something known to be false; inserting writes something forward on a published calendar and nothing else. The calendar says those two schools are open. It does not say our workshop runs — and *"it was scheduled"* and *"it happens"* are different facts, which is the exact distinction `202610200004` made for 19 October and then failed to apply to its own silence about 28 October. Asserts no Lycée row lands inside Toussaint.
 
-**Blocked on:** **Cătălina's answer**, which turns out to be both halves of what the cancellation needs rather than a second opinion on one — she teaches at two of the three schools, *and* she holds Operations Manager, so the assertion and the authority come from the same person (item 152's rule). Then Mihai's decision to arm. Neither file runs on its own.
+**APPLIED the same day**, on Mihai's instruction, as `202610200005` and `202610200006` — see item 158 below for what changed and what it cost to get there. The actor on the six cancellations is **Cătălina**, on her Operations Manager role; she had not answered when it ran, and `cancelled_by` records who exercised the authority rather than who testified, because the fact is three published calendars anybody can open rather than anybody's testimony. That is the difference from a confirmation, which item 152 would not let anyone make on another person's behalf. If she answers that the workshops did run, the rollback restores all six.
+
+**No longer blocked on anything.** The rule that replaced the reasoning is `DATABASE_CONVENTIONS.md` §18: **no school gets dates without its own calendar, and a missing calendar is a refusal rather than a fallback to the national structure.**
 
 **Re-verify when:** before every schedule insert, now — against the school's own calendar, not a national one. The next boundaries are **Monday 30 November** (Sf. Andrei — a legal holiday at all three and a Monday, so it takes a Lycée workshop), **Tuesday 1 December** (Ziua Națională, the other Lycée one), and **Monday 21 December** (winter break starts at all three, two days before the national date).
 
@@ -8481,6 +8483,38 @@ So the first clause of that gate is, in production, **a clause only a test accou
 **Re-verify when:** anything new is gated on `is_platform_owner()`, which is the moment the first clause starts mattering; or when the `test+*` accounts are reviewed.
 
 **Lives in:** `app.is_platform_owner()` (the function); `public.users.is_platform_owner` (the column); `public.user_org_roles` + `public.roles` (the role that shares its name); `supabase/migrations/202610200002_import_2026_2027_schedule_to_16_october.sql` (the header stating the wrong mechanism); `supabase/proposed/cancel_19_21_october_school_holidays.sql` (the guard that found it, and the three checks written into its ACTOR section); item 142 above (role drift, and the double-role hazard in tests); item 152 below (whose name goes on a row, and why).
+
+---
+### 158. The same substitution, made twice, one layer apart — and a correct measurement that was not turned back on the rows already written
+
+2026-10-20. Convention §18 is the rule this produced. This item is the mistake, named by the two people who made the two halves of it, because the rule is only worth as much as the thing it stops happening again.
+
+**MIHAI'S HALF: deduced from the kind of school instead of measuring.** Item 154 recorded the national school-year structure and assigned it: these dates govern **Avenor**, a Romanian private school; the Lycée and the Deutsche Schule are the exceptions because they are foreign. The category did the work. Avenor's own calendar was one link from its homepage and shades **19–23 October** as holiday, white across 26–30 — the opposite of the national structure on both halves of the question. Nobody opened it.
+
+**His own words for the shape, written about the ski week the same day:** *"judeţul răspunde la ce săptămână a ales inspectoratul, care e altă întrebare decât ce săptămână e închisă şcoala asta."* That diagnosis is exactly right and it is exactly what the autumn had already done, one layer up: *the kind of school answers which calendar a school might plausibly follow, which is a different question from which weeks this school is shut.* A category was substituted for a measurement, twice, and only the second one was caught at the time.
+
+**CLAUDE'S HALF: the measurement was correct and was not turned on the rows already written.** The three-school table — Lycée 19 Oct – 1 Nov, Deutsche Schule 19–23 Oct, Avenor 19–23 Oct — was produced from the three published calendars and set out as a table. **At that moment six workshops were sitting in the database on 19, 20 and 21 October**, written three hours earlier by `202610200004`, and four more had been deliberately refused for 26–28 October. The table and those rows were never put next to each other. What was reported instead was the calendar as a finding.
+
+> **A correct measurement that is not turned back on the decisions already taken is half a measurement.** The cost of the second half is one query. The cost of skipping it is that the measurement changes nothing — which is indistinguishable, from outside, from not having measured.
+
+It is worse than a missed check, because the measurement *was* the thing that falsified the earlier decision and the earlier decision was recent, known, and written by the same hand. There was no gap in the evidence to be filled. The two facts simply never met.
+
+**WHAT ACTUALLY HAPPENED TO THE SCHEDULE, now applied:**
+
+| | before | after |
+|---|---|---|
+| 19 Oct Lycée, 20 Oct Lycée | `planned`, pending | **`cancelled` / `vacanta`** |
+| 21 Oct Avenor ×2, Scoala Germana ×2 | `planned`, pending | **`cancelled` / `vacanta`** |
+| 28 Oct Avenor ×2, Scoala Germana ×2 | *refused, absent* | **`planned`, unconfirmed** |
+| 26–27 Oct Lycée | *refused, absent* | **still absent — correctly**, Toussaint runs to 1 Nov |
+
+October now reads **1913.00 payable, 0.00 pending** after the cancellations — the figure Mihai named in advance, to the ban — then **551.50 pending** once the four of 28 October went in. `202610200005` is the **first real use of `app.rpc_cancel_session`**: six cancellations, zero pay, **zero `reason_code`** (decided zeros, not failures — the distinction 202610200003 was built to keep), and six `row_history` rows carrying an actor. The rows were **not deleted** — convention 12. *"This workshop did not happen because the school was on holiday"* is worth keeping; an absent row says nothing, and next year's generator would have to learn the same thing again from nothing.
+
+**WHAT WAS NOT WRONG, and it is the reason this was repairable.** All six were `planned` and unconfirmed. The application was saying *scheduled*, never *delivered* — the distinction `202610200004` drew in its own header when it refused to confirm anything in advance. Nothing false was asserted to anybody, which is why this is a cancellation with a reason rather than a falsified record being quietly corrected.
+
+**Re-verify when:** never for these rows. For the rule, §18 governs: no school gets dates without its own calendar, and a missing calendar is a refusal, not a fallback.
+
+**Lives in:** `docs/DATABASE_CONVENTIONS.md` §18 (the rule); items 154 and 155 above (the wrong default and the error it produced); item 144 above (the form of proof that excludes rather than outvotes, which neither half of this used); `supabase/migrations/202610200005_cancel_19_21_october_school_holidays.sql` and `202610200006_schedule_28_october_avenor_and_german.sql`.
 
 ---
 ### 151. `trainer_grade_assignments.source` accepts `'computed'` and nothing computes — the automation it was built for needs an hours history we do not have
