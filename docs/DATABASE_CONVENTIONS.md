@@ -299,3 +299,28 @@ someone reasons from it — and the reason as written would have licensed seedin
 still the right call" but **"is this still the right call for the reason written here"**. The two
 come apart silently, and only the first one has tests. Worth looking for deliberately — a decision
 whose stated reason no longer holds is a trap with no tripwire.
+
+### 17b. The second form: a correct decision with nothing to appeal to
+
+The same failure has a mirror image, and it is easier to miss because there is no wrong sentence to
+find. **A decision can also degrade by being made about something that does not exist yet**, so that
+when the thing is built there is no "how it already was" for the decision to attach to.
+
+The worked case is item 153: Finance Administration & Reporting is deliberately kept off five
+screens. Two of those screens exist, and for them the decision has something concrete to defend —
+the gate as written, with a comment saying why. **Three of them do not exist.** Whoever builds
+Prezența copii, Stoc materiale or Comenzi will pick a gate from scratch, with no existing behaviour
+to preserve and nothing to contradict. The decision covers them in intent and in nothing else.
+
+**Both forms produce no failing test**, which is what makes them one convention rather than two:
+
+| form | what is wrong | why nothing catches it |
+|---|---|---|
+| §17 | the decision is right, the **reason** beside it is wrong | no value changes; the reason is prose |
+| §17b | the decision is right, there is **nothing it applies to yet** | the thing it governs has no code to test |
+
+So a decision taken about unbuilt surface is recorded with **the surface named**, and the builder's
+obligation is to **reopen the item rather than choose freshly** — because choosing freshly is
+indistinguishable from the decision never having been made. Where the decision exists only as
+intent, say so in it; an item that reads as though it governs five screens when it can only defend
+two is itself a wrong reason of the §17 kind.

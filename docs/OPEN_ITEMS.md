@@ -7825,6 +7825,28 @@ Manager + Trainer, `mywork.*` true, she appears in the trainer dropdown, no stra
 migration refuses to run if she has no grade effective on or before 2026-09-01 — making someone
 selectable but unpayable would be worse than leaving them unselectable.
 
+**A RULE THAT CAME OUT OF THIS ITEM SIDEWAYS, 2026-10-20 — how to pick the subject of an
+authorization test.** `db/tests/cancel_session_pay_rule.sql` was written to assert that
+`finance.operations.*` is NOT on `app.rpc_cancel_session`'s gate, and it chose **Anka Orban** as the
+subject because she is the Finance person. It failed — she also holds **Operations Manager**, so she
+has `sessions.create` and legitimately succeeds. Worse, because her cancellation went through, the
+two checks after it then failed on an already-cancelled session: **one mis-chosen subject produced
+three red assertions, none of which was about the gate.**
+
+> **An authorization test that picks its subject by role name tests the name, not the gate.** The
+> subject is chosen by **measured capability** — query who actually holds the capability under test
+> and, crucially, who holds it *without* the others — not by who has the job title that sounds right.
+
+**Laura Moale** is the person who holds `finance.operations.*` **without** `sessions.create`
+(Contract Administrator + Finance Operations), and the test now uses her. The converse is asserted
+too, pointing back here: Anka *can* cancel, via Operations Manager rather than via Finance, and
+that is this item's subject rather than a gate defect.
+
+This generalises past one test. In an org where one person holds **twelve** roles, "the Finance
+person", "the Operations person" and "the trainer" are not capability statements — they are
+descriptions of people whose grants have drifted. Any test written against them is a test about
+today's accidents.
+
 **Blocked on:** nothing; the review itself is the open work.
 **Re-verify when:** a real person is added to the org, or a verification script needs a role — the
 second is how `test+ui-owner` ended up with Organization Owner in production (item 137 above).
@@ -8248,7 +8270,9 @@ So a five-screen request resolves to **one screen, excluding three test accounts
 
 Not "review periodically" — an item with no condition for reopening never reopens. The condition is checkable in one query (the one above: holders of `finance.reporting.*` without the `/payroll` gate, filtered to `is_test_account = false`), and today it returns nothing.
 
-**A second trigger, for the three screens that do not exist yet:** whoever builds Prezența copii, Stoc materiale or Comenzi will choose a gate for it, and will face this same question with no default to inherit. This decision covers them in advance — they are scoped as they are today — but a builder who disagrees should reopen the item rather than quietly widen the new screen, since a new screen has no "how it already was" to appeal to.
+**A second trigger, for the three screens that do not exist yet:** whoever builds Prezența copii, Stoc materiale or Comenzi will choose a gate for it, and will face this same question with no default to inherit. This decision covers them in advance — they are scoped as they are today — but a builder who disagrees should **reopen the item rather than quietly widen the new screen**, since a new screen has no "how it already was" to appeal to.
+
+**That second trigger is the same shape as §17, and is now written there as §17b.** §17 is the case where a correct decision carries a *wrong reason* and nothing fails, because the reason is prose and no value changes. This is the case where a correct decision has **nothing to apply to yet** and nothing fails, because the surface it governs has no code to test. **Both are ways a decision degrades without producing a single red assertion** — and in this item they sit side by side: for `/payroll` the decision defends a gate that exists and now carries its reason in a comment; for the three unbuilt screens it exists only as intent. Saying which is which, inside the item, is the whole guard. An item that reads as though it governs five screens when it can only defend two would itself be a wrong reason of the §17 kind.
 
 **3. THE MONTH-CLOSE FRICTION STANDS, and is a direct consequence rather than a side effect.**
 
@@ -8261,6 +8285,46 @@ And the repair, if it bites, is **not** widening the gate — it is a button on 
 **Blocked on:** nothing. Decided.
 **Re-verify when:** the query in §1 returns a non-test account, or a new screen among rd. 9 / 10 / 15 is built.
 **Lives in:** `app/(app)/payroll/page.tsx` (the gate this decision now justifies), `app/(app)/payroll/actions.ts` (the same gate on the close action); item 150 above (the feedback rows and the rule that surfaced them), item 139 above (the month-close handoff and why the gate must not widen), item 142 above (role sprawl, which is why "Anka already has Finance Operations" was worth measuring rather than assuming).
+
+---
+
+### 154. The school-holiday calendar, as data — and it needs a per-school dimension, which `school_year_calendar_link` already knew
+
+2026-10-20. Found by Mihai, after the links stored on the groups turned out to be unreadable (item 144: one folder on the two Lycée groups, `/u/5/` in the URL, `Requested entity was not found`, nothing in a Drive search). The dates below are the **national** school-year structure for **2026-2027**:
+
+| holiday | from | to |
+|---|---|---|
+| **Toamnă** | **24 October 2026** | **1 November 2026** |
+| Iarnă | 23 December 2026 | 10 January 2027 |
+| Schi (one week, by county) | one of 15–21 Feb / 22–28 Feb / 1–7 Mar 2027 | |
+| Primăvară | 24 April 2027 | 4 May 2027 |
+| Vară | from 19 June 2027 | |
+
+Module 1 ends **Friday 23 October**; return is **Monday 2 November**.
+
+**IT HAD AN IMMEDIATE CONSEQUENCE, which is why this was worth chasing rather than noting.** The weekly schedule projects six workshops onto 26, 27 and 28 October. **They do not happen.** `202610200004` therefore stops at 21 October and asserts that nothing is dated inside 24 October – 1 November. Without the calendar those six would have been entered as real.
+
+**And note what the calendar did NOT do: it did not become a precondition again.** `app.rpc_cancel_session` (202610200003) means a wrongly-scheduled workshop is now repairable, so the calendar is a quality improvement rather than the thing standing between generation and an unfixable mess (item 139). But repairable is not a licence to write down something known to be false — so the six were not inserted "and cancelled later". The right order held: cancellation first, then the calendar makes generation *accurate* rather than merely *survivable*.
+
+**THE SHAPE THE TABLE NEEDS, not built here.** These dates govern **Avenor** — a Romanian private school following the national structure. They do **not** govern the other two:
+
+- **Lycée Français** follows the **French** calendar, which has *vacances de la Toussaint* (typically two weeks in late October/early November), different winter and spring breaks, and a different year end.
+- **Deutsche Schule Bukarest** follows its own, on the German pattern.
+
+So the calendar is **not a single list of national dates**. It needs a **per-school dimension, with the national structure as the default and per-school overrides** — one school's holiday is another school's teaching week, and a generator that used one list would be wrong for two of the three schools we already have.
+
+**`groups.school_year_calendar_link` already knew this**, and that is the part worth keeping: it is **per group**, not per organization. Whoever added it understood that schools differ, stored a link rather than dates, and the link then went unread (nothing in the codebase parses it) and unreadable (the folder is not accessible to this account). **The intent was right and the mechanism was a link.** A table of dates with a school dimension is the same intent, expressed as something a generator can query.
+
+**The minimum that makes it useful**, in order of cost:
+1. The national structure above, as rows, as the default — covers Avenor today.
+2. A nullable school/client reference, so Lycée's and DSBU's own dates can override it.
+3. The one open question the data cannot answer: the ski week is **per county**, one of three. Avenor's county determines which, and nothing in the schema records a school's county — `clients.address` is free text (item 144 relies on exactly that for the Bucharest check).
+
+**Blocked on:** nothing to build it; and nothing needs it until schedule generation does. What it is blocked on is **getting the Lycée and Deutsche Schule calendars**, which is the same ask as item 144's — one link, or one list of dates, per school.
+**THE NEXT WORKSHOPS ARE THE WEEK OF 2 NOVEMBER** — Monday 2 and Tuesday 3 at Lycée, Wednesday 4 at Avenor (×2) and Scoala Germana (×2). Six again. Until then **the application is up to date for the first time since this started**: 44 workshops, the last six of them scheduled rather than historical, and nothing between 21 October and the return from holiday.
+
+**Re-verify when:** schedule generation is built, or the next holiday approaches (**23 December 2026**, the winter break, which is the next boundary that will silently produce wrong workshops).
+**Lives in:** nothing changed. `groups.school_year_calendar_link` (the column that anticipated the per-school dimension); `supabase/migrations/202610200004_schedule_to_21_october_unconfirmed.sql` (the first migration to assert against a holiday); item 139 above (cancellation as the precondition, and why the calendar is no longer one), item 144 above (the unreadable links), item 150 above (rd. 65 and the school-year boundary convention, §16).
 
 ---
 ### 151. `trainer_grade_assignments.source` accepts `'computed'` and nothing computes — the automation it was built for needs an hours history we do not have
@@ -8343,6 +8407,23 @@ records for `202608270001`: an applied migration records what was believed when 
 the correction lives here. Which is also the point of §17 — the decision (impersonate Anca) was
 right, the reason beside it was wrong, and **nothing failed**: 38 correct confirmations, a correct
 actor, no wrong number, no failing test. It would have sat there until someone reasoned from it.
+
+**AND WHAT CHANGED THE NEXT DAY (`202610200004`), because it is the real boundary.** Six more
+workshops went in for 19-21 October — **unconfirmed**, `status = 'planned'`. The 38 were history:
+delivered, and already approved by Anca, which is what licensed importing them confirmed. These six
+have nothing behind them and **four of them had not happened yet**. Marking them confirmed would
+assert a future delivery, which is the same refusal as declining to backdate one, pointed forwards.
+
+**So those six are the first workshops this application holds BEFORE they happen.** Everything until
+then was a record of what had already occurred. From 21 October the schedule is live in the app, and
+`/payroll`'s unconfirmed list stops being empty for a real reason: slots waiting for the trainers who
+will teach them to say they did. Monday 19 and Tuesday 20 are in the past and are *still* unconfirmed
+and still `planned`, because the application knows they were **scheduled**, not that they were
+**delivered** — different facts, and only one is in evidence.
+
+That migration writes no confirmations at all, so it impersonates nobody. The absence is the point:
+the reason corrected above licensed confirming rows Anca had already approved, and these are not
+such rows.
 
 **Blocked on:** nothing.
 **Re-verify when:** any further import writes confirmations. The question to ask is not "who asked
