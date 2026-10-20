@@ -8204,11 +8204,63 @@ Not "read the requirements" as a platitude. The specific failure was that **this
 - **rd. 63** (Laura) — *"Păstrăm distincția Surroundings/Other City dacă încă se aplică?"* **An open question about the location tiers, from July, still unanswered** — asked while item 144 was spending this week proving the tiers belong to the school. Also asks for a monthly per-trainer pay report *stored in the application* for periodic reporting, which is item 148's territory.
 
 *A conflict flagged in July and still undecided:*
-- **rd. 7, 8, 9, 10, 15** — Anka repeatedly asks that **Finance Admin & Reporting** see screens scoped to Finance Operations / Operations / Inventory. The analysis marks this `🔴 CONFLICT CU O DECIZIE DEJA TESTATĂ` against the Phase 0 finance segregation (D5b) and says it needs **a conscious decision from Anca, not a silent widening**. Directly relevant: item 136's `/payroll` gate admits `finance.operations.*` or `org.settings.manage` and **not** `finance.reporting.*` — which is item 139's handoff argument, and row 8 is Anka asking for exactly that widening. **The decision is still outstanding and the gate currently answers it by omission.**
+- **rd. 7, 8, 9, 10, 15** — Anka repeatedly asks that **Finance Admin & Reporting** see screens scoped to Finance Operations / Operations / Inventory. The analysis marks this `🔴 CONFLICT CU O DECIZIE DEJA TESTATĂ` against the Phase 0 finance segregation (D5b) and says it needs **a conscious decision from Anca, not a silent widening**. **DECIDED 2026-10-20 — see item 153 below: it stays as it is, and the gate now answers by choice rather than by omission.** The decision turned out to bite exactly one screen (`/payroll`) and exactly three test accounts, which is what made it cheap.
 
 **Blocked on:** nothing. The rule is the deliverable; the list above is the backlog it produces.
 **Re-verify when:** any module is scoped. And the row count: 73.
 **Lives in:** nothing changed. `wowlab_feedback_analiza` (the source); item 136 above (per-entity grouping, requirement rd. 8), item 148 above (payment cycle, requirement rd. 8 and rd. 36), item 147 below (the rate, rd. 36), item 144 above (location tiers, open question rd. 63), item 139 above (the visibility conflict, rd. 7-10/15), item 151 below (grade progression, rd. 69).
+
+---
+
+### 153. Finance Admin & Reporting does not get the five screens — decided 2026-10-20, where until today the gate answered by omission
+
+Anka asked, in July 2026, across five separate feedback rows, that **Finance Administration & Reporting** be added to screens scoped to Finance Operations / Operations / Inventory:
+
+| row | screen |
+|---|---|
+| rd. 7 | Planificare & Alocări / Grupe & Înscrieri |
+| rd. 8 | Plata traineri |
+| rd. 9 | Prezența copii |
+| rd. 10 | Stoc materiale |
+| rd. 15 | Comenzi |
+
+The analysis flagged it `🔴 CONFLICT CU O DECIZIE DEJA TESTATĂ` against the Phase 0 finance segregation (D5b) and said it needed **a conscious decision from Anca, not a silent widening**.
+
+**Mihai's decision, 2026-10-20: it stays as it is. Finance Admin & Reporting does not receive the five screens.**
+
+**What changes today is not the gate but its status.** `/payroll` admits `finance.operations.*` or `org.settings.manage` and not `finance.reporting.*` — and it has done so since it was built, *without anyone deciding it*. Until today the gate answered Anka's request **by omission**: the role was absent because nobody had added it, which is not the same as a refusal. From today it answers **by choice**. That distinction is the whole reason this item exists: an unexamined default and a decision look identical in the code and are completely different things to inherit.
+
+**1. THE COST TODAY IS ZERO, on two counts — and this is the thing a re-reader needs first.**
+
+*Nobody real is affected.* Measured: exactly **three** accounts hold `finance.reporting.*` without the `/payroll` gate, and **all three are `is_test_account = true`** — `maxdigitalro+finadmin@gmail.com`, `test+ui-finance-admin@wowlab.dev`, `test+finance-admin-a@wowlab.dev`. **Zero non-test accounts.** Anka herself holds **Finance Operations as well**, so she personally sees `/payroll` today and will keep seeing it. She asked for the **role**, not for herself — which is the correct way to ask, and also why refusing costs nothing yet.
+
+*And four of the five screens are not actually gated against her.* Of the five:
+- **rd. 7** — `/groups` admits `groups.read`, which Finance Admin & Reporting **already holds**. She can already see it.
+- **rd. 8** — `/payroll`. **This is the only screen the decision actually closes.**
+- **rd. 9, rd. 10, rd. 15** — Prezența copii, Stoc materiale and Comenzi **do not exist**. The nine routes built are clients, contracts, groups, my-work, payment-config, payroll, profile, suppliers, admin.
+
+So a five-screen request resolves to **one screen, excluding three test accounts**. That makes the decision cheap and trivially reversible — one capability added to one gate — which is precisely what someone re-reading this in six months needs to know before treating it as load-bearing architecture.
+
+**2. THE REOPENING TRIGGER, written as a condition rather than as "to be revisited".**
+
+> **The day a real person is granted ONLY Finance Administration & Reporting, this restriction starts
+> costing something and this item reopens.**
+
+Not "review periodically" — an item with no condition for reopening never reopens. The condition is checkable in one query (the one above: holders of `finance.reporting.*` without the `/payroll` gate, filtered to `is_test_account = false`), and today it returns nothing.
+
+**A second trigger, for the three screens that do not exist yet:** whoever builds Prezența copii, Stoc materiale or Comenzi will choose a gate for it, and will face this same question with no default to inherit. This decision covers them in advance — they are scoped as they are today — but a builder who disagrees should reopen the item rather than quietly widen the new screen, since a new screen has no "how it already was" to appeal to.
+
+**3. THE MONTH-CLOSE FRICTION STANDS, and is a direct consequence rather than a side effect.**
+
+Anka meets an unheld workshop while closing the month and has to ask Operations, because `app.rpc_cancel_session`'s gate is `sessions.create` and not `finance.operations.*` (item 139). **That remains correct, and for a reason stronger than tidiness:** what she sees is *"not confirmed"*, which is **ambiguous between two different facts** — the workshop did not happen, and the workshop happened and the trainer forgot to confirm. Operations knows which, because the school tells *them*. A gate that let Finance resolve that ambiguity alone would be inviting a guess about money.
+
+And the repair, if it bites, is **not** widening the gate — it is a button on the unconfirmed row that flags it for Operations, inside the application. Item 139 records that so the gate does not widen out of convenience six months from now.
+
+**ANKA HAS TO BE TOLD THE ANSWER IS "NOT YET".** She asked in July, on all five screens, and nothing has gone back to her. If she is not told, she asks again in three months and nobody remembers that it was decided — which is how a decision degrades back into an omission. **This is an action on Mihai, not a code change**, and it is recorded here because the register is where "we decided and told her" needs to be checkable.
+
+**Blocked on:** nothing. Decided.
+**Re-verify when:** the query in §1 returns a non-test account, or a new screen among rd. 9 / 10 / 15 is built.
+**Lives in:** `app/(app)/payroll/page.tsx` (the gate this decision now justifies), `app/(app)/payroll/actions.ts` (the same gate on the close action); item 150 above (the feedback rows and the rule that surfaced them), item 139 above (the month-close handoff and why the gate must not widen), item 142 above (role sprawl, which is why "Anka already has Finance Operations" was worth measuring rather than assuming).
 
 ---
 ### 151. `trainer_grade_assignments.source` accepts `'computed'` and nothing computes — the automation it was built for needs an hours history we do not have

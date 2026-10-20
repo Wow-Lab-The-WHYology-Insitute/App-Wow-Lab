@@ -85,6 +85,19 @@ function monthRange(monthKey: string) {
 // closePayrollPeriod's own gate (app/(app)/payroll/actions.ts) exactly,
 // so nobody who can act on this page is kept from reaching it, and
 // nobody who can reach it is denied by the action underneath.
+//
+// finance.reporting.* is ABSENT BY DECISION, not by omission (2026-10-20,
+// OPEN_ITEMS item 153). Anka asked in July 2026 for Finance Administration
+// & Reporting to be added here (feedback rd. 8, one of five screens); the
+// answer is no for now, against the Phase 0 finance segregation. Until that
+// decision this gate had simply never been asked the question -- the role
+// was missing because nobody had added it, which reads identically in code
+// and is a different thing entirely.
+//
+// It costs nothing today: three accounts hold finance.reporting.* without
+// this gate and all three are test accounts, while Anka herself also holds
+// finance.operations.* and sees this page. Item 153 carries the reopening
+// trigger -- the day a real person holds ONLY Finance Admin & Reporting.
 export default async function PayrollPage({
   searchParams,
 }: {
