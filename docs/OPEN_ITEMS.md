@@ -8565,6 +8565,33 @@ The last assertion joins every generated session back to its own school's calend
 **Lives in:** `docs/DATABASE_CONVENTIONS.md` §18 (no national default) and §19 (the recorded actor); `public.school_calendar_closures`; `supabase/migrations/202610200008_school_calendar_closures.sql` and `202610200009_generate_schedule_to_end_of_school_year.sql`; items 154, 155 and 158 above (the design, the error and the diagnosis); item 139 above (cancellation as the precondition, now spent).
 
 ---
+### 160. `/my-work` shows a trainer no workshops at all — and generating a year made that a different problem than it was yesterday
+
+2026-10-20, audited at Mihai's request before the 28 October confirmations rather than after. Read only; nothing below is built.
+
+**What `/my-work` actually renders:** four numbers and a grade. *Confirmed this month*, *Groups assigned*, *Hours this month*, an unconfirmed-count line, and the trainer's grade name. **There is no list of workshops — not past ones, not future ones, not a single date.** There is no confirm button on the page.
+
+`unconfirmedCount` filters `session_date <= today`, and the comment says why: *"a workshop next week isn't late, so counting it would turn a normal state into a warning."* That reasoning is right and it is about the warning, not about the list — it was never a decision to hide the future, because there was no list to hide it from.
+
+**Two of the four numbers moved when 172 rows landed, without anyone touching the page.** *Groups assigned* counts distinct groups across **all** the viewer's sessions with no date bound; *Hours this month* sums `duration_minutes` for every session dated in the current month **including ones that have not happened** — October's figure for Lorina already counts 28 October. Neither is wrong by its own definition. Both are now answering about a future that did not exist when they were written.
+
+**THE PROBLEM THIS WAS ASKED ABOUT, stated precisely.** `202610200009` templated each group's trainer from its most recent non-cancelled session. So **Lorina is the recorded trainer on all 30 remaining Deutsche Schule workshops through 30 June 2027 — eight months, propagated from a handover three weeks old.** Teodora handed over after about three weeks of teaching, so the observed rate of change on that slot is weeks, not years. The question is not whether it goes stale; it is **whether anyone sees the moment it does**, and the only screen Lorina would ever look at is `/my-work`, which does not show her that she is down for 30 workshops.
+
+**Where confirmation actually lives, and the walk to it.** `/groups/[id]`, as a checkbox inside a session card. Sessions are ordered `session_date DESC`, which after generation means Lorina's group page **opens on 30 June 2027** and **28 October is the 31st card of 35**. The label is `Bifează pentru a confirma` at `text-[11px]`, with a default-sized checkbox.
+
+**Once confirmed, a trainer cannot un-confirm.** `ConfirmationControl` renders static text `Confirmat` for an own slot that is already confirmed — no control at all. But `app.rpc_confirm_session_attendance(p_session_id, p_confirmed)` **accepts `false` and nulls the timestamp.** The database allows the undo; the screen does not offer it. A mis-tap is repairable only through Operations' correction path (`correctSessionConfirmation`, Anka).
+
+**And the RPC has no date gate.** Its guards are: row exists, caller is one of the two trainer slots, caller holds `mywork.*`, month not closed. Nothing about `session_date`. **A trainer can confirm 30 June 2027 today** — and could confirm the whole year this afternoon. That was unreachable in practice yesterday, when the furthest row was seven days out. It is reachable now, from the same screen, by scrolling up instead of down.
+
+**What showing the future would cost, since nothing here is built.** The data is already in hand: `page.tsx` fetches every session for the viewer with no date filter and then throws the rows away after counting them. A *"your next workshops"* list is a render change plus i18n strings — no query, no schema, no RLS, no new capability. Putting the **confirm control** on that list is the larger half: the server action is reusable (`confirmSessionAttendance` takes `groupId, sessionId, confirmed`, and `groupId` is on every row already) but it brings `/my-work` its first write path, its first pending/error state, and its first need for the `not_assigned` / `month_closed` messages that today live in the groups dictionary.
+
+**Blocked on:** nothing technical. It is a scope decision, and the deadline that makes it concrete is **28 October**, when four workshops exist in the application before they happen for the first time and two trainers are meant to confirm them themselves.
+
+**Re-verify when:** the first trainer signs in — Lorina has never signed in at all (`auth.users.last_sign_in_at` is null) and Cătălina last did on 2026-09-06.
+
+**Lives in:** `app/(app)/my-work/page.tsx` (the four counters, and the fetch that already has the rows), `my-work-client.tsx`, `i18n.ts`; `app/(app)/groups/[id]/group-detail-client.tsx` (`SessionCard`, `ConfirmationControl`); `app/(app)/groups/actions.ts` (`confirmSessionAttendance`); `app.rpc_confirm_session_attendance`; `lib/landing.ts` (why a trainer lands on `/my-work` and not anywhere else); item 159 above (the generation that changed the shape of this).
+
+---
 ### 151. `trainer_grade_assignments.source` accepts `'computed'` and nothing computes — the automation it was built for needs an hours history we do not have
 
 2026-10-20. All **11** assignments in the real org carry `source = 'manual'`; the CHECK admits `'computed' | 'manual'` and the second value has never been written. That is not an oversight — it is a placeholder for a requirement, and the requirement is named.

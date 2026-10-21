@@ -432,3 +432,61 @@ someone whose role happened to fit.
 
 **Lives in:** `OPEN_ITEMS.md` items 152, 157 and 159; §17 (the general form — a correct decision
 with a wrong reason); `supabase/migrations/202610200007_correct_cancellation_actor.sql`.
+
+## 20. A negative result is a result — record it, or "checked and irrelevant" becomes "never looked"
+
+**Decided 2026-10-20 by Mihai, generalising from three rows in
+`school_calendar_closures`.**
+
+When an exhaustive search finds nothing — or finds something and establishes it does not
+matter — **the finding is the absence, and the absence has to be written down somewhere a later
+reader will hit.** Otherwise the next person re-runs the same search, or worse, assumes it was
+never run and treats the gap as unexplored territory.
+
+**The instance it came from.** `school_calendar_closures` holds 58 rows. Three of them have
+`blocks_workshop = false`:
+
+| | | |
+|---|---|---|
+| Avenor, 14 Nov 2026 | `Inset Days for Management` | a Saturday; management training does not shut the school |
+| Avenor, 17 Apr 2027 | `Inset Days for Management` | same |
+| Avenor, 1 Sep 2026 | `School Opening Ceremony` | a school day, not a closure |
+
+Nothing in the generator reads them. They could have been left out and every number would be
+identical. **They are in because leaving them out makes the table say something false** — not
+"these days are fine", but *nothing at all*, which is the same shape the table takes for a marking
+nobody noticed. A reader counting 55 rows cannot tell whether the management inset days were
+examined and dismissed or missed entirely.
+
+> **An empty result and an unasked question look the same from the outside.** The only thing that
+> separates them is a record, and the record costs one row.
+
+**Where this applies beyond calendars**, because it is not about calendars:
+
+- **An exhaustive search that finds nothing.** `OPEN_ITEMS.md`'s closing section already does this
+  — "every `docs/*.md` filename referenced anywhere was checked; all resolved" is a negative result
+  recorded as a result, and its own correction note is what made the *scope* of that negative
+  honest. A search for a table, a policy, a caller, a second write path: if the answer is "none",
+  say so, say what was searched, and say what would have counted as a hit.
+- **A hypothesis excluded by evidence.** Item 144 proved the location bonus is not
+  trainer-dependent by finding the minority value *inside the same trainer at the same school*.
+  The useful artefact is the exclusion, not the conclusion it supports.
+- **A capability deliberately not granted, a branch deliberately not written.** Already the house
+  style in migration headers (`finance.operations.*` is deliberately ABSENT, NO "own row" branch,
+  decided rather than skipped) — this convention is that habit named, and extended from migration
+  comments to data and to reports.
+
+**The test:** if removing the record would leave a later reader unable to distinguish *"we looked
+and it did not matter"* from *"nobody looked"*, keep the record. If the two are already
+distinguishable by something else, it is noise.
+
+**And state the strength of the negative.** `school_calendar_closures`' header records that the
+Deutsche Schule publishes an **event list** rather than a day grid, so its silence about short days
+is weaker evidence than Avenor's white cells. An absence found by exhausting a grid and an absence
+found by reading a list that might be incomplete are different facts, and a negative result that
+does not say which is only half recorded.
+
+**Lives in:** `public.school_calendar_closures` (the three non-blocking rows, and the table
+comment); `db/tests/school_calendar_closures.sql` (which asserts they exist *and* that they do not
+block); `OPEN_ITEMS.md` items 144 and 159; §18 and §19 (the two conventions this one most often
+has to be applied alongside).
