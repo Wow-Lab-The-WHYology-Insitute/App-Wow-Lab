@@ -8592,6 +8592,49 @@ The last assertion joins every generated session back to its own school's calend
 **Lives in:** `app/(app)/my-work/page.tsx` (the four counters, and the fetch that already has the rows), `my-work-client.tsx`, `i18n.ts`; `app/(app)/groups/[id]/group-detail-client.tsx` (`SessionCard`, `ConfirmationControl`); `app/(app)/groups/actions.ts` (`confirmSessionAttendance`); `app.rpc_confirm_session_attendance`; `lib/landing.ts` (why a trainer lands on `/my-work` and not anywhere else); item 159 above (the generation that changed the shape of this).
 
 ---
+### 161. The chain before Lorina's first sign-in — five separate things, one bad outcome, and we built the first link ourselves
+
+2026-10-22. Item 160 reported five observations about the trainer's path. Mihai read them as **a chain with an outcome**, which is what they are:
+
+> Sorting DESC puts 30 June 2027 at the top and 28 October at card 31 of 35 → the tap target is under 44px → the RPC has no date guard → the screen has no undo → and the confirmation drives pay. **One mis-tap confirms a workshop in 2027 and she cannot repair it.**
+
+Every link is individually defensible. Together they are a trainer's first ten minutes in the application ending in an uncorrectable wrong payment input.
+
+**AND THE FIRST LINK IS OURS.** The sort was correct while the furthest row was seven days out. `202610200009` generated 172 workshops to June 2027 and buried tomorrow under thirty of them. Nobody changed the sort; the data changed underneath it. *A sort order is an assumption about the shape of the data, and generating a year is a change to that shape.*
+
+**Fixed, in Mihai's order, before 28 October:**
+
+**1. The date guard (`202610220001`).** `session_date > current_date` and `p_confirmed = true` → `future_session`, on **both** RPCs. The rule had been written down in `202610200004`'s header two days earlier — *"nobody can make it in advance"* — honoured by one migration declining to write a value and by nothing else.
+
+**The guard is asymmetric, and that is the design rather than a shortcut.** Setting on a future date is refused; **clearing is always allowed**. Three reasons, the third being the one that would have been missed: the asymmetry is in the fact ("I did not teach this" is true about tomorrow by default); it is what makes point 4's undo shippable at all; and **it lets the guard clean up after itself** — any row confirmed in the future *before* the guard would otherwise stay wrong until its date arrived.
+
+**Operations gets the same guard, and the question of why they shouldn't is the interesting half.** The instinct says they are the correction path and must be able to override. But every one of the 38 confirmations `202610200002` made through that RPC was in the **past**, and that is the shape of the function: a correction says *the record is wrong*, and there is no record yet about a workshop that has not happened. **The override instinct is about who may correct a record; the guard is about what may be asserted.** No role makes a future delivery true — the same substitution §19 names. Operations keeps everything genuinely theirs: no month-closed gate, both slots in one call, and unrestricted clearing on any date.
+
+**2. The ordering, measured before it was changed.** Four buckets — *to confirm* (past, unconfirmed: the debt), *today*, *next* (ascending), *earlier* (collapsed). The measurement was the part that mattered: **34–38 cards per group**, 6–7 past, 27–31 upcoming, which is roughly **19 phone screens** if all of them render. So reordering alone would have put 28 October at the top and still left thirty cards below it. The *next* bucket previews **3** and collapses the rest; *earlier* is collapsed entirely. Not pagination — every row is already in hand from one query, so a round trip buys nothing.
+
+**`to confirm` is empty in all six live groups today**, and it is first anyway: nothing past is unconfirmed, and the bucket exists so that the day that stops being true, it is the first thing on the screen.
+
+**3. The tap target.** `text-[11px]` beside a 13px checkbox became a `min-h-11` (44px) button — Apple's HIG floor, Material's is 48dp. The label changed with it: *"Bifează pentru a confirma"* described **the gesture**, which a checkbox needed; a button's gesture is obvious, so it now says what the tap **asserts** — *"Am ținut acest atelier"*. That matters because what it asserts is what pay follows.
+
+**4. The undo.** `Retrage`, beside `Confirmat`, also 44px. The RPC has always accepted `p_confirmed = false`; only the screen never offered it, so a mis-tap meant asking Operations. Deliberately not *"Anulează"* — that word already means "close this form" three times on the page, and once more it would mean *cancel the workshop*, which is a different act with five categories behind it.
+
+And on a workshop that has not happened, the button is **replaced by a sentence** rather than disabled: *"Încă nu — poți confirma în ziua atelierului."* A disabled target teaches nothing when tapped, and this way the screen and the database refuse for one reason instead of two.
+
+**5. Two of the four figures on `/my-work` were lying, and neither was touched by anyone.** *Hours this month* summed every session dated in the current month including ones that had not happened — **October already counted 28 October**. Now: happened, and not cancelled, with the label saying so. *Groups assigned* had no date bound at all — a figure that only grows and would still name a school somebody left two years ago. Now bounded to the current school year (§16) and excluding groups whose only session was cancelled.
+
+> Neither was wrong when written. Both became wrong when 172 rows landed. **A derived figure has a shape of data it was written against, and nobody re-reads the figures when the data changes shape.**
+
+**6. A read-only list on `/my-work`, and explicitly NOT a confirm button there.** The page's entire content was four numbers with no route forward. It now lists the next five workshops — date, time, school, module, confirmed-or-not — each row a 44px link into the group page where the button lives, with a line saying so.
+
+**The full list with a confirm button was refused, and the reason is dated rather than architectural:** it would be `/my-work`'s first write path, first pending state and first error surface, shipped days before the first trainer ever signs in. *You do not launch a new write surface four days before a person uses the product for the first time.* The read-only half costs nothing — `page.tsx` was already fetching every session and discarding the rows after counting them.
+
+**Still deliberately not done:** the invitation. Mihai asks Anca to tell Lorina first; it goes out once 1–5 are live.
+
+**Re-verify when:** the first trainer signs in. **Lorina has never signed in** (`auth.users.last_sign_in_at` null), and **Cătălina last signed in on 2026-09-06** — she has held the Trainer role since 2026-10-20 and there is no notification mechanism of any kind in this application, so she has not been told and cannot be told by it.
+
+**Lives in:** `supabase/migrations/202610220001_no_confirmation_before_the_workshop.sql`; `db/tests/confirmation_future_guard.sql`; `app/(app)/groups/[id]/group-detail-client.tsx` (buckets, `Bucket`, `DisclosureButton`, `ConfirmationControl`), `page.tsx` (`todayIso`, resolved server-side against a hydration mismatch), `app/(app)/groups/actions.ts` + `session-write-errors.ts` + `i18n.ts`; `app/(app)/my-work/*`; items 159 and 160 above; `DATABASE_CONVENTIONS.md` §16, §19, §20.
+
+---
 ### 151. `trainer_grade_assignments.source` accepts `'computed'` and nothing computes — the automation it was built for needs an hours history we do not have
 
 2026-10-20. All **11** assignments in the real org carry `source = 'manual'`; the CHECK admits `'computed' | 'manual'` and the second value has never been written. That is not an oversight — it is a placeholder for a requirement, and the requirement is named.

@@ -37,6 +37,8 @@ type SessionRow = {
   id: string;
   group_id: string;
   session_date: string;
+  start_time: string | null;
+  status: string;
   duration_minutes: number | null;
   organization_id: string;
   trainer_principal_id: string | null;
@@ -45,6 +47,8 @@ type SessionRow = {
   trainer_secundar_confirmed_at: string | null;
 };
 
+type GroupRow = { id: string; client_id: string; module: string; schedule_pattern: string | null };
+type ClientRow = { id: string; name: string };
 type PayrollPeriodRow = { period: string; closed_at: string | null };
 type GradeRow = { grade_level: number };
 
@@ -64,6 +68,13 @@ export default async function MyWorkPage() {
     .slice(0, 10);
   const todayIso = today.toISOString().slice(0, 10);
 
+  // Convention §16: the school year runs 1 September - 31 August, labelled by
+  // its starting year. Needed because "Groups assigned" used to count every
+  // group the viewer had EVER been on, with no date bound at all -- a figure
+  // that only grows, and that would still name a school somebody left two
+  // years ago.
+  const schoolYearStart = `${today.getUTCMonth() >= 8 ? today.getUTCFullYear() : today.getUTCFullYear() - 1}-09-01`;
+
   // RLS already scopes a trainer to their own sessions -- but an owner or
   // Operations viewer would get the whole org back, and this page's
   // labels all say "your". The explicit slot filter is what makes the
@@ -72,7 +83,7 @@ export default async function MyWorkPage() {
   const { data: sessions } = await supabase
     .from("sessions")
     .select(
-      "id, group_id, session_date, duration_minutes, organization_id, trainer_principal_id, trainer_secundar_id, trainer_principal_confirmed_at, trainer_secundar_confirmed_at",
+      "id, group_id, session_date, start_time, status, duration_minutes, organization_id, trainer_principal_id, trainer_secundar_id, trainer_principal_confirmed_at, trainer_secundar_confirmed_at",
     )
     .or(`trainer_principal_id.eq.${user.id},trainer_secundar_id.eq.${user.id}`)
     .returns<SessionRow[]>();
@@ -90,16 +101,83 @@ export default async function MyWorkPage() {
 
   const confirmedThisMonth = mine.filter((s) => inThisMonth(s) && myConfirmedAt(s) !== null).length;
 
+  // A workshop that has not happened is not work done. Both figures below
+  // used to count the future, which was harmless while the schedule stopped
+  // a week out and became a lie the moment 202610200009 generated the year:
+  // October's hours already counted 28 October, days before it ran.
+  const hasHappened = (s: SessionRow) => s.session_date <= todayIso;
+  const notCancelled = (s: SessionRow) => s.status !== "cancelled";
+
   // Only sessions that have already happened can be "missing" a
   // confirmation in any meaningful sense -- a workshop next week isn't
   // late, so counting it would turn a normal state into a warning.
   const unconfirmed = mine.filter((s) => s.session_date <= todayIso && myConfirmedAt(s) === null);
 
-  const groupsAssigned = new Set(mine.map((s) => s.group_id)).size;
+  // Bounded to the current school year, and cancelled workshops do not make
+  // a group "assigned" -- a group whose only session this year was called off
+  // is not work.
+  const groupsAssigned = new Set(
+    mine.filter((s) => s.session_date >= schoolYearStart && notCancelled(s)).map((s) => s.group_id),
+  ).size;
 
-  const monthSessions = mine.filter(inThisMonth);
+  // Taught, not scheduled: happened, and not cancelled.
+  const monthSessions = mine.filter((s) => inThisMonth(s) && hasHappened(s) && notCancelled(s));
   const minutesThisMonth = monthSessions.reduce((sum, s) => sum + (s.duration_minutes ?? 0), 0);
   const sessionsMissingDuration = monthSessions.filter((s) => s.duration_minutes === null).length;
+
+  // ---- What is next, READ-ONLY ---------------------------------------------
+  // The page's whole content used to be four numbers, with no route forward:
+  // a trainer landing here saw counters and no way to reach the workshop they
+  // had just taught. This list is the route -- it names the next few and links
+  // into the group page, where the confirm button already lives.
+  //
+  // DELIBERATELY NO CONFIRM BUTTON HERE. That would be this page's first write
+  // path, first pending state and first error surface, four days before the
+  // first trainer ever signs in. The button stays where it is tested.
+  const upcomingSessions = mine
+    .filter((s) => s.session_date >= todayIso && notCancelled(s))
+    .sort((a, b) => a.session_date.localeCompare(b.session_date))
+    .slice(0, 5);
+
+  const upcomingGroupIds = [...new Set(upcomingSessions.map((s) => s.group_id))];
+  const { data: upcomingGroups } = upcomingGroupIds.length > 0
+    ? await supabase
+        .from("groups")
+        .select("id, client_id, module, schedule_pattern")
+        .in("id", upcomingGroupIds)
+        .returns<GroupRow[]>()
+    : { data: [] as GroupRow[] };
+  const groupById = new Map((upcomingGroups ?? []).map((g) => [g.id, g]));
+
+  // A trainer CAN read the clients behind their own groups (checked live, not
+  // assumed: Lorina's session returns exactly one client row). Where RLS
+  // legitimately filters it, the name resolves to null and the row renders
+  // without a school rather than with an id -- item 66.
+  const upcomingClientIds = [
+    ...new Set((upcomingGroups ?? []).map((g) => g.client_id)),
+  ];
+  const { data: upcomingClients } = upcomingClientIds.length > 0
+    ? await supabase
+        .from("clients")
+        .select("id, name")
+        .in("id", upcomingClientIds)
+        .returns<ClientRow[]>()
+    : { data: [] as ClientRow[] };
+  const clientNameById = new Map((upcomingClients ?? []).map((c) => [c.id, c.name]));
+
+  const upcoming = upcomingSessions.map((s) => {
+    const group = groupById.get(s.group_id);
+    return {
+      id: s.id,
+      groupId: s.group_id,
+      sessionDate: s.session_date,
+      startTime: s.start_time,
+      durationMinutes: s.duration_minutes,
+      schoolName: group ? (clientNameById.get(group.client_id) ?? null) : null,
+      module: group?.module ?? null,
+      confirmed: myConfirmedAt(s) !== null,
+    };
+  });
 
   // Close state for the current month. mywork.* is an explicit branch on
   // this table's SELECT policy, so a trainer genuinely can read whether
@@ -195,6 +273,8 @@ export default async function MyWorkPage() {
       minutesThisMonth={minutesThisMonth}
       sessionsMissingDuration={sessionsMissingDuration}
       gradeLevel={grades?.[0]?.grade_level ?? null}
+      upcoming={upcoming}
+      todayIso={todayIso}
       />
     </div>
   );

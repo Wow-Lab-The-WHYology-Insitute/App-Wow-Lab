@@ -14,6 +14,7 @@ import {
   SESSION_CONFIRMATION_MONTH_CLOSED_ERROR,
   SESSION_ATTENDANCE_MONTH_CLOSED_ERROR,
   SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR,
+  SESSION_CONFIRMATION_FUTURE_ERROR,
 } from "../session-write-errors";
 
 type Session = {
@@ -98,6 +99,7 @@ export function GroupDetailClient({
   trainerHomeCities,
   groupAddress,
   viewerId,
+  todayIso,
 }: {
   groupId: string;
   organizationId: string;
@@ -108,6 +110,7 @@ export function GroupDetailClient({
   trainerHomeCities: Record<string, string>;
   groupAddress: string | null;
   viewerId: string;
+  todayIso: string;
 }) {
   const t = useTranslations(groupsDict);
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +127,9 @@ export function GroupDetailClient({
   const [editingAttendanceId, setEditingAttendanceId] = useState<string | null>(null);
   const [attendanceDraft, setAttendanceDraft] = useState<Record<string, string>>({});
   const [experimentDraft, setExperimentDraft] = useState<Record<string, string>>({});
+  // Collapsed by default, both of them. See the ordering block below.
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false);
+  const [showSettled, setShowSettled] = useState(false);
 
   // Same pendingCreate shape the create forms use (contracts-client.tsx
   // etc.), extended to two more writes that had the identical dead-zone
@@ -260,6 +266,8 @@ export function GroupDetailClient({
             setError(t("confirmation_month_closed_error"));
           } else if (result.error === SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR) {
             setError(t("confirmation_not_assigned_error"));
+          } else if (result.error === SESSION_CONFIRMATION_FUTURE_ERROR) {
+            setError(t("confirmation_future_error"));
           } else {
             setError(result.error);
           }
@@ -286,13 +294,117 @@ export function GroupDetailClient({
     startTransition(async () => {
       try {
         const result = await correctSessionConfirmation(groupId, s.id, principalConfirmed, secundarConfirmed);
-        if (!result.ok) setError(result.error);
-        else setPendingConfirmation({ sessionId: s.id, slot, expectedConfirmed: confirmed });
+        if (!result.ok) {
+          // Operations carries the same future-date guard (202610220001) and
+          // reaches it through a different action, so the sentinel has to be
+          // matched here too rather than only in toggleConfirmation.
+          setError(
+            result.error === SESSION_CONFIRMATION_FUTURE_ERROR
+              ? t("confirmation_future_error")
+              : result.error,
+          );
+        } else {
+          setPendingConfirmation({ sessionId: s.id, slot, expectedConfirmed: confirmed });
+        }
       } catch {
         setError(t("network_error"));
       }
     });
   }
+
+  // ==========================================================================
+  // ORDERING. The page used to render every session newest-first, which was
+  // right while the furthest row was a week out. After 202610200009 generated
+  // the school year, a trainer's group page OPENED ON 30 JUNE 2027 and the
+  // workshop they had just taught was the 31st card of 35 -- so the sort was
+  // burying the only two questions the page is ever opened to answer.
+  //
+  // Those two questions are "what do I still owe" and "what is next". Four
+  // buckets, in that order:
+  //
+  //   overdue  past, not cancelled, still unconfirmed -- THE DEBT. First
+  //            because it is the only bucket with a consequence: pay follows
+  //            the confirmation timestamp.
+  //   today    confirmable right now. Its own bucket rather than the head of
+  //            `upcoming`, because on the day it is a different act.
+  //   upcoming ASCENDING -- nearest first. Previewed, not listed: three rows
+  //            answers "what is next", and the remaining 27 are a scroll
+  //            nobody asked for.
+  //   settled  past and done with. Collapsed entirely; it is a record, not a
+  //            task.
+  //
+  // MEASURED FIRST, because reordering alone would not have been enough: the
+  // six live groups carry 34-38 sessions each (6-7 past, 27-31 upcoming, 1
+  // cancelled), which is ~19 phone screens of cards if all of them render.
+  // Collapsing is what makes the page short; the ordering is what makes the
+  // top of it right. Not pagination -- every row is already in hand from one
+  // query, so a round trip would buy nothing.
+  //
+  // NOTE: `overdue` is EMPTY in every live group today, and that is the
+  // correct result rather than a broken selector -- nothing past is
+  // unconfirmed. It is first precisely so that the day it stops being empty,
+  // it is the first thing on the screen.
+  const needsConfirmation = (s: Session) => {
+    if (s.status === "cancelled") return false;
+    // The viewer's OWN slot when they hold one -- a co-trainer's missing
+    // confirmation is not this trainer's debt. For Operations (no slot), any
+    // assigned-but-unconfirmed slot counts, which is their version of the
+    // same question.
+    if (s.trainer_principal_id === viewerId) return s.trainer_principal_confirmed_at === null;
+    if (s.trainer_secundar_id === viewerId) return s.trainer_secundar_confirmed_at === null;
+    return (
+      (s.trainer_principal_id !== null && s.trainer_principal_confirmed_at === null) ||
+      (s.trainer_secundar_id !== null && s.trainer_secundar_confirmed_at === null)
+    );
+  };
+
+  const byDateAsc = (a: Session, b: Session) => a.session_date.localeCompare(b.session_date);
+  const byDateDesc = (a: Session, b: Session) => b.session_date.localeCompare(a.session_date);
+
+  const buckets = {
+    overdue: sessions.filter((s) => s.session_date < todayIso && needsConfirmation(s)).sort(byDateAsc),
+    today: sessions.filter((s) => s.session_date === todayIso).sort(byDateAsc),
+    upcoming: sessions.filter((s) => s.session_date > todayIso).sort(byDateAsc),
+    settled: sessions.filter((s) => s.session_date < todayIso && !needsConfirmation(s)).sort(byDateDesc),
+  };
+
+  // One place that builds a row and one that builds a card, so the twenty-odd
+  // props below are written once instead of once per bucket.
+  const rowProps = (s: Session) => ({
+    session: s,
+    editing: editingSessionId === s.id,
+    canManageSessions,
+    canCorrectConfirmation,
+    canEditAttendance: s.trainer_principal_id === viewerId || s.trainer_secundar_id === viewerId,
+    editingAttendance: editingAttendanceId === s.id,
+    isPending,
+    isSavingAttendance: pendingAttendance?.sessionId === s.id,
+    savingConfirmationSlot:
+      pendingConfirmation?.sessionId === s.id ? pendingConfirmation.slot : null,
+    trainerOptions,
+    viewerId,
+    isFuture: s.session_date > todayIso,
+    principalValue: principalDraft[s.id] ?? s.trainer_principal_id ?? "",
+    secundarValue: secundarDraft[s.id] ?? s.trainer_secundar_id ?? "",
+    attendanceValue: attendanceDraft[s.id] ?? s.attendance_count?.toString() ?? "",
+    experimentValue: experimentDraft[s.id] ?? s.experiment_delivered ?? "",
+    onChangePrincipal: (v: string) => setPrincipalDraft((prev) => ({ ...prev, [s.id]: v })),
+    onChangeSecundar: (v: string) => setSecundarDraft((prev) => ({ ...prev, [s.id]: v })),
+    onChangeAttendance: (v: string) => setAttendanceDraft((prev) => ({ ...prev, [s.id]: v })),
+    onChangeExperiment: (v: string) => setExperimentDraft((prev) => ({ ...prev, [s.id]: v })),
+    onStartEditing: () => startEditing(s),
+    onCancelEditing: () => cancelEditing(s),
+    onSave: () => saveEditing(s),
+    onStartEditingAttendance: () => startEditingAttendance(s),
+    onCancelEditingAttendance: () => cancelEditingAttendance(s),
+    onSaveAttendance: () => saveEditingAttendance(s),
+    onToggleConfirmation: (slot: "principal" | "secundar", checked: boolean) =>
+      toggleConfirmation(s, slot, checked),
+    onCorrectConfirmation: (slot: "principal" | "secundar", checked: boolean) =>
+      toggleCorrection(s, slot, checked),
+  });
+  const renderRow = (s: Session) => <SessionTableRow key={s.id} {...rowProps(s)} />;
+  const renderCard = (s: Session) => <SessionCard key={s.id} {...rowProps(s)} />;
 
   return (
     <div className="flex flex-col gap-4">
@@ -361,100 +473,161 @@ export function GroupDetailClient({
               : t("empty_no_sessions_trainer")}
           </p>
         ) : (
-          <>
-            <table className="hidden w-full border-collapse text-sm md:table">
-              <thead>
-                <tr className="font-body text-muted border-b border-black/5 text-left text-xs font-bold tracking-wide uppercase">
-                  <th className="py-2 pr-4 font-bold">{t("col_date")}</th>
-                  <th className="py-2 pr-4 font-bold">{t("col_principal")}</th>
-                  <th className="py-2 pr-4 font-bold">{t("col_secundar")}</th>
-                  <th className="py-2 pr-4 font-bold">{t("col_status")}</th>
-                  <th className="py-2 pr-4 font-bold">{t("col_duration")}</th>
-                  <th className="py-2 pr-4 font-bold">{t("col_location")}</th>
-                  {/* "Present" (not "Attendance") — the post-workshop
-                      ACTUAL headcount for this occurrence, distinct from
-                      the group's own "Children confirmed" (contract-time
-                      headcount, shown on Group info above). Same field as
-                      before, relabeled for clarity per Anca's request —
-                      investigated, no new column needed. */}
-                  <th className="py-2 pr-4 font-bold">{t("col_present")}</th>
-                  <th className="py-2 font-bold">{t("col_experiment_delivered")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map((s) => (
-                  <SessionTableRow
-                    key={s.id}
-                    session={s}
-                    editing={editingSessionId === s.id}
-                    canManageSessions={canManageSessions}
-                    canCorrectConfirmation={canCorrectConfirmation}
-                    canEditAttendance={s.trainer_principal_id === viewerId || s.trainer_secundar_id === viewerId}
-                    editingAttendance={editingAttendanceId === s.id}
-                    isPending={isPending}
-                    isSavingAttendance={pendingAttendance?.sessionId === s.id}
-                    savingConfirmationSlot={pendingConfirmation?.sessionId === s.id ? pendingConfirmation.slot : null}
-                    trainerOptions={trainerOptions}
-                    viewerId={viewerId}
-                    principalValue={principalDraft[s.id] ?? s.trainer_principal_id ?? ""}
-                    secundarValue={secundarDraft[s.id] ?? s.trainer_secundar_id ?? ""}
-                    attendanceValue={attendanceDraft[s.id] ?? s.attendance_count?.toString() ?? ""}
-                    experimentValue={experimentDraft[s.id] ?? s.experiment_delivered ?? ""}
-                    onChangePrincipal={(v) => setPrincipalDraft((prev) => ({ ...prev, [s.id]: v }))}
-                    onChangeSecundar={(v) => setSecundarDraft((prev) => ({ ...prev, [s.id]: v }))}
-                    onChangeAttendance={(v) => setAttendanceDraft((prev) => ({ ...prev, [s.id]: v }))}
-                    onChangeExperiment={(v) => setExperimentDraft((prev) => ({ ...prev, [s.id]: v }))}
-                    onStartEditing={() => startEditing(s)}
-                    onCancelEditing={() => cancelEditing(s)}
-                    onSave={() => saveEditing(s)}
-                    onStartEditingAttendance={() => startEditingAttendance(s)}
-                    onCancelEditingAttendance={() => cancelEditingAttendance(s)}
-                    onSaveAttendance={() => saveEditingAttendance(s)}
-                    onToggleConfirmation={(slot, checked) => toggleConfirmation(s, slot, checked)}
-                    onCorrectConfirmation={(slot, checked) => toggleCorrection(s, slot, checked)}
-                  />
-                ))}
-              </tbody>
-            </table>
+          <div className="flex flex-col gap-6">
+            {buckets.overdue.length > 0 && (
+              <Bucket
+                title={t("bucket_overdue", { count: buckets.overdue.length })}
+                hint={t("bucket_overdue_hint")}
+                tone="debt"
+                sessions={buckets.overdue}
+                renderRow={renderRow}
+                renderCard={renderCard}
+              />
+            )}
 
-            <div className="flex flex-col gap-3 md:hidden">
-              {sessions.map((s) => (
-                <SessionCard
-                  key={s.id}
-                  session={s}
-                  editing={editingSessionId === s.id}
-                  canManageSessions={canManageSessions}
-                  canCorrectConfirmation={canCorrectConfirmation}
-                  canEditAttendance={s.trainer_principal_id === viewerId || s.trainer_secundar_id === viewerId}
-                  editingAttendance={editingAttendanceId === s.id}
-                  isPending={isPending}
-                  isSavingAttendance={pendingAttendance?.sessionId === s.id}
-                  savingConfirmationSlot={pendingConfirmation?.sessionId === s.id ? pendingConfirmation.slot : null}
-                  trainerOptions={trainerOptions}
-                  viewerId={viewerId}
-                  principalValue={principalDraft[s.id] ?? s.trainer_principal_id ?? ""}
-                  secundarValue={secundarDraft[s.id] ?? s.trainer_secundar_id ?? ""}
-                  attendanceValue={attendanceDraft[s.id] ?? s.attendance_count?.toString() ?? ""}
-                  experimentValue={experimentDraft[s.id] ?? s.experiment_delivered ?? ""}
-                  onChangePrincipal={(v) => setPrincipalDraft((prev) => ({ ...prev, [s.id]: v }))}
-                  onChangeSecundar={(v) => setSecundarDraft((prev) => ({ ...prev, [s.id]: v }))}
-                  onChangeAttendance={(v) => setAttendanceDraft((prev) => ({ ...prev, [s.id]: v }))}
-                  onChangeExperiment={(v) => setExperimentDraft((prev) => ({ ...prev, [s.id]: v }))}
-                  onStartEditing={() => startEditing(s)}
-                  onCancelEditing={() => cancelEditing(s)}
-                  onSave={() => saveEditing(s)}
-                  onStartEditingAttendance={() => startEditingAttendance(s)}
-                  onCancelEditingAttendance={() => cancelEditingAttendance(s)}
-                  onSaveAttendance={() => saveEditingAttendance(s)}
-                  onToggleConfirmation={(slot, checked) => toggleConfirmation(s, slot, checked)}
-                  onCorrectConfirmation={(slot, checked) => toggleCorrection(s, slot, checked)}
-                />
-              ))}
-            </div>
-          </>
+            {buckets.today.length > 0 && (
+              <Bucket
+                title={t("bucket_today", { count: buckets.today.length })}
+                tone="today"
+                sessions={buckets.today}
+                renderRow={renderRow}
+                renderCard={renderCard}
+              />
+            )}
+
+            {buckets.upcoming.length > 0 && (
+              <Bucket
+                title={t("bucket_upcoming", { count: buckets.upcoming.length })}
+                sessions={showAllUpcoming ? buckets.upcoming : buckets.upcoming.slice(0, UPCOMING_PREVIEW)}
+                renderRow={renderRow}
+                renderCard={renderCard}
+                footer={
+                  buckets.upcoming.length > UPCOMING_PREVIEW ? (
+                    <DisclosureButton
+                      onClick={() => setShowAllUpcoming((v) => !v)}
+                      label={
+                        showAllUpcoming
+                          ? t("bucket_upcoming_collapse")
+                          : t("bucket_upcoming_expand", {
+                              count: buckets.upcoming.length - UPCOMING_PREVIEW,
+                            })
+                      }
+                    />
+                  ) : undefined
+                }
+              />
+            )}
+
+            {buckets.settled.length > 0 && (
+              <Bucket
+                title={t("bucket_settled", { count: buckets.settled.length })}
+                sessions={showSettled ? buckets.settled : []}
+                renderRow={renderRow}
+                renderCard={renderCard}
+                footer={
+                  <DisclosureButton
+                    onClick={() => setShowSettled((v) => !v)}
+                    label={
+                      showSettled
+                        ? t("bucket_settled_collapse")
+                        : t("bucket_settled_expand", { count: buckets.settled.length })
+                    }
+                  />
+                }
+              />
+            )}
+          </div>
         )}
       </section>
     </div>
+  );
+}
+
+// Three rows of "what is next" -- enough to answer the question, short enough
+// that the bucket below it is still on the screen. Four groups out of six have
+// a second workshop the same afternoon, so a preview of 2 would cut a pair in
+// half and a preview of 3 never does.
+const UPCOMING_PREVIEW = 3;
+
+// One bucket: a heading, the desktop table, the mobile cards, an optional
+// disclosure under it. The table/cards split is the one the page already had
+// -- `hidden md:table` and `md:hidden` -- lifted in here so every bucket gets
+// both without repeating the pair four times.
+function Bucket({
+  title,
+  hint,
+  tone,
+  sessions,
+  renderRow,
+  renderCard,
+  footer,
+}: {
+  title: string;
+  hint?: string;
+  tone?: "debt" | "today";
+  sessions: Session[];
+  renderRow: (s: Session) => React.ReactNode;
+  renderCard: (s: Session) => React.ReactNode;
+  footer?: React.ReactNode;
+}) {
+  const t = useTranslations(groupsDict);
+  return (
+    <div>
+      <h3
+        className={`font-body text-xs font-bold tracking-wide uppercase ${
+          tone === "debt" ? "text-brand-pink" : tone === "today" ? "text-ink" : "text-muted"
+        }`}
+      >
+        {title}
+      </h3>
+      {hint && <p className="font-body text-muted mt-0.5 text-xs">{hint}</p>}
+
+      {sessions.length > 0 && (
+        <>
+          <table className="mt-3 hidden w-full border-collapse text-sm md:table">
+            {/* Repeated per bucket rather than once above all four: the
+                buckets are separate tables now, and a header row that
+                scrolled away four sections ago is not a header. */}
+            <thead>
+              <tr className="font-body text-muted border-b border-black/5 text-left text-xs font-bold tracking-wide uppercase">
+                <th className="py-2 pr-4 font-bold">{t("col_date")}</th>
+                <th className="py-2 pr-4 font-bold">{t("col_principal")}</th>
+                <th className="py-2 pr-4 font-bold">{t("col_secundar")}</th>
+                <th className="py-2 pr-4 font-bold">{t("col_status")}</th>
+                <th className="py-2 pr-4 font-bold">{t("col_duration")}</th>
+                <th className="py-2 pr-4 font-bold">{t("col_location")}</th>
+                {/* "Present" (not "Attendance") — the post-workshop ACTUAL
+                    headcount for this occurrence, distinct from the group's
+                    own "Children confirmed" (contract-time headcount, shown
+                    on Group info above). Same field, relabeled per Anca's
+                    request — investigated, no new column needed. */}
+                <th className="py-2 pr-4 font-bold">{t("col_present")}</th>
+                <th className="py-2 font-bold">{t("col_experiment_delivered")}</th>
+              </tr>
+            </thead>
+            <tbody>{sessions.map(renderRow)}</tbody>
+          </table>
+          <div className="mt-3 flex flex-col gap-3 md:hidden">{sessions.map(renderCard)}</div>
+        </>
+      )}
+
+      {footer}
+    </div>
+  );
+}
+
+// 44px tall, which is the floor for a target a thumb has to hit (Apple's HIG
+// says 44pt, Material says 48dp). Everything on this page that a trainer
+// taps now clears it; see ConfirmationControl for the one that did not.
+function DisclosureButton({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="font-body text-muted mt-3 flex min-h-11 w-full items-center justify-center rounded-full border border-black/10 px-4 text-xs font-semibold uppercase"
+    >
+      {label}
+    </button>
   );
 }
 
@@ -470,6 +643,9 @@ type SessionRowProps = {
   savingConfirmationSlot: "principal" | "secundar" | null;
   trainerOptions: TrainerOption[];
   viewerId: string;
+  // Resolved on the server (page.tsx's todayIso) and threaded down, never
+  // computed from new Date() in here -- see the prop's comment there.
+  isFuture: boolean;
   principalValue: string;
   secundarValue: string;
   attendanceValue: string;
@@ -528,6 +704,7 @@ function ConfirmationControl({
   confirmedAt,
   isOwnSlot,
   canCorrect,
+  isFuture,
   isPending,
   isSaving,
   onToggle,
@@ -536,6 +713,7 @@ function ConfirmationControl({
   confirmedAt: string | null;
   isOwnSlot: boolean;
   canCorrect: boolean;
+  isFuture: boolean;
   isPending: boolean;
   isSaving: boolean;
   onToggle: (checked: boolean) => void;
@@ -545,33 +723,82 @@ function ConfirmationControl({
   const confirmed = Boolean(confirmedAt);
 
   if (isSaving) {
-    return <span className="font-body text-muted mt-0.5 block text-[11px] italic">{t("saving_confirmation")}</span>;
+    return <span className="font-body text-muted mt-1 block text-xs italic">{t("saving_confirmation")}</span>;
   }
 
-  if (isOwnSlot && confirmed) {
-    return <span className="font-body text-muted mt-0.5 block text-[11px]">{t("session_confirmed_status")}</span>;
-  }
-
+  // ---- The trainer's own slot ----------------------------------------------
   if (isOwnSlot) {
+    // Not yet confirmable. A disabled button would be a target that teaches
+    // nothing on being tapped; a sentence says what to do instead, and it is
+    // the SAME fact 202610220001's guard enforces -- the screen and the
+    // database refusing for one reason rather than two.
+    if (!confirmed && isFuture) {
+      return (
+        <p className="font-body text-muted mt-1 text-xs">{t("confirmation_not_yet")}</p>
+      );
+    }
+
+    if (!confirmed) {
+      // A BUTTON, not an 11px checkbox. min-h-11 is 44px, the floor for a
+      // thumb target (Apple HIG 44pt / Material 48dp); the old control was a
+      // 13px box next to text-[11px] type and was never a button in any sense
+      // except that tapping it wrote to the database.
+      return (
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={() => onToggle(true)}
+          className="font-body mt-1.5 flex min-h-11 w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#EC008C_0%,#FAA21B_100%)] px-4 text-xs font-bold text-white uppercase disabled:opacity-50"
+        >
+          {t("confirmation_confirm_button")}
+        </button>
+      );
+    }
+
+    // Confirmed, and now undoable from the screen. The RPC has always
+    // accepted p_confirmed = false; only the UI never offered it, so a
+    // mis-tap meant asking Operations. Clearing is never date-guarded
+    // (202610220001), so this works on a future row too -- which is exactly
+    // the row most likely to have been tapped by accident.
     return (
-      <label className="font-body text-muted mt-0.5 flex items-center gap-1.5 text-[11px]">
-        <input type="checkbox" checked={false} disabled={isPending} onChange={(e) => onToggle(e.target.checked)} className="accent-brand-pink" />
-        {t("confirmation_check_to_confirm")}
-      </label>
+      <div className="mt-1.5 flex items-center justify-between gap-2">
+        <span className="font-body text-ink text-xs font-semibold">
+          {t("session_confirmed_status")}
+        </span>
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={() => onToggle(false)}
+          className="font-body text-muted flex min-h-11 items-center rounded-full border border-black/10 px-4 text-xs font-semibold uppercase disabled:opacity-50"
+        >
+          {t("confirmation_undo_button")}
+        </button>
+      </div>
     );
   }
 
+  // ---- Operations' correction path -----------------------------------------
+  // Still a checkbox: this is a two-state field somebody sets deliberately on
+  // behalf of another person, not a one-way act, and Operations is on a
+  // desktop. It gets the 44px row anyway -- the label is the target.
   if (canCorrect) {
     return (
-      <label className="font-body text-muted mt-0.5 flex items-center gap-1.5 text-[11px]">
-        <input type="checkbox" checked={confirmed} disabled={isPending} onChange={(e) => onCorrect(e.target.checked)} className="accent-brand-pink" />
+      <label className="font-body text-muted mt-1 flex min-h-11 items-center gap-2 text-xs">
+        <input
+          type="checkbox"
+          checked={confirmed}
+          disabled={isPending}
+          onChange={(e) => onCorrect(e.target.checked)}
+          className="accent-brand-pink h-5 w-5"
+        />
         {t("session_confirmed_status")}
       </label>
     );
   }
 
+  // ---- Everyone else: read-only --------------------------------------------
   return (
-    <span className="font-body text-muted block text-[11px]">
+    <span className="font-body text-muted block text-xs">
       {confirmed ? t("session_confirmed_status") : t("session_not_confirmed_status")}
     </span>
   );
@@ -594,6 +821,7 @@ function SessionTableRow({
   savingConfirmationSlot,
   trainerOptions,
   viewerId,
+  isFuture,
   principalValue,
   secundarValue,
   attendanceValue,
@@ -647,6 +875,7 @@ function SessionTableRow({
                 confirmedAt={session.trainer_principal_confirmed_at}
                 isOwnSlot={session.trainer_principal_id === viewerId}
                 canCorrect={canCorrectConfirmation}
+                isFuture={isFuture}
                 isPending={isPending}
                 isSaving={savingConfirmationSlot === "principal"}
                 onToggle={(checked) => onToggleConfirmation("principal", checked)}
@@ -661,6 +890,7 @@ function SessionTableRow({
                 confirmedAt={session.trainer_secundar_confirmed_at}
                 isOwnSlot={session.trainer_secundar_id === viewerId}
                 canCorrect={canCorrectConfirmation}
+                isFuture={isFuture}
                 isPending={isPending}
                 isSaving={savingConfirmationSlot === "secundar"}
                 onToggle={(checked) => onToggleConfirmation("secundar", checked)}
@@ -801,6 +1031,7 @@ function SessionCard({
   savingConfirmationSlot,
   trainerOptions,
   viewerId,
+  isFuture,
   principalValue,
   secundarValue,
   attendanceValue,
@@ -913,6 +1144,7 @@ function SessionCard({
               confirmedAt={session.trainer_principal_confirmed_at}
               isOwnSlot={session.trainer_principal_id === viewerId}
               canCorrect={canCorrectConfirmation}
+              isFuture={isFuture}
               isPending={isPending}
               isSaving={savingConfirmationSlot === "principal"}
               onToggle={(checked) => onToggleConfirmation("principal", checked)}
@@ -927,6 +1159,7 @@ function SessionCard({
               confirmedAt={session.trainer_secundar_confirmed_at}
               isOwnSlot={session.trainer_secundar_id === viewerId}
               canCorrect={canCorrectConfirmation}
+              isFuture={isFuture}
               isPending={isPending}
               isSaving={savingConfirmationSlot === "secundar"}
               onToggle={(checked) => onToggleConfirmation("secundar", checked)}

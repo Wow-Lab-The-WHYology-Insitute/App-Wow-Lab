@@ -439,6 +439,13 @@ export default async function GroupDetailPage({
         // heuristic's "does this address look like Bucharest" check.
         groupAddress={group.address ?? clientRow?.address ?? null}
         viewerId={user.id}
+        // Resolved on the SERVER and passed down, never computed in the
+        // client. The ordering and the "not yet" state both depend on
+        // "today", and a client-side new Date() renders a different answer
+        // than the server did whenever the two sit on opposite sides of
+        // midnight -- a hydration mismatch on the one screen a trainer uses
+        // at the end of a workshop evening.
+        todayIso={new Date().toISOString().slice(0, 10)}
       />
 
       {/* Its own section rather than two more columns in GroupDetailClient's

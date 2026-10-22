@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import {
+  SESSION_CONFIRMATION_FUTURE_ERROR,
   SESSION_CONFIRMATION_MONTH_CLOSED_ERROR,
   SESSION_ATTENDANCE_MONTH_CLOSED_ERROR,
   SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR,
@@ -514,6 +515,11 @@ export async function confirmSessionAttendance(
   if (data === "month_closed") {
     return { ok: false, error: SESSION_CONFIRMATION_MONTH_CLOSED_ERROR };
   }
+  // 202610220001: setting a confirmation on a workshop that has not happened.
+  // Only ever returned for confirmed === true -- clearing is never guarded.
+  if (data === "future_session") {
+    return { ok: false, error: SESSION_CONFIRMATION_FUTURE_ERROR };
+  }
 
   revalidatePath(`/groups/${groupId}`);
   return { ok: true };
@@ -568,6 +574,14 @@ export async function correctSessionConfirmation(
   }
   if (data === "not_permitted") {
     return { ok: false, error: "Not permitted (requires finance.operations.*)." };
+  }
+  // 202610220001 guards Operations too, and the reason it is not an exception
+  // for them is in that migration's header: a correction says the record is
+  // wrong, and there is no record yet about a workshop that has not happened.
+  // Evaluated per column there, so CLEARING a wrongly-set future confirmation
+  // still returns ok.
+  if (data === "future_session") {
+    return { ok: false, error: SESSION_CONFIRMATION_FUTURE_ERROR };
   }
 
   revalidatePath(`/groups/${groupId}`);

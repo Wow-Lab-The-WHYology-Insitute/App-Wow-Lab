@@ -1,10 +1,24 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslations, useLocale } from "@/lib/i18n";
 import { myWorkDict } from "./i18n";
 
-// Client only because useTranslations needs LocaleContext -- same split
-// as profile-heading.tsx. No interactivity: every figure is read-only.
+export type UpcomingSession = {
+  id: string;
+  groupId: string;
+  sessionDate: string;
+  startTime: string | null;
+  durationMinutes: number | null;
+  schoolName: string | null;
+  module: string | null;
+  confirmed: boolean;
+};
+
+// Client only because useTranslations needs LocaleContext -- same split as
+// profile-heading.tsx. STILL no interactivity: the upcoming list added below
+// is links and text, not a write path. That is deliberate and dated -- see
+// the comment on `upcoming` in page.tsx.
 export function MyWorkClient({
   hasAnySessions,
   confirmedThisMonth,
@@ -15,6 +29,8 @@ export function MyWorkClient({
   minutesThisMonth,
   sessionsMissingDuration,
   gradeLevel,
+  upcoming,
+  todayIso,
 }: {
   hasAnySessions: boolean;
   confirmedThisMonth: number;
@@ -25,6 +41,8 @@ export function MyWorkClient({
   minutesThisMonth: number;
   sessionsMissingDuration: number;
   gradeLevel: number | null;
+  upcoming: UpcomingSession[];
+  todayIso: string;
 }) {
   const t = useTranslations(myWorkDict);
   const { locale } = useLocale();
@@ -88,6 +106,52 @@ export function MyWorkClient({
         </div>
       )}
 
+      {upcoming.length > 0 && (
+        <section className="rounded-2xl border border-black/5 bg-white p-section shadow-sm">
+          <p className="font-body text-muted text-xs font-bold tracking-wide uppercase">
+            {t("upcoming_label")}
+          </p>
+          <ul className="mt-3 flex flex-col divide-y divide-black/5">
+            {upcoming.map((s) => {
+              const isToday = s.sessionDate === todayIso;
+              return (
+                <li key={s.id}>
+                  {/* The whole row is the link, and it is 44px tall -- the
+                      same floor the confirm button on the group page now
+                      clears. A date that is only readable is not a route. */}
+                  <Link
+                    href={`/groups/${s.groupId}`}
+                    className="flex min-h-11 items-center justify-between gap-3 py-2"
+                  >
+                    <span className="flex flex-col">
+                      <span
+                        className={`font-body text-sm ${isToday ? "text-brand-pink font-bold" : "text-ink font-semibold"}`}
+                      >
+                        {formatDay(s.sessionDate, locale)}
+                        {isToday && <span className="ml-1.5 text-xs">{t("upcoming_today")}</span>}
+                        {s.startTime && (
+                          <span className="text-muted ml-1.5 text-xs font-normal">
+                            {s.startTime.slice(0, 5)}
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-body text-muted text-xs">
+                        {[s.schoolName, s.module].filter(Boolean).join(" · ") || "—"}
+                      </span>
+                    </span>
+                    <span className="font-body text-muted shrink-0 text-xs">
+                      {s.confirmed ? t("upcoming_confirmed") : t("upcoming_open")}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          {/* Says where the button is, because it is not here. */}
+          <p className="font-body text-muted mt-3 text-xs">{t("upcoming_confirm_hint")}</p>
+        </section>
+      )}
+
       <section className="rounded-2xl border border-black/5 bg-white p-section shadow-sm">
         <p className="font-body text-muted text-xs font-bold tracking-wide uppercase">
           {t("grade_label")}
@@ -129,5 +193,14 @@ function Figure({
       {hint && <p className="font-body text-muted mt-2 text-xs">{hint}</p>}
       {note && <p className="font-body text-muted mt-1 text-xs italic">{note}</p>}
     </section>
+  );
+}
+
+// Weekday + day + month, no year: every row in this list is within weeks, and
+// "lun., 28 oct." is what somebody checks against their own week.
+function formatDay(iso: string, locale: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString(
+    locale === "ro" ? "ro-RO" : "en-GB",
+    { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" },
   );
 }

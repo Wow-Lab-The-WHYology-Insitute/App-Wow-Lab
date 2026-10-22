@@ -18,3 +18,11 @@ export const SESSION_ATTENDANCE_MONTH_CLOSED_ERROR =
   "This month is closed. You can no longer change attendance for this workshop.";
 export const SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR =
   "Not permitted (requires being the assigned trainer for this workshop).";
+
+// 202610220001's new return code, on BOTH confirmation paths. The wording
+// names the fact rather than the rule -- "has not happened yet" is something
+// the reader can check against their own calendar, while "future-dated
+// confirmations are not permitted" asks them to trust a policy. Same reason
+// the closed-month string says what is closed rather than which gate fired.
+export const SESSION_CONFIRMATION_FUTURE_ERROR =
+  "This workshop has not happened yet. You can confirm it on the day.";

@@ -265,7 +265,59 @@ export const groupsDict: Dictionary = {
   // that's a state word sitting next to a box that hasn't been touched
   // yet, easy to misread as if the box itself asserts the state rather
   // than performs the action.
-  confirmation_check_to_confirm: { en: "Check to confirm", ro: "Bifează pentru a confirma" },
+  // Replaced `confirmation_check_to_confirm` ("Check to confirm" / "Bifează
+  // pentru a confirma"), which described the GESTURE on a 13px checkbox. On a
+  // 44px button the gesture is obvious and the sentence can say what the tap
+  // ASSERTS instead -- which matters, because what it asserts is what pay
+  // follows.
+  confirmation_confirm_button: {
+    en: "I taught this workshop",
+    ro: "Am ținut acest atelier",
+  },
+  // Deliberately not "Cancel" -- that word already means "close this form"
+  // three times on this page, and once more it would mean "cancel the
+  // workshop", which is a different act with a different RPC and five
+  // categories behind it.
+  confirmation_undo_button: {
+    en: "Undo",
+    ro: "Retrage",
+  },
+  // Shown INSTEAD of the button on a workshop that has not happened. Says the
+  // fact, not the rule, and names when the button appears -- the same thing
+  // 202610220001's guard enforces in the database, so the screen and the
+  // database refuse for one reason rather than two.
+  confirmation_not_yet: {
+    en: "Not yet — you can confirm this on the day.",
+    ro: "Încă nu — poți confirma în ziua atelierului.",
+  },
+  confirmation_future_error: {
+    en: "This workshop has not happened yet. You can confirm it on the day.",
+    ro: "Atelierul nu a avut loc încă. Îl poți confirma în ziua respectivă.",
+  },
+  // The four buckets. `bucket_overdue` is first on the page and empty in every
+  // live group today -- it is first so that the day it stops being empty, it
+  // is the first thing on the screen.
+  bucket_overdue: {
+    en: "To confirm ({{count}})",
+    ro: "De confirmat ({{count}})",
+  },
+  bucket_overdue_hint: {
+    en: "Already taught, not yet confirmed — pay follows the confirmation.",
+    ro: "Deja ținute, neconfirmate — plata urmează confirmarea.",
+  },
+  bucket_today: { en: "Today ({{count}})", ro: "Azi ({{count}})" },
+  bucket_upcoming: { en: "Next ({{count}})", ro: "Următoarele ({{count}})" },
+  bucket_upcoming_expand: {
+    en: "Show {{count}} more upcoming",
+    ro: "Arată încă {{count}} viitoare",
+  },
+  bucket_upcoming_collapse: { en: "Show fewer", ro: "Arată mai puține" },
+  bucket_settled: { en: "Earlier ({{count}})", ro: "Anterioare ({{count}})" },
+  bucket_settled_expand: {
+    en: "Show {{count}} earlier workshops",
+    ro: "Arată {{count}} ateliere anterioare",
+  },
+  bucket_settled_collapse: { en: "Hide earlier workshops", ro: "Ascunde atelierele anterioare" },
   confirmation_month_closed_error: {
     en: "This month is closed. You can no longer change your confirmation.",
     ro: "Luna este închisă. Nu îți mai poți modifica confirmarea.",
