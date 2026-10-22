@@ -34,3 +34,6 @@ next-env.d.ts
 # Vercel
 .vercel/
 .vercel
+
+# Local agent settings — kept on disk, never shared.
+.claude/
