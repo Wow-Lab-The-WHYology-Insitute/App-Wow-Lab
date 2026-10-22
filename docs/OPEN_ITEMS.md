@@ -8635,6 +8635,116 @@ And on a workshop that has not happened, the button is **replaced by a sentence*
 **Lives in:** `supabase/migrations/202610220001_no_confirmation_before_the_workshop.sql`; `db/tests/confirmation_future_guard.sql`; `app/(app)/groups/[id]/group-detail-client.tsx` (buckets, `Bucket`, `DisclosureButton`, `ConfirmationControl`), `page.tsx` (`todayIso`, resolved server-side against a hydration mismatch), `app/(app)/groups/actions.ts` + `session-write-errors.ts` + `i18n.ts`; `app/(app)/my-work/*`; items 159 and 160 above; `DATABASE_CONVENTIONS.md` §16, §19, §20.
 
 ---
+### 162. Unwritten assumptions about the shape of the data — five more, found by reading rather than failing (§17c audit)
+
+2026-10-22. Asked for after `/my-work`'s two figures turned out to have been correct every day until the schedule stopped stopping a week out. **Report, not repair** — every item below is correct today, which is the entire point of the category.
+
+The question asked of each screen: *does the correctness of this query, sort or derived figure depend on a property of the DATA rather than of the query — and is that property written down anywhere?*
+
+---
+
+**A. `/groups` — "the most recent session per group" is now the furthest-FUTURE session. LIVE TODAY.**
+
+```ts
+.order("session_date", { ascending: false })   // then take the first per group
+```
+
+The comment above it says *"recent session per group"*, and until 2026-10-20 that is what it returned. It now returns **23 June 2027** for Avenor and **30 June 2027** for the Deutsche Schule, and the trainer column of the whole list is resolved from those rows.
+
+**It displays the right name anyway, and that is the trap, not the reprieve.** `202610200009` templated every generated workshop's trainer from the group's most recent non-cancelled session, so the June 2027 row currently names the same person as today's. The moment Operations reassigns a group from January onward without touching June, **`/groups` will show the outgoing trainer** — which is precisely the staleness item 160 was opened about, now with a screen actively hiding it.
+
+Two assumptions, neither written: *the latest session by date is the most recent one that happened*, and *a group's trainer does not change over its lifetime*.
+
+**A second one in the same query:** it fetches **every session of every group**, unbounded, to pick one row each — 223 rows for 6 groups today. PostgREST's `max_rows = 1000` (`supabase/config.toml`) truncates silently, and because the order is DESC the rows it drops are the **oldest**. So the first thing to break is not the trainer column but **groups whose last session is long past, which lose their row data entirely while active groups look fine.** At ~172 sessions a year, that is roughly five years out.
+
+---
+
+**B. `/payment-config` — `versions[0]` is labelled "current", and the pay engine disagrees the moment anyone schedules a change.**
+
+```ts
+const current = versions[0];   // versions ordered by effective_date DESC
+const history = versions.slice(1);
+```
+
+`app.resolve_trainer_grade_rate` and its four siblings all resolve **`effective_date <= p_as_of`** — the version in force on the workshop's own date. The screen resolves *the newest row that exists*. These agree only while **no version has a future effective_date**, which is true today for all five grids (newest is 2026-09-01 everywhere).
+
+The form on that same screen has an `effectiveDate` input defaulting to today and accepting any date. **Scheduling a rate change ahead of time is the obvious use of an effective-dated grid** — it is what the versions table is for — and the first time anyone does it the screen will label the not-yet-active rates "current" while payroll keeps paying the old ones. No error, no test failure: two correct queries answering different questions.
+
+This is the one worth repairing first, and not because of how likely it is. It is the only one where **the screen would contradict the money**.
+
+---
+
+**C. `/my-work` — the viewer's entire session history, fetched unbounded, to compute four numbers about one month.**
+
+```ts
+.or(`trainer_principal_id.eq.${user.id},trainer_secundar_id.eq.${user.id}`)   // no date filter
+```
+
+Cătălina already has **144** rows, gaining ~110 a year; Lorina has 70. Against `max_rows = 1000` that is roughly eight years before her counters silently start reading a truncated history — and truncation here has no ordering at all, so what falls off is undefined.
+
+The repairs in item 161 narrowed the *derivations* (`hasHappened`, `schoolYearStart`, the five-row upcoming slice). **The fetch underneath them was not narrowed and still pulls everything.** Assumption, unwritten: *a trainer's total session count stays under PostgREST's row ceiling*.
+
+---
+
+**D. `/contracts` — ordered by `exit_number` ascending, as text.**
+
+Correct today because the three live values are `203.1`, `204`, `205` — same length, all numeric. `supplier_contracts`' own header already records that this column carries free text in the real register (`ANEXA 2`, `Act aditional 03 la contract 10/1...`), and a text sort puts `10` before `9`. Assumption, unwritten: *exit_number values are same-length numerics*.
+
+---
+
+**E. `/groups/[id]` — the whole lesson-plan catalogue on every page load.**
+
+312 rows, unbounded, fetched to populate a picker. Comfortably under 1000 and the catalogue is a fixed import rather than something that grows weekly, so this is named for completeness rather than concern — §20: *checked and not a problem* has to be distinguishable from *not checked*.
+
+---
+
+**AND ONE PLACE THAT ALREADY DOES WHAT §17c ASKS**, which is why the convention is a habit to extend rather than a new idea. `/payroll`'s cancellation fetch is also unbounded, and says so in the comment above it:
+
+> *"Bounded by the number of cancellations that have ever happened — six a year on two groups of one school, by last year's centraliser — which is why one unfiltered read is acceptable here and is not acceptable for sessions."*
+
+That sentence is a **claim about the world**, and a claim about the world can be found to be false by someone reading it. That is the entire difference between this and the five above: not that the fetch is bounded, but that the bound is **written where the next person will hit it**.
+
+**Ranked, if any of them is repaired:** B (the screen would contradict the money) → A (actively hides the staleness item 160 exists for) → C (a ceiling, ~8 years) → D (cosmetic until the register's real numbers arrive) → E (nothing).
+
+**Re-verify when:** anything changes the shape of `sessions` again — another year generated, a second organization, the six remaining schools of item 159's centraliser. That is the trigger for re-reading this list, and re-reading is the only thing that finds this category.
+
+**Lives in:** `docs/DATABASE_CONVENTIONS.md` §17c (the form, and the guard); `app/(app)/groups/page.tsx`, `app/(app)/payment-config/payment-config-client.tsx`, `app/(app)/my-work/page.tsx`, `app/(app)/contracts/page.tsx`, `app/(app)/groups/[id]/page.tsx`; `app/(app)/payroll/page.tsx` (the one written bound); `supabase/config.toml` (`max_rows = 1000`); items 159, 160 and 161 above.
+
+---
+### 163. Cătălina gets no signal that she is a trainer — and the indicator is deliberately NOT built before 28 October
+
+2026-10-22. **Trigger: build after 28 October 2026, and decide where it lives from what happens that day.**
+
+**The gap.** Cătălina holds two of the four workshops on 28 October. The six repairs of item 161 — the sorted buckets, the 44px button, the read-only list — are all on `/groups/[id]` and `/my-work`, and **she sees none of them on arrival**, because `resolveLandingPath` sends her to `/profile`. She holds `mywork.*` through the Trainer role granted on 2026-10-20 **and** `groups.read`, `curriculum.validate` and the rest through Operations Manager, so `has_beyond` is true.
+
+**Her landing is correct and is not the bug.** The rule in `lib/landing.ts` is that `/my-work` belongs to an account whose work is *only* its own work; for someone who also answers for other people's, `/my-work` is a subset of their job rather than their job. Cătălina's main role is not being a trainer. Sending her to `/my-work` would be wrong for the twelve other things she does.
+
+**What is missing is a signal, not a redirect.** *"You have N workshops to confirm"* — and **the number already exists**, computed on `/my-work` as `unconfirmedCount` (past, unconfirmed, viewer's own slot). The work is surfacing it somewhere she passes, not calculating it.
+
+**WHY IT IS NOT BUILT NOW.** Mihai's reason, and it is the same shape as refusing the confirm button on `/my-work`:
+
+> On 28 October this is solved by a person telling them. The indicator gets built **after**, informed by what actually happens that day — maybe a line in the shell is the answer, maybe something else, and **you do not learn which by adding a surface four days beforehand.**
+
+The candidate placements are genuinely different products and the day will discriminate between them: a count in the shell chrome beside the nav; a line on `/profile`; an item in the `/my-work` nav entry; an email. Choosing now means choosing from a guess about a trainer's behaviour that nobody has observed yet — **this application has never had a trainer sign in and use it.**
+
+**And there is no notification mechanism of any kind to extend.** No notifications table, no invitations table, no email path other than Supabase auth's own magic link. Whatever gets built is the first one, which is another reason not to pick its shape from a guess.
+
+**What happens instead, dated:**
+
+| | |
+|---|---|
+| **Friday 23 October** | Anca tells Lorina the invitation is coming. |
+| **Monday 26 October** | Lorina's invitation goes out — not before. |
+| **Wednesday 28 October** | Four workshops. Cătălina ×2 at Avenor, Lorina ×2 at the Deutsche Schule. **They confirm, not Operations on their behalf** — otherwise nothing has been tested and a spreadsheet has moved into Postgres. |
+| **after** | This item is built, placement decided from what happened. |
+
+**What to watch on the day, because it is the input to this item's own design:** whether either of them finds the confirm control without being walked to it; whether Cătălina reaches `/my-work` at all; whether the confirmation happens on the day or days later; and whether anyone taps a workshop other than the right one (the guard refuses a future one, and `future_session` appearing in the logs would itself be a finding).
+
+**Re-verify when:** 28 October has happened. Not before — the trigger is the point of this item.
+
+**Lives in:** `lib/landing.ts` (the rule, and why it is right for her); `app/(app)/my-work/page.tsx` (`unconfirmedCount`, the number that already exists); `app/(app)/shell-chrome.tsx` (one candidate placement); items 160 and 161 above.
+
+---
 ### 151. `trainer_grade_assignments.source` accepts `'computed'` and nothing computes — the automation it was built for needs an hours history we do not have
 
 2026-10-20. All **11** assignments in the real org carry `source = 'manual'`; the CHECK admits `'computed' | 'manual'` and the second value has never been written. That is not an oversight — it is a placeholder for a requirement, and the requirement is named.

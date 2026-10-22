@@ -325,6 +325,66 @@ indistinguishable from the decision never having been made. Where the decision e
 intent, say so in it; an item that reads as though it governs five screens when it can only defend
 two is itself a wrong reason of the §17 kind.
 
+### 17c. The third form: correct code, changed world
+
+**Decided 2026-10-22 by Mihai.** §17 and §17b are both about a decision outliving its
+justification. The third form is about **code outliving the data it was written against**, and it
+is the only one of the three with a guard rather than just a habit.
+
+| form | what is wrong | why nothing catches it |
+|---|---|---|
+| §17 | the decision is right, the **reason** beside it is wrong | no value changes; the reason is prose |
+| §17b | the decision is right, the **thing it governs has no code yet** | there is nothing to test |
+| **§17c** | **the code is right, the world changed under it** | **it was true every time anyone checked** |
+
+**The worked case.** `/my-work` showed *Hours this month* as the sum of `duration_minutes` over
+every session dated in the current month. Correct, every single day, for as long as the schedule
+stopped a week out — **because every session in the current month had already happened.** On
+2026-10-20, `202610200009` generated 172 workshops to June 2027, and October's figure began
+counting 28 October days before it ran. Nobody edited the query. Nobody edited the data model.
+A different migration changed what the table contained.
+
+Its neighbour went the same way: *Groups assigned* counted distinct groups across all the viewer's
+sessions with no date bound, which was a sensible number while a trainer had one term of history
+and is a number that only grows now.
+
+> **Neither was wrong when it was written. Both became wrong when 172 rows landed.**
+
+And the sort order on `/groups/[id]` is the same failure in a third place: `session_date DESC` put
+the most recent workshop on top, which was right while the furthest row was seven days out and
+buried tomorrow under thirty future cards the moment a year existed.
+
+**THE GUARD, which §17 and §17b do not have:**
+
+> **When the correctness of a query, a sort or a derived figure depends on a property of the
+> DATA rather than of the query, write the property down beside it.**
+
+*Hours this month* assumed **every session in the current month is in the past**. That assumption
+was true every time anyone looked, and it was never written, so there was nothing for the
+generation migration to contradict. Had the line read `// assumes the schedule does not extend
+past today`, the person generating a year would have had something to hit.
+
+**What the written property buys, concretely:** it is the only artefact that can be *falsified*.
+A test asserts the output for data that exists; it passes happily when the data's shape changes
+underneath it, because the fixture changed shape too. A written assumption is a claim about the
+world, and claims about the world can be found to be false by reading.
+
+**How to write it.** One sentence, in the comment on the derivation, naming the property and what
+breaks without it — not "careful here". The three repaired in item 161 now read as bounded
+expressions rather than assumptions (`hasHappened`, `schoolYearStart`, four explicit buckets),
+which is better again: **an assumption that can be expressed as a filter should be the filter.**
+Write the sentence where it cannot.
+
+**What to do when you find one.** Nothing, necessarily. This form is found by **reading, not by
+failing**, so the finding is a report and the repair is a separate decision — the same split
+§20 asks for, and the reason the audit in `OPEN_ITEMS.md` item 162 is a list rather than a branch.
+That audit found five more, every one of them correct today: a list ordered to show "the most
+recent session" that now returns June 2027, a screen labelling the newest rate version "current"
+while the pay engine resolves by date, two unbounded fetches against PostgREST's 1000-row ceiling,
+and a numeric column sorted as text. It also found the one place that already writes its bound
+down, which is what the habit looks like when it is kept.
+
+
 ## 18. No school gets dates without its own calendar — the national structure is not a default
 
 **Decided 2026-10-20 by Mihai, after the national structure was wrong for all three schools we
@@ -490,3 +550,51 @@ does not say which is only half recorded.
 comment); `db/tests/school_calendar_closures.sql` (which asserts they exist *and* that they do not
 block); `OPEN_ITEMS.md` items 144 and 159; §18 and §19 (the two conventions this one most often
 has to be applied alongside).
+
+## 21. A control that triggers an assertion is labelled with the assertion, not the gesture
+
+**Decided 2026-10-22 by Mihai, from a correction he did not ask for.** The request was a 44px tap
+target on the confirmation control. Raising it from an 11px checkbox to a button exposed a second
+problem that the checkbox had been hiding:
+
+| | label | what it names |
+|---|---|---|
+| before | *Bifează pentru a confirma* — "Check to confirm" | **the gesture** |
+| after | *Am ținut acest atelier* — "I taught this workshop" | **the assertion** |
+
+A checkbox needs the gesture named, because "check" is genuinely ambiguous — tick it, tick it off,
+is it a filter, is it a setting. A button's gesture is already obvious, so the words are free to
+say what pressing it **means**. And here the meaning is the only thing that matters:
+
+> **This timestamp is what pay follows.** A trainer tapping it is not performing an interface
+> action, they are stating that they taught a class.
+
+So:
+
+> **Where a control writes something a person is answerable for — an assertion, an approval, a
+> consent, a declaration — the label is the sentence they are signing, in the first person.** Not
+> the gesture ("check", "tick", "click to…"), not the field name ("Confirmed"), not the system's
+> word for the operation ("Submit", "Save").
+
+**The test:** read the label aloud as the sentence the person is saying. *"I taught this
+workshop"* works. *"Check to confirm"* is nobody saying anything. *"Confirmed"* is the system
+describing a row.
+
+**It applies to the neighbours too, and the neighbours are where it goes wrong.** The undo beside
+it is `Retrage` — deliberately **not** `Anulează`, which already means "close this form" three
+times on that page and would, one more time, mean *cancel the workshop*: a different act, a
+different RPC, five categories behind it. **A word that already carries a meaning on the same
+screen cannot be borrowed for a second one.**
+
+**And the inverse — a control that asserts nothing keeps the gesture**, because there is nothing
+else for it to say: `Show 27 more upcoming`, `Hide earlier workshops`. Those are navigation, and
+naming them as declarations would be the same error pointed the other way.
+
+**Where it does NOT apply:** Operations' correction checkbox on the same row stays a checkbox and
+stays labelled `Confirmat`. It is a two-state field somebody sets **on another person's behalf**,
+not an act they are answerable for — the first person would be a lie there, and §19's whole point
+is that the row records who did the thing.
+
+**Lives in:** `app/(app)/groups/i18n.ts` (`confirmation_confirm_button`, `confirmation_undo_button`,
+`confirmation_not_yet`); `app/(app)/groups/[id]/group-detail-client.tsx` (`ConfirmationControl`);
+`OPEN_ITEMS.md` item 161; §19 (whose name goes on the row the control writes).
