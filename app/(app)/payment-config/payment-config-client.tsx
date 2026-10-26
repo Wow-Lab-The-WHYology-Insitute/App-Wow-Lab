@@ -46,11 +46,11 @@ export function PaymentConfigClient({
 }: {
   orgId: string;
   creatorNameById: Record<string, string>;
-  trainerGrades: { versions: Version[]; rates: GradeRate[] };
-  locationBonuses: { versions: Version[]; rates: LocationRate[] };
-  languageBonuses: { versions: Version[]; rates: LanguageRate[] };
-  durationMultipliers: { versions: Version[]; rates: DurationRate[] };
-  contractTypeUplifts: { versions: Version[]; rates: UpliftRate[] };
+  trainerGrades: { versions: Version[]; rates: GradeRate[]; currentVersionId: string | null };
+  locationBonuses: { versions: Version[]; rates: LocationRate[]; currentVersionId: string | null };
+  languageBonuses: { versions: Version[]; rates: LanguageRate[]; currentVersionId: string | null };
+  durationMultipliers: { versions: Version[]; rates: DurationRate[]; currentVersionId: string | null };
+  contractTypeUplifts: { versions: Version[]; rates: UpliftRate[]; currentVersionId: string | null };
 }) {
   const t = useTranslations(paymentConfigDict);
 
@@ -100,11 +100,13 @@ function TrainerGradesSection({
   orgId,
   creatorNameById,
   versions,
+  currentVersionId,
   rates,
 }: {
   orgId: string;
   creatorNameById: Record<string, string>;
   versions: Version[];
+  currentVersionId: string | null;
   rates: GradeRate[];
 }) {
   const t = useTranslations(paymentConfigDict);
@@ -117,8 +119,21 @@ function TrainerGradesSection({
     Object.fromEntries(GRADE_LEVELS.map((n) => [n, ""])),
   );
 
-  const current = versions[0];
-  const history = versions.slice(1);
+  // THE VERSION IN FORCE, resolved by app.resolve_grid_version through
+  // public.current_grid_versions -- the same function the pay engine asks.
+  // `versions[0]` was the newest row that EXISTS, which is a different
+  // question and silently a different answer the moment anything is dated
+  // ahead (§22, and item 147 schedules exactly such a row).
+  const current = versions.find((v) => v.id === currentVersionId) ?? null;
+  // A version dated ahead is neither current nor history: it is SCHEDULED,
+  // and showing it in either of the other two would be the original bug with
+  // a different label.
+  const scheduled = current
+    ? versions.filter((v) => v.effective_date > current.effective_date)
+    : versions;
+  const history = versions.filter(
+    (v) => v.id !== currentVersionId && !scheduled.some((sv) => sv.id === v.id),
+  );
   const currentRows = current ? rates.filter((r) => r.version_id === current.id) : [];
 
   function handleSubmit() {
@@ -138,6 +153,8 @@ function TrainerGradesSection({
 
   return (
     <Section title={t("section_trainer_grades_title")} subtitle={t("section_trainer_grades_subtitle")}>
+      <ScheduledVersions versions={scheduled} />
+
       {current ? (
         <CurrentVersionBox version={current} creatorName={creatorNameById[current.created_by]}>
           {GRADE_LEVELS.map((level) => (
@@ -196,11 +213,13 @@ function LocationBonusesSection({
   orgId,
   creatorNameById,
   versions,
+  currentVersionId,
   rates,
 }: {
   orgId: string;
   creatorNameById: Record<string, string>;
   versions: Version[];
+  currentVersionId: string | null;
   rates: LocationRate[];
 }) {
   const t = useTranslations(paymentConfigDict);
@@ -215,8 +234,21 @@ function LocationBonusesSection({
 
   const tierLabel = (tier: string) => t(`tier_${tier}`);
 
-  const current = versions[0];
-  const history = versions.slice(1);
+  // THE VERSION IN FORCE, resolved by app.resolve_grid_version through
+  // public.current_grid_versions -- the same function the pay engine asks.
+  // `versions[0]` was the newest row that EXISTS, which is a different
+  // question and silently a different answer the moment anything is dated
+  // ahead (§22, and item 147 schedules exactly such a row).
+  const current = versions.find((v) => v.id === currentVersionId) ?? null;
+  // A version dated ahead is neither current nor history: it is SCHEDULED,
+  // and showing it in either of the other two would be the original bug with
+  // a different label.
+  const scheduled = current
+    ? versions.filter((v) => v.effective_date > current.effective_date)
+    : versions;
+  const history = versions.filter(
+    (v) => v.id !== currentVersionId && !scheduled.some((sv) => sv.id === v.id),
+  );
   const currentRows = current ? rates.filter((r) => r.version_id === current.id) : [];
 
   function handleSubmit() {
@@ -236,6 +268,8 @@ function LocationBonusesSection({
 
   return (
     <Section title={t("section_location_bonuses_title")} subtitle={t("section_location_bonuses_subtitle")}>
+      <ScheduledVersions versions={scheduled} />
+
       {current ? (
         <CurrentVersionBox version={current} creatorName={creatorNameById[current.created_by]}>
           {LOCATION_TIERS.map((tier) => (
@@ -294,11 +328,13 @@ function LanguageBonusesSection({
   orgId,
   creatorNameById,
   versions,
+  currentVersionId,
   rates,
 }: {
   orgId: string;
   creatorNameById: Record<string, string>;
   versions: Version[];
+  currentVersionId: string | null;
   rates: LanguageRate[];
 }) {
   const t = useTranslations(paymentConfigDict);
@@ -313,8 +349,21 @@ function LanguageBonusesSection({
 
   const groupLabel = (group: string) => t(`group_${group}`);
 
-  const current = versions[0];
-  const history = versions.slice(1);
+  // THE VERSION IN FORCE, resolved by app.resolve_grid_version through
+  // public.current_grid_versions -- the same function the pay engine asks.
+  // `versions[0]` was the newest row that EXISTS, which is a different
+  // question and silently a different answer the moment anything is dated
+  // ahead (§22, and item 147 schedules exactly such a row).
+  const current = versions.find((v) => v.id === currentVersionId) ?? null;
+  // A version dated ahead is neither current nor history: it is SCHEDULED,
+  // and showing it in either of the other two would be the original bug with
+  // a different label.
+  const scheduled = current
+    ? versions.filter((v) => v.effective_date > current.effective_date)
+    : versions;
+  const history = versions.filter(
+    (v) => v.id !== currentVersionId && !scheduled.some((sv) => sv.id === v.id),
+  );
   const currentRows = current ? rates.filter((r) => r.version_id === current.id) : [];
 
   function handleSubmit() {
@@ -334,6 +383,8 @@ function LanguageBonusesSection({
 
   return (
     <Section title={t("section_language_bonuses_title")} subtitle={t("section_language_bonuses_subtitle")}>
+      <ScheduledVersions versions={scheduled} />
+
       {current ? (
         <CurrentVersionBox version={current} creatorName={creatorNameById[current.created_by]}>
           {LANGUAGE_GROUPS.map((group) => (
@@ -392,11 +443,13 @@ function DurationMultipliersSection({
   orgId,
   creatorNameById,
   versions,
+  currentVersionId,
   rates,
 }: {
   orgId: string;
   creatorNameById: Record<string, string>;
   versions: Version[];
+  currentVersionId: string | null;
   rates: DurationRate[];
 }) {
   const t = useTranslations(paymentConfigDict);
@@ -415,8 +468,21 @@ function DurationMultipliersSection({
     return `${t(`duration_${minutes}`)} — ${t("context_standard")}`;
   }
 
-  const current = versions[0];
-  const history = versions.slice(1);
+  // THE VERSION IN FORCE, resolved by app.resolve_grid_version through
+  // public.current_grid_versions -- the same function the pay engine asks.
+  // `versions[0]` was the newest row that EXISTS, which is a different
+  // question and silently a different answer the moment anything is dated
+  // ahead (§22, and item 147 schedules exactly such a row).
+  const current = versions.find((v) => v.id === currentVersionId) ?? null;
+  // A version dated ahead is neither current nor history: it is SCHEDULED,
+  // and showing it in either of the other two would be the original bug with
+  // a different label.
+  const scheduled = current
+    ? versions.filter((v) => v.effective_date > current.effective_date)
+    : versions;
+  const history = versions.filter(
+    (v) => v.id !== currentVersionId && !scheduled.some((sv) => sv.id === v.id),
+  );
   const currentRows = current ? rates.filter((r) => r.version_id === current.id) : [];
 
   function handleSubmit() {
@@ -436,6 +502,8 @@ function DurationMultipliersSection({
 
   return (
     <Section title={t("section_duration_multipliers_title")} subtitle={t("section_duration_multipliers_subtitle")}>
+      <ScheduledVersions versions={scheduled} />
+
       {current ? (
         <CurrentVersionBox version={current} creatorName={creatorNameById[current.created_by]}>
           {DURATION_KEYS.map((key) => {
@@ -498,11 +566,13 @@ function ContractTypeUpliftsSection({
   orgId,
   creatorNameById,
   versions,
+  currentVersionId,
   rates,
 }: {
   orgId: string;
   creatorNameById: Record<string, string>;
   versions: Version[];
+  currentVersionId: string | null;
   rates: UpliftRate[];
 }) {
   const t = useTranslations(paymentConfigDict);
@@ -517,8 +587,21 @@ function ContractTypeUpliftsSection({
 
   const typeLabel = (ty: string) => t(`type_${ty}`);
 
-  const current = versions[0];
-  const history = versions.slice(1);
+  // THE VERSION IN FORCE, resolved by app.resolve_grid_version through
+  // public.current_grid_versions -- the same function the pay engine asks.
+  // `versions[0]` was the newest row that EXISTS, which is a different
+  // question and silently a different answer the moment anything is dated
+  // ahead (§22, and item 147 schedules exactly such a row).
+  const current = versions.find((v) => v.id === currentVersionId) ?? null;
+  // A version dated ahead is neither current nor history: it is SCHEDULED,
+  // and showing it in either of the other two would be the original bug with
+  // a different label.
+  const scheduled = current
+    ? versions.filter((v) => v.effective_date > current.effective_date)
+    : versions;
+  const history = versions.filter(
+    (v) => v.id !== currentVersionId && !scheduled.some((sv) => sv.id === v.id),
+  );
   const currentRows = current ? rates.filter((r) => r.version_id === current.id) : [];
 
   function handleSubmit() {
@@ -538,6 +621,8 @@ function ContractTypeUpliftsSection({
 
   return (
     <Section title={t("section_contract_type_uplifts_title")} subtitle={t("section_contract_type_uplifts_subtitle")}>
+      <ScheduledVersions versions={scheduled} />
+
       {current ? (
         <CurrentVersionBox version={current} creatorName={creatorNameById[current.created_by]}>
           {CONTRACT_TYPES.map((ty) => (
@@ -637,6 +722,40 @@ function EmptyVersion() {
   return (
     <div className="rounded-xl border border-dashed border-gray-300 p-4">
       <p className="font-body text-muted text-sm">{t("empty_no_version")}</p>
+    </div>
+  );
+}
+
+// A version dated ahead. It is neither "current" (the engine is not using it)
+// nor "history" (it has not been used), and before 202610260001 the screen
+// had no third state -- it called the newest row current and the two
+// disagreed silently.
+//
+// Rendered rather than hidden, because somebody deliberately entered it: a
+// scheduled rate change that vanished from the screen would be the same
+// class of failure pointed the other way.
+function ScheduledVersions({ versions }: { versions: Version[] }) {
+  const t = useTranslations(paymentConfigDict);
+  const { locale } = useLocale();
+  if (versions.length === 0) return null;
+  return (
+    <div className="mb-4 flex flex-col gap-1 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+      <span className="font-body text-sm font-medium text-blue-900">
+        {t("scheduled_banner", { n: versions.length })}
+      </span>
+      <ul className="font-body list-disc pl-4 text-xs text-blue-800">
+        {versions.map((v) => (
+          <li key={v.id}>
+            {t("scheduled_from", {
+              date: new Date(`${v.effective_date}T00:00:00Z`).toLocaleDateString(
+                locale === "ro" ? "ro-RO" : "en-GB",
+                { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" },
+              ),
+            })}
+            {v.note ? ` — ${v.note}` : ""}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

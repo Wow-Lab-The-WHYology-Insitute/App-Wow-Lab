@@ -80,6 +80,24 @@ export default async function PaymentConfigPage() {
     supabase.from("contract_type_uplift_rates").select("version_id, contract_type, uplift_percent").eq("organization_id", orgId).returns<UpliftRate[]>(),
   ]);
 
+  // WHICH VERSION IS IN FORCE, asked of the same function the pay engine
+  // asks (202610260001). NOT versions[0].
+  //
+  // Those two agree only while nothing is dated ahead, and item 147 is the
+  // instruction that ends that: the 111-150 scale gets seeded when a signed
+  // contract writes it, WITH THAT CONTRACT'S OWN START DATE. A contract
+  // starting in January puts the row in the table in December, and from that
+  // moment `versions[0]` would label it "current" while payroll correctly
+  // keeps paying the version in force until January -- Anca reading 150 at
+  // grade 6 and hand-calculating on a number the application is not using.
+  // DATABASE_CONVENTIONS.md §22.
+  const { data: inForce } = await supabase.rpc("current_grid_versions", {
+    p_organization_id: orgId,
+  });
+  const currentVersionIdByGrid = Object.fromEntries(
+    ((inForce ?? []) as { grid: string; version_id: string | null }[]).map((r) => [r.grid, r.version_id]),
+  ) as Record<string, string | null>;
+
   // Batched creator-name lookup across all five grids' versions -- same
   // two-lookup convention as contracts/page.tsx's clientIds/legalEntityIds,
   // one query instead of one per version.
@@ -105,11 +123,11 @@ export default async function PaymentConfigPage() {
       <PaymentConfigClient
         orgId={orgId}
         creatorNameById={Object.fromEntries(creatorNameById)}
-        trainerGrades={{ versions: gradeVersions ?? [], rates: gradeRates ?? [] }}
-        locationBonuses={{ versions: locationVersions ?? [], rates: locationRates ?? [] }}
-        languageBonuses={{ versions: languageVersions ?? [], rates: languageRates ?? [] }}
-        durationMultipliers={{ versions: durationVersions ?? [], rates: durationRates ?? [] }}
-        contractTypeUplifts={{ versions: upliftVersions ?? [], rates: upliftRates ?? [] }}
+        trainerGrades={{ versions: gradeVersions ?? [], rates: gradeRates ?? [], currentVersionId: currentVersionIdByGrid.trainer_grade ?? null }}
+        locationBonuses={{ versions: locationVersions ?? [], rates: locationRates ?? [], currentVersionId: currentVersionIdByGrid.location_bonus ?? null }}
+        languageBonuses={{ versions: languageVersions ?? [], rates: languageRates ?? [], currentVersionId: currentVersionIdByGrid.language_bonus ?? null }}
+        durationMultipliers={{ versions: durationVersions ?? [], rates: durationRates ?? [], currentVersionId: currentVersionIdByGrid.duration_multiplier ?? null }}
+        contractTypeUplifts={{ versions: upliftVersions ?? [], rates: upliftRates ?? [], currentVersionId: currentVersionIdByGrid.contract_type_uplift ?? null }}
       />
     </div>
   );

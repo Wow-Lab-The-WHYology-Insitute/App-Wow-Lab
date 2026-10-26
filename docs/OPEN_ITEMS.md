@@ -8643,7 +8643,7 @@ The question asked of each screen: *does the correctness of this query, sort or 
 
 ---
 
-**A. `/groups` — "the most recent session per group" is now the furthest-FUTURE session. LIVE TODAY.**
+**A. `/groups` — "the most recent session per group" is now the furthest-FUTURE session. LIVE TODAY. REPAIRED 2026-10-26, `202610260002`.**
 
 ```ts
 .order("session_date", { ascending: false })   // then take the first per group
@@ -8659,7 +8659,7 @@ Two assumptions, neither written: *the latest session by date is the most recent
 
 ---
 
-**B. `/payment-config` — `versions[0]` is labelled "current", and the pay engine disagrees the moment anyone schedules a change.**
+**B. `/payment-config` — `versions[0]` is labelled "current", and the pay engine disagrees the moment anyone schedules a change. REPAIRED 2026-10-26, `202610260001`.**
 
 ```ts
 const current = versions[0];   // versions ordered by effective_date DESC
@@ -8705,6 +8705,15 @@ Correct today because the three live values are `203.1`, `204`, `205` — same l
 That sentence is a **claim about the world**, and a claim about the world can be found to be false by someone reading it. That is the entire difference between this and the five above: not that the fetch is bounded, but that the bound is **written where the next person will hit it**.
 
 **Ranked, if any of them is repaired:** B (the screen would contradict the money) → A (actively hides the staleness item 160 exists for) → C (a ceiling, ~8 years) → D (cosmetic until the register's real numbers arrive) → E (nothing).
+
+---
+
+**RESOLVED 2026-10-26, the first two, in that order.** Mihai's reasons for taking exactly those and leaving the rest:
+
+- **B is not hypothetical and the row is one we promised.** Item 147 says the 111-150 scale is seeded *when a signed contract writes it, with that contract's own start date*. A January contract puts the row in in December. **We wrote the rule that brings it**, so this was a date rather than a risk — and `202610200001` removed a *back*-dated version from the same grid six days earlier, so the grid is already being edited in both directions. Repaired as `DATABASE_CONVENTIONS.md` **§22**: one `app.resolve_grid_version`, called by all five pay resolvers and by the screen through `public.current_grid_versions`, plus a third UI state for a version dated ahead — **scheduled**, rendered rather than hidden, because somebody entered it deliberately.
+- **A, because a right answer from a wrong mechanism is worse than a wrong one.** Nobody notices it. And the handover is not hypothetical either: Teodora → Lorina on 2026-09-30, six weeks ago. The next one would have been hidden by the very screen you open to see who teaches what. `public.group_latest_delivered_session` (`security_invoker`) returns the latest **held**, non-cancelled session, one row per group — **which fixes the truncation in the same pass**, since the response is now bounded by the number of groups rather than the number of workshops ever.
+
+**C, D and E stay noted, with the reasons as given:** eight years to the ceiling; an `ANEXA 2` that does not exist yet; and checked-and-fine.
 
 **Re-verify when:** anything changes the shape of `sessions` again — another year generated, a second organization, the six remaining schools of item 159's centraliser. That is the trigger for re-reading this list, and re-reading is the only thing that finds this category.
 

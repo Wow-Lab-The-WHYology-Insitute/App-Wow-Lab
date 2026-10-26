@@ -126,27 +126,43 @@ export default async function GroupsPage() {
   const clientNameById = new Map((clientRows ?? []).map((c) => [c.id, c.name]));
   const clientLegalNameById = new Map((clientRows ?? []).map((c) => [c.id, c.legal_name]));
 
-  // Trainer names on the list: the CURRENT allocation, i.e. the most
-  // recent session per group (by session_date desc) — not every trainer
-  // who's ever rotated through it (sessions can span many occurrences with
-  // rotating principal/secundar, per the G1 design; showing the full
-  // rotation history on a list row would be noisy, not useful for an
-  // at-a-glance scan). Flagged as an interpretation call in the report.
+  // Trainer names on the list: the CURRENT allocation, i.e. the most recent
+  // session per group that has actually BEEN HELD — not every trainer who's
+  // ever rotated through it (sessions can span many occurrences with rotating
+  // principal/secundar, per the G1 design; showing the full rotation history
+  // on a list row would be noisy, not useful for an at-a-glance scan).
+  //
+  // Through public.group_latest_delivered_session (202610260002), not a DESC
+  // read of `sessions` taken apart here. That read was correct until
+  // 202610200009 generated the school year, after which it returned each
+  // group's JUNE 2027 row -- and kept displaying the right name anyway,
+  // because the generator had propagated today's trainer forward. The first
+  // reallocation that changed January and left June alone would have shown
+  // the outgoing trainer on the one screen that exists to show who teaches
+  // what. OPEN_ITEMS item 162(A).
+  //
+  // It also removes the truncation: the view returns ONE ROW PER GROUP, so
+  // the response is bounded by the number of groups instead of the number of
+  // workshops ever. The old read pulled all of them (223 today) against
+  // PostgREST's max_rows = 1000, and because it was ordered DESC the rows
+  // that would have fallen off first were the OLDEST -- breaking dormant
+  // groups, which are the ones nobody looks at, while active ones still
+  // looked right.
   const groupIds = (groups ?? []).map((g) => g.id);
   const { data: sessionRows } =
     groupIds.length > 0
       ? await supabase
-          .from("sessions")
+          .from("group_latest_delivered_session")
           .select("group_id, session_date, trainer_principal_id, trainer_secundar_id")
           .in("group_id", groupIds)
-          .order("session_date", { ascending: false })
           .returns<SessionLookupRow[]>()
       : { data: [] as SessionLookupRow[] };
 
-  const latestSessionByGroup = new Map<string, SessionLookupRow>();
-  for (const s of sessionRows ?? []) {
-    if (!latestSessionByGroup.has(s.group_id)) latestSessionByGroup.set(s.group_id, s);
-  }
+  // One row per group already, so this is a keying step rather than a
+  // first-wins scan over an ordered list.
+  const latestSessionByGroup = new Map<string, SessionLookupRow>(
+    (sessionRows ?? []).map((s) => [s.group_id, s]),
+  );
 
   const trainerIds = [
     ...new Set(

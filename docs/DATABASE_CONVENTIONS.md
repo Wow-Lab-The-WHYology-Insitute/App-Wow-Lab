@@ -598,3 +598,58 @@ is that the row records who did the thing.
 **Lives in:** `app/(app)/groups/i18n.ts` (`confirmation_confirm_button`, `confirmation_undo_button`,
 `confirmation_not_yet`); `app/(app)/groups/[id]/group-detail-client.tsx` (`ConfirmationControl`);
 `OPEN_ITEMS.md` item 161; §19 (whose name goes on the row the control writes).
+
+## 22. A screen that labels something "current" asks the same function the engine asks
+
+**Decided 2026-10-22 by Mihai; built 2026-10-26.** The general form of §17c's worst case, written
+as its own rule because the repair is mechanical and the failure is not detectable from either
+side.
+
+> **A screen that shows a value from a versioned, effective-dated table resolves "which version"
+> by calling the resolver the engine calls — not by taking the first row of a list it ordered
+> itself.**
+
+**Why re-deriving it in the screen is not a shortcut but a second truth.** `/payment-config`
+labelled `versions[0]` — the newest `effective_date` that **exists** — as "current". Every pay
+resolver takes the newest with **`effective_date <= the workshop's date`**: the version in force
+**on that date**. Both queries are correct. They answer different questions. They return the same
+row for as long as nothing is dated ahead, and then they silently stop.
+
+> **A screen with its own notion of "the first one in the list" has its own truth, and two truths
+> about the same number disagree without anything failing.**
+
+**This was scheduled, not hypothetical.** `OPEN_ITEMS.md` item 147 is the instruction that
+produces the row: *the 111-150 scale is seeded when a signed contract writes it, with that
+contract's own start date.* A contract starting in January puts the row in the table in December.
+From that moment the old screen would have read **150 at grade 6** while payroll correctly paid
+**135** until January — and Anca would have hand-calculated on a figure the application was not
+using. **We wrote the rule that brings that row**, which is the strongest form this problem takes:
+not a risk, a date.
+
+**The repair has three parts, and the middle one is the one that gets skipped.**
+
+1. **There has to BE one function.** The selection was written out five times, identically, inside
+   five plpgsql bodies. Adding a sixth copy for the screen would have been the same bug with
+   better manners. `app.resolve_grid_version(org, grid, as_of)` is extracted first; the five
+   resolvers call it.
+2. **The screen reaches that same function**, through a thin `security invoker` wrapper
+   (`public.current_grid_versions`) rather than a re-implementation in TypeScript. It adds an
+   answer, never visibility.
+3. **The screen gains a third state.** A version dated ahead is neither *current* (the engine is
+   not using it) nor *history* (it has not been used). Before, there were two buckets and the
+   future row was shoved into the first. Now it renders as **scheduled**, with its date —
+   **because somebody deliberately entered it**, and a scheduled change that vanished from the
+   screen would be the same failure pointed the other way.
+
+**Where else this applies today:** anything with a `*_versions` table. The five pay grids are done.
+The next one that appears inherits the rule rather than rediscovering it.
+
+**The smell, stated so it is findable by reading:** `versions[0]`, `rows[0]`, `.slice(1)`,
+`order by … limit 1` **written in application code** over a table whose rows are effective-dated.
+Every one of those is a screen deciding for itself which row is the true one.
+
+**Lives in:** `supabase/migrations/202610260001_one_resolver_for_which_version_is_in_force.sql`;
+`app.resolve_grid_version`, `public.current_grid_versions`;
+`app/(app)/payment-config/page.tsx` and `payment-config-client.tsx` (`ScheduledVersions`);
+`db/tests/grid_version_in_force.sql`; §17c (the family this is the worst case of);
+`OPEN_ITEMS.md` items 147 and 162.

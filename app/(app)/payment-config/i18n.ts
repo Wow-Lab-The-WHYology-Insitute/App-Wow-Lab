@@ -47,6 +47,15 @@ export const paymentConfigDict: Dictionary = {
   // grids below has zero versions. Absent entirely once all five have a
   // version -- not a suppressed/empty version of the same box, so it
   // never becomes a warning someone learns to click past.
+  // A version dated ahead of today. The screen now has three states where it
+  // had two, because "current" is resolved by the pay engine's own function
+  // (202610260001) rather than by taking the newest row -- so a row entered
+  // early is visible AND is not mislabelled as the one being paid.
+  scheduled_banner: {
+    en: "{{n}} version(s) scheduled, not yet in use",
+    ro: "{{n}} versiune/versiuni programate, încă nefolosite",
+  },
+  scheduled_from: { en: "From {{date}}", ro: "De la {{date}}" },
   missing_grids_banner_line: {
     en: "{{n}} of {{total}} grids below have no version yet:",
     ro: "{{n}} din {{total}} grile de mai jos nu au nicio versiune încă:",
