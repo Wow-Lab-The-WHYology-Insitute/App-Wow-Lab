@@ -540,6 +540,29 @@ examined and dismissed or missed entirely.
 and it did not matter"* from *"nobody looked"*, keep the record. If the two are already
 distinguishable by something else, it is noise.
 
+**THE SAME CONVENTION ON A SECOND SURFACE: assertions.** 2026-10-26. `202610260001` asserted that
+all five pay grids have a version in force, and the migration refused to apply. **The assertion
+was wrong, not the code:** `contract_type_uplift` has zero versions deliberately — item 147, there
+is no uplift to apply, so the grid is empty rather than seeded with zeros.
+
+The obvious repair is to relax it to *"at least one grid is in force"*. That is the wrong repair,
+and for exactly the reason the three non-blocking calendar rows exist:
+
+> **A relaxed assertion and an assertion nobody wrote look identical from the outside.** Both pass.
+> Neither says that somebody considered the fifth grid and concluded it should stay empty.
+
+So it was tightened instead — **four in force, plus `contract_type_uplift` asserted null by name**,
+with item 147 cited in the failure message. A deliberate absence stays a **claim the code makes**,
+and the day anybody seeds that grid the migration fails and sends them to read why it was empty.
+
+| surface | the negative result | what records it |
+|---|---|---|
+| **data** | Avenor's two management inset days block nothing | three rows with `blocks_workshop = false` |
+| **assertions** | `contract_type_uplift` is empty on purpose | `<> 4` raises, naming item 147 |
+
+Same convention, same failure mode, two places it has to be applied. **An assertion that is
+loosened to accommodate a known exception stops recording that the exception is known.**
+
 **And state the strength of the negative.** `school_calendar_closures`' header records that the
 Deutsche Schule publishes an **event list** rather than a day grid, so its silence about short days
 is weaker evidence than Avenor's white cells. An absence found by exhausting a grid and an absence

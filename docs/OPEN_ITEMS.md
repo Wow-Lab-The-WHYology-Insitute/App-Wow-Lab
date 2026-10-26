@@ -8715,14 +8715,16 @@ That sentence is a **claim about the world**, and a claim about the world can be
 
 **C, D and E stay noted, with the reasons as given:** eight years to the ceiling; an `ANEXA 2` that does not exist yet; and checked-and-fine.
 
+**And one thing the repair itself produced, recorded because it is §20 on a surface §20 had not been applied to.** `202610260001`'s first assertion required all five grids to have a version in force, and the migration **refused to apply**. The assertion was wrong, not the code: `contract_type_uplift` has zero versions by decision (item 147 — there is no uplift to apply). The obvious fix is to relax it to "at least one"; the right one was to **tighten** it to *four, plus `contract_type_uplift` asserted null by name*, with item 147 in the failure message. **A relaxed assertion and an assertion nobody wrote look identical from the outside** — both pass, and neither says anyone considered the fifth grid. Written up as the second surface of `DATABASE_CONVENTIONS.md` §20: data on one side, assertions on the other, same failure mode.
+
 **Re-verify when:** anything changes the shape of `sessions` again — another year generated, a second organization, the six remaining schools of item 159's centraliser. That is the trigger for re-reading this list, and re-reading is the only thing that finds this category.
 
 **Lives in:** `docs/DATABASE_CONVENTIONS.md` §17c (the form, and the guard); `app/(app)/groups/page.tsx`, `app/(app)/payment-config/payment-config-client.tsx`, `app/(app)/my-work/page.tsx`, `app/(app)/contracts/page.tsx`, `app/(app)/groups/[id]/page.tsx`; `app/(app)/payroll/page.tsx` (the one written bound); `supabase/config.toml` (`max_rows = 1000`); items 159, 160 and 161 above.
 
 ---
-### 163. Cătălina gets no signal that she is a trainer — and the indicator is deliberately NOT built before 28 October
+### 163. Cătălina gets no signal that she is a trainer — and the indicator is deliberately NOT built before the first real confirmation
 
-2026-10-22. **Trigger: build after 28 October 2026, and decide where it lives from what happens that day.**
+2026-10-22, **reframed 2026-10-26**. **Trigger: build after Monday 2 November 2026, and decide where it lives from what happens that day.**
 
 **The gap.** Cătălina holds two of the four workshops on 28 October. The six repairs of item 161 — the sorted buckets, the 44px button, the read-only list — are all on `/groups/[id]` and `/my-work`, and **she sees none of them on arrival**, because `resolveLandingPath` sends her to `/profile`. She holds `mywork.*` through the Trainer role granted on 2026-10-20 **and** `groups.read`, `curriculum.validate` and the rest through Operations Manager, so `has_beyond` is true.
 
@@ -8738,20 +8740,75 @@ The candidate placements are genuinely different products and the day will discr
 
 **And there is no notification mechanism of any kind to extend.** No notifications table, no invitations table, no email path other than Supabase auth's own magic link. Whatever gets built is the first one, which is another reason not to pick its shape from a guess.
 
-**What happens instead, dated:**
+**THE PLAN CHANGED ON 2026-10-26, AND THE NEW ONE IS BETTER.** Anca did not tell them and the invitation did not go out. Mihai's call: **28 October is no longer the test — it is not moved, it is reframed.**
+
+**The four workshops of Wednesday 28 October happen and STAY UNCONFIRMED.** The `to confirm` bucket stops being empty — the exact day it was put first for. And the first sign-in becomes a better test than the one that was lost:
+
+> A same-day confirmation tests one tap. **A confirmation of a debt tests the mechanism the month-end close depends on.** Lorina signs in on Monday 2 November and finds real work owed, which is what she will feel at the end of every month.
+
+**1. OPERATIONS DO NOT CONFIRM THE FOUR WORKSHOPS OF 28 OCTOBER. This is an instruction, not a preference.** Not to tidy the record, not to clear the red line off a screen, not because a month is closing. Anka, Anca and Mihai all hold a path that would do it — `rpc_correct_session_confirmation` admits `finance.operations.*`, `org.settings.manage` and the platform-owner flag. **If anybody confirms on their behalf, the only test that matters is gone**, and what remains is a spreadsheet that moved into Postgres.
+
+The four rows are: Avenor 15:15 and 16:15 (Cătălina), Deutsche Schule 15:30 and 16:25 (Lorina).
+
+**The dates, as they now stand:**
 
 | | |
 |---|---|
-| **Friday 23 October** | Anca tells Lorina the invitation is coming. |
-| **Monday 26 October** | Lorina's invitation goes out — not before. |
-| **Wednesday 28 October** | Four workshops. Cătălina ×2 at Avenor, Lorina ×2 at the Deutsche Schule. **They confirm, not Operations on their behalf** — otherwise nothing has been tested and a spreadsheet has moved into Postgres. |
-| **after** | This item is built, placement decided from what happened. |
+| **Wednesday 28 October** | Four workshops are taught. **Nobody confirms them.** The `to confirm` bucket becomes real. |
+| **Thursday 29 October** | Lorina's invitation goes out — **after Mihai confirms Anca has spoken to her**, not on the date alone. |
+| **Monday 2 November** | Lorina's first sign-in. Her `to confirm` holds **her two workshops of 28 October** — she has none on the 2nd, her groups are Wednesdays. **The first confirmation in this application made by the person who taught the class**, and it is retroactive, five days old. Cătălina teaches at the Lycée that afternoon, so for her the same day offers a debt *and* a same-day row. |
+| **Wednesday 4 November** | Avenor ×2 (Cătălina) and the Deutsche Schule ×2 (Lorina) — not the Lycée, whose days are Monday and Tuesday. The first chance at a **same-day** confirmation from a trainer who has already used the screen once. |
+| **after 2 November** | This item is built, placement decided from what happened. |
 
-**What to watch on the day, because it is the input to this item's own design:** whether either of them finds the confirm control without being walked to it; whether Cătălina reaches `/my-work` at all; whether the confirmation happens on the day or days later; and whether anyone taps a workshop other than the right one (the guard refuses a future one, and `future_session` appearing in the logs would itself be a finding).
+**What to watch on 2 November — not on 28 October, which is the point of the reframe:**
 
-**Re-verify when:** 28 October has happened. Not before — the trigger is the point of this item.
+- **Is `to confirm` the first thing she sees?** It is rendered first and in `text-brand-pink`, and this is the first time it has ever had rows in it. If it is not where her eye goes, the bucket order is wrong and no amount of reasoning about it will say so.
+- **Does she read it as a debt or as a notification?** Those produce different behaviour: a debt gets cleared now, a notification gets acknowledged and left. The hint under the heading says *"Deja ținute, neconfirmate — plata urmează confirmarea"*, and whether that lands is the question §21 cannot answer from the outside.
+- **How long from opening to confirmed?** Not as a performance figure — as the measure of how many steps the route actually has. She lands on `/my-work`, reads a list, taps into a group, finds the bucket, taps the button. Five is the design; the observed number is the finding.
+- Whether `future_session` appears in the logs at all — a trainer tapping the wrong row is a real event and the guard refusing it would be the first evidence the guard was worth shipping.
+- And for Cătălina, who is the subject of this item: **whether she ever reaches `/my-work`.** She lands on `/profile` and nothing points her onward. If she does not, the indicator is not an improvement — it is the only route.
 
-**Lives in:** `lib/landing.ts` (the rule, and why it is right for her); `app/(app)/my-work/page.tsx` (`unconfirmedCount`, the number that already exists); `app/(app)/shell-chrome.tsx` (one candidate placement); items 160 and 161 above.
+**Re-verify when:** 2 November has happened. Not 28 October — the day the workshops are taught is no longer the day anything is learned.
+
+**Lives in:** `lib/landing.ts` (the rule, and why it is right for her); `app/(app)/my-work/page.tsx` (`unconfirmedCount`, the number that already exists); `app/(app)/shell-chrome.tsx` (one candidate placement); `app/(app)/groups/[id]/group-detail-client.tsx` (the `to confirm` bucket, placed first for this day); items 160 and 161 above, and item 164 below.
+
+---
+### 164. 348 tests, 22 conventions, and the step that failed was the one with no mechanism — a person telling two people
+
+2026-10-26. Observed by Mihai when the 28 October plan did not happen. **Nothing is built for this.** It is recorded because the shape will recur, and because naming it is the only intervention that was asked for.
+
+**What was in place.** 348 assertions across 22 files. 22 conventions. Five migrations that refuse to apply if their own preconditions are not met — one of them refused this week, correctly, over an assertion that was wrong. Guards that return `future_session` rather than write a false row. A register that fails CI if an item's cross-reference points the wrong way.
+
+**What was scheduled.** *Anca tells Lorina and Cătălina on Friday; the invitation goes out Monday.*
+
+**The second one is the only step in the entire chain with no mechanism of any kind, and it is the one that did not happen.** Not because anyone forgot in a culpable way — because **a date written in an item does not ring anybody's phone.**
+
+> **Every adoption step from here has that same shape, and none of them has an assertion.** Somebody tells somebody. Somebody receives an email and acts on it. Somebody opens a screen for the first time. Somebody notices a red line and understands it as a debt rather than a notification. Not one of those is a row, a return code or a test, and all of them are load-bearing.
+
+**What this is NOT.** It is not an argument for building a reminder, a task queue, a nudge or an onboarding checklist. Mihai was explicit, and the reasoning is the same as item 163's: a surface built to solve a coordination problem nobody has observed yet would be designed from a guess. The application has still never had a trainer sign in.
+
+**What it IS.** A change in how these steps get written down:
+
+> **Stop recording a human step as a date. Record it as a step that needs a NAMED PERSON and a NAMED MOMENT**, and write the dependency explicitly where the dependent step lives.
+
+The difference in practice, on the same step:
+
+| | |
+|---|---|
+| before | *"Monday 26 October — Lorina's invitation goes out."* |
+| after | *"Thursday 29 October — Lorina's invitation goes out, **after Mihai confirms Anca has spoken to her**. Not on the date alone."* |
+
+The second version has a precondition that can be **checked** rather than a date that can **pass**. It cannot fail silently: somebody asks Mihai, and either the answer is yes or the step is visibly not ready. That is as close to an assertion as a human step gets, and it costs a clause.
+
+**And the asymmetry worth sitting with**, because it is the actual finding rather than the fix:
+
+> The parts of this system that are checked are checked **extremely** well. The parts that are not checked are not checked **at all** — and the boundary between them is invisible from inside either side. From inside the migrations, everything has a guard. From inside the plan, everything has a date. Nobody was looking at the seam.
+
+**Where else the seam already exists today**, recorded so the list is a thing rather than a feeling: Anca being asked about the principal/secundar differential (item 2 below, still open); Cătălina not knowing she holds the Trainer role (item 163); whether the Deutsche Schule's 30 June is a half day (item 159, a question for the school); the six remaining schools' data (item 159); and `groups.school_year_calendar_link` still holding an unreadable Drive folder (item 154). **Every one of them is waiting on a person, and not one has a mechanism.**
+
+**Re-verify when:** an adoption step is being planned. The check is one question — *who, specifically, and what tells us it happened?*
+
+**Lives in:** item 163 above (where the reframed dates now carry their preconditions); items 154 and 159 above and item 2 below (the other steps waiting on a person); `DATABASE_CONVENTIONS.md` §20 (the same instinct applied to data — a thing that did not happen has to leave a trace, or it is indistinguishable from a thing nobody looked at).
 
 ---
 ### 151. `trainer_grade_assignments.source` accepts `'computed'` and nothing computes — the automation it was built for needs an hours history we do not have
