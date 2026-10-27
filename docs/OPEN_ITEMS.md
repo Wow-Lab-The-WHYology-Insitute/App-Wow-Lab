@@ -270,6 +270,37 @@ see item 115 below for the full accounting of that bound.
 
 ---
 
+## Readiness before invitation — Mihai's standing decision, 2026-10-27, above every item below
+
+**Nobody is invited into this application in order to find out what is broken.** That is the
+decision, stated once, permanently, and it outranks every item in this register: no item's
+"blocked on nothing" or "ready to build" licenses sending a real person a sign-in link. A person's
+first login is not a test environment — it is an account that will land wrong, read a lying
+number, or get stuck, in front of someone whose job is not to debug this application.
+
+**The threshold is finite and stated so it can be checked, not felt.** For ONE trainer, on their
+own phone:
+
+1. **They see their own workshops, without asking anyone where they are.**
+2. **They confirm the correct one, without mis-tapping on the phone.**
+3. **They can repair a mistake themselves — not through Operations.**
+4. **Nothing on the screen states something false.**
+
+Four conditions, each independently checkable against the live application by opening it and
+trying. **The bar is not "everything is good."** It is narrower and it is the right bar:
+**nothing on the screen lies, and nothing stops the person who is trying to do the right thing.**
+A screen can be ugly, slow, or missing a feature and still clear this; a screen that shows a
+number computed against the wrong assumption, or a control with no way back from a mistake, does
+not — regardless of how much else works.
+
+Every item in this register that touches a screen a trainer will actually open is read against
+this threshold before it is read as "done." Items 159–164 are the ones that currently define it
+in practice; a session resuming this work checks those four conditions against the live app
+**before** treating any invitation date as real, no matter what the register's own narrative
+elsewhere implies about timing.
+
+---
+
 ## No scheduled execution mechanism — decided, not built now
 
 **Decision, 2026-09-01: no scheduling mechanism is being built.** Nothing on this stack runs on a
@@ -8724,7 +8755,7 @@ That sentence is a **claim about the world**, and a claim about the world can be
 ---
 ### 163. Cătălina gets no signal that she is a trainer — and the indicator is deliberately NOT built before the first real confirmation
 
-2026-10-22, **reframed 2026-10-26**. **Trigger: build after Monday 2 November 2026, and decide where it lives from what happens that day.**
+2026-10-22, **reframed 2026-10-26, state corrected 2026-10-27**. **Trigger: build after the first real confirmation happens, and decide where it lives from what happens that day. No calendar date is the trigger — see the correction below.**
 
 **The gap.** Cătălina holds two of the four workshops on 28 October. The six repairs of item 161 — the sorted buckets, the 44px button, the read-only list — are all on `/groups/[id]` and `/my-work`, and **she sees none of them on arrival**, because `resolveLandingPath` sends her to `/profile`. She holds `mywork.*` through the Trainer role granted on 2026-10-20 **and** `groups.read`, `curriculum.validate` and the rest through Operations Manager, so `has_beyond` is true.
 
@@ -8744,33 +8775,34 @@ The candidate placements are genuinely different products and the day will discr
 
 **The four workshops of Wednesday 28 October happen and STAY UNCONFIRMED.** The `to confirm` bucket stops being empty — the exact day it was put first for. And the first sign-in becomes a better test than the one that was lost:
 
-> A same-day confirmation tests one tap. **A confirmation of a debt tests the mechanism the month-end close depends on.** Lorina signs in on Monday 2 November and finds real work owed, which is what she will feel at the end of every month.
+> A same-day confirmation tests one tap. **A confirmation of a debt tests the mechanism the month-end close depends on.** Whenever Lorina first signs in, she will find real work owed rather than one clean row — which is what she will feel at the end of every real month.
 
 **1. OPERATIONS DO NOT CONFIRM THE FOUR WORKSHOPS OF 28 OCTOBER. This is an instruction, not a preference.** Not to tidy the record, not to clear the red line off a screen, not because a month is closing. Anka, Anca and Mihai all hold a path that would do it — `rpc_correct_session_confirmation` admits `finance.operations.*`, `org.settings.manage` and the platform-owner flag. **If anybody confirms on their behalf, the only test that matters is gone**, and what remains is a spreadsheet that moved into Postgres.
 
 The four rows are: Avenor 15:15 and 16:15 (Cătălina), Deutsche Schule 15:30 and 16:25 (Lorina).
 
-**The dates, as they now stand:**
+**CORRECTION, 2026-10-27 — the 2 November / 4 November table below was wrong, and it was wrong in a specific way.** The previous version of this item named Monday 2 November as Lorina's first sign-in and Wednesday 4 November as the first same-day confirmation, presented as dates that would happen. **Mihai removed both.** His own words: *"2 noiembrie a fost SCOS ca dată. Era propunerea consilierului, nu a lui Mihai."* Those were an advisor's forward projection of what a plausible week looks like, written with the confidence of a plan, when no such plan had been made by the person who actually controls the invitation. That is exactly the failure item 164 names from the other side — a human step treated as a date rather than as a thing a named person still has to decide. Removed rather than kept as "indicative," because an indicative wrong date does the same damage as a committed one to anyone who reads it later without this correction attached.
 
-| | |
-|---|---|
-| **Wednesday 28 October** | Four workshops are taught. **Nobody confirms them.** The `to confirm` bucket becomes real. |
-| **Thursday 29 October** | Lorina's invitation goes out — **after Mihai confirms Anca has spoken to her**, not on the date alone. |
-| **Monday 2 November** | Lorina's first sign-in. Her `to confirm` holds **her two workshops of 28 October** — she has none on the 2nd, her groups are Wednesdays. **The first confirmation in this application made by the person who taught the class**, and it is retroactive, five days old. Cătălina teaches at the Lycée that afternoon, so for her the same day offers a debt *and* a same-day row. |
-| **Wednesday 4 November** | Avenor ×2 (Cătălina) and the Deutsche Schule ×2 (Lorina) — not the Lycée, whose days are Monday and Tuesday. The first chance at a **same-day** confirmation from a trainer who has already used the screen once. |
-| **after 2 November** | This item is built, placement decided from what happened. |
+**What is actually true as of 2026-10-27:**
 
-**What to watch on 2 November — not on 28 October, which is the point of the reframe:**
+- **The message to Anca went out today.** Lorina and Cătălina are to learn about their Trainer access **from Anca**, not from this application and not from an email it sends — there is no such email path (above).
+- **Lorina's invitation is promised for Thursday 29 October.** This is **Mihai's commitment to Anca**, a person, not a date entered in this register. It is written here because it is the fact in flight, not because the register is what makes it binding.
+- **The precondition on the invitation is Mihai's own check**, against the four conditions in the standing decision at the top of this register ("Readiness before invitation"): opening `/my-work` and a group page on his own phone and confirming the six things item 161 built — the buckets, the 44px button, the read-only list, the two corrected figures, the collapsing, the scrolling — actually hold up. **This check has not happened yet.** The invitation does not go out until it does, independent of the 29th.
+- **Wednesday 28 October still happens exactly as decided above:** the four workshops are taught, nobody confirms them, and the `to confirm` bucket stops being empty. That part of the plan did not depend on Anca and is unaffected by today's correction.
 
-- **Is `to confirm` the first thing she sees?** It is rendered first and in `text-brand-pink`, and this is the first time it has ever had rows in it. If it is not where her eye goes, the bucket order is wrong and no amount of reasoning about it will say so.
+**What this item does NOT claim any more:** a specific date for Lorina's first sign-in, or for the first same-day confirmation. Those are now simply **after the invitation goes out**, whenever Mihai's check clears it — and the trigger for building the indicator (top of this item) moves with them rather than sitting on a date that already proved wrong once.
+
+**What to watch, once the invitation has actually gone out and someone has actually signed in** — unchanged in substance, only no longer pinned to a date that was never real:
+
+- **Is `to confirm` the first thing she sees?** It is rendered first and in `text-brand-pink`, and this will be the first time it has ever had rows in it. If it is not where her eye goes, the bucket order is wrong and no amount of reasoning about it will say so.
 - **Does she read it as a debt or as a notification?** Those produce different behaviour: a debt gets cleared now, a notification gets acknowledged and left. The hint under the heading says *"Deja ținute, neconfirmate — plata urmează confirmarea"*, and whether that lands is the question §21 cannot answer from the outside.
 - **How long from opening to confirmed?** Not as a performance figure — as the measure of how many steps the route actually has. She lands on `/my-work`, reads a list, taps into a group, finds the bucket, taps the button. Five is the design; the observed number is the finding.
 - Whether `future_session` appears in the logs at all — a trainer tapping the wrong row is a real event and the guard refusing it would be the first evidence the guard was worth shipping.
 - And for Cătălina, who is the subject of this item: **whether she ever reaches `/my-work`.** She lands on `/profile` and nothing points her onward. If she does not, the indicator is not an improvement — it is the only route.
 
-**Re-verify when:** 2 November has happened. Not 28 October — the day the workshops are taught is no longer the day anything is learned.
+**Re-verify when:** the first real confirmation has happened. Not on any date written in this item — that is the thing 2026-10-27 corrected.
 
-**Lives in:** `lib/landing.ts` (the rule, and why it is right for her); `app/(app)/my-work/page.tsx` (`unconfirmedCount`, the number that already exists); `app/(app)/shell-chrome.tsx` (one candidate placement); `app/(app)/groups/[id]/group-detail-client.tsx` (the `to confirm` bucket, placed first for this day); items 160 and 161 above, and item 164 below.
+**Lives in:** the "Readiness before invitation" decision above (the four conditions Mihai's own phone check is against); `lib/landing.ts` (the rule, and why it is right for her); `app/(app)/my-work/page.tsx` (`unconfirmedCount`, the number that already exists); `app/(app)/shell-chrome.tsx` (one candidate placement); `app/(app)/groups/[id]/group-detail-client.tsx` (the `to confirm` bucket, placed first for this day); items 160 and 161 above, and item 164 below.
 
 ---
 ### 164. 348 tests, 22 conventions, and the step that failed was the one with no mechanism — a person telling two people
