@@ -13,6 +13,7 @@ export type UpcomingSession = {
   schoolName: string | null;
   module: string | null;
   confirmed: boolean;
+  isFuture: boolean;
 };
 
 // Client only because useTranslations needs LocaleContext -- same split as
@@ -140,7 +141,11 @@ export function MyWorkClient({
                       </span>
                     </span>
                     <span className="font-body text-muted shrink-0 text-xs">
-                      {s.confirmed ? t("upcoming_confirmed") : t("upcoming_open")}
+                      {s.confirmed
+                        ? t("upcoming_confirmed")
+                        : s.isFuture
+                          ? t("upcoming_not_yet")
+                          : t("upcoming_open")}
                     </span>
                   </Link>
                 </li>

@@ -8843,6 +8843,51 @@ The second version has a precondition that can be **checked** rather than a date
 **Lives in:** item 163 above (where the reframed dates now carry their preconditions); items 154 and 159 above and item 2 below (the other steps waiting on a person); `DATABASE_CONVENTIONS.md` §20 (the same instinct applied to data — a thing that did not happen has to leave a trace, or it is indistinguishable from a thing nobody looked at).
 
 ---
+### 165. The language switcher lived on four pages a pure Trainer can't reach, and the default never asked the device — FIXED, 2026-10-29
+
+Found the same way items 160-164 were: Mihai's own phone, in Test Org B, walking the trainer path end to end. The interface was in English and he asked the obvious next question — what does a brand-new account get, before it ever touches the switch, and can it get back out?
+
+**The default.** `lib/i18n.tsx`'s `LocaleProvider` initialised `useState<Locale>("en")` unconditionally, for every session, every account, every device — no read of `navigator.language`, no column on `users`, nothing. English, always, until `localStorage` says otherwise.
+
+**The reachability gap, which turned out to be the real bug.** `LocaleSwitcher` was rendered individually on exactly four pages — `/clients`, `/suppliers`, `/groups` (the list), `/contracts` — never in the shell. The Trainer role's own capability grant (`mywork.*`, `curriculum.read`, `presentations.own`, `materials.custody`, `finance.own.read`, `community.read` — confirmed live, nothing else) holds **none** of `groups.read`/`clients.read`/`contracts.read`/`suppliers.read`. A pure trainer — Lorina, Cătălina once her Trainer-only path is what's being tested — can reach exactly two screens, `/my-work` and `/groups/[id]`, and the switcher was on neither. **Whatever the default was, a trainer who got the wrong one had no way back**, on any device, ever, through any screen their role can open. That is the actual finding: the default's value was never the problem Mihai's question pointed at — the missing exit was.
+
+**Fixed, both halves:**
+
+1. **The switcher moved into `app/(app)/shell-chrome.tsx`**, beside identity in the header, instead of living on four individual pages — removed from `clients-client.tsx`, `suppliers-client.tsx`, `groups-client.tsx`, `contracts-client.tsx`. `components/ui/locale-switcher.tsx`'s own original comment already named this exact move as the next step "once more pages adopt `useTranslations()`" — it just hadn't happened yet. A language preference is global by nature; the shell is the one place every signed-in role, regardless of capability, passes through.
+2. **The default now reads `navigator.language`** once, client-side, on first mount: `ro-*` → `ro`, anything else → `en`. An explicit `localStorage` choice is checked first and still wins — this only changes what happens before anyone has ever touched the switch. We are not choosing a policy (RO vs EN) here; we are reading what the device the trainer is already holding already says.
+
+**NOTED, NOT BUILT, per Mihai's own instruction not to over-build this:** the choice still lives in `localStorage`, which is per-**browser**, not per-account. A trainer who changes phones loses an explicit override and falls back to whatever that new device's own language is — which the browser-read default above already resolves correctly for the ordinary case (a Romanian trainer's own phone reports `ro-RO`), so the new-device case this item opened with is not actually left open by this fix. If a trainer's language preference ever needs to survive a device change as an explicit choice rather than a re-read guess, that is a `users` column and a decision of its own — not a retrofit of this fix, and not needed until someone is actually blocked by it.
+
+**Re-verify when:** the first real trainer signs in on their own phone for the first time (the same trigger items 163/164 are already waiting on) — confirm the interface opens in a language they didn't have to go looking for, and that the switch, now in the shell, is where they'd expect to find it if they ever do need it.
+
+**Lives in:** `lib/i18n.tsx` (`LocaleProvider`); `components/ui/locale-switcher.tsx`; `app/(app)/shell-chrome.tsx`; `app/(app)/clients/clients-client.tsx`, `app/(app)/suppliers/suppliers-client.tsx`, `app/(app)/groups/groups-client.tsx`, `app/(app)/contracts/contracts-client.tsx` (the four pages it used to live on alone); items 163 and 164 above (the same walkthrough, the same cluster).
+
+---
+### 166. `sessions` INSERT can write an already-confirmed workshop, on any date, through neither of the two guards that exist specifically to stop that — not fixed, a decided trigger
+
+Found 2026-10-29, same pass that added the attendance-recording guard (item 2 of the same walkthrough, `202610280001`), by asking the question that guard's own header should have asked first: is the RPC the only way onto this column.
+
+**The shape of the gap, confirmed live, not assumed.** `authenticated` holds table-level `INSERT` on `sessions` across **all 18 columns** — `trainer_principal_confirmed_at` and `trainer_secundar_confirmed_at` among them — gated by exactly one RLS `WITH CHECK`: `is_platform_owner() OR org.settings.manage OR sessions.create`. RLS filters **rows**, never columns, so that capability check has no opinion at all about which columns a given INSERT sets. **A single INSERT can create a session that is already marked confirmed, on any `session_date` including the future, naming any trainer, having never passed through either guard that exists for exactly this fact:**
+
+- `app.rpc_confirm_session_attendance` / `app.rpc_correct_session_confirmation` (202610220001) — the trainer's own assertion and Operations' correction path, both refusing a future-dated `true`.
+- `app.rpc_update_session_attendance` (202610280001, today) — the attendance-count/experiment guard this same pass just added.
+
+Both guards live on **UPDATE**. Item 91 (202609220001-2) revoked `authenticated`'s table-level UPDATE grant on `sessions` for exactly this reason — a raw PATCH could set the co-trainer's confirmation column directly — and routed every column-sensitive write through a `SECURITY DEFINER` function instead. **INSERT was never part of that revocation.** It still needs to exist (Operations has to be able to create a session at all), and nobody re-asked item 91's own question against it: an INSERT with the right capability and the wrong intent writes exactly what the RPCs now refuse, through the one door item 91 left open.
+
+**This is the exact shape the 14-school import migration (202610200004) refused to produce by hand** — a workshop recorded as confirmed that nobody actually confirmed — now reachable by a single API call instead of a migration author's deliberate choice. And it is the INSERT-side mirror of `DATABASE_CONVENTIONS.md` §19: a row created this way would record a confirmation with **nobody who actually asserted it** — the exact substitution §19 names, just arrived at through a different door than the three it was written about.
+
+**Not fixed now — written as an item with an explicit trigger, per Mihai's own instruction.** It closes when either becomes true:
+
+1. **Someone outside Operations-tier roles can create sessions.** Today `sessions.create`/`org.settings.manage` is held only by Operations Manager, Organization Owner, and Platform Owner (confirmed live) — the exposure requires already being one of exactly three trusted internal roles.
+2. **Something other than `addSession` (`app/(app)/groups/actions.ts`) ever writes to `sessions` via INSERT** — a future integration, an import script, anything that isn't the one form that exists today.
+
+**Until one of those fires, the real app never exercises this:** `addSession`'s own insert object never sets either confirmation column (confirmed by reading it — only `attendance_count`/`experiment_delivered`/scheduling fields are in that object, and those now carry their own future-date guard, item 2 of this same walkthrough). The gap is reachable only by a raw `POST /rest/v1/sessions` nothing in this application ever sends — the same class of residual exposure item 2's own write-up named for `addSession`'s attendance fields, one level up the same hole.
+
+**What NOT to build in response to this, same reasoning as items 163/164:** revoking `authenticated`'s table-level INSERT on `sessions` and routing creation through a new `SECURITY DEFINER` function the way item 91 did for UPDATE is the eventual right shape — but building it now, against a trigger that hasn't fired, for three roles who have never actually done this, would be designing the function's column-narrowing from a guess about which columns ever need restricting at creation (today: none of them do, through the one form that exists).
+
+**Lives in:** `sessions`' own grants (`information_schema.column_privileges`, confirmed live) and its `"authenticated insert sessions"` RLS policy; `app/(app)/groups/actions.ts` (`addSession`, the one real path); `supabase/migrations/202609220001` (item 91 — UPDATE-only re-routing, the precedent this item asks be revisited if the trigger fires); `202610220001` and `202610280001` (the two UPDATE-only guards this gap sits beside); `DATABASE_CONVENTIONS.md` §19.
+
+---
 ### 151. `trainer_grade_assignments.source` accepts `'computed'` and nothing computes — the automation it was built for needs an hours history we do not have
 
 2026-10-20. All **11** assignments in the real org carry `source = 'manual'`; the CHECK admits `'computed' | 'manual'` and the second value has never been written. That is not an oversight — it is a placeholder for a requirement, and the requirement is named.

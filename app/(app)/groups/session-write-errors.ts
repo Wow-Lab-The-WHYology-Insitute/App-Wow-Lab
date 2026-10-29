@@ -26,3 +26,11 @@ export const SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR =
 // the closed-month string says what is closed rather than which gate fired.
 export const SESSION_CONFIRMATION_FUTURE_ERROR =
   "This workshop has not happened yet. You can confirm it on the day.";
+
+// 202610280001's return code on app.rpc_update_session_attendance. Same
+// wording shape as SESSION_CONFIRMATION_FUTURE_ERROR, but its own sentinel
+// -- "record attendance" and "confirm" are different acts with different
+// RPCs, and the two must stay independently matchable even though today
+// they'd read almost the same.
+export const SESSION_ATTENDANCE_FUTURE_ERROR =
+  "This workshop has not happened yet. You can record attendance on the day.";

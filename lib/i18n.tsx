@@ -42,9 +42,35 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   // Read the persisted choice after mount, not in the initial useState
   // initializer — localStorage isn't available server-side, and reading it
   // eagerly would produce a client/server markup mismatch on first paint.
+  //
+  // Found 2026-10-29 (Mihai's own phone walkthrough, items 163-166): a
+  // brand-new account used to get English unconditionally here, with no
+  // read of anything about who the person is or what device they're on —
+  // and, until today, no way back out of it either (see LocaleSwitcher's
+  // own history: it lived on four pages a pure Trainer role can't reach at
+  // all, now moved to the shell). The default is now read from the
+  // browser: ro-* -> ro, anything else -> en. We are not choosing a
+  // policy here, just reading what the device already says. An explicit
+  // localStorage choice still wins over this -- it's a deliberate
+  // override, checked first.
+  //
+  // NOTED, NOT BUILT: this stays per-browser (localStorage), same as
+  // before. A trainer who switches phones loses an explicit override and
+  // falls back to that NEW device's own language -- which the read below
+  // already resolves correctly for the common case (a Romanian trainer's
+  // own phone says ro-RO everywhere), so the new-device case isn't the
+  // open problem browser-reading was for. If a trainer's language ever
+  // needs to follow their ACCOUNT instead of their browser, that is a
+  // `users` column and a decision of its own, not a retrofit here.
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === "en" || stored === "ro") setLocaleState(stored);
+    if (stored === "en" || stored === "ro") {
+      setLocaleState(stored);
+      return;
+    }
+    if (window.navigator.language?.toLowerCase().startsWith("ro")) {
+      setLocaleState("ro");
+    }
   }, []);
 
   function setLocale(l: Locale) {

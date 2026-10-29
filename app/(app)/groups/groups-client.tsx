@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { addGroup } from "./actions";
-import { useTranslations, LOCALE_SWITCHER_ENABLED } from "@/lib/i18n";
-import { LocaleSwitcher } from "@/components/ui/locale-switcher";
+import { useTranslations } from "@/lib/i18n";
 import { groupsDict } from "./i18n";
 import { GroupDetailPanel } from "./group-detail-panel";
 import { normalizeForSearch } from "@/lib/search";
@@ -492,16 +491,13 @@ export function GroupsClient({
           were gap-6 and p-6 — the same 24px for "between the page's major
           blocks" and "a card's own padding", which is why the title, the
           button and the table card read as one undifferentiated stack. */}
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl text-brand-pink">
-            {isTrainerView ? t("page_title_trainer_view") : t("page_title")}
-          </h1>
-          <p className="font-body text-muted mt-1 text-sm">
-            {isTrainerView ? t("page_subtitle_trainer_view") : t("page_subtitle")}
-          </p>
-        </div>
-        {LOCALE_SWITCHER_ENABLED && <LocaleSwitcher />}
+      <div>
+        <h1 className="font-display text-2xl text-brand-pink">
+          {isTrainerView ? t("page_title_trainer_view") : t("page_title")}
+        </h1>
+        <p className="font-body text-muted mt-1 text-sm">
+          {isTrainerView ? t("page_subtitle_trainer_view") : t("page_subtitle")}
+        </p>
       </div>
 
       {error && (

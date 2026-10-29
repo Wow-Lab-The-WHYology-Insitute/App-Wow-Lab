@@ -7,6 +7,7 @@ import {
   SESSION_CONFIRMATION_FUTURE_ERROR,
   SESSION_CONFIRMATION_MONTH_CLOSED_ERROR,
   SESSION_ATTENDANCE_MONTH_CLOSED_ERROR,
+  SESSION_ATTENDANCE_FUTURE_ERROR,
   SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR,
 } from "./session-write-errors";
 
@@ -302,6 +303,20 @@ export async function addSession(
     return { ok: false, error: "Workshop date is required." };
   }
 
+  // Found 2026-10-28 alongside the identical gap on rpc_update_session_attendance
+  // (202610280001): this insert is the OTHER place attendance_count/
+  // experiment_delivered can be written, and nothing here checked the date
+  // either. NewSessionForm's own attendance/experiment fields exist for
+  // logging a one-off workshop that already happened and was never entered
+  // until after the fact -- not for a workshop scheduled ahead. Same
+  // sentinel, same message, same principle as that RPC's guard; this path
+  // just isn't routed through an RPC (item 91 only revoked UPDATE, not
+  // INSERT), so the check has to live here instead of in the database.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  if (sessionDate > todayIso && (attendanceCount.trim() || experimentDelivered.trim())) {
+    return { ok: false, error: SESSION_ATTENDANCE_FUTURE_ERROR };
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("sessions")
@@ -447,6 +462,9 @@ export async function updateSessionAttendance(
   }
   if (data === "month_closed") {
     return { ok: false, error: SESSION_ATTENDANCE_MONTH_CLOSED_ERROR };
+  }
+  if (data === "future_session") {
+    return { ok: false, error: SESSION_ATTENDANCE_FUTURE_ERROR };
   }
 
   revalidatePath(`/groups/${groupId}`);

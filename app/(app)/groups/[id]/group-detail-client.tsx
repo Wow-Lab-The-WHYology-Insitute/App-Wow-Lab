@@ -15,7 +15,25 @@ import {
   SESSION_ATTENDANCE_MONTH_CLOSED_ERROR,
   SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR,
   SESSION_CONFIRMATION_FUTURE_ERROR,
+  SESSION_ATTENDANCE_FUTURE_ERROR,
 } from "../session-write-errors";
+
+// Found 2026-10-28 on Mihai's own phone walkthrough: two-three screens of
+// blank, scrollable space appeared below this page's last card on iPhone
+// after editing a session inline. This is a known WebKit quirk, not
+// speculative CSS -- a focused <input>/<select> that gets removed from the
+// DOM (an edit-mode exit: Save, Cancel, Undo) without first losing focus can
+// leave Safari's scrollable viewport stuck at the taller, keyboard-open
+// height, because the element disappears instead of firing a real blur. The
+// standard fix is to blur it ourselves, BEFORE React unmounts it, on every
+// edit-mode exit on this page. NOT independently verified against a real
+// iPhone by this session (no device available here) -- applied because it
+// is correct practice regardless of whether this exact path was the
+// trigger; Mihai's own phone is the only way to confirm the blank space is
+// gone.
+function blurActiveElement() {
+  (document.activeElement as HTMLElement | null)?.blur();
+}
 
 type Session = {
   id: string;
@@ -188,6 +206,7 @@ export function GroupDetailClient({
   }
 
   function cancelEditing(s: Session) {
+    blurActiveElement();
     setPrincipalDraft((prev) => ({ ...prev, [s.id]: s.trainer_principal_id ?? "" }));
     setSecundarDraft((prev) => ({ ...prev, [s.id]: s.trainer_secundar_id ?? "" }));
     setEditingSessionId(null);
@@ -201,7 +220,10 @@ export function GroupDetailClient({
       try {
         const result = await updateSessionAllocation(groupId, s.id, principal, secundar);
         if (!result.ok) setError(result.error);
-        else setEditingSessionId(null);
+        else {
+          blurActiveElement();
+          setEditingSessionId(null);
+        }
       } catch {
         setError(t("network_error"));
       }
@@ -215,6 +237,7 @@ export function GroupDetailClient({
   }
 
   function cancelEditingAttendance(s: Session) {
+    blurActiveElement();
     setAttendanceDraft((prev) => ({ ...prev, [s.id]: s.attendance_count?.toString() ?? "" }));
     setExperimentDraft((prev) => ({ ...prev, [s.id]: s.experiment_delivered ?? "" }));
     setEditingAttendanceId(null);
@@ -232,10 +255,13 @@ export function GroupDetailClient({
             setError(t("attendance_month_closed_error"));
           } else if (result.error === SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR) {
             setError(t("confirmation_not_assigned_error"));
+          } else if (result.error === SESSION_ATTENDANCE_FUTURE_ERROR) {
+            setError(t("attendance_future_error"));
           } else {
             setError(result.error);
           }
         } else {
+          blurActiveElement();
           setEditingAttendanceId(null);
           setPendingAttendance({
             sessionId: s.id,
@@ -1003,6 +1029,11 @@ function SessionTableRow({
                     {t("cancel")}
                   </button>
                 </>
+              ) : isFuture ? (
+                // Same guard as 202610280001's RPC, said instead of offered:
+                // a disabled button teaches nothing on being tapped, a
+                // sentence says why there is nothing to tap yet.
+                <span className="text-muted shrink-0 text-xs italic">{t("attendance_not_yet")}</span>
               ) : (
                 <button
                   type="button"
@@ -1207,13 +1238,17 @@ function SessionCard({
               </button>
             )}
             {canEditAttendance && !isSavingAttendance && (
-              <button
-                type="button"
-                onClick={onStartEditingAttendance}
-                className="text-brand-pink w-full rounded-full border border-black/10 px-3 py-2 text-xs font-semibold uppercase"
-              >
-                {t("record_attendance_button")}
-              </button>
+              isFuture ? (
+                <p className="font-body text-muted text-xs italic">{t("attendance_not_yet")}</p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onStartEditingAttendance}
+                  className="text-brand-pink w-full rounded-full border border-black/10 px-3 py-2 text-xs font-semibold uppercase"
+                >
+                  {t("record_attendance_button")}
+                </button>
+              )
             )}
           </div>
         </>

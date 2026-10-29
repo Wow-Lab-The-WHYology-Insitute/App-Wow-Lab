@@ -333,6 +333,19 @@ export const groupsDict: Dictionary = {
     en: "This month is closed. You can no longer change attendance for this workshop.",
     ro: "Luna este închisă. Nu mai poți modifica prezența pentru acest atelier.",
   },
+  // 202610280001: found on Mihai's walkthrough, the "Record attendance"
+  // button rendered on a workshop two weeks out with no guard at all. Same
+  // shape as confirmation_not_yet/confirmation_future_error beside it --
+  // the sentence replaces the button instead of disabling it, and the
+  // screen and the database refuse for the same reason.
+  attendance_not_yet: {
+    en: "Not yet — you can record attendance on the day.",
+    ro: "Încă nu — poți înregistra prezența în ziua atelierului.",
+  },
+  attendance_future_error: {
+    en: "This workshop has not happened yet. You can record attendance on the day.",
+    ro: "Atelierul nu a avut loc încă. Poți înregistra prezența în ziua respectivă.",
+  },
   // Dead-zone cover, same reasoning as saving_row above: isPending ends
   // before the revalidated sessions prop actually reflects the write, so
   // these replace the checkbox/value for that gap instead of letting it

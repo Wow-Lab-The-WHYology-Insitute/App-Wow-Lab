@@ -26,6 +26,12 @@ is in Romanian; code, comments, commits and this file are in English.
 - **Item 164** — process finding: human adoption steps ("a person tells two people") have no
   mechanism and no assertion anywhere in this codebase. Nothing is built for it. Read it before
   writing a date into any plan involving a person outside this session.
+- **Items 165–166** — found 2026-10-29 on Mihai's own trainer-path walkthrough in Test Org B.
+  Item 165 (the language switcher was unreachable from every screen a pure Trainer can open —
+  **fixed**: moved to the shell, default now reads the browser) is closed. Item 166 (`sessions`
+  INSERT can write an already-confirmed workshop on any date, through neither write-path guard —
+  **not fixed**, a decided trigger) is open; read it before touching `sessions`' INSERT policy or
+  grants, or before routing session creation through a new function.
 - **Items 159–162** — the school-calendar and schedule-generation work this week: three schools'
   real calendars replacing a wrong national-default assumption, the resulting cancel/generate
   migrations, and a `§17c` audit of five more screens whose correctness depends on an unwritten

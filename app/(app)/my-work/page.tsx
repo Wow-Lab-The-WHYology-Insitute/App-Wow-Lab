@@ -134,10 +134,34 @@ export default async function MyWorkPage() {
   // DELIBERATELY NO CONFIRM BUTTON HERE. That would be this page's first write
   // path, first pending state and first error surface, four days before the
   // first trainer ever signs in. The button stays where it is tested.
-  const upcomingSessions = mine
-    .filter((s) => s.session_date >= todayIso && notCancelled(s))
-    .sort((a, b) => a.session_date.localeCompare(b.session_date))
-    .slice(0, 5);
+  //
+  // CORRECTED 2026-10-28, found on Mihai's own phone walkthrough: this used to
+  // be `session_date >= todayIso`, sorted ascending -- the chronologically
+  // NEXT five, full stop. That buries the debt. The banner above already names
+  // "N workshops aren't confirmed yet" (the past-or-today ones, `unconfirmed`
+  // below) -- and the chronological list could show a fifth, future, fully
+  // irrelevant workshop instead of either of them, which is exactly what
+  // happened: a 10 November row sat here labelled "To confirm" while the two
+  // actually-owed workshops (20 and 27 October) were nowhere on the card.
+  //
+  // "What's next" has to mean "what do you need to look at", not "what is
+  // chronologically closest" -- the same correction item 161 already made to
+  // this page's group-detail sibling (the overdue/today/upcoming bucket order
+  // in group-detail-client.tsx). This list now mirrors that exact order
+  // instead of quietly disagreeing with it: overdue debt first (oldest
+  // first -- the longest-standing one), then today, then future. A future
+  // row only appears here once every debt row and today's row are already
+  // shown and there is still room in the five.
+  const overdueDebt = mine
+    .filter((s) => s.session_date < todayIso && notCancelled(s) && myConfirmedAt(s) === null)
+    .sort((a, b) => a.session_date.localeCompare(b.session_date));
+  const todaySessions = mine
+    .filter((s) => s.session_date === todayIso && notCancelled(s))
+    .sort((a, b) => a.session_date.localeCompare(b.session_date));
+  const futureSessions = mine
+    .filter((s) => s.session_date > todayIso && notCancelled(s))
+    .sort((a, b) => a.session_date.localeCompare(b.session_date));
+  const upcomingSessions = [...overdueDebt, ...todaySessions, ...futureSessions].slice(0, 5);
 
   const upcomingGroupIds = [...new Set(upcomingSessions.map((s) => s.group_id))];
   const { data: upcomingGroups } = upcomingGroupIds.length > 0
@@ -176,6 +200,12 @@ export default async function MyWorkPage() {
       schoolName: group ? (clientNameById.get(group.client_id) ?? null) : null,
       module: group?.module ?? null,
       confirmed: myConfirmedAt(s) !== null,
+      // The second half of the same finding: a future, unconfirmed row was
+      // labelled "To confirm" here while the group page -- correctly -- said
+      // "Not yet, you can confirm this on the day" for the identical row. Two
+      // screens, one fact, opposite statements. The client now needs to tell
+      // the two apart to say the true one.
+      isFuture: s.session_date > todayIso,
     };
   });
 

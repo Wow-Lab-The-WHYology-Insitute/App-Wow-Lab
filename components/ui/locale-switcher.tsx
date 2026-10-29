@@ -2,10 +2,14 @@
 
 import { useLocale } from "@/lib/i18n";
 
-// Scoped to /contracts for now (rendered in its page header), not the
-// global topbar — i18n is only wired up on this one page so far; the
-// switcher moves to app/(app)/shell-chrome.tsx once more pages adopt
-// useTranslations().
+// Moved into app/(app)/shell-chrome.tsx 2026-10-29 (item 165), per this
+// comment's own original plan. It used to be rendered individually on four
+// pages (clients, suppliers, groups, contracts) -- found, on a real phone
+// walkthrough, to be unreachable by a pure Trainer role, which holds none
+// of those four read capabilities and therefore cannot open any page that
+// carried this control. A per-page placement doesn't work for a language
+// preference, which is global by nature; the shell is the one place every
+// signed-in role passes through.
 export function LocaleSwitcher() {
   const { locale, setLocale } = useLocale();
 

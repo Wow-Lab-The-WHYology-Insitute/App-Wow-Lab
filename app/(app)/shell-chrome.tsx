@@ -4,7 +4,8 @@ import { useState } from "react";
 import Image from "next/image";
 import { NavLink } from "./nav-link";
 import { SignOutButton } from "./sign-out-button";
-import { useTranslations } from "@/lib/i18n";
+import { useTranslations, LOCALE_SWITCHER_ENABLED } from "@/lib/i18n";
+import { LocaleSwitcher } from "@/components/ui/locale-switcher";
 import { chromeDict } from "./i18n";
 
 type NavItem = { href: string; labelKey: string };
@@ -157,7 +158,18 @@ export function ShellChrome({
               {roleLabel && <span className="text-muted ml-2">· {roleLabel}</span>}
             </div>
           </div>
-          <SignOutButton />
+          {/* Moved here 2026-10-29 (item 165) -- this used to live on four
+              individual pages (clients, suppliers, groups, contracts), none
+              of which a pure Trainer role can even reach (no groups.read/
+              clients.read/etc.). A role that can only ever open one or two
+              screens still needs to be able to find this, so it belongs
+              beside identity in the shell, not inside any one page -- the
+              component's own original comment already named this move as
+              the next step once more than one page used translations. */}
+          <div className="flex shrink-0 items-center gap-3">
+            {LOCALE_SWITCHER_ENABLED && <LocaleSwitcher />}
+            <SignOutButton />
+          </div>
         </header>
         <main className="flex-1 p-8">{children}</main>
       </div>

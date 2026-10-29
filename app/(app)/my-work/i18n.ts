@@ -62,6 +62,13 @@ export const myWorkDict: Dictionary = {
   // Not "Not confirmed": on a workshop that has not happened, that reads as a
   // failure when it is the ordinary state. "To confirm" names the next step.
   upcoming_open: { en: "To confirm", ro: "De confirmat" },
+  // Found 2026-10-28, on Mihai's own phone walkthrough: a future, unconfirmed
+  // row used to say "To confirm" here too -- the exact lie 202610220001
+  // already refused on the confirm button itself (confirmation_not_yet,
+  // app/(app)/groups/i18n.ts), just repeated one screen over because this
+  // label never asked the same question. "To confirm" is a next step; a
+  // workshop that cannot be confirmed yet has no next step to name.
+  upcoming_not_yet: { en: "Not yet", ro: "Încă nu" },
   upcoming_confirm_hint: {
     en: "Open a workshop to confirm you taught it.",
     ro: "Deschide un atelier pentru a confirma că l-ai ținut.",
