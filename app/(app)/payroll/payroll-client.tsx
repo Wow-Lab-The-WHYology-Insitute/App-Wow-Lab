@@ -102,6 +102,19 @@ export type PrincipalBonus = {
   entityUnlinked: boolean;
   bani: number;
 };
+// The month-close snapshot (B2, item 177): one row per (trainer, entity)
+// for the month ON SCREEN, written once at close and never again. Empty
+// when the displayed month was never closed, or when the snapshot insert
+// itself failed at close time (logged server-side, not surfaced here as
+// an error -- the close itself still stands either way).
+export type ClosedSnapshotRow = {
+  trainerId: string;
+  trainerName: string;
+  entityId: string | null;
+  entityName: string | null;
+  entityUnlinked: boolean;
+  amountBani: number;
+};
 
 export function PayrollClient({
   orgId,
@@ -112,6 +125,7 @@ export function PayrollClient({
   paySumsAvailable,
   principalBonuses,
   bonusesAvailable,
+  closedSnapshot,
 }: {
   orgId: string;
   // The month on display, "YYYY-MM", resolved on the server from
@@ -130,6 +144,7 @@ export function PayrollClient({
   paySumsAvailable: boolean;
   principalBonuses: PrincipalBonus[];
   bonusesAvailable: boolean;
+  closedSnapshot: ClosedSnapshotRow[];
 }) {
   const t = useTranslations(payrollDict);
   const { locale } = useLocale();
@@ -392,6 +407,54 @@ export function PayrollClient({
 
     return { entities };
   }, [principalBonuses, locale]);
+
+  // ---- "Closed at X, now shows Y" (B2, item 177) ----
+  // Compares the month-close snapshot against the SAME two live totals
+  // this screen already computes (trainerSums' payableBani + bonusSums'
+  // totalBani) for the identical (trainer, entity) key. Only ever
+  // produces a row when the two actually differ -- an unchanged month
+  // says nothing, the same "quiet unless there is something to say"
+  // choice the pending-amount caveat above already makes.
+  const closedComparison = useMemo(() => {
+    const liveByKey = new Map<string, { name: string; entityName: string | null; entityUnlinked: boolean; bani: number }>();
+    for (const ent of trainerSums.entities) {
+      for (const tr of ent.trainers) {
+        const key = `${ent.key}::${tr.id}`;
+        liveByKey.set(key, { name: tr.name, entityName: ent.name, entityUnlinked: ent.unlinked, bani: (liveByKey.get(key)?.bani ?? 0) + tr.payableBani });
+      }
+    }
+    for (const ent of bonusSums.entities) {
+      for (const tr of ent.trainers) {
+        const key = `${ent.key}::${tr.id}`;
+        const existing = liveByKey.get(key);
+        liveByKey.set(key, {
+          name: existing?.name ?? tr.name,
+          entityName: existing?.entityName ?? ent.name,
+          entityUnlinked: existing?.entityUnlinked ?? ent.unlinked,
+          bani: (existing?.bani ?? 0) + tr.totalBani,
+        });
+      }
+    }
+
+    const rows = closedSnapshot
+      .map((snap) => {
+        const key = `${snap.entityId ?? (snap.entityUnlinked ? "__unlinked__" : "__unreadable__")}::${snap.trainerId}`;
+        const live = liveByKey.get(key);
+        const nowBani = live?.bani ?? 0;
+        if (nowBani === snap.amountBani) return null;
+        return {
+          key,
+          trainerName: snap.trainerName,
+          entityName: snap.entityName,
+          entityUnlinked: snap.entityUnlinked,
+          closedBani: snap.amountBani,
+          nowBani,
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+
+    return rows.sort((a, b) => a.trainerName.localeCompare(b.trainerName, locale === "ro" ? "ro-RO" : "en-GB"));
+  }, [closedSnapshot, trainerSums, bonusSums, locale]);
 
   // ---- One block, one number: every workshop that cannot be paid yet ----
   // Two sources genuinely cover different things, which is why this merges
@@ -697,6 +760,24 @@ export function PayrollClient({
       </section>
 
       {/* ---- The sums, per trainer ---- */}
+      {closedComparison.length > 0 && (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+          <h2 className="font-body text-ink mb-2 text-sm font-bold">{t("closed_drift_heading")}</h2>
+          <ul className="flex flex-col gap-1.5">
+            {closedComparison.map((row) => (
+              <li key={row.key} className="font-body text-ink text-xs">
+                {t("closed_drift_row", {
+                  trainer: row.trainerName,
+                  entity: row.entityUnlinked ? t("sums_entity_unlinked") : row.entityName ?? t("sums_entity_unreadable"),
+                  closed: formatLei(row.closedBani, locale),
+                  now: formatLei(row.nowBani, locale),
+                })}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {paySumsAvailable && monthSlots.slots.length > 0 && (
         <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
           <h2 className="font-body text-muted mb-1 text-xs font-bold tracking-wide uppercase">

@@ -159,6 +159,20 @@ export default async function PayrollPage({
     .order("period", { ascending: false })
     .returns<PeriodRow[]>();
 
+  // The month-close snapshot (B2, item 177) for the month ON SCREEN,
+  // only -- never fetched for the whole history, same one-month scope as
+  // every other query on this page. Null when the displayed month was
+  // never closed; comparing "now" against "nothing was ever snapshotted"
+  // is not this page's job.
+  const currentPeriodRow = (periods ?? []).find((p) => p.period === `${monthKey}-01`) ?? null;
+  const { data: periodTotals } = currentPeriodRow
+    ? await supabase
+        .from("payroll_period_totals")
+        .select("trainer_id, legal_entity_id, amount_bani")
+        .eq("payroll_period_id", currentPeriodRow.id)
+        .returns<{ trainer_id: string; legal_entity_id: string | null; amount_bani: number }[]>()
+    : { data: null };
+
   // Month-scoped, since 202610160001. This fetch used to be org-wide
   // because the month picker was client state and the server could not
   // know which month to ask for; now that the month comes from the URL,
@@ -439,6 +453,18 @@ export default async function PayrollPage({
     return groupId ? entityOfGroup(groupId) : { id: null, name: null, unlinked: true };
   };
 
+  // The snapshot itself, named for display -- a null legal_entity_id is
+  // the same "payable but unattributable" bucket as everywhere else on
+  // this page, not a different state to explain twice.
+  const closedSnapshot = (periodTotals ?? []).map((r) => ({
+    trainerId: r.trainer_id,
+    trainerName: nameById.get(r.trainer_id) ?? "Unknown",
+    entityId: r.legal_entity_id,
+    entityName: r.legal_entity_id ? entityNameById.get(r.legal_entity_id) ?? null : null,
+    entityUnlinked: r.legal_entity_id === null,
+    amountBani: r.amount_bani,
+  }));
+
   // Integer bani, never a float. Every amount arrives already rounded to 2
   // decimals (rounded in numeric, inside the function -- see its migration
   // header for why the language doing the rounding decides the answer), and
@@ -527,6 +553,7 @@ export default async function PayrollPage({
           };
         })}
         bonusesAvailable={bonusRows !== null}
+        closedSnapshot={closedSnapshot}
       />
     </div>
   );

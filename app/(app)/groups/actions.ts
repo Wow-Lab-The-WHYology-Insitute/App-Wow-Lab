@@ -293,7 +293,6 @@ export async function addSession(
   trainerSecundarId: string,
   status: string,
   attendanceCount: string,
-  experimentDelivered: string,
   durationMinutes: string,
   experimentDriveLink: string,
   startTime: string,
@@ -303,17 +302,18 @@ export async function addSession(
     return { ok: false, error: "Workshop date is required." };
   }
 
-  // Found 2026-10-28 alongside the identical gap on rpc_update_session_attendance
-  // (202610280001): this insert is the OTHER place attendance_count/
-  // experiment_delivered can be written, and nothing here checked the date
-  // either. NewSessionForm's own attendance/experiment fields exist for
-  // logging a one-off workshop that already happened and was never entered
-  // until after the fact -- not for a workshop scheduled ahead. Same
-  // sentinel, same message, same principle as that RPC's guard; this path
-  // just isn't routed through an RPC (item 91 only revoked UPDATE, not
-  // INSERT), so the check has to live here instead of in the database.
+  // Found 2026-10-28 (202610280001): this insert is the OTHER place
+  // attendance_count could be written with no date guard. NewSessionForm's
+  // own attendance field exists for logging a one-off workshop that
+  // already happened and was never entered until after the fact -- not
+  // for a workshop scheduled ahead. Same sentinel, same message, same
+  // principle as that RPC's guard; this path just isn't routed through an
+  // RPC (item 91 only revoked UPDATE, not INSERT), so the check has to
+  // live here instead of in the database. experiment_delivered is no
+  // longer part of this check (or this insert) at all -- retired 2026-10-30
+  // (item 179, B1) in favour of session_lesson_plans' own `delivered` flag.
   const todayIso = new Date().toISOString().slice(0, 10);
-  if (sessionDate > todayIso && (attendanceCount.trim() || experimentDelivered.trim())) {
+  if (sessionDate > todayIso && attendanceCount.trim()) {
     return { ok: false, error: SESSION_ATTENDANCE_FUTURE_ERROR };
   }
 
@@ -337,7 +337,6 @@ export async function addSession(
       trainer_secundar_id: trainerSecundarId || null,
       status,
       attendance_count: attendanceCount.trim() ? Number(attendanceCount) : null,
-      experiment_delivered: experimentDelivered.trim() || null,
       duration_minutes: durationMinutes.trim() ? Number(durationMinutes) : null,
       experiment_drive_link: experimentDriveLink.trim() || null,
       // No end time stored alongside this -- derived at read time from
@@ -425,10 +424,12 @@ export async function updateSessionAllocation(
 // division of labor as every other capability-gated action in this
 // codebase (RLS restricts rows, the action restricts columns).
 //
-// experiment_delivered stays free text -- the experiment catalogue does
-// not exist (docs/OPEN_ITEMS.md item 45 part 3, item 52) and this is not
-// building toward one; a trainer types what they ran, same as Operations
-// already could at session creation.
+// experiment_delivered RETIRED 2026-10-30 (item 179, B1) -- the free-text
+// column stays on `sessions` but this action no longer reads or writes
+// it. What was taught now lives in session_lesson_plans (one-to-many per
+// session+trainer, item 117/179), with its own `delivered` flag; the RPC
+// underneath still takes a p_experiment_delivered parameter (unchanged in
+// the database) and this action always passes it null.
 // Pre-checked the same way confirmSessionAttendance is (added per the
 // payroll walkthrough finding that this action's own error collapsed two
 // different causes -- "not your session" and "your month is closed" --
@@ -450,7 +451,6 @@ export async function updateSessionAttendance(
   groupId: string,
   sessionId: string,
   attendanceCount: string,
-  experimentDelivered: string,
 ): Promise<VoidActionResult> {
   const supabase = await createClient();
   const {
@@ -463,7 +463,7 @@ export async function updateSessionAttendance(
   const { data, error } = await supabase.rpc("rpc_update_session_attendance", {
     p_session_id: sessionId,
     p_attendance_count: attendanceCount.trim() ? Number(attendanceCount) : null,
-    p_experiment_delivered: experimentDelivered.trim() || null,
+    p_experiment_delivered: null,
   });
 
   if (error) {
@@ -730,5 +730,63 @@ export async function markSessionLessonPlanSeen(rowId: string): Promise<VoidActi
   }
 
   revalidatePath("/my-work");
+  return { ok: true };
+}
+
+// B1 (2026-10-30, item 179): one-to-many. proposeSessionLessonPlan above now
+// ADDS a plan rather than replacing one (202610300007); these two are its
+// companions -- retract one, and correct whether it was actually delivered.
+export async function removeSessionLessonPlan(groupId: string, rowId: string): Promise<VoidActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("rpc_remove_session_lesson_plan", {
+    p_row_id: rowId,
+  });
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  if (data === "not_found") {
+    return { ok: false, error: "That proposal no longer exists." };
+  }
+  if (data === "not_assigned") {
+    return { ok: false, error: SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR };
+  }
+  if (data !== "ok") {
+    return { ok: false, error: `Unexpected result from rpc_remove_session_lesson_plan: ${data}` };
+  }
+
+  revalidatePath(`/groups/${groupId}`);
+  revalidatePath("/my-work");
+  return { ok: true };
+}
+
+export async function updateSessionLessonPlanDelivered(
+  groupId: string,
+  rowId: string,
+  delivered: boolean,
+): Promise<VoidActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("rpc_update_session_lesson_plan_delivered", {
+    p_row_id: rowId,
+    p_delivered: delivered,
+  });
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  if (data === "not_found") {
+    return { ok: false, error: "That proposal no longer exists." };
+  }
+  if (data === "not_assigned") {
+    return { ok: false, error: SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR };
+  }
+  if (data === "month_closed") {
+    return { ok: false, error: SESSION_ATTENDANCE_MONTH_CLOSED_ERROR };
+  }
+  if (data !== "ok") {
+    return { ok: false, error: `Unexpected result from rpc_update_session_lesson_plan_delivered: ${data}` };
+  }
+
+  revalidatePath(`/groups/${groupId}`);
   return { ok: true };
 }

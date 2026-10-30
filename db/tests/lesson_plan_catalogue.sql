@@ -301,24 +301,31 @@ begin;
     insert into r select 'unseen_after_seen', count(*)::text from public.session_lesson_plans
       where trainer_id = v_p and decided_at is not null and (decision_seen_at is null or decision_seen_at < decided_at);
 
-    -- changes requested, with a note -- and the trainer re-proposes, which must
-    -- clear the verdict AND the seen marker
+    -- changes requested, with a note. Item 179 (B1): proposing is now ADD,
+    -- never replace, so a bare re-propose of a DIFFERENT plan no longer
+    -- clears this row's verdict -- it would just add a second row, the
+    -- rejected one left dangling. The trainer's remedy is now the explicit
+    -- two-step path item 179 built for exactly this: retract the rejected
+    -- row (rpc_remove_session_lesson_plan), then propose the new plan.
     set local role authenticated;
     perform set_config('request.jwt.claims', json_build_object('sub', v_val::text, 'role', 'authenticated')::text, true);
     select app.rpc_decide_session_lesson_plan(v_row, 'changes_requested', 'Too close to the secundar''s experiment.') into v_res;
     insert into r values ('decide_changes', v_res);
     perform set_config('request.jwt.claims', json_build_object('sub', v_p::text, 'role', 'authenticated')::text, true);
+    select app.rpc_remove_session_lesson_plan(v_row) into v_res;
+    insert into r values ('removed_rejected_row', v_res);
     select app.rpc_propose_session_lesson_plan(v_session, v_plan2) into v_res;
     insert into r values ('reproposed', v_res);
 
     reset role;
-    insert into r select 'status_after_repropose', status from public.session_lesson_plans where id = v_row;
-    insert into r select 'verdict_cleared_on_repropose',
-      (decided_by is null and decided_at is null and decision_note is null and decision_seen_at is null)::text
-      from public.session_lesson_plans where id = v_row;
+    insert into r select 'rejected_row_gone', (not exists(select 1 from public.session_lesson_plans where id = v_row))::text;
     insert into r select 'still_one_row_for_this_trainer', count(*)::text
       from public.session_lesson_plans where session_id = v_session and trainer_id = v_p;
-    -- the attempt history lives in row_history, which is why one row suffices
+    insert into r select 'new_row_has_no_verdict',
+      (select decided_by is null and decided_at is null and decision_note is null and decision_seen_at is null
+       from public.session_lesson_plans where session_id = v_session and trainer_id = v_p)::text;
+    -- the attempt history on the REMOVED row lives in row_history, which is
+    -- why losing the row itself doesn't lose the record of what happened to it
     insert into r select 'row_history_captured_the_attempts', (count(*) >= 3)::text
       from public.row_history where table_name = 'session_lesson_plans' and row_id = v_row;
   end $$;
@@ -358,14 +365,15 @@ begin;
          (select val from r where what='decide_changes'), 'ok',
          (select val from r where what='decide_changes') = 'ok'
   union all
-  select 'a re-proposal returns the row to proposed and clears the verdict',
-         (select val from r where what='status_after_repropose') || '/' || (select val from r where what='verdict_cleared_on_repropose'),
-         'proposed/true',
-         (select val from r where what='status_after_repropose') = 'proposed' and (select val from r where what='verdict_cleared_on_repropose') = 'true'
+  select 'the trainer retracts the rejected row explicitly (item 179)',
+         (select val from r where what='removed_rejected_row') || '/' || (select val from r where what='rejected_row_gone'),
+         'ok/true',
+         (select val from r where what='removed_rejected_row') = 'ok' and (select val from r where what='rejected_row_gone') = 'true'
   union all
-  select 'a re-proposal UPDATES, never adds a second row for that trainer',
-         (select val from r where what='still_one_row_for_this_trainer'), '1',
-         (select val from r where what='still_one_row_for_this_trainer') = '1'
+  select 'remove-then-repropose ends at exactly one row for that trainer, fresh',
+         (select val from r where what='still_one_row_for_this_trainer') || '/' || (select val from r where what='new_row_has_no_verdict'),
+         '1/true',
+         (select val from r where what='still_one_row_for_this_trainer') = '1' and (select val from r where what='new_row_has_no_verdict') = 'true'
   union all
   select 'row_history holds the attempt history the single row cannot',
          (select val from r where what='row_history_captured_the_attempts'), 'true',

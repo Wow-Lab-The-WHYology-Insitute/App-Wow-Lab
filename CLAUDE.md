@@ -56,11 +56,11 @@ is in Romanian; code, comments, commits and this file are in English.
   behind each of those 205+59 rows is lost in the source and has to be found separately (172); five
   more gaps a real user found by using the app (173); a whole propose/confirm trainer-allocation
   workflow, noted and not built (174).
-- **A2 ("Choose an experiment doesn't work," Anca) is investigated, not yet fixed** — the real
-  gap is `sessions.experiment_delivered` being free text on three separate forms while 312 real
-  `lesson_plans` and a working proposal/validation flow (item 117) sit unconnected beside it (also
-  item 173 point 2 above). Mihai explicitly declined the other candidate fix (an Operations
-  "propose on behalf of the trainer" path) — don't build that.
+- **A2 ("Choose an experiment doesn't work," Anca) is FIXED, not just investigated any more —
+  see item 179.** The real gap was `sessions.experiment_delivered` being free text on three
+  separate forms while 312 real `lesson_plans` and a working proposal/validation flow (item 117)
+  sat unconnected beside it (also item 173 point 2 above). Mihai explicitly declined the other
+  candidate fix (an Operations "propose on behalf of the trainer" path) — that was never built.
 - **B2, the trainer-principal bonus is item 175, built** (`202610300003`). §20 applied to it
   explicitly, named as the first time that convention fired on this project's own finding rather
   than on something asked for.
@@ -75,6 +75,29 @@ is in Romanian; code, comments, commits and this file are in English.
   476,00 payable (half of which is the 14 October pair) / 238,00 pending. Nothing cancelled, nothing
   fixed — read it before touching `app.calculate_session_pay`, before closing October, or before
   reporting any payroll total without reading off the payable/pending split.
+- **Item 177, built — the month-close snapshot (B2).** `payroll_period_totals`, one row per
+  (period, trainer, entity), written once at close, never updated, read only for a "closed at X,
+  now shows Y" drift banner on `/payroll` — never by any write path. The boundary against this
+  becoming a ledger is written into the migration itself (`202610300004`); read it before adding
+  any new read of this table. Includes the item-175 bonus in `amount_bani`, confirmed before
+  building, not after.
+- **Item 178 — names check run org-wide, exactly two contradictions found.** Cătălina's (fixed:
+  `full_name` aligned to displayed "Cătălina Moale", `suppliers.legal_name` set to the real invoice
+  name for the first time) and Răzvan's (reported only — a missing diacritic, no supplier row, a
+  spelling question not a legal-name one). Read it before assuming any other user's `full_name` is
+  trustworthy.
+- **Item 179, built — `session_lesson_plans` is one-to-many now; `experiment_delivered` is
+  retired.** This is what A2 above actually needed. New RPCs
+  (`rpc_propose_session_lesson_plan` now ADDs rather than replaces, `rpc_remove_session_lesson_plan`,
+  `rpc_update_session_lesson_plan_delivered`), a 3-column unique index replacing the old
+  session+trainer one, `delivered` defaulting true with the reasoning written beside the column
+  (`202610300007`). Tested, RLS suite re-run clean. Read it before touching
+  `session_lesson_plans` or anything that used to read `sessions.experiment_delivered`.
+- **Item 180 — per-child nominal attendance, NOT BUILT, register-only, 4th in queue.** Anca wants
+  names, not just a count: "vor sa stie cine la ce ateliere au fost prezenti." Blocked on a
+  personal-data-of-minors precondition (legal basis, school contract, retention/deletion) and
+  three questions only Anca can answer (where names come from, Lycée-only or all groups, existing
+  written agreement). Do not build any part of this without that precondition being met first.
 
 If the above list looks stale (dates have passed, an item below has clearly moved), trust
 `docs/OPEN_ITEMS.md` over this file and update this list to match.

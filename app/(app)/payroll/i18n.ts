@@ -221,6 +221,18 @@ export const payrollDict: Dictionary = {
     en: "20 lei per day, per school, for a trainer who held the principal slot with a secundar staffed — once per day and school, no matter how many workshops that day needed it.",
     ro: "20 lei pe zi, pe școală, pentru trainerul care a fost principal cu un secundar alocat — o singură dată pe zi și școală, indiferent de câte ateliere au avut nevoie de asta în ziua aceea.",
   },
+  // ---- The month-close snapshot drift (B2, item 177) ----
+  // Shown ONLY when a closed month's live figure now disagrees with what
+  // was snapshotted at close time -- an unchanged month says nothing
+  // here, same as the pending caveat above.
+  closed_drift_heading: {
+    en: "This month changed since it was closed",
+    ro: "Luna aceasta s-a schimbat de la închidere",
+  },
+  closed_drift_row: {
+    en: "{{trainer}} ({{entity}}): closed at {{closed}} lei, now shows {{now}} lei",
+    ro: "{{trainer}} ({{entity}}): închisă la {{closed}} lei, acum arată {{now}} lei",
+  },
   // sums_total_label / sums_total_pending were REMOVED, not left unused:
   // they rendered a single payable total across all entities, and since the
   // per-entity grouping there is no such number to show. A key kept "just in

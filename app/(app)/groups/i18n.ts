@@ -231,7 +231,11 @@ export const groupsDict: Dictionary = {
   col_duration: { en: "Duration", ro: "Durată" },
   col_location: { en: "Location", ro: "Locație" },
   col_present: { en: "Present", ro: "Prezenți" },
-  col_experiment_delivered: { en: "Experiment delivered", ro: "Experiment livrat" },
+  // Retired 2026-10-30 (item 179, B1): this column used to carry the free-text
+  // experiment_delivered field beside the drive link. The experiment itself
+  // moved to the catalogue picker below (session_lesson_plans, one-to-many);
+  // this column is now only the link.
+  col_experiment_delivered: { en: "Materials", ro: "Materiale" },
   open_action: { en: "Open", ro: "Deschide" },
 
   save: { en: "Save", ro: "Salvează" },
@@ -430,6 +434,19 @@ export const groupsDict: Dictionary = {
   plans_none_chosen: { en: "No experiment chosen", ro: "Niciun experiment ales" },
   plans_choose: { en: "Choose an experiment", ro: "Alege experimentul" },
   plans_change: { en: "Change", ro: "Schimbă" },
+  // One-to-many (item 179, B1): "Add" replaces "Change" once at least one
+  // plan already exists for this slot -- the old control replaced a
+  // single choice; this one adds a second, independent one.
+  plans_add_another: { en: "Add another experiment", ro: "Adaugă un alt experiment" },
+  plans_remove: { en: "Remove", ro: "Elimină" },
+  // Pre-checked by default -- see 202610300007's own migration header for
+  // why that default is safe (the real assertion waits on the session's
+  // own confirmation, not on this box).
+  plans_delivered_label: { en: "Delivered", ro: "Livrat" },
+  // Row exists (a trainer proposed SOME plan id) but the catalogue lookup
+  // came back empty -- distinct from plans_none_chosen, which is "nothing
+  // proposed at all."
+  plans_unknown_plan: { en: "Plan not in the catalogue", ro: "Plan care nu e în catalog" },
   plans_search_placeholder: {
     en: "Search by name, topic or file…",
     ro: "Caută după nume, temă sau fișier…",

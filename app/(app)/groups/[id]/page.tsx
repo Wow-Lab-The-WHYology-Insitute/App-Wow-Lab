@@ -218,7 +218,7 @@ export default async function GroupDetailPage({
   const { data: planLinkRows } = sessionIds.length > 0
     ? await supabase
         .from("session_lesson_plans")
-        .select("id, session_id, trainer_id, lesson_plan_id, status, decision_note, decided_at, decided_by")
+        .select("id, session_id, trainer_id, lesson_plan_id, status, decision_note, decided_at, decided_by, delivered")
         .in("session_id", sessionIds)
         .returns<(Omit<PlanRow, "decided_by_name"> & { decided_by: string | null })[]>()
     : { data: [] as (Omit<PlanRow, "decided_by_name"> & { decided_by: string | null })[] };
@@ -241,6 +241,7 @@ export default async function GroupDetailPage({
     decision_note: r.decision_note,
     decided_at: r.decided_at,
     decided_by_name: r.decided_by ? (deciderNameById.get(r.decided_by) || null) : null,
+    delivered: r.delivered,
   }));
 
   // curriculum.validate -- the approval gate, matching

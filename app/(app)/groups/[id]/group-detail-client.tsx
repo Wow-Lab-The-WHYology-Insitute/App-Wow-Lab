@@ -144,7 +144,6 @@ export function GroupDetailClient({
   // who is both Operations and the assigned trainer on the same session.
   const [editingAttendanceId, setEditingAttendanceId] = useState<string | null>(null);
   const [attendanceDraft, setAttendanceDraft] = useState<Record<string, string>>({});
-  const [experimentDraft, setExperimentDraft] = useState<Record<string, string>>({});
   // Collapsed by default, both of them. See the ordering block below.
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const [showSettled, setShowSettled] = useState(false);
@@ -166,7 +165,6 @@ export function GroupDetailClient({
   const [pendingAttendance, setPendingAttendance] = useState<{
     sessionId: string;
     expectedAttendanceCount: number | null;
-    expectedExperimentDelivered: string | null;
   } | null>(null);
 
   useEffect(() => {
@@ -189,8 +187,7 @@ export function GroupDetailClient({
     const session = sessions.find((s) => s.id === pendingAttendance.sessionId);
     if (
       session &&
-      session.attendance_count === pendingAttendance.expectedAttendanceCount &&
-      session.experiment_delivered === pendingAttendance.expectedExperimentDelivered
+      session.attendance_count === pendingAttendance.expectedAttendanceCount
     ) {
       setPendingAttendance(null);
       return;
@@ -232,24 +229,21 @@ export function GroupDetailClient({
 
   function startEditingAttendance(s: Session) {
     setAttendanceDraft((prev) => ({ ...prev, [s.id]: s.attendance_count?.toString() ?? "" }));
-    setExperimentDraft((prev) => ({ ...prev, [s.id]: s.experiment_delivered ?? "" }));
     setEditingAttendanceId(s.id);
   }
 
   function cancelEditingAttendance(s: Session) {
     blurActiveElement();
     setAttendanceDraft((prev) => ({ ...prev, [s.id]: s.attendance_count?.toString() ?? "" }));
-    setExperimentDraft((prev) => ({ ...prev, [s.id]: s.experiment_delivered ?? "" }));
     setEditingAttendanceId(null);
   }
 
   function saveEditingAttendance(s: Session) {
     setError(null);
     const attendance = attendanceDraft[s.id] ?? s.attendance_count?.toString() ?? "";
-    const experiment = experimentDraft[s.id] ?? s.experiment_delivered ?? "";
     startTransition(async () => {
       try {
-        const result = await updateSessionAttendance(groupId, s.id, attendance, experiment);
+        const result = await updateSessionAttendance(groupId, s.id, attendance);
         if (!result.ok) {
           if (result.error === SESSION_ATTENDANCE_MONTH_CLOSED_ERROR) {
             setError(t("attendance_month_closed_error"));
@@ -266,7 +260,6 @@ export function GroupDetailClient({
           setPendingAttendance({
             sessionId: s.id,
             expectedAttendanceCount: attendance.trim() ? Number(attendance) : null,
-            expectedExperimentDelivered: experiment.trim() || null,
           });
         }
       } catch {
@@ -413,7 +406,6 @@ export function GroupDetailClient({
     principalValue: principalDraft[s.id] ?? s.trainer_principal_id ?? "",
     secundarValue: secundarDraft[s.id] ?? s.trainer_secundar_id ?? "",
     attendanceValue: attendanceDraft[s.id] ?? s.attendance_count?.toString() ?? "",
-    experimentValue: experimentDraft[s.id] ?? s.experiment_delivered ?? "",
     // A secundar without a principal is a role nobody holds yet getting
     // an assistant -- found 2026-10-30 (item 166's own report, A3): the
     // form let it through, and the bonus proposed in the same report (B2)
@@ -428,7 +420,6 @@ export function GroupDetailClient({
     },
     onChangeSecundar: (v: string) => setSecundarDraft((prev) => ({ ...prev, [s.id]: v })),
     onChangeAttendance: (v: string) => setAttendanceDraft((prev) => ({ ...prev, [s.id]: v })),
-    onChangeExperiment: (v: string) => setExperimentDraft((prev) => ({ ...prev, [s.id]: v })),
     onStartEditing: () => startEditing(s),
     onCancelEditing: () => cancelEditing(s),
     onSave: () => saveEditing(s),
@@ -468,7 +459,7 @@ export function GroupDetailClient({
               trainerHomeCities={trainerHomeCities}
               groupAddress={groupAddress}
               isPending={isPending}
-              onSubmit={(date, principalId, secundarId, status, attendance, experiment, duration, experimentDriveLink, startTime, locationTier) => {
+              onSubmit={(date, principalId, secundarId, status, attendance, duration, experimentDriveLink, startTime, locationTier) => {
                 setError(null);
                 startTransition(async () => {
                   try {
@@ -480,7 +471,6 @@ export function GroupDetailClient({
                       secundarId,
                       status,
                       attendance,
-                      experiment,
                       duration,
                       experimentDriveLink,
                       startTime,
@@ -686,11 +676,9 @@ type SessionRowProps = {
   principalValue: string;
   secundarValue: string;
   attendanceValue: string;
-  experimentValue: string;
   onChangePrincipal: (v: string) => void;
   onChangeSecundar: (v: string) => void;
   onChangeAttendance: (v: string) => void;
-  onChangeExperiment: (v: string) => void;
   onStartEditing: () => void;
   onCancelEditing: () => void;
   onSave: () => void;
@@ -862,11 +850,9 @@ function SessionTableRow({
   principalValue,
   secundarValue,
   attendanceValue,
-  experimentValue,
   onChangePrincipal,
   onChangeSecundar,
   onChangeAttendance,
-  onChangeExperiment,
   onStartEditing,
   onCancelEditing,
   onSave,
@@ -967,30 +953,22 @@ function SessionTableRow({
       </td>
       <td className="text-muted py-3">
         <div className="flex items-center justify-between gap-3">
-          {editingAttendance ? (
-            <input
-              type="text"
-              value={experimentValue}
-              onChange={(e) => onChangeExperiment(e.target.value)}
-              placeholder={t("experiment_placeholder")}
-              className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 w-full rounded-lg border border-gray-300 px-2 py-1 text-sm outline-none focus:ring-2"
-            />
-          ) : isSavingAttendance ? (
-            <span className="italic">{t("saving_attendance")}</span>
+          {/* The free-text experiment field retired here 2026-10-30 (item
+              179, B1) -- what was delivered now lives in the catalogue
+              picker below (SessionPlansSection), one-to-many. This cell is
+              only ever the drive link now, set at creation, never edited
+              here. */}
+          {session.experiment_drive_link ? (
+            <a
+              href={session.experiment_drive_link}
+              target="_blank"
+              rel="noreferrer"
+              className="text-brand-pink text-xs font-semibold hover:underline"
+            >
+              {t("open_action")}
+            </a>
           ) : (
-            <span>
-              {session.experiment_delivered || "—"}
-              {session.experiment_drive_link && (
-                <a
-                  href={session.experiment_drive_link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-brand-pink ml-2 text-xs font-semibold hover:underline"
-                >
-                  {t("open_action")}
-                </a>
-              )}
-            </span>
+            <span className="text-muted">—</span>
           )}
           <span className="flex shrink-0 gap-2">
             {canManageSessions &&
@@ -1078,11 +1056,9 @@ function SessionCard({
   principalValue,
   secundarValue,
   attendanceValue,
-  experimentValue,
   onChangePrincipal,
   onChangeSecundar,
   onChangeAttendance,
-  onChangeExperiment,
   onStartEditing,
   onCancelEditing,
   onSave,
@@ -1149,16 +1125,6 @@ function SessionCard({
               className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-2 py-1.5 text-xs outline-none focus:ring-2"
             />
           </label>
-          <label className="font-body text-muted flex flex-col gap-1 text-xs">
-            {t("col_experiment_delivered")}
-            <input
-              type="text"
-              value={experimentValue}
-              onChange={(e) => onChangeExperiment(e.target.value)}
-              placeholder={t("experiment_placeholder")}
-              className="font-body text-ink focus:border-brand-pink focus:ring-brand-pink/20 rounded-lg border border-gray-300 px-2 py-1.5 text-xs outline-none focus:ring-2"
-            />
-          </label>
           <div className="mt-1 flex gap-2">
             <button
               type="button"
@@ -1222,19 +1188,18 @@ function SessionCard({
               <p className="font-body text-muted mt-1 text-xs">
                 {t("mobile_present_prefix")}{session.attendance_count ?? "—"}
               </p>
-              {session.experiment_delivered && (
+              {/* Free-text experiment retired here too (item 179, B1) --
+                  only the drive link remains, same as the table row. */}
+              {session.experiment_drive_link && (
                 <p className="font-body text-muted mt-1 text-xs">
-                  {t("mobile_experiment_prefix")}{session.experiment_delivered}
-                  {session.experiment_drive_link && (
-                    <a
-                      href={session.experiment_drive_link}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-brand-pink ml-2 font-semibold hover:underline"
-                    >
-                      {t("open_action")}
-                    </a>
-                  )}
+                  <a
+                    href={session.experiment_drive_link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-brand-pink font-semibold hover:underline"
+                  >
+                    {t("col_experiment_delivered")}: {t("open_action")}
+                  </a>
                 </p>
               )}
             </>
@@ -1315,7 +1280,6 @@ function NewSessionForm({
     secundarId: string,
     status: string,
     attendance: string,
-    experiment: string,
     duration: string,
     experimentDriveLink: string,
     startTime: string,
@@ -1328,7 +1292,6 @@ function NewSessionForm({
   const [secundarId, setSecundarId] = useState("");
   const [status, setStatus] = useState("planned");
   const [attendance, setAttendance] = useState("");
-  const [experiment, setExperiment] = useState("");
   const [duration, setDuration] = useState("");
   const [experimentDriveLink, setExperimentDriveLink] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -1446,13 +1409,6 @@ function NewSessionForm({
           placeholder={t("attendance_placeholder")}
           className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
         />
-        <input
-          type="text"
-          value={experiment}
-          onChange={(e) => setExperiment(e.target.value)}
-          placeholder={t("experiment_placeholder")}
-          className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
-        />
         {/* A number input, not a wider select. Until 202610160004 the pay
             grid was read with an equality key, so the only enterable
             lengths were the four it held -- and the real 2026-2027
@@ -1516,7 +1472,6 @@ function NewSessionForm({
             secundarId,
             status,
             attendance,
-            experiment,
             duration,
             experimentDriveLink,
             startTime,
