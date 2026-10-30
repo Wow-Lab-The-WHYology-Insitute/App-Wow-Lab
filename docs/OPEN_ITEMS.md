@@ -9596,30 +9596,29 @@ Anca, verbatim, 2026-10-29: *"Pt toti cei notati cu Onorarii traineri sa adaugam
 **Lives in:** `docs/WOWLAB_SAD_Domeniul_Operational_Groups_Sessions.md` §2 (the `session_child_attendance` deferral, now triggered) and §5 ("Prezență nominală pe copil — rămâne numeric-first, cum e stabilit" — also now triggered); `docs/WOW_LAB_OS_Solution_Architecture_Document.md` (the `children`/`group_enrollments`/`session_attendance` design, OD-5, the `gdpr_source` precedent); `sessions.attendance_count` (what would become derived); `groups.children_confirmed`/`children_billed` (the open question in point 1); item 177 above (the month-close verification shape point 2 borrows).
 
 ---
-### 181. No real account corresponds to Mihai's own authority in wow-lab — the gap §23's first NULL actor surfaced. A decision for him, not a repair.
+### 181. CORRECTED, same day — not "no real account corresponds to Mihai's own authority." An account exists and passes the gate; it wasn't used. The real question is which address is him.
 
-2026-10-30, found while deciding who to name (or not name) as the actor on item 152's correction (`202610300008`, §23). Checked live, not assumed:
+2026-10-30, first written with the wrong premise, corrected within the hour by Mihai catching it against this register's own earlier record.
 
-| account | `is_test_account` | role(s) in wow-lab |
-|---|---|---|
-| `hello@maxdigital.ro` (Mihai's own stated real address) | false | **none — zero roles, confirmed** |
-| `maxdigitalro@gmail.com` | **false** | Organization Owner |
-| `maxdigitalro+master@gmail.com` | **true** | Platform Owner, Organization Owner |
-| `test+owner-a@wowlab.dev` | true | Organization Owner |
+**Re-verified live, both halves:**
 
-Mihai's own description named `maxdigitalro@gmail.com` as "the account through which he is Organization Owner" and said it carries `is_test_account = true` — checked, and that specific address is `false`; the account that actually matches `true` and holds both owner-shaped roles is `maxdigitalro+master@gmail.com`. Correcting the address, not the point: **either way, nothing real and non-test names Mihai himself** — the bare real address holds a real, non-test Organization Owner role but is item 18's own "agency role-verification account, not a real person joining the team," and the only other candidate is explicitly test-flagged.
+| account | `is_test_account` | role(s) in wow-lab | holds `org.settings.manage`? | holds `finance.operations.*`? |
+|---|---|---|---|---|
+| `hello@maxdigital.ro` | false | **none — zero roles** | no | no |
+| `maxdigitalro@gmail.com` | **false** | **Organization Owner** | **yes** | **yes** |
 
-**This cost nothing until today.** It became visible the moment a correction needed a real actor who was not Anca, not Laura, and not a test fixture — and there wasn't one. Every future system correction decided by Mihai personally, outside any operational role, will produce the same NULL (§23) until this is decided.
+`maxdigitalro@gmail.com` **would have passed `app.rpc_correct_session_confirmation`'s gate** (`is_platform_owner() OR org.settings.manage OR finance.operations.*`) — through either capability clause, both held by Organization Owner. It is not test-flagged. Item 157 (2026-10-20) already recorded the other half of this exact pair: *"`hello@maxdigital.ro` has no roles in this organization at all... It is a stub row."* Mihai's own report the same day named `maxdigitalro@gmail.com` as the account that is actually his, with roles — a sentence this item did not check against before concluding "no real account corresponds to Mihai's own authority."
 
-**Not a repair — a decision, with its options and their cost, nothing more:**
+**The original item's premise was wrong, not just its one factual slip on the flag.** The gap is not "no account exists" — it is **"the account that exists wasn't used."**
 
-- **A. Grant `hello@maxdigital.ro` a real role in wow-lab** (Organization Owner or Platform Owner). *Cost:* a real, named, non-test account gains standing operational capability it has never needed for anything else this project does — and the project's own §19 is specifically about not granting a role to make someone nameable rather than because they do a job. Mihai is not an operational role-holder in this org today; giving him one to fix an actor column would be assigning a category to get a name, the exact substitution §19 forbids, just aimed at the owner instead of at a mistake.
-- **B. Re-point which account is "the real one."** Flip `maxdigitalro@gmail.com` to `is_test_account = true` (matching how it is actually used) or `maxdigitalro+master@gmail.com` to `false` (matching which one Mihai actually operates through, if that is the one). *Cost:* changes a flag to match usage rather than to match a changed fact — the same move §20 and §17c warn against in the other direction (a label edited to fit a reality nobody re-examined). Also does not solve the underlying gap: whichever account ends up `false`, it is still a role-verification alias, not a account anyone would read as "Mihai personally decided this."
-- **C. Leave it. Treat the NULL as correct, not pending.** §23 already makes a NULL actor a documented state for exactly this shape of decision. *Cost:* every future correction Mihai directs personally, outside an operational role, produces a NULL that needs its own written reason in the migration (as `202610300008` already does) rather than a name — a small, recurring documentation cost, not a technical one.
-- **D. A dedicated non-human actor marker in the schema** (a sentinel row, a boolean on `row_history` distinguishing "intentional system NULL" from "accidental NULL"). *Cost:* already rejected in substance by Mihai's own instruction on §23 — "nu inventa un marcaj nou in schema" — listed here only so the option is visible as considered, not silently absent (§20).
+**THE FORM, named because it is worth naming (§17 in miniature, Mihai's own description):** the conclusion was correct relative to what was in front of me — `hello@maxdigital.ro` genuinely has zero roles, checked live, not assumed. **The premise built on top of it ("therefore no real account exists") was never checked against this same register's own earlier, already-written verification of the other candidate.** Item 157 and item 181's first draft are ten days and one register apart, about the identical pair of addresses, and the second one did not read the first before concluding.
 
-**Blocked on:** Mihai's choice among the above. **Re-verify when:** that choice is made, or the next time a correction needs an actor who is neither Anca, Laura, nor a test fixture — the second real instance of the same gap.
-**Lives in:** §23 above (the convention this gap was found deciding); `public.users` (`is_test_account` on all four accounts above, confirmed live); `public.user_org_roles` (the role grants); item 18 below (why `is_test_account = false` on a role-verification alias was already known not to mean "a real person"); item 152 above (the correction that surfaced this).
+**The correction to `202610300008` stays valid regardless, and is not reopened.** NULL is an honest record of what actually happened — nobody was impersonated when that migration ran — independent of what else was possible at the time. Using `maxdigitalro@gmail.com` would not have been wrong (it is genuinely Mihai's own account, which is a specific fact about a specific person, the thing §19 asks for, not a borrowed capability), but not using it does not make the NULL that was written inaccurate about what occurred.
+
+**The real question, reduced from the four options the wrong premise produced to the one that actually remains:** for a future system correction Mihai directs personally, should it impersonate `maxdigitalro@gmail.com` — his own real, non-test, capability-holding account — rather than running unimpersonated to NULL? Both are honest under §19/§23; this is a preference between two correct answers, not a gap to close.
+
+**Blocked on:** Mihai's answer to that one question. **Re-verify when:** the next correction he directs personally — the first real chance to apply whichever he picks.
+**Lives in:** §23 above (unaffected by this correction — the convention that NULL is documented, not absent, remains correct no matter which account is used going forward); item 157 above (the record this item should have read before concluding); item 18 below (confirms `maxdigitalro@gmail.com`'s own history as a role-verification account Mihai himself holds — compatible with it also being "his," not a contradiction: not a new team member onboarding, which is what item 18 was checking, but genuinely his own identity); item 152 above (the correction this was found deciding).
 
 ---
 ### 18. Pending invites — cut deliberately

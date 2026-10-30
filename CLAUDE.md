@@ -108,10 +108,14 @@ is in Romanian; code, comments, commits and this file are in English.
   state, not an absence.** Read it before writing any migration that corrects a record without a
   real human actor behind the correction — the migration's own header has to say so and why, the
   same way `202610300008` does.
-- **Item 181 — no real, non-test account corresponds to Mihai's own authority in wow-lab.** Found
-  deciding §23's first real case. A decision for Mihai, not a repair — four options written with
-  their costs, nothing built. Read it before granting Mihai, or anyone acting outside an
-  operational role, any role in wow-lab to "fix" an actor column.
+- **Item 181, CORRECTED same day — `maxdigitalro@gmail.com` is a real, non-test, Organization
+  Owner account that would have passed `rpc_correct_session_confirmation`'s gate; it just wasn't
+  used.** First written as "no real account corresponds to Mihai's own authority," which was
+  wrong — a premise never checked against item 157's own earlier record of the same account. The
+  NULL in `202610300008` stays correct regardless (it records what actually happened); the only
+  open question is whether a future correction Mihai directs personally should impersonate that
+  account instead. Read it as the example of checking a conclusion against this register's own
+  prior entries, not just against what's in front of you.
 
 If the above list looks stale (dates have passed, an item below has clearly moved), trust
 `docs/OPEN_ITEMS.md` over this file and update this list to match.

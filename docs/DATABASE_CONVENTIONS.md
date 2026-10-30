@@ -722,5 +722,6 @@ from context.
 §19 (who goes in an actor column, and why borrowing a capable name is the same mistake twice);
 §20 (the general form — a deliberate absence needs a record or it reads as an omission);
 `OPEN_ITEMS.md` item 152 (the correction this convention was extracted from) and item 181 below
-(the actual gap this surfaced — no real account corresponds to Mihai's own authority in wow-lab —
-noted as a decision for him, not repaired here).
+(a real, non-test, capability-holding account for Mihai existed and was not used — corrected same
+day after being first written with the wrong premise; the NULL this convention documents stays
+correct regardless of which account a future correction chooses to use instead).
