@@ -208,6 +208,19 @@ export const payrollDict: Dictionary = {
     en: "Entity not visible to your role",
     ro: "Entitate nevizibilă pentru rolul tău",
   },
+  // ---- The trainer-principal bonus (B2, item 175) ----
+  // Its own section, never folded into "What each trainer is owed" above --
+  // Anca's own words are "plata pentru o sarcina in plus" (pay for an extra
+  // task), not a rate differential, so it has nothing arithmetic in common
+  // with the per-workshop sums beside it.
+  bonus_heading: {
+    en: "Trainer-principal bonus — {{month}}",
+    ro: "Bonus trainer principal — {{month}}",
+  },
+  bonus_hint: {
+    en: "20 lei per day, per school, for a trainer who held the principal slot with a secundar staffed — once per day and school, no matter how many workshops that day needed it.",
+    ro: "20 lei pe zi, pe școală, pentru trainerul care a fost principal cu un secundar alocat — o singură dată pe zi și școală, indiferent de câte ateliere au avut nevoie de asta în ziua aceea.",
+  },
   // sums_total_label / sums_total_pending were REMOVED, not left unused:
   // they rendered a single payable total across all entities, and since the
   // per-entity grouping there is no such number to show. A key kept "just in

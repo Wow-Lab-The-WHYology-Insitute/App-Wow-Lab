@@ -40,6 +40,11 @@ type ClientRow = { id: string; name: string };
 // rounded to 2 decimals in numeric and is null exactly when reason_code is
 // set; error_text carries the raw raised message, kept for the 'unknown'
 // case so no failure can render as silence.
+// One row per (trainer_principal_id, session_date, client) from
+// public.calculate_org_principal_bonus (B2, item 175) -- a flat 20.00,
+// never per-session: see that function's own header for why it is a
+// second, independent read rather than a column on PayRow.
+type BonusRow = { trainer_id: string; bonus_date: string; client_id: string; amount: number | string };
 type PayRow = {
   session_id: string;
   trainer_id: string;
@@ -401,6 +406,39 @@ export default async function PayrollPage({
     payBySlot.set(`${r.session_id}:${r.slot}`, r);
   }
 
+  // ---- The trainer-principal bonus (B2, item 175) ----
+  // Same read-gate as the per-workshop sums: the bonus is derived from
+  // the same rate-adjacent fact (two trainers staffed), so a viewer who
+  // cannot read pay grids should not see this either.
+  let bonusRows: BonusRow[] | null = null;
+  if (canReadPayGrids) {
+    const { data, error } = await supabase.rpc("calculate_org_principal_bonus", {
+      p_organization_id: orgId,
+      p_from: from,
+      p_to_exclusive: toExclusive,
+    });
+    if (error) {
+      console.error("calculate_org_principal_bonus RPC failed — /payroll renders without it:", error);
+    } else {
+      bonusRows = (data ?? []) as BonusRow[];
+    }
+  }
+
+  // A bonus row carries a client, not a group -- resolved to an entity via
+  // any group of that client already in hand from this month's sessions
+  // (every bonus row's client necessarily has one, since the bonus is
+  // derived from this exact range's sessions). Item 169's own caveat
+  // applies here too: this assumes one entity per client, true for today's
+  // three recurring schools, not guaranteed in general.
+  const sampleGroupIdByClient = new Map<string, string>();
+  for (const g of groups ?? []) {
+    if (!sampleGroupIdByClient.has(g.client_id)) sampleGroupIdByClient.set(g.client_id, g.id);
+  }
+  const entityOfClient = (clientId: string) => {
+    const groupId = sampleGroupIdByClient.get(clientId);
+    return groupId ? entityOfGroup(groupId) : { id: null, name: null, unlinked: true };
+  };
+
   // Integer bani, never a float. Every amount arrives already rounded to 2
   // decimals (rounded in numeric, inside the function -- see its migration
   // header for why the language doing the rounding decides the answer), and
@@ -475,6 +513,20 @@ export default async function PayrollPage({
           };
         })}
         unpriceable={unpriceable}
+        principalBonuses={(bonusRows ?? []).map((r) => {
+          const entity = entityOfClient(r.client_id);
+          return {
+            trainerId: r.trainer_id,
+            trainerName: nameById.get(r.trainer_id) ?? "Unknown",
+            bonusDate: r.bonus_date,
+            clientName: clientNameById.get(r.client_id) ?? "Unknown",
+            entityId: entity.id,
+            entityName: entity.name,
+            entityUnlinked: entity.unlinked,
+            bani: Math.round(Number(r.amount) * 100),
+          };
+        })}
+        bonusesAvailable={bonusRows !== null}
       />
     </div>
   );

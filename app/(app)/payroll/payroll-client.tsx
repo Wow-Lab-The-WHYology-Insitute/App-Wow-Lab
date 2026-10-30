@@ -86,6 +86,22 @@ export type UnpriceableWorkshop = {
   clientName: string;
   reasons: UnpriceableReason[];
 };
+// B2 (Anca, 2026-10-29, item 175): one row per (trainer, day, school), a
+// flat 20 lei -- never per workshop, see app.calculate_org_principal_bonus's
+// own header for why. Deliberately NOT merged into Session/SessionSlot
+// above: Anca's own words are "plata pentru o sarcina in plus", not a rate
+// differential, so it renders as its own block rather than folding into
+// the per-workshop sums it has nothing arithmetic in common with.
+export type PrincipalBonus = {
+  trainerId: string;
+  trainerName: string;
+  bonusDate: string;
+  clientName: string;
+  entityId: string | null;
+  entityName: string | null;
+  entityUnlinked: boolean;
+  bani: number;
+};
 
 export function PayrollClient({
   orgId,
@@ -94,6 +110,8 @@ export function PayrollClient({
   sessions,
   unpriceable,
   paySumsAvailable,
+  principalBonuses,
+  bonusesAvailable,
 }: {
   orgId: string;
   // The month on display, "YYYY-MM", resolved on the server from
@@ -110,6 +128,8 @@ export function PayrollClient({
   // rendering zeroes, which on this screen is a wrong number that becomes
   // a payment.
   paySumsAvailable: boolean;
+  principalBonuses: PrincipalBonus[];
+  bonusesAvailable: boolean;
 }) {
   const t = useTranslations(payrollDict);
   const { locale } = useLocale();
@@ -310,6 +330,68 @@ export function PayrollClient({
       uncalculableCount: uncalculableSessions.size,
     };
   }, [monthSlots, locale]);
+
+  // ---- The trainer-principal bonus (B2, item 175), grouped the same
+  // shape as trainerSums above (entity -> trainer -> rows), but entirely
+  // separate: a flat 20 lei per (trainer, day, school) is not a workshop
+  // amount, so it is never added into payableBani/pendingBani above.
+  const bonusSums = useMemo(() => {
+    const byTrainer = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        entityId: string | null;
+        entityName: string | null;
+        entityUnlinked: boolean;
+        totalBani: number;
+        rows: { key: string; clientName: string; bonusDate: string; bani: number }[];
+      }
+    >();
+    for (const b of principalBonuses) {
+      const key = `${b.entityId ?? (b.entityUnlinked ? "__unlinked__" : "__unreadable__")}::${b.trainerId}`;
+      let entry = byTrainer.get(key);
+      if (!entry) {
+        entry = {
+          id: b.trainerId,
+          name: b.trainerName,
+          entityId: b.entityId,
+          entityName: b.entityName,
+          entityUnlinked: b.entityUnlinked,
+          totalBani: 0,
+          rows: [],
+        };
+        byTrainer.set(key, entry);
+      }
+      entry.rows.push({ key: `${b.trainerId}-${b.bonusDate}-${b.clientName}`, clientName: b.clientName, bonusDate: b.bonusDate, bani: b.bani });
+      entry.totalBani += b.bani;
+    }
+
+    const trainers = [...byTrainer.values()].sort((a, b) =>
+      a.name.localeCompare(b.name, locale === "ro" ? "ro-RO" : "en-GB"),
+    );
+    for (const tr of trainers) {
+      tr.rows.sort((a, b) => (a.bonusDate < b.bonusDate ? -1 : a.bonusDate > b.bonusDate ? 1 : 0));
+    }
+
+    const buckets = new Map<string, { key: string; name: string | null; unlinked: boolean; trainers: typeof trainers; totalBani: number }>();
+    for (const tr of trainers) {
+      const key = tr.entityId ?? (tr.entityUnlinked ? "__unlinked__" : "__unreadable__");
+      let b = buckets.get(key);
+      if (!b) {
+        b = { key, name: tr.entityName, unlinked: tr.entityUnlinked, trainers: [], totalBani: 0 };
+        buckets.set(key, b);
+      }
+      b.trainers.push(tr);
+      b.totalBani += tr.totalBani;
+    }
+    const entities = [...buckets.values()].sort((a, b) => {
+      if (a.unlinked !== b.unlinked) return a.unlinked ? 1 : -1;
+      return (a.name ?? "").localeCompare(b.name ?? "", locale === "ro" ? "ro-RO" : "en-GB");
+    });
+
+    return { entities };
+  }, [principalBonuses, locale]);
 
   // ---- One block, one number: every workshop that cannot be paid yet ----
   // Two sources genuinely cover different things, which is why this merges
@@ -714,6 +796,54 @@ export function PayrollClient({
               </p>
             )}
           </div>
+        </section>
+      )}
+
+      {bonusesAvailable && bonusSums.entities.length > 0 && (
+        <section className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+          <h2 className="font-body text-muted mb-1 text-xs font-bold tracking-wide uppercase">
+            {t("bonus_heading", { month: monthLabel })}
+          </h2>
+          <p className="font-body text-muted mb-4 text-xs">{t("bonus_hint")}</p>
+
+          <ul className="flex flex-col gap-6">
+            {bonusSums.entities.map((ent) => (
+              <li key={ent.key}>
+                <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-black/10 pb-2">
+                  <span className="font-body text-ink text-sm font-bold">
+                    {ent.unlinked ? t("sums_entity_unlinked") : ent.name ?? t("sums_entity_unreadable")}
+                  </span>
+                  <span className="font-body text-ink text-sm font-bold tabular-nums">
+                    {t("sums_amount", { amount: formatLei(ent.totalBani, locale) })}
+                  </span>
+                </div>
+                <ul className="flex flex-col gap-4">
+                  {ent.trainers.map((tr) => (
+                    <li key={tr.id} className="border-b border-black/5 pb-4 last:border-0 last:pb-0">
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                        <span className="font-body text-ink text-sm font-semibold">{tr.name}</span>
+                        <span className="font-body text-ink text-sm font-bold tabular-nums">
+                          {t("sums_amount", { amount: formatLei(tr.totalBani, locale) })}
+                        </span>
+                      </div>
+                      <ul className="mt-2 flex flex-col gap-1">
+                        {tr.rows.map((row) => (
+                          <li key={row.key} className="font-body flex flex-wrap items-baseline justify-between gap-x-3 text-xs">
+                            <span className="text-muted">
+                              {row.clientName} · {formatShortDate(row.bonusDate, locale)}
+                            </span>
+                            <span className="text-ink tabular-nums">
+                              {t("sums_amount", { amount: formatLei(row.bani, locale) })}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

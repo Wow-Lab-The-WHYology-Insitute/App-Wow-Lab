@@ -8896,7 +8896,7 @@ Found in Anca's own screenshots the same week as items 163-166: a workshop with 
 
 **Fixed underneath, because the UI fix alone repeats item 166's own lesson:** `addSession`'s INSERT and `app.rpc_update_session_allocation`'s UPDATE were both still reachable directly. Unlike the two future-date guards (202610220001, 202610280001), this invariant is **not time-dependent** — there is no "clock moved" exception to carve out — so it is enforced as a CHECK constraint, not an RPC guard: `sessions_secundar_requires_principal_check` (`202610300002`), covering every current and future write path, INSERT and UPDATE alike. Confirmed live before writing it: zero existing rows, in either organization, violated it — a prospective guard, not a retroactive fix. A matching pre-check was also added at the action layer (`addSession`, `updateSessionAllocation`) for a clean message instead of a raw constraint-violation error reaching the screen.
 
-**Why this needed fixing now rather than being noted for later, unlike item 166's INSERT gap:** a separate, still-unbuilt proposal for a trainer-principal bonus (Anca, 2026-10-29 — not yet a numbered item) depends entirely on telling principal and secundar apart meaningfully. A session where the "secundar" slot is occupied with no principal has no meaningful answer to "who is the principal here", which would have made that proposal's very first worked example ambiguous by construction.
+**Why this needed fixing now rather than being noted for later, unlike item 166's INSERT gap:** the trainer-principal bonus (item 175 below, Anca 2026-10-29) depends entirely on telling principal and secundar apart meaningfully. A session where the "secundar" slot is occupied with no principal has no meaningful answer to "who is the principal here", which would have made that bonus's very first worked example ambiguous by construction.
 
 **Lives in:** `supabase/migrations/202610300002_no_secundar_without_a_principal.sql`; `app/(app)/groups/[id]/group-detail-client.tsx` (`NewSessionForm`, `TrainerSelect`, the `rowProps.onChangePrincipal` clearing logic); `app/(app)/groups/actions.ts` (`addSession`, `updateSessionAllocation`); item 166 above (the INSERT-path precedent this one closes completely rather than leaving as a report).
 
@@ -8969,7 +8969,7 @@ Measured against the real timesheet, current school year (from 2026-09-01):
 
 **Scoala ARC specifically, since it is new enough to need its own check before anyone imports it.** First row in the timesheet's entire history is 2026-10-19 — this client has never existed before. 16 rows, two days: 19 October (Cătălina ×6, Lorina ×6) and 20 October (Lorina ×4). All Brandine, all Bucharest (0% location bonus), **no CUI anywhere in the timesheet rows themselves** — but the "Mapări Tip Trainer" tab carries CUI **37239989** against the ARC name. **To confirm before any import: which CUI is real, and whether the blank in the timesheet rows is an omission or means something.** Confirmed live: no client named ARC, and no supplier/client anywhere carrying CUI 37239989, exists in this application today — this is a genuinely new entry, not a rename.
 
-**19 October is also the real-world case B2's proposed bonus was designed against**, not a constructed example: two trainers, one school, six workshops each, in Anca's own words *"UN SINGUR bonus de 20 lei"* — whichever of the two held the principal slot that day.
+**19 October is also the real-world case the trainer-principal bonus (item 175 below) was designed against**, not a constructed example: two trainers, one school, six workshops each, in Anca's own words *"UN SINGUR bonus de 20 lei"* — whichever of the two held the principal slot that day.
 
 **Blocked on:** the CUI question above, before any of Scoala Altfel's 34 rows, ARC's 16, or Wow Lab Party's 1 are imported. **Re-verify when:** that's answered, and again whenever the timesheet's current-school-year total changes (it will, every month this year runs).
 **Lives in:** item 172 below (why Scoala Altfel's 34 rows specifically cannot be imported as-is, regardless of the CUI question); item 159 above (the three schools' own calendars, the half of coverage that already exists).
@@ -9379,6 +9379,47 @@ Anca, verbatim, 2026-10-29: *"Pt toti cei notati cu Onorarii traineri sa adaugam
 
 **Blocked on:** nothing further for September/October. **Re-verify when:** a trainer is ever added who should receive a DIFFERENT base than this one grid (an SRL/gross arrangement for class delivery, Anka's shape but for teaching rather than admin work) — that is the day "holds a grade" and "gets this raise" stop being the same population, and the gap named above stops being hypothetical.
 **Lives in:** `supabase/migrations/202610300001_apply_the_11_percent_anca_confirmed.sql` (the restatement, with the full reasoning and the population check in its own header); its rollback (`202610300001..._rollback.sql`, restores 100-135); `db/tests/calculate_session_pay.sql`, `payroll_org_session_pay.sql`, `cancel_session_pay_rule.sql`, `grid_version_in_force.sql` (all four restated for the new rates in the same pass — `grid_version_in_force.sql`'s own "scheduled, dated ahead" fixture moved off 111-150 since that is no longer a hypothetical future scale, it is the live one).
+
+**WHY "HOLDS A GRADE" IS SAFE TODAY, AND WHAT WOULD BREAK IT — the §17c form, named explicitly because Mihai asked for it by name rather than letting it stay an implicit footnote.** The instruction behind the population check above (gate the raise on `suppliers.service_type`) was itself wrong, and the right response was to measure rather than to build it: 8 of 11 grade-holders would have been wrongly excluded. But the thing that replaced it — "every grade-holder gets this raise, because holding a grade is what 'Onorarii traineri' means here" — is **a fact about today's eleven people, not a rule this schema enforces.**
+
+| form | what it is | why nothing catches it |
+|---|---|---|
+| §17c (the general form, item 162 and others) | code correct, the DATA's shape changes under it | true every time anyone checked, until it wasn't |
+| **here** | code correct, the ORGANIZATION's shape changes under it | **true of every person who currently holds a grade; says nothing about the next one** |
+
+**It holds because of a coincidence in the current population, not because of anything written down that would stay true if the population changed:**
+
+- **It breaks if someone who holds a grade should be paid a DIFFERENT way** — an SRL/gross arrangement for class delivery, Anka's own shape (`admin_rates`, `is_uplift_applied = false`) but for teaching instead of admin/writing work. Nothing in `trainer_grade_assignments` or `trainer_grade_rates` can express "this grade-holder is the exception" — the table has no such column, and item 147's own earlier retraction (above) explicitly declined to add `net_amount`/`is_uplift_applied` to it while there was no base to declare. Today that retraction is still correct — there is still no such person — but it is the retraction that would need revisiting first, not a flag quietly checked somewhere nobody is looking.
+- **It does NOT break, and was checked rather than assumed, if someone without a grade teaches a workshop** — `app.calculate_session_pay` raises `no_grade` for that trainer, loudly, every time, and `/payroll` already shows it as a gap (item 121). That direction already has a guard; only the first direction is unguarded.
+
+**The test, same shape as §19's own:** *name one fact about this trainer, independent of whether they hold a grade, that says they get this raise.* Today the answer for all eleven is "they hold a grade, and that's the only population this raise has ever had" — which is a true sentence about eleven specific people, not a rule about what a grade means.
+
+**Re-verify when:** a trainer ever holds a grade while being paid outside this grid (checked above: no such person exists today) — at that point this item's own population check needs re-running, not re-assumed to still hold.
+**Lives in:** `DATABASE_CONVENTIONS.md` §17c (the general form this restates against a population rather than a data shape); `trainer_grade_assignments`/`trainer_grade_rates` (the tables with no column that could express the exception); `admin_rates.is_uplift_applied` (the sibling flag that exists for exactly this distinction, in the one domain that has ever needed it).
+
+---
+### 175. The trainer-principal bonus (B2) — 20 lei/day/school, built on Anca's own words, not a rate differential
+
+**Anca, verbatim, 2026-10-29:** *"20 lei / ZI / SCOALA."* Her own examples: 4 consecutive hours at one school in one day → 20 lei; 1 hour at two different schools the same day → 40 lei; 4 hours at one school on two different days → 40 lei. Condition: *"Vorbim doar de atelierele unde sunt necesari 2 traineri."* Her reasoning, which decides the shape below rather than being background: the principal and secundar's preparation/delivery responsibilities are **identical**; the principal's only extra is the school contact and reporting the attendance count. **Pay for an extra task, not a rate differential.**
+
+**Mihai, 2026-10-30, accepting the proposed form including the mixed-day case:** a trainer's own responsibility that day at that school is real **once**, regardless of how many of that day's workshops at that school actually needed a secundar.
+
+**Built, not a proposal any more:**
+
+- **Unit: `(trainer_principal_id, session_date, client_id)`, never the workshop.** `app.calculate_session_pay` returns one row per session per trainer slot and has no way to carry an amount shared across six sessions — gluing it onto an arbitrary one would make that session's own figure stop meaning "this workshop's pay," the same mistake §13 warns against from the other direction. `app.calculate_org_principal_bonus` (new, `202610300003`) is a second, independent read over `sessions`, grouped by that triple, flat 20.00 per row.
+- **Payability mirrors `calculate_session_pay`'s own rule exactly**, not a new one: `NOT (cancelled AND NOT scoala_a_anulat_neanuntat)`. A workshop cancelled for any reason other than "school cancelled without notice" carries no bonus either, for the same reason it carries no base pay — the trainer did not actually carry the extra responsibility that day. A neanuntat cancellation still counts.
+- **`trainer_secundar_id is not null` is a scheduling fact**, not conditioned on the secundar's own confirmation — the principal's coordination responsibility existed the moment Operations staffed two names on the session.
+- **Grouped by CLIENT**, matching "scoala" in Anca's own examples (ARC, Tonitza, Scoala 79) — not by group, since one school can run more than one module/group on the same day without that being two schools.
+- **Rendered on `/payroll` as its own section**, "Bonus trainer principal," grouped entity → trainer → (date, school, 20 lei) rows, with its own subtotal — never merged into "What each trainer is owed," which is exactly the per-workshop figure Anca's own words say this is not.
+
+**Tested** (`db/tests/principal_bonus.sql`) against the real worked cases: the mixed day (some of a trainer's workshops that day/school have a secundar, some don't — still exactly one bonus); two schools one day (40, not 20); one school two days (40, not 20); the cancellation payability split (vacanța excluded, scoala_a_anulat_neanuntat still counts); and the zero case (no secundar anywhere, zero rows).
+
+**Confirmed live before writing the migration's own assertion, not assumed:** zero real sessions in wow-lab have ever had a secundar trainer set — so the function returns zero rows today, a true negative recorded rather than a broken query (§20), not evidence the feature does nothing. **19 October 2026, Scoala ARC — Cătălina ×6, Lorina ×6 — is the first real case this will ever fire on**, once ARC exists as a client (item 171) and that history, if it is ever imported, carries real `trainer_secundar_id` values.
+
+**Confirmed with Anca in parallel, per Mihai's own instruction** — if she states a different condition, that changes a condition inside this shape, not the shape itself.
+
+**Blocked on:** nothing technical. **Re-verify when:** Anca's parallel confirmation lands, and again once Scoala ARC (item 171) or any other real engagement with a staffed secundar actually enters the schema — the first real amount this function will ever compute.
+**Lives in:** `supabase/migrations/202610300003_trainer_principal_bonus.sql`; `db/tests/principal_bonus.sql`; `app/(app)/payroll/page.tsx` (`entityOfClient`, the bonus fetch) and `payroll-client.tsx` (`bonusSums`, its own rendered section); `app/(app)/payroll/i18n.ts` (`bonus_heading`/`bonus_hint`); item 167 above (the secundar-requires-principal fix this bonus depends on for its very first worked example to be unambiguous); item 171 above (Scoala ARC, the first real case).
 
 ---
 ### 18. Pending invites — cut deliberately
