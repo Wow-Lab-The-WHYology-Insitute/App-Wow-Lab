@@ -9127,6 +9127,29 @@ applied-migration precedent); item 144 above (why every tier is explicit), item 
 these amounts use), item 149 above (Lorina's grade boundary, which is what makes the handover safe),
 item 136 above (the per-entity grouping these totals are split by).
 
+**THE FOURTH APPLICATION OF §17, 2026-10-30 — the corrected reason itself was checked later against the full timesheet (10,950 rows), not just believed. It is true for 36 of the 38 rows and false for 2.**
+
+The corrected reason above says: *"Every one of them appears in the real timesheet with `Approval Status = "Aprobat"`."* Checked date-by-date against Scoala Germana specifically (the only one of the three schools where this matters): the real timesheet's last DSBU row is **7 October 2026**. The import confirmed 12 Scoala Germana sessions, not 10 — the same batch, same actor, same timestamp as the 10 real ones, two more:
+
+| session | date | status/confirmed | actor (`row_history.actor_user_id`) | in the real timesheet? |
+|---|---|---|---|---|
+| `725eaf35…` (group chem_me) | 2026-10-14 | delivered, confirmed `2026-10-20 12:24:11.221` | Anca | **no** |
+| `549e2fd1…` (group wow_mix) | 2026-10-14 | delivered, confirmed `2026-10-20 12:24:11.221` | Anca | **no** |
+
+Identical `trainer_principal_confirmed_at` timestamp to the 2026-09-09/16/23/30 and 2026-10-07 rows that ARE real — these two were not a separate mistake, they were carried into the same batch as the genuine ones, under the same reason.
+
+**The reason is not deleted — it stays, because it was true of 36 rows and that is still worth recording — but it does not cover all 38, and did not from the day it was written.** Nobody checked the two Wednesdays past 7 October against the timesheet before confirming them; the pattern ("DSBU meets Wednesdays") supplied a plausible 14 October, and plausible is not the same fact as approved.
+
+**THE RULE THIS SETS, for every future import, stated once rather than re-derived each time:**
+
+> **A workshop imported as already-held needs an external record saying it happened, on that date. A recurrence pattern says what was SCHEDULED, never what was DELIVERED — those are different facts, and only one of them is evidence.**
+
+This is the same distinction `202610200004` already drew the next day for the six 19-21 October rows (*"the application knows they were scheduled, not that they were delivered"*) — applied here one layer earlier, to an import that looked like history because most of it was.
+
+**Not corrected by deleting or cancelling these two rows — reported, per instruction, alongside the companion finding (item 176 below) about what they are currently doing on Lorina's own screen.**
+**Re-verify when:** item 176's hypothetical (cancelling these two, and the two 28 October ones) is actually decided and acted on.
+**Lives in:** item 176 below (the full four-session finding, the actor question, and what `/my-work` shows Lorina for October today).
+
 ---
 
 ### 147. The pay grid may be the real table with the uplift applied twice — and the operational record has never used our numbers, up to eight days ago
@@ -9420,6 +9443,51 @@ Anca, verbatim, 2026-10-29: *"Pt toti cei notati cu Onorarii traineri sa adaugam
 
 **Blocked on:** nothing technical. **Re-verify when:** Anca's parallel confirmation lands, and again once Scoala ARC (item 171) or any other real engagement with a staffed secundar actually enters the schema — the first real amount this function will ever compute.
 **Lives in:** `supabase/migrations/202610300003_trainer_principal_bonus.sql`; `db/tests/principal_bonus.sql`; `app/(app)/payroll/page.tsx` (`entityOfClient`, the bonus fetch) and `payroll-client.tsx` (`bonusSums`, its own rendered section); `app/(app)/payroll/i18n.ts` (`bonus_heading`/`bonus_hint`); item 167 above (the secundar-requires-principal fix this bonus depends on for its very first worked example to be unambiguous); item 171 above (Scoala ARC, the first real case).
+
+**NAMED EXPLICITLY, per Mihai's own instruction, 2026-10-30: this is the first time §20 was applied to a finding of this project's own making, rather than to something asked for.** Every prior §20 instance (the three non-blocking `school_calendar_closures` rows, the `contract_type_uplift` assertion) recorded an absence someone else's question had surfaced. Here the absence — zero real sessions have ever carried a secundar trainer — is a fact about this function's own first day alive, checked before the migration's assertion was written rather than discovered afterward by someone asking "did this do anything." The convention held without being invoked by name.
+
+---
+### 176. Four workshops at Scoala Germana that never happened, by the record that would know — two confirmed by Anca's migration (item 152), two never confirmed by anyone, both pairs still being paid
+
+2026-10-30, Lorina Ciurusniuc's own account now active (item 163/165's own trigger). Her October `/my-work` shows **714,00 lei, six workshops** — the same figure reported two rounds ago without this breakdown, which is corrected here rather than silently replaced.
+
+**The six, by source, confirmed live against both `sessions` and `row_history`:**
+
+| date | group | status | `trainer_principal_confirmed_at` | actor (`row_history`) | in the real timesheet? |
+|---|---|---|---|---|---|
+| 7 Oct | chem_me | delivered | 2026-10-20 12:24:11 | Anca (item 152's import) | **yes** — the timesheet's own last DSBU row |
+| 7 Oct | wow_mix | delivered | 2026-10-20 12:24:11 | Anca | **yes** |
+| 14 Oct | chem_me | delivered | 2026-10-20 12:24:11 — **identical timestamp to the row above** | Anca | **no** — item 152's own correction, above |
+| 14 Oct | wow_mix | delivered | 2026-10-20 12:24:11 | Anca | **no** |
+| 21 Oct | chem_me | **cancelled** (`vacanta`) | — | — | n/a — correctly cancelled, the autumn-break week (§18, items 154/159) |
+| 28 Oct | chem_me | **planned**, never confirmed | null | — nobody | no record either way yet |
+| 28 Oct | wow_mix | **planned**, never confirmed | null | — nobody | no record either way yet |
+
+(21 October's `wow_mix` pair is also cancelled, `vacanta`, same shape — eight rows total for the month, six of which carry money.)
+
+**THE CORRECTION TO THE OWN FIGURE REPORTED TWO ROUNDS AGO, which is the part to read most carefully.** "714,00, six workshops" was a sum of `amount` from `calculate_org_session_pay` with no confirmation filter — it reported **payable and pending as one number**, which `/payroll`'s own screen never does (`trainerSums` splits them explicitly, `pendingBani` rendered as its own caveat line, exactly so a pending amount is never read as owed). The real split, checked now:
+
+| | payable (confirmed) | pending (not confirmed) |
+|---|---|---|
+| Lorina / Experimente Wow, October | **476,00** (7 + 14 Oct) | **238,00** (28 Oct) |
+
+**476,00 of the "payable" 476 is itself half false** — it is the sum of one real pair (7 Oct, 238,00) and one confirmed-but-never-happened pair (14 Oct, 238,00, item 152's correction). Nothing on `/payroll` today distinguishes a wrongly-confirmed row from a correctly-confirmed one; both read as equally payable, because confirmation is a timestamp, not a provenance.
+
+**A SECOND, INDEPENDENT FINDING, found while answering this — `app.calculate_session_pay` prices an unconfirmed workshop exactly like a confirmed one.** Its own header comment states the rule as *"payable = confirmed OR (cancelled AND scoala_a_anulat_neanuntat)"* — but the code only ever checks cancellation; nothing in it reads `trainer_principal_confirmed_at`/`trainer_secundar_confirmed_at` at all. The 28 October pair (never confirmed, not cancelled) therefore returns 119,00 each, not null and not zero — it is `/payroll`'s own `pendingBani` split, computed CLIENT-SIDE from `slot.confirmed`, that keeps this out of the headline figure, not anything in the pricing function itself. The comment describes a rule the function does not enforce; the screen enforces it instead, one layer up, and only because someone remembered to build that split. Not fixed here — reported, because the gap is in the one function every pay figure in this application passes through.
+
+**What Lorina sees on `/my-work` right now, walked through rather than assumed.** The banner reads "2 of your workshops aren't confirmed yet" (the 28 October pair — 21 October is cancelled, not counted). "What's Next" (fixed 2026-10-28 to show debt before chronology) shows the 28 October pair FIRST, as overdue debt, labelled "To confirm" — because `session_date < today` and her own slot is unconfirmed. **The screen is asking her to confirm two workshops nobody has any record of her having taught**, generated by `202610200009`'s own Wednesday pattern (item 160's own subject) and never checked against anything. If she taps "I taught this workshop" out of the same sense of obligation the debt-first ordering was built to create, she becomes the actor who asserts a fact nobody verified — the identical shape as item 152's correction, from the opposite direction: there, Anca's migration asserted it for her; here, the screen would ask HER to assert it herself, for a Wednesday a pattern produced and nothing confirms.
+
+**The hypothetical asked for, not acted on — NOTHING IS CANCELLED OR DELETED:** if all four (14 Oct ×2, 28 Oct ×2) were cancelled with a non-`scoala_a_anulat_neanuntat` category (the only cancellation category that still pays — none of these four has any record suggesting the school cancelled without notice, so none would legitimately take that category):
+
+| | now | if cancelled |
+|---|---|---|
+| Lorina / Experimente Wow, October, payable | 476,00 | 238,00 (−238,00) |
+| Lorina / Experimente Wow, October, pending | 238,00 | 0,00 (−238,00) |
+| **Org-wide October total** (payable + pending, both trainers) | 2739,00 | 2263,00 (−476,00) |
+
+**Blocked on:** a decision — whether to actually cancel these four, and whether `app.calculate_session_pay` should start reading confirmation state itself rather than relying on `/payroll`'s own client-side split to keep an unconfirmed row out of the headline figure. Neither is done here.
+**Re-verify when:** that decision is made, and independently, the next time anyone reports a payroll total from this function — the payable/pending split has to be read off, never summed past.
+**Lives in:** `sessions` (the four rows: `725eaf35…`, `549e2fd1…`, `a06dab18…`, `6cd3b968…`); `row_history` (the actor check); `app.calculate_session_pay` (the comment-vs-code gap); `app/(app)/payroll/payroll-client.tsx` (`trainerSums`'s `payableBani`/`pendingBani` split, the thing actually enforcing the rule the pricing function's comment only describes); `app/(app)/my-work/page.tsx` + `page.tsx`'s debt-first ordering (yesterday's own fix, now the surface this risk arrives through); item 152 above (the two 14 October rows, same pair); items 159-161 above (the Wednesday-pattern generation these four both trace back to, each in a different way).
 
 ---
 ### 18. Pending invites — cut deliberately

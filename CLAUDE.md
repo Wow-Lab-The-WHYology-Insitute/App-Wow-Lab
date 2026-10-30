@@ -61,9 +61,20 @@ is in Romanian; code, comments, commits and this file are in English.
   `lesson_plans` and a working proposal/validation flow (item 117) sit unconnected beside it (also
   item 173 point 2 above). Mihai explicitly declined the other candidate fix (an Operations
   "propose on behalf of the trainer" path) — don't build that.
-- **B2, the trainer-principal bonus (20 lei/day/school, Anca 2026-10-29) is a proposal only** —
-  not yet a numbered item, not built. Its form lives in this session's conversation, not the
-  register; read it before building anything named "principal bonus."
+- **B2, the trainer-principal bonus is item 175, built** (`202610300003`). §20 applied to it
+  explicitly, named as the first time that convention fired on this project's own finding rather
+  than on something asked for.
+- **Item 176, 2026-10-30 — four Scoala Germana sessions a trainer's own `/my-work` is currently
+  showing as money, none of them real by the record that would know.** Two (14 October) were
+  confirmed by item 152's import migration under a reason true for 36 rows and false for these 2;
+  two (28 October) were never confirmed by anyone and are still priced, because
+  `app.calculate_session_pay`'s own payability comment ("confirmed OR...") is not actually
+  implemented in its code — only `/payroll`'s client-side `payableBani`/`pendingBani` split keeps
+  an unconfirmed row out of the headline figure. **Also corrects this file's own prior reporting**:
+  an earlier October total (714,00) summed payable and pending as one number; the real split is
+  476,00 payable (half of which is the 14 October pair) / 238,00 pending. Nothing cancelled, nothing
+  fixed — read it before touching `app.calculate_session_pay`, before closing October, or before
+  reporting any payroll total without reading off the payable/pending split.
 
 If the above list looks stale (dates have passed, an item below has clearly moved), trust
 `docs/OPEN_ITEMS.md` over this file and update this list to match.
