@@ -38,7 +38,32 @@ is in Romanian; code, comments, commits and this file are in English.
   property of the data.
 - **Items 147, 152, 157** — the pay-grid version model and the three instances of "who gets
   recorded as the actor" (§19). Read before touching anything in `trainer_grade_*`,
-  `*_bonus_*`, `*_uplift_*`, or `cancelled_by`/`confirmed_by`-shaped columns.
+  `*_bonus_*`, `*_uplift_*`, or `cancelled_by`/`confirmed_by`-shaped columns. **Item 147 itself
+  resolved AGAIN 2026-10-30** — the grid is back to 111-150 (`202610300001`), this time on Anca's
+  own present-tense confirmation, not arithmetic. Read its newest section before assuming the
+  2026-10-20 100-135 restatement is still current.
+- **Item 167** — a secundar trainer with no principal, closed with a CHECK constraint
+  (`sessions_secundar_requires_principal_check`) rather than left as a report, because the
+  trainer-principal bonus Anca asked for (2026-10-29, not yet a numbered item — see the proposal
+  in conversation, not the register) depends on the two slots meaning something.
+- **Items 168–174** — found 2026-10-30 from Anca's 14 observations plus a full read of the real
+  payroll timesheet (10,950 rows): Avenor/Brandine confirmed a second time (168, don't revert);
+  `legal_entity_id` answers "who invoices," not "who bears the trainer's cost" — breaks for
+  Scoala Altfel specifically (169); a calendar week showing empty (the recurring clubs' own
+  holiday) is not a week with no work in it (170); real coverage is 38 of 89 current-year rows,
+  not "three schools" (171, with Scoala ARC's own CUI question to resolve before import); **no
+  future import may create a client named "Scoala Altfel" or "Săptămâna Verde"** — the real school
+  behind each of those 205+59 rows is lost in the source and has to be found separately (172); five
+  more gaps a real user found by using the app (173); a whole propose/confirm trainer-allocation
+  workflow, noted and not built (174).
+- **A2 ("Choose an experiment doesn't work," Anca) is investigated, not yet fixed** — the real
+  gap is `sessions.experiment_delivered` being free text on three separate forms while 312 real
+  `lesson_plans` and a working proposal/validation flow (item 117) sit unconnected beside it (also
+  item 173 point 2 above). Mihai explicitly declined the other candidate fix (an Operations
+  "propose on behalf of the trainer" path) — don't build that.
+- **B2, the trainer-principal bonus (20 lei/day/school, Anca 2026-10-29) is a proposal only** —
+  not yet a numbered item, not built. Its form lives in this session's conversation, not the
+  register; read it before building anything named "principal bonus."
 
 If the above list looks stale (dates have passed, an item below has clearly moved), trust
 `docs/OPEN_ITEMS.md` over this file and update this list to match.

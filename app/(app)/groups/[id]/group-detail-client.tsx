@@ -414,7 +414,18 @@ export function GroupDetailClient({
     secundarValue: secundarDraft[s.id] ?? s.trainer_secundar_id ?? "",
     attendanceValue: attendanceDraft[s.id] ?? s.attendance_count?.toString() ?? "",
     experimentValue: experimentDraft[s.id] ?? s.experiment_delivered ?? "",
-    onChangePrincipal: (v: string) => setPrincipalDraft((prev) => ({ ...prev, [s.id]: v })),
+    // A secundar without a principal is a role nobody holds yet getting
+    // an assistant -- found 2026-10-30 (item 166's own report, A3): the
+    // form let it through, and the bonus proposed in the same report (B2)
+    // depends on telling the two slots apart, which only means something
+    // when a principal exists. Clearing the principal clears the secundar
+    // with it, and the secundar select stays disabled until a principal is
+    // chosen (below) so the state this would create can't be reached from
+    // either direction.
+    onChangePrincipal: (v: string) => {
+      setPrincipalDraft((prev) => ({ ...prev, [s.id]: v }));
+      if (!v) setSecundarDraft((prev) => ({ ...prev, [s.id]: "" }));
+    },
     onChangeSecundar: (v: string) => setSecundarDraft((prev) => ({ ...prev, [s.id]: v })),
     onChangeAttendance: (v: string) => setAttendanceDraft((prev) => ({ ...prev, [s.id]: v })),
     onChangeExperiment: (v: string) => setExperimentDraft((prev) => ({ ...prev, [s.id]: v })),
@@ -889,6 +900,7 @@ function SessionTableRow({
               value={secundarValue}
               options={trainerOptions}
               onChange={onChangeSecundar}
+              disabled={!principalValue}
             />
           </td>
         </>
@@ -1104,7 +1116,7 @@ function SessionCard({
           </label>
           <label className="font-body text-muted flex flex-col gap-1 text-xs">
             {t("col_secundar")}
-            <TrainerSelect value={secundarValue} options={trainerOptions} onChange={onChangeSecundar} />
+            <TrainerSelect value={secundarValue} options={trainerOptions} onChange={onChangeSecundar} disabled={!principalValue} />
           </label>
           <div className="mt-1 flex gap-2">
             <button
@@ -1261,17 +1273,20 @@ function TrainerSelect({
   value,
   options,
   onChange,
+  disabled,
 }: {
   value: string;
   options: TrainerOption[];
   onChange: (v: string) => void;
+  disabled?: boolean;
 }) {
   const t = useTranslations(groupsDict);
   return (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="font-body text-ink w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+      disabled={disabled}
+      className="font-body text-ink w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 disabled:cursor-not-allowed disabled:bg-black/5 disabled:text-muted"
     >
       <option value="">{t("no_trainer")}</option>
       {options.map((opt) => (
@@ -1388,7 +1403,15 @@ function NewSessionForm({
           {t("trainer_principal_label")}
           <select
             value={principalId}
-            onChange={(e) => setPrincipalId(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setPrincipalId(v);
+              // A secundar without a principal (item 166's report, A3):
+              // clearing the principal clears the secundar with it, so the
+              // state the disabled select below refuses to create can't
+              // arrive here either, by re-selecting a principal and back.
+              if (!v) setSecundarId("");
+            }}
             className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
           >
             <option value="">{t("no_trainer")}</option>
@@ -1404,7 +1427,8 @@ function NewSessionForm({
           <select
             value={secundarId}
             onChange={(e) => setSecundarId(e.target.value)}
-            className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
+            disabled={!principalId}
+            className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20 disabled:cursor-not-allowed disabled:bg-black/5 disabled:text-muted"
           >
             <option value="">{t("no_trainer")}</option>
             {trainerOptions.map((opt) => (

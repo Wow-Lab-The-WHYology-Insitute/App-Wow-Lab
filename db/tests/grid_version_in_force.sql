@@ -73,13 +73,16 @@ begin;
     select id into v_me from public.users where email = 'maxdigitalro@gmail.com';
     insert into public.trainer_grade_versions (organization_id, effective_date, created_by, note)
     values (current_setting('app.org')::uuid, (current_date + 60)::date, v_me,
-            'fixture: the 111-150 scale, dated by a contract that starts later (item 147)')
+            'fixture: a hypothetical later scale, dated by a contract that starts later (item 147) -- values chosen only to differ from whatever the real grid is today, restated 2026-10-30 (202610300001) to 111-150, which is why this fixture no longer reuses those same six numbers')
     returning id into v_new;
 
-    -- 111-150, the scale item 147 names.
+    -- Arbitrary, deliberately NOT 111-150 -- the real grid itself is
+    -- 111-150 as of 202610300001, and this fixture exists to prove the
+    -- resolver tells "today" apart from "scheduled", which needs the two
+    -- grids to differ.
     insert into public.trainer_grade_rates (organization_id, version_id, grade_level, rate)
     select current_setting('app.org')::uuid, v_new, x.lvl, x.rate
-    from (values (1,111),(2,119),(3,127),(4,134),(5,142),(6,150)) x(lvl, rate);
+    from (values (1,200),(2,208),(3,216),(4,224),(5,232),(6,240)) x(lvl, rate);
 
     perform set_config('app.new_version', v_new::text, true);
   end $$;
@@ -100,15 +103,15 @@ begin;
     (select id = current_setting('app.new_version')::uuid from public.trainer_grade_versions
      where organization_id = current_setting('app.org')::uuid order by effective_date desc limit 1)
   union all
-  select 'pay today still resolves grade 6 to 135, not the scheduled 150',
+  select 'pay today still resolves grade 6 to 150, not the scheduled 240',
     app.resolve_trainer_grade_rate(current_setting('app.org')::uuid, 6, current_date)::text,
-    '135',
-    app.resolve_trainer_grade_rate(current_setting('app.org')::uuid, 6, current_date) = 135
-  union all
-  select 'and ON the effective date it resolves to 150 -- the scheduled version does take effect',
-    app.resolve_trainer_grade_rate(current_setting('app.org')::uuid, 6, (current_date + 60)::date)::text,
     '150',
-    app.resolve_trainer_grade_rate(current_setting('app.org')::uuid, 6, (current_date + 60)::date) = 150
+    app.resolve_trainer_grade_rate(current_setting('app.org')::uuid, 6, current_date) = 150
+  union all
+  select 'and ON the effective date it resolves to 240 -- the scheduled version does take effect',
+    app.resolve_trainer_grade_rate(current_setting('app.org')::uuid, 6, (current_date + 60)::date)::text,
+    '240',
+    app.resolve_trainer_grade_rate(current_setting('app.org')::uuid, 6, (current_date + 60)::date) = 240
   union all
   select 'the screen and the engine agree on that date too',
     (select (version_id = current_setting('app.new_version')::uuid)::text
@@ -123,8 +126,8 @@ rollback;
 -- ============================================================================
 -- Point 3 -- SABOTAGE. Replaces the shared resolver with `versions[0]`'s
 -- logic -- newest row that exists, ignoring the date -- and re-runs point 2's
--- "pay today still resolves to 135" VERBATIM. Under the sabotaged function
--- today's pay jumps to the scheduled 150, so `pass` must flip to false.
+-- "pay today still resolves to 150" VERBATIM. Under the sabotaged function
+-- today's pay jumps to the scheduled 240, so `pass` must flip to false.
 -- ============================================================================
 begin;
   select set_config('app.org', (select id::text from public.organizations where slug = 'wow-lab'), true);
@@ -138,7 +141,7 @@ begin;
     returning id into v_new;
     insert into public.trainer_grade_rates (organization_id, version_id, grade_level, rate)
     select current_setting('app.org')::uuid, v_new, x.lvl, x.rate
-    from (values (1,111),(2,119),(3,127),(4,134),(5,142),(6,150)) x(lvl, rate);
+    from (values (1,200),(2,208),(3,216),(4,224),(5,232),(6,240)) x(lvl, rate);
   end $$;
 
   create or replace function app.resolve_grid_version(p_organization_id uuid, p_grid text, p_as_of date)
@@ -154,8 +157,8 @@ begin;
     return v_version_id;
   end; $sab$;
 
-  select 'SABOTAGE: pay today still resolves grade 6 to 135, not the scheduled 150, same assertion as point 2, resolver ignores the date' as check_name,
+  select 'SABOTAGE: pay today still resolves grade 6 to 150, not the scheduled 240, same assertion as point 2, resolver ignores the date' as check_name,
     app.resolve_trainer_grade_rate(current_setting('app.org')::uuid, 6, current_date)::text as actual,
-    '135' as expected,
-    app.resolve_trainer_grade_rate(current_setting('app.org')::uuid, 6, current_date) = 135 as pass;
+    '150' as expected,
+    app.resolve_trainer_grade_rate(current_setting('app.org')::uuid, 6, current_date) = 150 as pass;
 rollback;

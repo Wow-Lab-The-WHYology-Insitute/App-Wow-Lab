@@ -8888,6 +8888,138 @@ Both guards live on **UPDATE**. Item 91 (202609220001-2) revoked `authenticated`
 **Lives in:** `sessions`' own grants (`information_schema.column_privileges`, confirmed live) and its `"authenticated insert sessions"` RLS policy; `app/(app)/groups/actions.ts` (`addSession`, the one real path); `supabase/migrations/202609220001` (item 91 — UPDATE-only re-routing, the precedent this item asks be revisited if the trigger fires); `202610220001` and `202610280001` (the two UPDATE-only guards this gap sits beside); `DATABASE_CONVENTIONS.md` §19.
 
 ---
+### 167. A secundar trainer with no principal — real screenshot, "Alexandra Nuțu" secundar beside "Nealocat" — FIXED, 2026-10-30
+
+Found in Anca's own screenshots the same week as items 163-166: a workshop with a secundar trainer set and no principal. A secundar is specifically an assistant to a principal; a secundar with nobody to assist is a state the form let through from both directions — creation (`NewSessionForm`) and reallocation (the `TrainerSelect` editing path on an existing session).
+
+**Fixed in the UI:** the secundar field is now `disabled` until a principal is chosen, in both places, and clearing the principal clears the secundar with it — so the state can't be reached by filling fields in either order.
+
+**Fixed underneath, because the UI fix alone repeats item 166's own lesson:** `addSession`'s INSERT and `app.rpc_update_session_allocation`'s UPDATE were both still reachable directly. Unlike the two future-date guards (202610220001, 202610280001), this invariant is **not time-dependent** — there is no "clock moved" exception to carve out — so it is enforced as a CHECK constraint, not an RPC guard: `sessions_secundar_requires_principal_check` (`202610300002`), covering every current and future write path, INSERT and UPDATE alike. Confirmed live before writing it: zero existing rows, in either organization, violated it — a prospective guard, not a retroactive fix. A matching pre-check was also added at the action layer (`addSession`, `updateSessionAllocation`) for a clean message instead of a raw constraint-violation error reaching the screen.
+
+**Why this needed fixing now rather than being noted for later, unlike item 166's INSERT gap:** a separate, still-unbuilt proposal for a trainer-principal bonus (Anca, 2026-10-29 — not yet a numbered item) depends entirely on telling principal and secundar apart meaningfully. A session where the "secundar" slot is occupied with no principal has no meaningful answer to "who is the principal here", which would have made that proposal's very first worked example ambiguous by construction.
+
+**Lives in:** `supabase/migrations/202610300002_no_secundar_without_a_principal.sql`; `app/(app)/groups/[id]/group-detail-client.tsx` (`NewSessionForm`, `TrainerSelect`, the `rowProps.onChangePrincipal` clearing logic); `app/(app)/groups/actions.ts` (`addSession`, `updateSessionAllocation`); item 166 above (the INSERT-path precedent this one closes completely rather than leaving as a report).
+
+---
+### 168. Avenor invoices from Brandine — confirmed a second time, by Anca, in writing. Do not revert.
+
+Already corrected and applied: `supabase/migrations/202610160007_correct_avenor_contract_price_and_entity.sql` moved Avenor's contract to Brandine Advertising SRL at 700 RON/group/session, no VAT, retroactive to 2026-09-01, on Anca's 2026-10-16 answer. **(Mihai's own citation of this migration gave the number `202610200007` — that file is `correct_cancellation_actor.sql`, an unrelated §19 fix. The real one is `202610160007`, confirmed live and by content before writing this entry — not assumed from either citation.)**
+
+**The second confirmation, independent of the first, recorded so this does not reopen a third time.** Anca, in Asana, answering Mihai's direct question *"vad ca s-a schimbat entitatea de pe care se factureaza, e ok, da?"*:
+
+> *"da, s-a schimbat entitatea de pe care se factureaza. Ia in calcul ultimul tabel de azi, pls."*
+
+Confirmed live, 2026-10-30: Avenor's contract still reads `legal_entity_id` → Brandine Advertising SRL, `billing_rule = '700 RON fără TVA/grupă/ședință'` — unchanged since 202610160007 applied.
+
+**Observation beside it, not a conflict:** the real payroll timesheet still carries all 16 Avenor rows under "Experimente WOW", including the 28 October row — i.e. the *external* payroll sheet has not caught up to the entity change the *application* already carries correctly. The application is the correct side of that disagreement; the timesheet is the stale one.
+
+**Blocked on:** nothing. **Re-verify when:** never, absent a third change Anca states explicitly — this entry exists so that doesn't mean starting from zero.
+**Lives in:** `supabase/migrations/202610160007_correct_avenor_contract_price_and_entity.sql`; `contracts.legal_entity_id`/`billing_rule` for the Avenor row.
+
+---
+### 169. `contracts.legal_entity_id` answers "who invoices the school," not "who bears the trainer's cost" — and the real payroll data shows they are not always the same fact
+
+An untested assumption, named because it explains a real complaint ("la Cătălina apar amestecate Brandine și Experimente").
+
+The real timesheet carries a "Company" column from the cost-tracking register — which legal entity bears the **trainer's own cost** for a given engagement. This application derives the invoicing entity from `groups.contract_id → contracts.legal_entity_id` — which entity **bills the school**. The assumption, never separately verified until now: that these are the same fact.
+
+**For the three recurring schools (Avenor, Lycée, Scoala Germana) they are, because each has exactly one client, one contract, one entity, for the whole relationship** — which is why nothing has broken yet.
+
+**The real data shows the assumption breaks the moment an engagement has no client contract behind it at all — which is exactly Scoala Altfel's shape.** Scoala Altfel appears in the timesheet under all three entities: Brandine 26 rows, Experimente Wow 6, STEMplicity 2 — for the same kind of event. Teodora, same month, carries Scoala Germana under Experimente Wow and Wow Lab Party under Brandine. **The entity is assigned per ENGAGEMENT, not per client** — a fact the current `groups.contract_id` chain has no way to represent, because it only ever points at one client's one contract.
+
+**Why this hasn't bitten the application yet, and when it will:** every group that exists today belongs to one of the three recurring schools, each with its own single contract. The day a one-off engagement (a Scoala Altfel workshop, a Wow Lab Party booking) is entered with no client contract to point `contract_id` at, `/payroll`'s own `entityOfGroup` already has a bucket for this — "payable but unattributable," the deliberate third state `/payroll/page.tsx`'s own comment names. That bucket is correct as far as it goes; it does not yet have a way to let someone SET the entity per engagement when there is no contract to derive it from.
+
+**Blocked on:** nothing to fix now — no one-off engagement with this shape exists in the application today. **Re-verify when:** the first one-off engagement (Scoala Altfel, Wow Lab Party, or similar) is entered without a client contract behind it, and needs its invoicing entity recorded.
+**Lives in:** `app/(app)/payroll/page.tsx` (`entityOfGroup`, the unattributable bucket); `contracts.legal_entity_id`; `groups.contract_id` (item 19 below — nullable by design, the exact seam this item falls through).
+
+---
+### 170. `blocks_workshop = true` stops the recurring club — it does not mean the trainers didn't work
+
+19-23 October 2026, the week the national-structure calendar work (§18, items 154/159) correctly marked as inside each school's own autumn break for the three recurring clients. The real timesheet for that exact week:
+
+| date | who | where |
+|---|---|---|
+| 19 Oct | Cătălina ×6, Lorina ×6 | Scoala ARC |
+| 20 Oct | Lorina ×3 (ARC), Andrada ×4, Raluca Popa ×4 | Scoala Altfel |
+| 21 Oct | Andrada ×4, Andreea Cruglic ×4, Lorina ×4 | "Other cities," 100% location bonus |
+| 22-23 Oct | Diana Cocea, Sonia, Cătălina (STEMplicity), Lorina, Raluca | — |
+
+**This is the busiest week of the year by row count, at exactly the dates the application's own cancellations correctly mark as closed for the three recurring clients it has.** Both facts are true at once because they are about different things: the recurring CLUBS stop (correctly — nothing was taught at Avenor, Lycée or Scoala Germana on 19-21 October, and the cancellations recording that are right), while the trainers' actual work moves to Săptămâna Altfel — a different `delivery_format`, on clients the application mostly does not have yet (item 169, item 172 below).
+
+**The 172 generated workshops (202610200009) carry the identical assumption and are correct as generation**, for the same reason the cancellations are correct: they generate the recurring clubs' own calendar, which genuinely does stop that week. The assumption, unwritten until now: *a week the recurring calendar shows empty is a week with no work in it.* True for the three clients this application has; false for the organisation as a whole, every Altfel/Verde week, every year.
+
+**Blocked on:** nothing to fix — this is a report. **Re-verify when:** Săptămâna Altfel/Verde workshops are entered as real groups (item 172) — at that point `/groups` and `/my-work`'s own "next workshop" views should be checked against a week like this one, where the recurring calendar is empty and a trainer's real week is not.
+**Lives in:** `docs/DATABASE_CONVENTIONS.md` §18; items 154, 159 above (the calendar work this week's cancellations came from); item 172 below (Altfel/Verde's own missing client identity).
+
+---
+### 171. Coverage, in numbers: 38 of the current school year's 89 real rows are in this application — not "three schools of nine"
+
+Measured against the real timesheet, current school year (from 2026-09-01):
+
+| client | rows | entities | in the application? |
+|---|---|---|---|
+| Scoala Altfel | 34 | Brandine 26, Experimente Wow 6, STEMplicity 2 | **no** |
+| Avenor | 16 | Brandine | yes |
+| Scoala ARC | 16 | Brandine | **no** |
+| Lycée | 12 | — | yes |
+| Scoala Germana | 10 | — | yes |
+| Wow Lab Party | 1 | Brandine | **no** |
+
+38 of 89. "Three schools of nine" is the kind of true-but-vague sentence this register's own §20 exists to replace with a number.
+
+**Scoala ARC specifically, since it is new enough to need its own check before anyone imports it.** First row in the timesheet's entire history is 2026-10-19 — this client has never existed before. 16 rows, two days: 19 October (Cătălina ×6, Lorina ×6) and 20 October (Lorina ×4). All Brandine, all Bucharest (0% location bonus), **no CUI anywhere in the timesheet rows themselves** — but the "Mapări Tip Trainer" tab carries CUI **37239989** against the ARC name. **To confirm before any import: which CUI is real, and whether the blank in the timesheet rows is an omission or means something.** Confirmed live: no client named ARC, and no supplier/client anywhere carrying CUI 37239989, exists in this application today — this is a genuinely new entry, not a rename.
+
+**19 October is also the real-world case B2's proposed bonus was designed against**, not a constructed example: two trainers, one school, six workshops each, in Anca's own words *"UN SINGUR bonus de 20 lei"* — whichever of the two held the principal slot that day.
+
+**Blocked on:** the CUI question above, before any of Scoala Altfel's 34 rows, ARC's 16, or Wow Lab Party's 1 are imported. **Re-verify when:** that's answered, and again whenever the timesheet's current-school-year total changes (it will, every month this year runs).
+**Lives in:** item 172 below (why Scoala Altfel's 34 rows specifically cannot be imported as-is, regardless of the CUI question); item 159 above (the three schools' own calendars, the half of coverage that already exists).
+
+---
+### 172. "Scoala Altfel" has no identity in the real payroll record — and no future import may create a client named that
+
+Found searching the timesheet for ARC (item 171), by contrast: ARC's 16 rows name a real school. **"Scoala Altfel" as a school name, across 205 rows, never does:**
+
+- CUI: blank on 188 rows, `"-"` on 17. Never a real tax id, on any row, ever.
+- Location: three different tiers — Bucharest 118, Other cities 63, Surroundings 24.
+- Entity: three different companies — Experimente Wow 158, Brandine 45, STEMplicity 2.
+
+**Three location tiers and three entities mean different real schools, and the record does not say which.** For 205 workshops, the timesheet cannot answer "which school was this." "Săptămâna Verde" carries the identical shape at smaller scale: 59 rows, no CUI anywhere, three location tiers. **ARC is the counter-example in the same file, the same week** — proof the sheet CAN name a real school when someone writes it down; "Scoala Altfel" and "Săptămâna Verde" are where that didn't happen, not a different kind of event.
+
+**THE RULE, written now, before any import, per §18's own already-established principle (a school gets dates only from its own calendar — this is the same idea about identity rather than dates):**
+
+> **Săptămâna Altfel and Săptămâna Verde enter this application under the REAL school as the client**, with `delivery_format = 'scoala_altfel'` / `'saptamana_verde'` marking what kind of week it was. **Never a client named "Scoala Altfel."** A client by that name would reproduce, inside this application, the exact identity loss the timesheet already has — permanently, since nothing downstream would then be able to ask which school it actually was either.
+
+**The consequence, stated as a limit rather than a problem to solve now:** the 205 historical "Scoala Altfel" rows (and the 59 "Săptămâna Verde" ones) **cannot be imported as they stand.** The real school behind each has to come from somewhere else — asking whoever ran each week, or a different source that still has it — before any of those rows can become a real group in this schema. This is a limit on any future import of that data, not a task queued for now.
+
+**Blocked on:** nothing to fix — this is a rule for later, written before the need is urgent. **Re-verify when:** anyone proposes importing Scoala Altfel/Săptămâna Verde history, or creating a client to hold it.
+**Lives in:** `DATABASE_CONVENTIONS.md` §18 (the sibling rule this one restates for identity instead of dates); item 171 above (the coverage count these 205+59 rows are the uncovered half of); item 170 above (the same weeks, from the workload side).
+
+---
+### 173. Five more gaps, named by a real user rather than found by reading
+
+Anca's own observations after actually using the application, items not already covered above:
+
+1. **"Cum se adaugă Grupele recurente?"** — she looked for the recurring-group generation feature and did not find it. It exists (`createFirstWorkshop`, item 119) but only generates ONE workshop at group-creation time, not a recurring series, and nothing on screen says this is a one-shot or points at `/groups/[id]`'s own existing-session tools for the rest.
+2. **The experiment delivered should be a predefined list, not free text.** Same finding as A2 above, verified completely there: 312 real `lesson_plans` already exist, a whole proposal/validation workflow (`session_lesson_plans`, item 117) already reads them — and `sessions.experiment_delivered` (three separate free-text inputs: creation, and both inline edit paths) was never connected to it. The comment that justified free text when it was written (*"the experiment catalogue does not exist"*, `app/(app)/groups/actions.ts`) has been false since item 117 shipped and was never revisited — a live instance of §17's own pattern, a correct-when-written decision whose reason quietly stopped being true.
+3. **A note field ("vacanță") on a workshop that is not held** — distinct from the five cancellation categories, which assume the workshop existed and didn't happen for a stated reason; this is closer to a scheduling annotation than a cancellation.
+4. **Anca wants to hand-edit the base rate in the application**, rather than asking for a migration every time (today's own A1 being the latest instance).
+5. **A planned 10-12% increase from 1 January 2027** — a second trainer-grade version dated ahead, the exact live case `db/tests/grid_version_in_force.sql` and `/payment-config`'s "scheduled" state (§22) already exist to handle correctly. Not blocked on anything technical; blocked on the same confirmation rule item 147 below restates — present tense, not a plan.
+6. **Payroll renames to Payments.** Needs a Romanian decision too — the nav currently reads "Salarizare".
+
+**Blocked on:** nothing to build from this entry alone — each is either already covered (2, by A2/item 2 below) or waits on a product decision (1, 3, 4, 6) or a confirmation (5, same rule as item 147).
+**Lives in:** `app/(app)/groups/actions.ts` (`createFirstWorkshop`, item 119); `app/(app)/groups/[id]/group-detail-client.tsx` + `session-plans-section.tsx` (item 2 below, item 117); `app/(app)/payment-config/*` (§22); `app/(app)/i18n.ts` (nav label).
+
+---
+### 174. A whole allocation workflow, noted and not built: trainers self-propose, Cătălina confirms the team
+
+Anca, verbatim: *"Trainerii se autopropun și Cătălina confirmă echipa finală. Pt grupele recurente se confirmă la începutul anului școlar sau când se preia grupa."*
+
+A real process with no application counterpart at all today: no self-nomination surface for a trainer to say "I can take this," no confirmation step distinct from the plain `trainer_principal_id`/`trainer_secundar_id` assignment Operations already writes directly. `rd. 75`'s open question (item 150 above — "who decides principal vs secundar, preset or chosen") is a piece of this, not the whole of it; this is the first time the full shape (propose → confirm, with a school-year-start or handover trigger for recurring groups) has been stated.
+
+**Blocked on:** nothing — not scoped, not designed, not started. Recorded so a future design starts from Anca's own words rather than reconstructing the shape from `rd. 75` alone.
+**Lives in:** `docs/WOWLAB_Spec_Trainer_Principal_Secundar.md` (the closest existing document); item 150 above (`rd. 75`, the narrower open question this supersedes in scope, not in validity).
+
+---
 ### 151. `trainer_grade_assignments.source` accepts `'computed'` and nothing computes — the automation it was built for needs an hours history we do not have
 
 2026-10-20. All **11** assignments in the real org carry `source = 'manual'`; the CHECK admits `'computed' | 'manual'` and the second value has never been written. That is not an oversight — it is a placeholder for a requirement, and the requirement is named.
@@ -9225,6 +9357,28 @@ somebody chooses.
 **Blocked on:** Anca, and the import is blocked behind it. Note that the arithmetic in item 144 (180.00 vs 225.00 for a Lycée workshop) is unaffected in its *point* — the location bonus is wrong either way — but its *figures* assume our grid, so they move by 11% if this resolves the other way.
 **Re-verify when:** answered. And if our grid turns out to be doubly uplifted, `202609240001`'s seeded grid is wrong at the source and every figure this project has quoted since item 95 needs restating.
 **Lives in:** nothing changed. `supabase/migrations/202609240001_seed_pay_grids_pfa_inclusive_rates.sql` (the grid, and the migration whose correctness is in question); item 95 above (Anca's 111 quote), item 128 above (the 11%), item 131 above (the mislabelled 11.1%), item 144 above (where the ×1.11 relationship was measured).
+
+**RESOLVED AGAIN, 2026-10-30 — Anca confirmed the raise took effect, in writing, present tense. `202610200001`'s restatement to 100-135 is superseded, not wrong for its day.**
+
+Anca, verbatim, 2026-10-29: *"Pt toti cei notati cu Onorarii traineri sa adaugam direct in app 11% la suma de baza, te rog sa faci update si pe Septembrie si pe Octombrie si de acum inainte se calculeaza cu 11% in plus sumele, SUNT INDEXATE."* And from 2026-07-30: *"Da, confirmam tariful de baza junior la 111 lei/ora predata."*
+
+**This is the confirmation the entry above said was missing, not a reopening of the question it already settled.** "There is no uplift in the trainer scale" still holds — 111 is still a raise, not a gross restatement of 100, exactly as resolved above. What changed is the *date* question the entry left open: row 36 of the feedback was unconfirmed in July, and the payment record showed the old scale still in force through 12 October. Anca's 29 October message is that confirmation, present tense and operational ("sa faci update", not "vom avea") — the exact distinction §147's own rule draws between an intention and an agreement.
+
+**Applied (`202610300001`): the 2026-09-01 version's six rates restated to 111/119/127/134/142/150** — the same mechanism `202609240001` and `202610200001` both used (one version row, updated in place), not `contract_type_uplift`, which stays empty, still for the reason this item already settled: there is no uplift to apply, only a higher base. Pay recomputes at read, so September and October move together, confirmed live before and after:
+
+| | September (before → after) | October (before → after) |
+|---|---|---|
+| Cătălina Trușan / Brandine | 3307.50 → 3675.00 | 1822.50 → 2025.00 |
+| Lorina Ciurusniuc / Experimente Wow | 214.00 → 238.00 | 642.00 → 714.00 |
+| Teodora Merișan / Experimente Wow | 684.00 → 762.00 | — |
+| **Total** | **4205.50 → 4675.00** | **2464.50 → 2739.00** |
+
+**Who this reaches, checked rather than assumed from Anca's own phrase.** She scoped it to *"toti cei notati cu Onorarii traineri"* — read literally, `suppliers.service_type = 'Onorarii trainer'`. Checked against the 11 trainers who hold a `trainer_grade_assignments` row today: **only 3 — Raluca Popa, Teodora Merișan, Cătălina Trușan — have any matching `suppliers` row at all.** The other 8, including **Lorina Ciurusniuc, whose 107 lei/hour row opened this item in the first place**, have no supplier record linking them to a service_type. Gating the raise on `suppliers.service_type` would, today, exclude 8 of 11 active trainers from a raise Anca explicitly asked be applied to all of them.
+
+**So the literal reading is wrong, and the mechanism used instead is the one already correct by construction**: every grade-holder reads this one grid; nobody paid any other way does — Anka Orban, admin/writing work through `admin_rates`, holds **no** `trainer_grade_assignments` row (checked live). "Holding a grade" is what "Onorarii traineri" means in this schema today, not a populated `service_type` column. **Not represented as data anywhere**: there is no `is_uplift_applied`-equivalent flag on `suppliers`/`supplier_contracts` the way `admin_rates` has one for exactly this kind of distinction. Flagged, not built — a gap against a population of zero (every current grade-holder is the kind of trainer this applies to) is not a gap to design a column for yet.
+
+**Blocked on:** nothing further for September/October. **Re-verify when:** a trainer is ever added who should receive a DIFFERENT base than this one grid (an SRL/gross arrangement for class delivery, Anka's shape but for teaching rather than admin work) — that is the day "holds a grade" and "gets this raise" stop being the same population, and the gap named above stops being hypothetical.
+**Lives in:** `supabase/migrations/202610300001_apply_the_11_percent_anca_confirmed.sql` (the restatement, with the full reasoning and the population check in its own header); its rollback (`202610300001..._rollback.sql`, restores 100-135); `db/tests/calculate_session_pay.sql`, `payroll_org_session_pay.sql`, `cancel_session_pay_rule.sql`, `grid_version_in_force.sql` (all four restated for the new rates in the same pass — `grid_version_in_force.sql`'s own "scheduled, dated ahead" fixture moved off 111-150 since that is no longer a hypothetical future scale, it is the live one).
 
 ---
 ### 18. Pending invites — cut deliberately

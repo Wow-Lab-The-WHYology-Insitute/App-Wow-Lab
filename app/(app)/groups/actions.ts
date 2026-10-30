@@ -317,6 +317,15 @@ export async function addSession(
     return { ok: false, error: SESSION_ATTENDANCE_FUTURE_ERROR };
   }
 
+  // A secundar is specifically an assistant to a principal (item 166's own
+  // report, A3 -- found from a real screenshot: secundar set, principal
+  // "Unassigned"). The UI already disables this combination; this is the
+  // same check restated for whatever calls this action directly, backed by
+  // sessions_secundar_requires_principal_check (202610300002) underneath.
+  if (!trainerPrincipalId && trainerSecundarId) {
+    return { ok: false, error: "A secundar trainer requires a principal trainer on the same workshop." };
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("sessions")
@@ -375,6 +384,12 @@ export async function updateSessionAllocation(
   trainerPrincipalId: string,
   trainerSecundarId: string,
 ): Promise<VoidActionResult> {
+  // Same check as addSession's own, restated here rather than shared --
+  // see that function's comment (item 166's report, A3).
+  if (!trainerPrincipalId && trainerSecundarId) {
+    return { ok: false, error: "A secundar trainer requires a principal trainer on the same workshop." };
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("rpc_update_session_allocation", {
     p_session_id: sessionId,

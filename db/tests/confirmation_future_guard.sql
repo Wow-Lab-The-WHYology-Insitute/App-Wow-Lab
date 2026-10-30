@@ -38,9 +38,18 @@ begin;
             current_setting('app.lorina')::uuid, 'planned', 50, 'bucuresti')
     returning id into v_future;
 
+    -- Yesterday, not -30 days: found 2026-10-30, the first time this file
+    -- ran after a real payroll_periods row existed for real -- `current_date
+    -- - 30` landed inside September, which by then Mihai had actually
+    -- closed (B1's own finding), so confirming "normally" returned
+    -- 'month_closed' instead of 'ok'. Yesterday is always inside whatever
+    -- month is still open in practice -- Operations closes a COMPLETE prior
+    -- month, never the one still running -- so this stays "in the past,
+    -- confirmable" without being coupled to which months happen to be
+    -- closed on the day this suite runs.
     insert into public.sessions (organization_id, group_id, session_date, start_time,
                                  trainer_principal_id, status, duration_minutes, location_tier)
-    values (current_setting('app.org')::uuid, v_group, current_date - 30, '15:30',
+    values (current_setting('app.org')::uuid, v_group, current_date - 1, '15:30',
             current_setting('app.lorina')::uuid, 'delivered', 50, 'bucuresti')
     returning id into v_past;
 

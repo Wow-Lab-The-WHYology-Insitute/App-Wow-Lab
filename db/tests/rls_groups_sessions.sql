@@ -62,8 +62,13 @@ begin;
     insert into public.sessions (organization_id, group_id, session_date, trainer_principal_id, status)
     values (current_setting('app.test_org_wow_lab')::uuid, v_group_a, '2026-09-01', current_setting('app.test_trainer_a')::uuid, 'planned')
     returning id into v_session_principal;
-    insert into public.sessions (organization_id, group_id, session_date, trainer_secundar_id, status)
-    values (current_setting('app.test_org_wow_lab')::uuid, v_group_a, '2026-09-08', current_setting('app.test_trainer_a')::uuid, 'planned')
+    -- A secundar needs a principal (202610300002, found from a real
+    -- screenshot the same week this suite is from) -- trainer_b fills that
+    -- slot here. Harmless to this point's own assertions: they only count
+    -- what trainer_a can see, and trainer_b's isolation is tested through
+    -- the separate v_session_other_trainer fixture below, not this one.
+    insert into public.sessions (organization_id, group_id, session_date, trainer_principal_id, trainer_secundar_id, status)
+    values (current_setting('app.test_org_wow_lab')::uuid, v_group_a, '2026-09-08', current_setting('app.test_trainer_b')::uuid, current_setting('app.test_trainer_a')::uuid, 'planned')
     returning id into v_session_secundar;
     insert into public.sessions (organization_id, group_id, session_date, trainer_principal_id, status)
     values (current_setting('app.test_org_wow_lab')::uuid, v_group_b, '2026-09-01', current_setting('app.test_trainer_b')::uuid, 'planned')

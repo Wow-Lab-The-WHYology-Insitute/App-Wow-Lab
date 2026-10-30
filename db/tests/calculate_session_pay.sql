@@ -47,11 +47,13 @@ begin;
   create temp table check_results (check_name text, pass boolean);
 
   -- Grade 3 (Teodora, rate 127) x 90min standard (1.2) x
-  -- Figures restated 2026-10-20: 202610200001 replaced the 2026-09-01 grid
-  -- with the scale actually paid (100/107/114/121/128/135), so grade 3 is
-  -- 114 rather than 127. The arithmetic and the point of each check are
-  -- unchanged; only the rate moved. See OPEN_ITEMS item 147.
-  -- (1 + 25/100 + 20/100) = 114 x 1.2 x 1.45 = 198.36 exactly, unrounded.
+  -- (1 + 25/100 + 20/100) = 127 x 1.2 x 1.45 = 220.98 exactly, unrounded.
+  -- Figures restated 2026-10-30 (202610300001): 202610200001 had replaced
+  -- the 2026-09-01 grid with the scale actually paid before Anca's indexed
+  -- rate took effect (100/107/114/121/128/135, grade 3 = 114); Anca's
+  -- 2026-10-29 confirmation moves the grid back to 111-150, grade 3 = 127.
+  -- The arithmetic and the point of each check are unchanged; only the
+  -- rate moved again. See OPEN_ITEMS item 147.
   insert into public.groups (id, organization_id, client_id, module, delivery_format, language_group)
   values ('11111111-0000-0000-0000-000000000001', current_setting('app.wow_lab')::uuid, current_setting('app.avenor_client')::uuid, 'gaga', 'parteneriate_companii', 'fr_de_es');
 
@@ -59,8 +61,8 @@ begin;
   values ('22222222-0000-0000-0000-000000000001', current_setting('app.wow_lab')::uuid, '11111111-0000-0000-0000-000000000001', '2026-09-25', current_setting('app.teodora')::uuid, null, 'planned', 90, 'imprejurimi');
 
   insert into check_results values (
-    'known case: grade 3, 90min standard, imprejurimi, fr_de_es = 198.36 exactly',
-    app.calculate_session_pay('22222222-0000-0000-0000-000000000001', current_setting('app.teodora')::uuid) = 198.36
+    'known case: grade 3, 90min standard, imprejurimi, fr_de_es = 220.98 exactly',
+    app.calculate_session_pay('22222222-0000-0000-0000-000000000001', current_setting('app.teodora')::uuid) = 220.98
   );
 
   -- Missing grade assignment raises, does not return zero or null.
@@ -103,8 +105,9 @@ rollback;
 -- Block 2: delivery context comes from the GROUP, not the session.
 -- Same trainer, same location/language, only the group's delivery_format
 -- differs, so the only variable affecting the result is the multiplier.
--- 114 x 2.0 x 1.45 = 330.60 (scoala_altfel); 114 x 1.5 x 1.45 = 247.95
--- (standard).
+-- 127 x 2.0 x 1.45 = 368.30 (scoala_altfel); 127 x 1.5 x 1.45 = 276.225
+-- (standard). Restated 2026-10-30 alongside the grid (202610300001, item
+-- 147) -- same two multipliers, grade 3's new rate.
 -- ============================================================================
 begin;
   select set_config(
@@ -128,11 +131,11 @@ begin;
   insert into public.sessions (id, organization_id, group_id, session_date, trainer_principal_id, trainer_secundar_id, status, duration_minutes, location_tier)
   values ('22222222-0000-0000-0000-000000000004', current_setting('app.wow_lab')::uuid, '11111111-0000-0000-0000-000000000004', '2026-09-25', current_setting('app.teodora')::uuid, null, 'planned', 120, 'imprejurimi');
 
-  select 'scoala_altfel context at 120min yields 2.0 multiplier -> 330.60' as check_name,
-    app.calculate_session_pay('22222222-0000-0000-0000-000000000003', current_setting('app.teodora')::uuid) = 330.60 as pass
+  select 'scoala_altfel context at 120min yields 2.0 multiplier -> 368.30' as check_name,
+    app.calculate_session_pay('22222222-0000-0000-0000-000000000003', current_setting('app.teodora')::uuid) = 368.30 as pass
   union all
-  select 'standard context at 120min yields 1.5 multiplier -> 247.95',
-    app.calculate_session_pay('22222222-0000-0000-0000-000000000004', current_setting('app.teodora')::uuid) = 247.95;
+  select 'standard context at 120min yields 1.5 multiplier -> 276.225',
+    app.calculate_session_pay('22222222-0000-0000-0000-000000000004', current_setting('app.teodora')::uuid) = 276.225;
 rollback;
 
 -- ============================================================================
@@ -192,6 +195,6 @@ begin;
   $sabotage$;
 
   select
-    'SABOTAGE: rounded function no longer equals 198.36 exactly' as check_name,
-    app.calculate_session_pay('22222222-0000-0000-0000-000000000005', current_setting('app.teodora')::uuid) = 198.36 as pass;
+    'SABOTAGE: rounded function no longer equals 220.98 exactly' as check_name,
+    app.calculate_session_pay('22222222-0000-0000-0000-000000000005', current_setting('app.teodora')::uuid) = 220.98 as pass;
 rollback;

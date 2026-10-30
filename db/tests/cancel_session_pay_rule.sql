@@ -31,7 +31,8 @@ begin;
           current_setting('app.client')::uuid, 'wow_mix', 'scoli_private_recurente', 'fr_de_es');
 
   -- Six identical workshops: one left alone, five cancelled one per category.
-  -- Catalina grade 6 (135) x 1.2 (90 min) x 1.45 (imprejurimi + fr_de_es) = 234.90
+  -- Catalina grade 6 (150, restated 2026-10-30 per item 147/202610300001)
+  -- x 1.2 (90 min) x 1.45 (imprejurimi + fr_de_es) = 261.00
   insert into public.sessions (id, organization_id, group_id, session_date, trainer_principal_id, status, duration_minutes, location_tier)
   select ('fb000000-0000-0000-0000-00000000000' || n)::uuid, current_setting('app.wow_lab')::uuid,
          'fa000000-0000-0000-0000-00000000000f', '2026-09-25', current_setting('app.cat')::uuid,
@@ -39,8 +40,8 @@ begin;
   from generate_series(1,6) n;
 
   insert into check_results values (
-    'baseline: an uncancelled workshop pays 234.90',
-    app.calculate_session_pay('fb000000-0000-0000-0000-000000000001', current_setting('app.cat')::uuid) = 234.90
+    'baseline: an uncancelled workshop pays 261.00',
+    app.calculate_session_pay('fb000000-0000-0000-0000-000000000001', current_setting('app.cat')::uuid) = 261.00
   );
 
   -- Cancel five, one per category, through the RPC.
@@ -70,8 +71,8 @@ begin;
     app.calculate_session_pay('fb000000-0000-0000-0000-000000000002', current_setting('app.cat')::uuid) = 0
   );
   insert into check_results values (
-    'scoala_a_anulat_NEANUNTAT -> STILL PAID 234.90 (trainer travelled, empty room)',
-    app.calculate_session_pay('fb000000-0000-0000-0000-000000000003', current_setting('app.cat')::uuid) = 234.90
+    'scoala_a_anulat_NEANUNTAT -> STILL PAID 261.00 (trainer travelled, empty room)',
+    app.calculate_session_pay('fb000000-0000-0000-0000-000000000003', current_setting('app.cat')::uuid) = 261.00
   );
   insert into check_results values (
     'trainer_indisponibil -> decided zero',
@@ -227,10 +228,17 @@ begin;
 
   create temp table check_results (check_name text, pass boolean);
 
-  -- September closed on 1 October, by Anka.
+  -- September closed on 1 October, by Anka -- ON CONFLICT DO NOTHING
+  -- because September is, as of 2026-10-30, ALSO really closed in wow-lab
+  -- for real (B1's own finding: closing protects nothing about the
+  -- figures, but the payroll_periods row itself is real). The assertions
+  -- below all read pp.closed_at back from the table rather than assuming
+  -- this literal, so either the real row or this fixture's own serves
+  -- them identically.
   insert into public.payroll_periods (organization_id, period, closed_at, closed_by)
   values (current_setting('app.wow_lab')::uuid, '2026-09-01', '2026-10-01 09:00:00+00',
-          (select id from public.users where email='anka@asismart.ro'));
+          (select id from public.users where email='anka@asismart.ro'))
+  on conflict (organization_id, period) do nothing;
 
   -- Two real imported workshops on one Scoala Germana group, pinned.
   create temp table picked as
@@ -282,13 +290,22 @@ begin;
        and s.cancelled_at > pp.closed_at)
   );
 
+  -- Found 2026-10-30: this query was missing the session-month filter its
+  -- own sibling above (the LATE check) already has, and it had no reason
+  -- to matter until real cancelled rows existed outside September --
+  -- 202610200005/202610200007's six real October holiday-week cancellations
+  -- all carry cancelled_at before this fixture's September close, so an
+  -- unscoped "any cancelled session before the close" count caught them
+  -- too (7, not 1). Scoped to September-dated sessions now, matching the
+  -- LATE check exactly.
   insert into check_results values (
     'a cancellation BEFORE the close is NOT counted as late',
     (select count(*) = 1
      from public.sessions s, public.payroll_periods pp
      where s.organization_id = current_setting('app.wow_lab')::uuid
        and pp.organization_id = s.organization_id and pp.period = '2026-09-01'
-       and s.status = 'cancelled' and s.cancelled_at <= pp.closed_at)
+       and s.status = 'cancelled' and s.cancelled_at <= pp.closed_at
+       and to_char(s.session_date,'YYYY-MM') = to_char(pp.period,'YYYY-MM'))
   );
 
   -- And the money really moved, by exactly what was cancelled -- computed.
