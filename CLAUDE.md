@@ -12,7 +12,7 @@ is in Romanian; code, comments, commits and this file are in English.
    has corrected its own past mistakes in place rather than hiding them, and the correction is
    usually the part that matters.
 2. **`docs/DATABASE_CONVENTIONS.md`.** Every schema, RLS, and migration convention this project
-   has settled on, numbered §1–§22 as of this writing. Check a new migration against it before
+   has settled on, numbered §1–§23 as of this writing. Check a new migration against it before
    writing one; conventions here are load-bearing, not style preferences.
 3. **This file**, for how to run things. It does not restate decisions — those live in the two
    files above and go stale here the moment they do.
@@ -98,6 +98,20 @@ is in Romanian; code, comments, commits and this file are in English.
   personal-data-of-minors precondition (legal basis, school contract, retention/deletion) and
   three questions only Anca can answer (where names come from, Lycée-only or all groups, existing
   written agreement). Do not build any part of this without that precondition being met first.
+- **Item 152's false confirmation on the two 14 October Scoala Germana sessions is withdrawn**
+  (`202610300008`) — `trainer_principal_confirmed_at` cleared, status untouched, nothing cancelled.
+  Deliberately unimpersonated: `row_history.actor_user_id = NULL` on both, by design, per the new
+  **§23** convention (below). Lorina's October figure moved from 476,00 payable/238,00 pending to
+  238,00 payable/476,00 pending, 714,00 total unchanged. The 28 October pair is untouched — nothing
+  was ever asserted about it.
+- **§23, new in `docs/DATABASE_CONVENTIONS.md`: a NULL `row_history.actor_user_id` is a documented
+  state, not an absence.** Read it before writing any migration that corrects a record without a
+  real human actor behind the correction — the migration's own header has to say so and why, the
+  same way `202610300008` does.
+- **Item 181 — no real, non-test account corresponds to Mihai's own authority in wow-lab.** Found
+  deciding §23's first real case. A decision for Mihai, not a repair — four options written with
+  their costs, nothing built. Read it before granting Mihai, or anyone acting outside an
+  operational role, any role in wow-lab to "fix" an actor column.
 
 If the above list looks stale (dates have passed, an item below has clearly moved), trust
 `docs/OPEN_ITEMS.md` over this file and update this list to match.

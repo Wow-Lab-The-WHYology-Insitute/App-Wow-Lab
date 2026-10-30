@@ -676,3 +676,51 @@ Every one of those is a screen deciding for itself which row is the true one.
 `app/(app)/payment-config/page.tsx` and `payment-config-client.tsx` (`ScheduledVersions`);
 `db/tests/grid_version_in_force.sql`; §17c (the family this is the worst case of);
 `OPEN_ITEMS.md` items 147 and 162.
+
+## 23. `row_history.actor_user_id = NULL` is a documented state, not an absence
+
+**Decided 2026-10-30 by Mihai, on the first real case — `202610300008`, item 152's correction.**
+
+A NULL actor is indistinguishable, by looking at the column alone, from a NULL nobody meant to
+write — the same shape §20 names for a missing row or a loosened assertion: **a deliberate absence
+and an unasked question look identical from the outside, and only a record separates them.**
+
+`app.current_user_id()` is `auth.uid()` (§19, `202608260001`), and it resolves to a clean NULL
+whenever no `request.jwt.claims` is set — which is exactly the case for a migration that
+impersonates nobody. **That NULL has exactly one correct meaning in this schema, and only one:**
+
+> **A real person decided this action and is named in the migration that performed it. Nobody is
+> named in `row_history` because naming anyone who could merely PASS the capability gate — rather
+> than the person who actually decided — would be a second instance of the mistake §19 already
+> named, committed in the act of correcting the first one.**
+
+**This is not a new column, a new enum value, or a new convention for WHEN to leave it NULL** — §19
+already says who goes in `*_by`/`actor_user_id` columns, and this is what follows when nobody
+real can be named truthfully. What's missing until now is the record that a NULL here was
+considered and chosen, not dropped. **The documentation lives beside the write, not in the
+schema:**
+
+- The migration that produces a NULL actor states, in its own header, that it is a system
+  correction, on the owner's direct instruction, with no human actor by design — and gives the
+  specific reason (`202610300008`'s own: the only two real accounts holding the gate's capability
+  did not decide this; the decision-maker's own account holds no role at all).
+- The migration's assertion block checks the NULL explicitly — `202610300008` fails if the
+  newest `row_history` row carries a non-null `actor_user_id`, which would mean the migration was
+  impersonated when it should not have been.
+- `OPEN_ITEMS.md` records the same reasoning at the item, for a reader who finds the row before
+  the migration file.
+
+**The test, parallel to §20's:** if a later reader, finding `actor_user_id = NULL` on a row,
+cannot tell *"this was a deliberate system correction, reasoned about and recorded"* from
+*"whoever wrote this forgot to impersonate anyone,"* the record is incomplete. The migration that
+writes the NULL is where that has to be settled — not a comment added later, not a value inferred
+from context.
+
+**Lives in:** `supabase/migrations/202610300008_clear_false_confirmation_scoala_germana_14oct.sql`
+(the first real instance, and its own assertion checking the NULL by name);
+`202608260001_fix_row_history_actor_user_id.sql` (why the NULL is clean rather than an error);
+§19 (who goes in an actor column, and why borrowing a capable name is the same mistake twice);
+§20 (the general form — a deliberate absence needs a record or it reads as an omission);
+`OPEN_ITEMS.md` item 152 (the correction this convention was extracted from) and item 181 below
+(the actual gap this surfaced — no real account corresponds to Mihai's own authority in wow-lab —
+noted as a decision for him, not repaired here).
