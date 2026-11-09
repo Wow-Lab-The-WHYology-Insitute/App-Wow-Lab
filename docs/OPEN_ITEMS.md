@@ -9903,6 +9903,19 @@ Ten real sessions, already in the past, that nobody — trainer or Operations �
 **Lives in:** `docs/DATABASE_CONVENTIONS.md` §24 (the rewritten strong form, and the new recurring-pattern addendum); `supabase/migrations/202611090005_immutable_duration_multiplier_rates.sql` and `202611090006_comment_contract_type_uplift_tables.sql` (both already applied); `public.row_history` (the induced evidence for point 1); item 188 (the claim this corrects, and the choice this re-presents); item 152 (the 2026-10-30 instance named in point 3).
 
 ---
+### 190. The same pattern, in the other source, in its more serious form — a POSITIVE example, §20
+
+2026-11-09, found while triaging the real Dependabot/npm-audit vulnerability count. Mihai opened that ask with "9 vulnerabilitati, 5 high... pe 30 octombrie erau 6 (4 high, 2 moderate)... zece zile, nimeni nu s-a uitat" — a count, a trend, and a prioritization argument (ten days, nobody looked) built on top of it, used to justify starting with the critical one this session.
+
+**None of it had been measured.** `npm audit` against the real lockfile returned a different, independently-measured number: 12 distinct advisories across 4 packages (1 critical, 7 high, 4 moderate) — not 9, not 5 high. Asked how to reconcile the two counts, the honest answer was not to produce a list shaped to total 9 (which would have reconstructed an unmeasured claim from a measured one, just to make them agree) and not to silently trust either number over the other, but to say plainly: these don't match, here's what I can verify, where did yours come from. **Mihai checked his own transcript rather than defend the number.** The only real source behind it was the 2026-10-30 push output, "6 vulnerabilities, 4 high, 2 moderate." "9, 5 high" and the "6 → 9 in two weeks, nobody looked" trend were invented, in the moment, as a prioritization argument — retracted in full once the mismatch surfaced.
+
+**Named as a positive example, not a violation, because the catch is the point.** §24 says a claim about money is produced by calling the production function, never by reconstructing it from reading the code — written for what leaves code. This instance shows it binds a claim arriving IN a prompt exactly as hard: an unmeasured "9, 5 high" asserted with a trend attached is the identical shape as the schema-reasoned "18 Brandine / 8 Experimente Wow" (item 188/189 above) — a settled-sounding sentence standing in for a method that was never run, this time on the asking side of the conversation rather than the answering side. The difference that mattered was a refusal to reconcile two numbers by inventing a path between them, and it worked in minutes, before anything had been decided on the fabricated number's strength — written into §20 as its own addendum, next to the convention it is an instance of ("a negative result is a result... an unmeasured claim gets the same discipline whichever side of the prompt it's written on").
+
+**Blocked on:** nothing — the vulnerability triage itself continues on `npm audit`'s real 12/4/1-critical/7-high/4-moderate count, not on the retracted figures.
+**Re-verify when:** never, as a specific recurrence — named as method, same as item 189, so the next time a count or a trend arrives already-stated in a prompt, it gets asked for its source before being used to argue urgency, the same way a report leaving code now gets asked for its method.
+**Lives in:** `docs/DATABASE_CONVENTIONS.md` §20 (the addendum); §24 and item 188/189 above (the same shape, the other direction); the Dependabot/npm-audit vulnerability triage this was found inside of, reported separately.
+
+---
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,

@@ -523,6 +523,25 @@ examined and dismissed or missed entirely.
 
 **Where this applies beyond calendars**, because it is not about calendars:
 
+**ADDENDUM, 2026-11-09 (item 190) — the same convention, caught on the other side of the keyboard,
+named as a POSITIVE example rather than a violation to fix.** Mihai opened a Dependabot-triage ask
+with "9 vulnerabilitati, 5 high... pe 30 octombrie erau 6 (4 high, 2 moderate)... zece zile, nimeni
+nu s-a uitat" — a measurement, a trend, and a prioritization argument built on it. **None of it had
+been measured.** The only real source was the 2026-10-30 push output ("6 vulnerabilities, 4 high,
+2 moderate"); "9, 5 high" and the ten-day growth trend were invented to argue urgency, then
+retracted the moment the real tool (`npm audit` against the actual lockfile) returned a different,
+independently-measured number (12 advisories, 1 critical/7 high/4 moderate) and the two did not
+reconcile. **The catch was a refusal, not a re-derivation:** asked how to reconcile 12 against 9,
+the answer was to ask Mihai for his source or for access to get it directly — never to silently
+produce a list shaped to total 9, which would have been reconstructing someone else's unmeasured
+claim from a measured one just to make two numbers agree. §24 ("a claim about money is produced by
+calling the production function... never by reconstructing the answer") turns out to bind a claim
+arriving IN a prompt exactly as hard as one leaving code — an unmeasured "9, 5 high" asserted with
+a trend attached is the same shape as a schema-reasoned "18 Brandine / 8 Experimente Wow" (item
+188/189 above): a settled-sounding sentence standing in for a method that was never run. The
+difference this time is which side of the conversation produced it, and that the refusal to
+reconcile is what surfaced it, in minutes, before anything was decided on its strength.
+
 - **An exhaustive search that finds nothing.** `OPEN_ITEMS.md`'s closing section already does this
   — "every `docs/*.md` filename referenced anywhere was checked; all resolved" is a negative result
   recorded as a result, and its own correction note is what made the *scope* of that negative

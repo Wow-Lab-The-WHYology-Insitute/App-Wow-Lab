@@ -216,6 +216,14 @@ is in Romanian; code, comments, commits and this file are in English.
   152's fourth-pass catch; 2026-11-09 both lapses above) with Mihai's own part written in: the
   2026-10-30 cause was build-instructions bundled with the ask; 2026-11-09 had no such bundling
   and the pattern happened anyway, so packaging was A cause once, not THE cause.
+- **Item 190, 2026-11-09, a POSITIVE example of §20, not a violation — the same pattern, in Mihai's
+  own prompt.** A Dependabot ask opened with "9 vulnerabilitati, 5 high" and a ten-day growth trend
+  used to argue urgency — neither number had been measured; the only real source was 2026-10-30's
+  push output ("6 vulnerabilities, 4 high, 2 moderate"). Caught not by re-deriving his number but by
+  refusing to reconcile it with `npm audit`'s own independently-measured 12 advisories (1 critical,
+  7 high, 4 moderate) — asking for the source instead of shaping a list to total 9. Mihai checked
+  his own transcript and retracted both numbers in full. Written into §20 as its own addendum: §24's
+  discipline binds a claim arriving IN a prompt as hard as one leaving code.
 - **`docs/DATABASE_CONVENTIONS.md` gained §24, §25 and §26 this same day, all extracted from item
   186/187 as general method, not as one-off fixes:** §24 — prove reproducibility by inducing the
   real mutation, never by reasoning about the schema alone, **rewritten same day in its strong
