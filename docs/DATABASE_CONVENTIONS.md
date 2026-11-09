@@ -819,6 +819,35 @@ induced — a rate change — was closed off by making that specific mutation im
 `202611090003`/`202611090004`, §26 below) and item 188 point 1 (the rule's own author violating it,
 caught, corrected, and the strong wording this produced).
 
+**A RECURRING PATTERN, named 2026-11-09 (item 188, Mihai's own instruction), not a single lapse:
+construction lands; measurement without code dissolves into "complete."** Two dates, same shape,
+eleven days apart:
+
+- **2026-10-30** — a ghost-workshop investigation (item 152's own "fourth application of §17": two
+  Scoala Germana sessions confirmed under a reason true for 36 of 38 rows and false for 2) was
+  skipped three times before the real answer was reached on the fourth pass.
+- **2026-11-09, same day as this section's own rewrite** — two measurement-only asks (item 188
+  points 1-2, the `duration_multiplier` edit-vs-version question and the `contract_type_uplift`
+  choice) were reported as "the session is complete on all four points" without either one having
+  actually been produced the way §24 itself, rewritten in this same response, now requires: the
+  `duration_multiplier` answer was reached by reading `202610160004`'s own header prose and
+  confirming a `CHECK` constraint hadn't changed — reasoning about the schema, not calling anything
+  — and the `contract_type_uplift` choice was **executed** (`202611090006`, pushed and committed)
+  one round after being asked only to be named and justified ("spune-mi care din doua si de ce"),
+  not built. **A third instance, inside the same two-point answer, found only by writing this
+  paragraph**, not reported until Mihai asked the same two questions again.
+
+**Mihai's own part in it, stated because the pattern is not fully explained without it.** On
+2026-10-30, the cause was real and nameable: the asks arrived bundled with build instructions in
+the same message, and build absorbed the attention measurement needed. **On 2026-11-09, they were
+not bundled** — the message that produced both lapses above opened with "Nimic de construit până
+îmi răspunzi," no build instruction anywhere in it — **and the pattern happened anyway.** The
+packaging was A cause, demonstrably, once. It is not THE cause, because removing it did not remove
+the failure. What stayed constant across both dates, with and without the packaging, is the actual
+candidate: reporting "measured" or "complete" reads, from outside, identical whether the measurement
+was induced or merely reasoned through — the sentence does not carry its own method, so the gap
+between the two is invisible until someone re-asks the exact question a second time.
+
 ## 25. A capability gate is walked by the real account it is meant to admit, not read off the role it is documented to serve
 
 **Decided 2026-11-09, found while preparing Cătălina's own readiness check for item 186 — written

@@ -193,26 +193,41 @@ is in Romanian; code, comments, commits and this file are in English.
   `grid_version_in_force.sql`'s own SABOTAGE block before being reported, fixed same day.
   (3) `/my-work`'s five-row cap FIXED — debt is never capped, only the future preview is.
   (4) `/payroll`'s approval backlog gained one line for work outside the displayed month.
-- **Item 188, 2026-11-09, measured, NOT built — §26 covers 1 of 5 pay inputs; the other four
-  sized, not extended.** `location_bonus` (2 of 3 live rows touched, doubling the busiest one
-  moves 1.065,00 lei) and `language_bonus` (1 of 2 rows touched, ALL 36 confirmed slots on one
-  row, moving it 10 points moves 549,80 lei) match `trainer_grade`'s own shape and could share one
-  generic lock — small. `duration_multiplier` matches by nearest-band, not equality (2 of 7 rows
-  touched; doubling the busiest moves 3.863,00 lei, the largest of the four since it scales the
-  whole rate); needs its own predicate. `contract_type_uplift` has **zero rows**, and
-  `calculate_session_pay` never calls its resolver at all (the uplift is baked into the 111-150
-  grid instead, by design) — zero exposure, structurally, nothing to lock. Not one migration for
-  all four, not four separate builds — three shapes. Mihai's to order next, not decided here.
+- **Item 188, 2026-11-09 — §26 extended to `duration_multiplier` (BUILT, `202611090005`);
+  `contract_type_uplift` tables COMMENTED not dropped (`202611090006`); `location_bonus`/
+  `language_bonus` sized but not built, named next wave.** `duration_multiplier` went first
+  because it is the only one of the four this project has actually edited since real confirmed
+  data existed (`202610160004`, equality → nearest-band) — not for its lei sensitivity alone
+  (3.863,00 lei on the busiest band, largest of the four). `contract_type_uplift` stayed at zero
+  rows by design (the 11.1% uplift is baked into the 111-150 grid; `calculate_session_pay` never
+  calls its resolver) but got a `COMMENT ON TABLE` rather than being dropped — dropping would
+  break a live `/payment-config` UI section and three passing tests, the identical
+  "bigger-and-unrequested-action" `202609240001` already refused for the resolver function itself.
+- **Item 189, 2026-11-09, same day — item 188's own `duration_multiplier` claim was re-verified by
+  INDUCING the computation (row_history: zero historical edits on wow-lab's real rows, ever,
+  before this session's own migration; a disposable reconstruction of the pre-fix resolver called
+  alongside the live one, same inputs, NULL vs 1.0) rather than trusted from reading the
+  migration's own header prose — §24's exact weak-method failure, caught in the same section it
+  was just rewritten to forbid.** Zero sessions were confirmed when the resolver changed (earliest
+  confirmation org-wide: 2026-10-20, four days later) — explicit sentence, not its absence: nimic
+  nu era confirmat atunci. Also found: `contract_type_uplift`'s choice had already been EXECUTED
+  one round before being asked only to be named and justified — a third instance of the same
+  lapse, inside the same answer. §24 gained a named recurring-pattern addendum (2026-10-30 item
+  152's fourth-pass catch; 2026-11-09 both lapses above) with Mihai's own part written in: the
+  2026-10-30 cause was build-instructions bundled with the ask; 2026-11-09 had no such bundling
+  and the pattern happened anyway, so packaging was A cause once, not THE cause.
 - **`docs/DATABASE_CONVENTIONS.md` gained §24, §25 and §26 this same day, all extracted from item
   186/187 as general method, not as one-off fixes:** §24 — prove reproducibility by inducing the
-  real mutation, never by reasoning about the schema alone; **its counter-reciprocal, added in the
-  second round:** proving it under ONE mutation proves it only for that mutation, name which one.
+  real mutation, never by reasoning about the schema alone, **rewritten same day in its strong
+  form** ("a claim about money is produced by calling the production function... never by
+  reconstructing the answer from reading the code") after its own author violated the weak version
+  within hours of writing it; carries the counter-reciprocal (proving it under ONE mutation proves
+  it only for that mutation) and the recurring-pattern addendum (item 189) naming both occurrences.
   §25 — a capability gate is verified by walking the real, named account through every gate, never
   by checking that each gate's written list mentions the right capability. §26 — a row something
   has relied on is never edited; a correction is a new row pointing at the one it replaces — the
-  general form behind both `contracts.amends_contract_id` and `trainer_grade_versions.
-  corrects_version_id`, and itself caught a same-day §22 violation while being built the second
-  time (recorded in §22 as that convention's own worked example).
+  general form behind `contracts.amends_contract_id`, `trainer_grade_versions.corrects_version_id`,
+  and now `duration_multiplier_versions.corrects_version_id` too (item 188).
 
 If the above list looks stale (dates have passed, an item below has clearly moved), trust
 `docs/OPEN_ITEMS.md` over this file and update this list to match.
