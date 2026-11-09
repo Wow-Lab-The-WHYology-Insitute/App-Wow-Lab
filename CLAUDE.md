@@ -116,15 +116,15 @@ is in Romanian; code, comments, commits and this file are in English.
   open question is whether a future correction Mihai directs personally should impersonate that
   account instead. Read it as the example of checking a conclusion against this register's own
   prior entries, not just against what's in front of you.
-- **Item 182, BUILT 2026-11-09 (`202611090001`) — Avenor's billing entity split by contract, not by
-  session.** `contracts.amends_contract_id` (same shape already live on `supplier_contracts`) lets
-  the existing Avenor contract (Brandine, from 2026-10-01) amend a new predecessor (Experimente Wow,
-  September only). Entity-on-session was measured and rejected, not just judged more complex: every
-  real school's entity history is sequential except Scoala Altfel, whose apparent concurrency is
-  item 172's own CUI-identity problem, not a true need (§17 shape, named explicitly). Read-side
-  change in the same commit: `app/(app)/payroll/page.tsx`'s `entityOfGroup` now walks the amends
-  chain by the SESSION'S OWN date. Full RLS suite re-run, green. **Blocked only on the assumed
-  2026-10-01 changeover date** — marked as an assumption in the migration header, pending Anca.
+- **Item 182, BUILT and CLOSED 2026-11-09 (`202611090001`) — Avenor's billing entity split by
+  contract, not by session.** `contracts.amends_contract_id` (same shape already live on
+  `supplier_contracts`) lets the existing Avenor contract (Brandine, from 2026-10-01) amend a new
+  predecessor (Experimente Wow, September only). Entity-on-session was measured and rejected, not
+  just judged more complex: every real school's entity history is sequential except Scoala Altfel,
+  whose apparent concurrency is item 172's own CUI-identity problem, not a true need (§17 shape,
+  named explicitly). Read-side change in the same commit: `app/(app)/payroll/page.tsx`'s
+  `entityOfGroup` walks the amends chain by the SESSION'S OWN date. The 2026-10-01 changeover date,
+  written as an assumption, is **confirmed by Anca** — migration header updated in place to say so.
 - **Item 183, rule, 2026-11-09 — a match against the real timesheet confirms; a mismatch means
   "ask," never "the app is wrong."** The timesheet is delayed evidence (trainers file late, Anca
   corrects it after the fact), not a settled reference. Confirmed a second way the same day: Lycée
@@ -137,14 +137,38 @@ is in Romanian; code, comments, commits and this file are in English.
   and the new 41 were answering different questions, not disagreeing — resolved, not a lingering
   discrepancy. "X of Y" coverage was never a threshold that reaches 100%; the denominator itself
   grows (Teodora alone went 7→20 rows in ten days).
-- **Item 184, new, 2026-11-09 — zero real trainers have ever self-confirmed a session through the
-  app.** Measured via `row_history`: every confirmation any of the three real trainers
-  (Cătălina, Teodora, Lorina) has ever carried came from an import or a correction, never from the
-  trainer tapping confirm — including Lorina, whose account has been active and signed-in for
-  weeks. Ten real sessions, already past, sit unconfirmed org-wide. `auth.audit_log_entries` is
-  empty (0 rows) org-wide — there is no first-login record for anyone, only ever the latest
-  sign-in. Read it before assuming the trainer confirmation path is actually being exercised by
-  anyone, for any decision that depends on it (item 152/176's own withdrawal did).
+- **Item 184, 2026-11-09, CORRECTED same day — zero real trainers have ever self-confirmed a
+  session through the app, and this is still a real problem, not explained away.** Measured via
+  `row_history`: every confirmation any of the three real trainers (Cătălina, Teodora, Lorina) has
+  ever carried came from an import or a correction, never from the trainer tapping confirm. First
+  read as "maybe the real process never needed trainers to confirm" — wrong, same error shape as
+  item 182's own Scoala Altfel argument, in the other direction: two additive facts (confirmation
+  is correct AND a separate approval step is missing) read as mutually exclusive. Anca's answer:
+  both are true. The trainer screen is correct; zero self-confirmations stays unresolved. Lorina's
+  own "27 octombrie" figure was also Mihai's own error, corrected in place to 19 Oct
+  created/19 Oct confirmed/29 Oct last sign-in. `auth.audit_log_entries` is empty (0 rows)
+  org-wide — known Supabase retention limit, not instrumented, since it only matters under the
+  reading that's now closed.
+- **Item 185, 2026-11-09 — measured, then item 186: no approval mechanism existed anywhere in this
+  application before today.** No status/column resembled approval; `finance.operations.*`/
+  `finance.reporting.*` unlocked nothing narrower than the whole month; nothing between
+  confirmation and the payable figure was human. Anca's answer confirmed the exact missing shape
+  (trainer confirms, Cătălina OR Anca approves, approval authorizes without recomputing) and gave
+  the THIRD dated confirmation of the 111-150/11% uplift (2026-07-30, 2026-09-24, 2026-10-29/30,
+  now reconfirmed 2026-11-09).
+- **Item 186, BUILT 2026-11-09 (`202611090002`) — session-pay approval, capability-gated, amount
+  frozen.** New capability `finance.approvals.approve`, granted to Operations Manager (how
+  Cătălina — Trainer AND approver — gets it, proving approval is gated by capability, not role).
+  Four new `sessions` columns (`trainer_{principal,secundar}_approved_at`/`_amount_bani`); who
+  approved lives in `row_history`, not a new column (§19/§23). `app.rpc_approve_session_pay`,
+  bulk by design. **Freezing the amount is required, not optional** — measured and proven in
+  `db/tests/session_pay_approval.sql`: a grid restated in place (same shape as `202610300001`)
+  moves a fresh calculation but never an already-approved amount. `/payroll` now has a third
+  bucket (confirmed-unapproved, not payable) and an "Approve all" action gated on `canApprove`.
+  `payroll_period_totals` (item 177) rebuilt to snapshot approved amounts, not confirmed ones.
+  Full RLS suite re-run, 386/386 green. **Not built:** withdrawing an approval, a four-eyes rule —
+  Mihai's open questions for Anca. **First live case prepared, not yet run:** Cătălina's own six
+  past-unconfirmed sessions (Avenor ×4, Lycée ×2) — the only person who can test both halves.
 
 If the above list looks stale (dates have passed, an item below has clearly moved), trust
 `docs/OPEN_ITEMS.md` over this file and update this list to match.

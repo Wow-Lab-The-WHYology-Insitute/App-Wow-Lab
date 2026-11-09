@@ -27,6 +27,10 @@ type SessionRow = {
   trainer_secundar_id: string | null;
   trainer_principal_confirmed_at: string | null;
   trainer_secundar_confirmed_at: string | null;
+  trainer_principal_approved_at: string | null;
+  trainer_principal_approved_amount_bani: number | null;
+  trainer_secundar_approved_at: string | null;
+  trainer_secundar_approved_amount_bani: number | null;
   duration_minutes: number | null;
   location_tier: string | null;
 };
@@ -197,7 +201,7 @@ export default async function PayrollPage({
   const { data: sessions } = await supabase
     .from("sessions")
     .select(
-      "id, session_date, group_id, trainer_principal_id, trainer_secundar_id, trainer_principal_confirmed_at, trainer_secundar_confirmed_at, duration_minutes, location_tier",
+      "id, session_date, group_id, trainer_principal_id, trainer_secundar_id, trainer_principal_confirmed_at, trainer_secundar_confirmed_at, trainer_principal_approved_at, trainer_principal_approved_amount_bani, trainer_secundar_approved_at, trainer_secundar_approved_amount_bani, duration_minutes, location_tier",
     )
     .eq("organization_id", orgId)
     .gte("session_date", from)
@@ -445,6 +449,20 @@ export default async function PayrollPage({
     (await checkCapability(supabase, "finance.operations.*", orgId)) ||
     (await checkCapability(supabase, "finance.reporting.*", orgId));
 
+  // ---- Who can approve (item 185/186) ----
+  // finance.approvals.approve is a NEW, narrow capability -- deliberately
+  // not folded into finance.operations.* (Platform Owner/Organization
+  // Owner/Finance Operations already pass the first branch) and
+  // deliberately NOT gated on a role, because Cătălina (Operations
+  // Manager, also a Trainer) approves and holds neither
+  // finance.operations.* nor finance.reporting.*. org.settings.manage is
+  // checked separately because it is never implied by any capability
+  // check here (same convention closePayrollPeriod's own comment states).
+  const canApprove =
+    (await checkCapability(supabase, "org.settings.manage", orgId)) ||
+    (await checkCapability(supabase, "finance.operations.*", orgId)) ||
+    (await checkCapability(supabase, "finance.approvals.approve", orgId));
+
   let payRows: PayRow[] | null = null;
   if (canReadPayGrids) {
     const { data, error } = await supabase.rpc("calculate_org_session_pay", {
@@ -540,6 +558,7 @@ export default async function PayrollPage({
         orgId={orgId}
         monthKey={monthKey}
         paySumsAvailable={payRows !== null}
+        canApprove={canApprove}
         periods={(periods ?? []).map((p) => ({
           id: p.id,
           period: p.period,
@@ -575,6 +594,8 @@ export default async function PayrollPage({
                   name: nameById.get(s.trainer_principal_id) ?? "Unknown",
                   named: nameById.has(s.trainer_principal_id),
                   confirmed: s.trainer_principal_confirmed_at !== null,
+                  approved: s.trainer_principal_approved_at !== null,
+                  approvedAmountBani: s.trainer_principal_approved_amount_bani,
                   ...slotPay(s.id, "principal"),
                 }
               : null,
@@ -584,6 +605,8 @@ export default async function PayrollPage({
                   name: nameById.get(s.trainer_secundar_id) ?? "Unknown",
                   named: nameById.has(s.trainer_secundar_id),
                   confirmed: s.trainer_secundar_confirmed_at !== null,
+                  approved: s.trainer_secundar_approved_at !== null,
+                  approvedAmountBani: s.trainer_secundar_approved_amount_bani,
                   ...slotPay(s.id, "secundar"),
                 }
               : null,

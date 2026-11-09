@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "@/lib/i18n";
 import { payrollDict } from "./i18n";
-import { closePayrollPeriod } from "./actions";
+import { closePayrollPeriod, approveSessionPay } from "./actions";
 import { PAYROLL_PERIOD_ALREADY_CLOSED_ERROR } from "./close-error";
 
 type Period = {
@@ -25,9 +25,19 @@ type SessionSlot = {
   // label rather than printing "Unknown" as if it were a person (item 122).
   named: boolean;
   confirmed: boolean;
+  // Item 185/186 (2026-11-09): a confirmed slot is NOT payable on its
+  // own any more -- Anca's real process has a separate approval step
+  // ("trainerul trece, Catalina SAU Anca aproba") that authorizes the
+  // amount confirmation produced. `approved` plus `approvedAmountBani`
+  // (the FROZEN figure from the moment of approval, never recomputed)
+  // are what actually makes a slot payable below.
+  approved: boolean;
+  approvedAmountBani: number | null;
   // Already rounded to 2 decimals in Postgres numeric, carried as integer
   // bani so the totals below are exact integer sums. Null exactly when
-  // reasonCode is set.
+  // reasonCode is set. This is the LIVE estimate -- used for display
+  // while a slot is still confirmed-but-unapproved or unconfirmed; never
+  // used for the payable bucket once approved (approvedAmountBani is).
   bani: number | null;
   reasonCode: string | null;
   errorText: string | null;
@@ -123,6 +133,7 @@ export function PayrollClient({
   sessions,
   unpriceable,
   paySumsAvailable,
+  canApprove,
   principalBonuses,
   bonusesAvailable,
   closedSnapshot,
@@ -142,6 +153,12 @@ export function PayrollClient({
   // rendering zeroes, which on this screen is a wrong number that becomes
   // a payment.
   paySumsAvailable: boolean;
+  // Whether THIS viewer holds finance.approvals.approve / finance.
+  // operations.* / org.settings.manage -- a capability, never a role
+  // (item 185/186: Cătălina approves and holds none of the finance
+  // roles). Gates only whether the approve button renders; the real gate
+  // is app.rpc_approve_session_pay's own check.
+  canApprove: boolean;
   principalBonuses: PrincipalBonus[];
   bonusesAvailable: boolean;
   closedSnapshot: ClosedSnapshotRow[];
@@ -195,6 +212,37 @@ export function PayrollClient({
   }, [sessions]);
 
   const unconfirmedSlots = monthSlots.slots.filter(({ slot }) => !slot.confirmed);
+  // Confirmed, but not yet authorized -- item 185/186's new middle state.
+  // Not payable (trainerSums below never adds these into payableBani) and
+  // not "pending" in the old sense (the trainer DID confirm); this is
+  // specifically what an approver's action should clear.
+  const awaitingApprovalSlots = monthSlots.slots.filter(({ slot }) => slot.confirmed && !slot.approved);
+  const [isApproving, startApproving] = useTransition();
+  const [approveMessage, setApproveMessage] = useState<string | null>(null);
+
+  const handleApproveAll = () => {
+    const sessionIds = [...new Set(awaitingApprovalSlots.map(({ session }) => session.id))];
+    if (sessionIds.length === 0) return;
+    setApproveMessage(null);
+    startApproving(async () => {
+      const result = await approveSessionPay(sessionIds);
+      if (!result.ok) {
+        setApproveMessage(result.error);
+        return;
+      }
+      const approvedCount = result.rows.filter((r) => r.status === "approved").length;
+      const alreadyCount = result.rows.filter((r) => r.status === "already_approved").length;
+      const errorRows = result.rows.filter((r) => r.status !== "approved" && r.status !== "already_approved" && r.status !== "not_confirmed");
+      if (errorRows.length > 0) {
+        setApproveMessage(
+          t("approve_partial", { approved: approvedCount, errors: errorRows.length }),
+        );
+      } else {
+        setApproveMessage(t("approve_done", { n: approvedCount + alreadyCount }));
+      }
+      router.refresh();
+    });
+  };
 
   // Already the month on display -- built on the server from the same
   // month-scoped `sessions` fetch, so no second filter here either.
@@ -258,12 +306,14 @@ export function PayrollClient({
         entityName: string | null;
         entityUnlinked: boolean;
         payableBani: number;
+        awaitingApprovalBani: number;
         pendingBani: number;
         rows: {
           key: string;
           clientName: string;
           sessionDate: string;
           confirmed: boolean;
+          approved: boolean;
           bani: number | null;
           reasonCode: string | null;
           errorText: string | null;
@@ -283,6 +333,7 @@ export function PayrollClient({
           entityName: session.entityName,
           entityUnlinked: session.entityUnlinked,
           payableBani: 0,
+          awaitingApprovalBani: 0,
           pendingBani: 0,
           rows: [],
         };
@@ -293,12 +344,19 @@ export function PayrollClient({
         clientName: session.clientName,
         sessionDate: session.sessionDate,
         confirmed: slot.confirmed,
+        approved: slot.approved,
         bani: slot.bani,
         reasonCode: slot.reasonCode,
         errorText: slot.errorText,
       });
-      if (slot.bani !== null) {
-        if (slot.confirmed) entry.payableBani += slot.bani;
+      // Item 185/186: payable means APPROVED, at the FROZEN amount --
+      // never the live slot.bani, which a grid restatement since
+      // approval could have moved. Confirmed-but-unapproved is its own
+      // bucket, not payable and not "pending" in the unconfirmed sense.
+      if (slot.confirmed && slot.approved && slot.approvedAmountBani !== null) {
+        entry.payableBani += slot.approvedAmountBani;
+      } else if (slot.bani !== null) {
+        if (slot.confirmed) entry.awaitingApprovalBani += slot.bani;
         else entry.pendingBani += slot.bani;
       }
     }
@@ -322,17 +380,26 @@ export function PayrollClient({
     // bucket sorts last because it is an exception, not an entity.
     const buckets = new Map<
       string,
-      { key: string; name: string | null; unlinked: boolean; trainers: typeof trainers; payableBani: number; pendingBani: number }
+      {
+        key: string;
+        name: string | null;
+        unlinked: boolean;
+        trainers: typeof trainers;
+        payableBani: number;
+        awaitingApprovalBani: number;
+        pendingBani: number;
+      }
     >();
     for (const tr of trainers) {
       const key = tr.entityId ?? (tr.entityUnlinked ? "__unlinked__" : "__unreadable__");
       let b = buckets.get(key);
       if (!b) {
-        b = { key, name: tr.entityName, unlinked: tr.entityUnlinked, trainers: [], payableBani: 0, pendingBani: 0 };
+        b = { key, name: tr.entityName, unlinked: tr.entityUnlinked, trainers: [], payableBani: 0, awaitingApprovalBani: 0, pendingBani: 0 };
         buckets.set(key, b);
       }
       b.trainers.push(tr);
       b.payableBani += tr.payableBani;
+      b.awaitingApprovalBani += tr.awaitingApprovalBani;
       b.pendingBani += tr.pendingBani;
     }
     const entities = [...buckets.values()].sort((a, b) => {
@@ -647,6 +714,51 @@ export function PayrollClient({
             </div>
           )}
 
+          {/* Item 185/186 (2026-11-09): confirmed is not payable on its
+              own -- a separate approval step authorizes the amount.
+              Rendered only when there is something awaiting it, same
+              "absent most of the time" rule as the block below. The
+              button only shows for a viewer who actually holds the
+              approval capability; everyone else still sees the list, so
+              a trainer who is not an approver still knows their
+              confirmation worked and is simply waiting on someone else. */}
+          {awaitingApprovalSlots.length > 0 && (
+            <div className="mt-3 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="font-body text-sm font-semibold text-amber-800">
+                  {t("approve_section_heading")} ({awaitingApprovalSlots.length})
+                </span>
+                {canApprove && (
+                  <button
+                    type="button"
+                    disabled={isApproving}
+                    onClick={handleApproveAll}
+                    className="font-body rounded-full bg-amber-700 px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+                  >
+                    {isApproving ? t("approving") : t("approve_button", { n: awaitingApprovalSlots.length })}
+                  </button>
+                )}
+              </div>
+              <p className="font-body text-xs text-amber-700">{t("approve_section_hint")}</p>
+              {approveMessage && (
+                <p className="font-body text-xs font-semibold text-amber-900">{approveMessage}</p>
+              )}
+              <ul className="flex flex-col gap-1 border-t border-amber-200/70 pt-3">
+                {awaitingApprovalSlots.map(({ session, slot }, i) => (
+                  <li
+                    key={`${session.id}-${i}`}
+                    className="font-body flex flex-wrap items-baseline justify-between gap-x-3 text-xs text-amber-900"
+                  >
+                    <span className="font-semibold">{slot.name}</span>
+                    <span className="text-amber-700">
+                      {session.clientName} · {formatShortDate(session.sessionDate, locale)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* ONE block, ONE number. This replaced two: item 121's five-question
               mirror and the sums total's own "excludes N workshops" line,
               which counted the same month by two different definitions and
@@ -731,6 +843,11 @@ export function PayrollClient({
                   ? t("confirm_prompt_with_unconfirmed", { n: unconfirmedSlots.length, month: monthLabel })
                   : t("confirm_prompt", { month: monthLabel })}
               </span>
+              {awaitingApprovalSlots.length > 0 && (
+                <span className="font-body text-sm text-amber-800">
+                  {t("confirm_prompt_with_awaiting_approval", { n: awaitingApprovalSlots.length })}
+                </span>
+              )}
               <button
                 type="button"
                 disabled={isPending}
@@ -804,6 +921,11 @@ export function PayrollClient({
                 </div>
                 {/* Said once per entity, because "not payable yet" is a fact
                     about that entity's invoice, not about the month. */}
+                {ent.awaitingApprovalBani > 0 && (
+                  <p className="font-body -mt-2 mb-2 text-xs text-amber-700">
+                    {t("sums_entity_awaiting_approval", { amount: formatLei(ent.awaitingApprovalBani, locale) })}
+                  </p>
+                )}
                 {ent.pendingBani > 0 && (
                   <p className="font-body -mt-2 mb-2 text-xs text-orange-700">
                     {t("sums_entity_pending", { amount: formatLei(ent.pendingBani, locale) })}
@@ -826,8 +948,14 @@ export function PayrollClient({
                 </div>
 
                 {/* Stated as its own line, never folded into the figure above:
-                    an unconfirmed workshop is not payable, and the close
-                    prompt below says exactly that. */}
+                    a confirmed-but-unapproved workshop is not payable yet
+                    either (item 185/186) -- distinct from the unconfirmed
+                    case below, which the close prompt also warns about. */}
+                {tr.awaitingApprovalBani > 0 && (
+                  <p className="font-body mt-0.5 text-xs text-amber-700">
+                    {t("sums_awaiting_approval", { amount: formatLei(tr.awaitingApprovalBani, locale) })}
+                  </p>
+                )}
                 {tr.pendingBani > 0 && (
                   <p className="font-body mt-0.5 text-xs text-orange-700">
                     {t("sums_pending", { amount: formatLei(tr.pendingBani, locale) })}
@@ -844,6 +972,9 @@ export function PayrollClient({
                         {row.clientName} · {formatShortDate(row.sessionDate, locale)}
                         {!row.confirmed && (
                           <span className="text-orange-700"> · {t("sums_row_unconfirmed")}</span>
+                        )}
+                        {row.confirmed && !row.approved && (
+                          <span className="text-amber-700"> · {t("sums_row_awaiting_approval")}</span>
                         )}
                       </span>
                       {row.bani !== null ? (

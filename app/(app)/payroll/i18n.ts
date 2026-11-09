@@ -27,6 +27,13 @@ export const payrollDict: Dictionary = {
     en: "{{n}} trainer slots for {{month}} are not confirmed. Per policy, a trainer is not paid for a workshop they haven't confirmed — closing {{month}} locks that in, and also removes trainers' ability to confirm or change attendance.",
     ro: "{{n}} sloturi de trainer pentru {{month}} nu sunt confirmate. Conform politicii, un trainer nu este plătit pentru un atelier neconfirmat — închiderea lunii {{month}} blochează această situație și le ia trainerilor posibilitatea de a confirma sau modifica prezența.",
   },
+  // Item 185/186: closing only ever snapshots APPROVED slots now, so an
+  // unapproved-but-confirmed slot silently gets no snapshot row unless
+  // this says so first.
+  confirm_prompt_with_awaiting_approval: {
+    en: "{{n}} more are confirmed but not yet approved — closing now will not include them in the snapshot either.",
+    ro: "Încă {{n}} sunt confirmate dar neaprobate — închiderea acum nu le include nici pe ele în instantaneu.",
+  },
   confirm_close_button: { en: "Yes, close it", ro: "Da, închide" },
   cancel: { en: "Cancel", ro: "Anulează" },
   already_closed_notice: { en: "{{month}} is already closed.", ro: "{{month}} este deja închisă." },
@@ -174,6 +181,15 @@ export const payrollDict: Dictionary = {
     ro: "încă {{amount}} lei, neconfirmați — încă nu sunt de plată",
   },
   sums_row_unconfirmed: { en: "not confirmed", ro: "neconfirmat" },
+  // Item 185/186 (2026-11-09): confirmed is step one of three, not
+  // payable on its own. "Aprobat = se va plati ce a trecut trainerul.
+  // Aprobarea AUTORIZEAZA suma, NU o modifica. Neaprobat = neplatibil"
+  // (Anca, verbatim).
+  sums_awaiting_approval: {
+    en: "{{amount}} lei more, confirmed but not yet approved — not payable yet",
+    ro: "încă {{amount}} lei, confirmați dar neaprobați — încă nu sunt de plată",
+  },
+  sums_row_awaiting_approval: { en: "confirmed, awaiting approval", ro: "confirmat, în așteptarea aprobării" },
   // Grouped by trainer id, so an unreadable name still gets its own row and
   // its own correct total instead of being merged with another unnamed
   // person under the word "Unknown" (item 122's rule, applied to a sum).
@@ -189,6 +205,10 @@ export const payrollDict: Dictionary = {
   sums_entity_pending: {
     en: "{{amount}} lei more for this entity, not confirmed — not payable yet",
     ro: "încă {{amount}} lei pe această entitate, neconfirmați — încă nu sunt de plată",
+  },
+  sums_entity_awaiting_approval: {
+    en: "{{amount}} lei more for this entity, confirmed but not yet approved — not payable yet",
+    ro: "încă {{amount}} lei pe această entitate, confirmați dar neaprobați — încă nu sunt de plată",
   },
   // The broken chain: the group has no contract, so there is no entity to
   // invoice from. The amount is known — this is not a pay failure, which is
@@ -208,6 +228,25 @@ export const payrollDict: Dictionary = {
     en: "Entity not visible to your role",
     ro: "Entitate nevizibilă pentru rolul tău",
   },
+  // ---- Approval (item 185/186, 2026-11-09) ----
+  // Gated on finance.approvals.approve / finance.operations.* /
+  // org.settings.manage — a CAPABILITY, never a role: Cătălina is a
+  // Trainer and approves. Bulk by Anca's own decision: one action
+  // authorizes every confirmed-and-unapproved slot the viewer selects,
+  // not one tap per session.
+  approve_section_heading: { en: "Awaiting approval", ro: "În așteptarea aprobării" },
+  approve_section_hint: {
+    en: "These workshops were confirmed by their trainer. Approving authorizes the amount exactly as confirmed — it does not change it.",
+    ro: "Aceste ateliere au fost confirmate de trainerul lor. Aprobarea autorizează suma exact așa cum a rezultat din confirmare — nu o modifică.",
+  },
+  approve_button: { en: "Approve all ({{n}})", ro: "Aprobă tot ({{n}})" },
+  approving: { en: "Approving…", ro: "Se aprobă…" },
+  approve_done: { en: "{{n}} slot(s) approved.", ro: "{{n}} sloturi aprobate." },
+  approve_partial: {
+    en: "{{approved}} slot(s) approved; {{errors}} could not be — see the pay reason on those rows.",
+    ro: "{{approved}} sloturi aprobate; {{errors}} nu au putut fi aprobate — vezi motivul pe acele rânduri.",
+  },
+
   // ---- The trainer-principal bonus (B2, item 175) ----
   // Its own section, never folded into "What each trainer is owed" above --
   // Anca's own words are "plata pentru o sarcina in plus" (pay for an extra

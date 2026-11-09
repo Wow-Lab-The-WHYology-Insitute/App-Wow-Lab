@@ -59,12 +59,15 @@
 -- bookkeeping split of that same agreement, not a second physical
 -- document, so it carries no registry number of its own.
 --
--- THE CHANGEOVER DATE IS AN ASSUMPTION, NOT A CONFIRMED FACT. The timesheet
--- places September under Experimente Wow and October under Brandine, with
--- nothing finer-grained in between. 2026-10-01 is assumed as the boundary.
--- Mihai is confirming the exact date with Anca; if it is a different day,
--- ONE PARAMETER changes (both rows' periods, at the real boundary) -- not
--- this migration's shape, and not the decision above.
+-- THE CHANGEOVER DATE WAS WRITTEN HERE AS AN ASSUMPTION; CONFIRMED
+-- 2026-11-09. At the time this migration was first applied, the timesheet
+-- only placed September under Experimente Wow and October under Brandine,
+-- with nothing finer-grained in between, so 2026-10-01 was assumed as the
+-- boundary pending Anca. Anca has since confirmed, via Mihai, that the
+-- switch to Brandine was from 2026-10-01 exactly -- the assumed date was
+-- right. Nothing else about this migration changes; the data it wrote was
+-- already correct under the assumption and remains so under the
+-- confirmation.
 --
 -- October is untouched: it already reads Brandine, correctly, through the
 -- unmodified existing row.
@@ -105,7 +108,7 @@ declare
   v_experimente_wow uuid := 'b684d1a5-6cba-4a10-94fe-5eab9318dc60';
   v_existing record;
   v_new_contract uuid;
-  v_switchover date := '2026-10-01'; -- ASSUMPTION -- see header. Change only this value if Anca names a different day.
+  v_switchover date := '2026-10-01'; -- CONFIRMED by Anca via Mihai, 2026-11-09 (written as an assumption at first apply -- see header).
 begin
   select * into v_existing from public.contracts where id = v_existing_contract;
   if v_existing.id is null then

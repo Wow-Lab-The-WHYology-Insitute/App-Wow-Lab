@@ -7,15 +7,16 @@ import { PAYROLL_PERIOD_ALREADY_CLOSED_ERROR } from "./close-error";
 
 export type ActionResult = { ok: true; id: string } | { ok: false; error: string };
 
-type PayRow = { session_id: string; trainer_id: string; slot: "principal" | "secundar"; amount: number | string | null };
 type BonusRow = { trainer_id: string; bonus_date: string; client_id: string; amount: number | string };
 type SessionRow = {
   id: string;
   group_id: string;
   trainer_principal_id: string | null;
   trainer_secundar_id: string | null;
-  trainer_principal_confirmed_at: string | null;
-  trainer_secundar_confirmed_at: string | null;
+  trainer_principal_approved_at: string | null;
+  trainer_principal_approved_amount_bani: number | null;
+  trainer_secundar_approved_at: string | null;
+  trainer_secundar_approved_amount_bani: number | null;
 };
 type GroupRow = { id: string; contract_id: string | null };
 type ContractRow = { id: string; legal_entity_id: string };
@@ -91,27 +92,37 @@ export async function closePayrollPeriod(orgId: string, period: string): Promise
   }
 
   // ---- The month-close snapshot (B2, item 177) ----
-  // One row per (period, trainer, entity): the PAYABLE total (confirmed
-  // sessions only -- pending ones are not owed yet, so they do not belong
-  // in a snapshot of what closing actually settled) PLUS the
+  // One row per (period, trainer, entity): the PAYABLE total PLUS the
   // trainer-principal bonus (item 175) for the same trainer/entity/period.
   // Written once, here, never again -- see the migration's own header for
   // why this does not make the table a ledger. A failure here does not
   // undo the close (closing is the real, already-committed fact; the
   // snapshot is a courtesy comparison, not the thing being closed) --
-  // logged loudly instead, the same choice /payroll's own page.tsx makes
-  // when calculate_org_session_pay itself fails.
+  // logged loudly instead, same choice as elsewhere on this screen.
+  //
+  // PAYABLE means APPROVED, not merely confirmed, as of item 185/186
+  // (2026-11-09): a trainer's own confirmation is step one of Anca's real
+  // three-step process, never the whole of it -- "o sesiune confirmata de
+  // trainer NU e platibila. Platibila doar dupa aprobare." The amount
+  // comes straight from each slot's own FROZEN
+  // trainer_*_approved_amount_bani, not from a fresh calculate_org_
+  // session_pay call: that call can disagree with what was actually
+  // authorized if a grid has been restated in place since approval (the
+  // measurement that decided freezing in the first place) -- the snapshot
+  // must record what was authorized, not recompute a possibly-different
+  // number at close time.
   const { from, toExclusive } = periodRange(period);
 
-  const [{ data: sessions }, { data: payRows }, { data: bonusRows }] = await Promise.all([
+  const [{ data: sessions }, { data: bonusRows }] = await Promise.all([
     supabase
       .from("sessions")
-      .select("id, group_id, trainer_principal_id, trainer_secundar_id, trainer_principal_confirmed_at, trainer_secundar_confirmed_at")
+      .select(
+        "id, group_id, trainer_principal_id, trainer_secundar_id, trainer_principal_approved_at, trainer_principal_approved_amount_bani, trainer_secundar_approved_at, trainer_secundar_approved_amount_bani",
+      )
       .eq("organization_id", orgId)
       .gte("session_date", from)
       .lt("session_date", toExclusive)
       .returns<SessionRow[]>(),
-    supabase.rpc("calculate_org_session_pay", { p_organization_id: orgId, p_from: from, p_to_exclusive: toExclusive }),
     supabase.rpc("calculate_org_principal_bonus", { p_organization_id: orgId, p_from: from, p_to_exclusive: toExclusive }),
   ]);
 
@@ -130,24 +141,21 @@ export async function closePayrollPeriod(orgId: string, period: string): Promise
     const entityByGroup = new Map((groups ?? []).map((g) => [g.id, g.contract_id ? entityByContract.get(g.contract_id) ?? null : null]));
     const entityBySession = new Map(sessions.map((s) => [s.id, entityByGroup.get(s.group_id) ?? null]));
 
-    // Only PAYABLE rows (the slot's own confirmed_at is set) -- the exact
-    // same condition payroll-client.tsx's trainerSums uses to split
-    // payableBani from pendingBani, restated here because this snapshot
-    // must never include money nobody has confirmed yet.
-    const confirmedSlot = (s: SessionRow, slot: "principal" | "secundar") =>
-      slot === "principal" ? s.trainer_principal_confirmed_at !== null : s.trainer_secundar_confirmed_at !== null;
-    const sessionById = new Map(sessions.map((s) => [s.id, s]));
-
     const baniByKey = new Map<string, number>();
     const keyOf = (trainerId: string, entityId: string | null) => `${trainerId}::${entityId ?? "__unattributable__"}`;
 
-    for (const r of (payRows ?? []) as PayRow[]) {
-      if (r.amount === null) continue;
-      const session = sessionById.get(r.session_id);
-      if (!session || !confirmedSlot(session, r.slot)) continue;
-      const entityId = entityBySession.get(r.session_id) ?? null;
-      const key = keyOf(r.trainer_id, entityId);
-      baniByKey.set(key, (baniByKey.get(key) ?? 0) + Math.round(Number(r.amount) * 100));
+    // Only APPROVED slots, at their own frozen amount -- never a confirmed-
+    // but-unapproved slot, and never a live recalculation.
+    for (const s of sessions) {
+      const entityId = entityBySession.get(s.id) ?? null;
+      if (s.trainer_principal_id && s.trainer_principal_approved_at !== null && s.trainer_principal_approved_amount_bani !== null) {
+        const key = keyOf(s.trainer_principal_id, entityId);
+        baniByKey.set(key, (baniByKey.get(key) ?? 0) + s.trainer_principal_approved_amount_bani);
+      }
+      if (s.trainer_secundar_id && s.trainer_secundar_approved_at !== null && s.trainer_secundar_approved_amount_bani !== null) {
+        const key = keyOf(s.trainer_secundar_id, entityId);
+        baniByKey.set(key, (baniByKey.get(key) ?? 0) + s.trainer_secundar_approved_amount_bani);
+      }
     }
 
     // The bonus carries no entity of its own on the RPC's output (it is
@@ -197,4 +205,35 @@ export async function closePayrollPeriod(orgId: string, period: string): Promise
 
   revalidatePath("/payroll");
   return { ok: true, id: data.id };
+}
+
+export type ApprovedSlotResult = { session_id: string; slot: "principal" | "secundar" | null; status: string; amount_bani: number | null };
+export type ApproveSessionPayResult = { ok: true; rows: ApprovedSlotResult[] } | { ok: false; error: string };
+
+// Bulk, on purpose (item 185/186, Anca's own decision, not asked): one
+// action approves every confirmed-and-not-yet-approved slot across
+// however many session ids the screen sends, in one RPC call. The gate
+// itself lives in app.rpc_approve_session_pay (finance.approvals.approve
+// / finance.operations.* / org.settings.manage / platform owner) -- this
+// action does not duplicate it, only forwards the per-slot result so the
+// screen can report exactly what happened to each card.
+export async function approveSessionPay(sessionIds: string[]): Promise<ApproveSessionPayResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "Not signed in." };
+  }
+  if (sessionIds.length === 0) {
+    return { ok: true, rows: [] };
+  }
+
+  const { data, error } = await supabase.rpc("rpc_approve_session_pay", { p_session_ids: sessionIds });
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/payroll");
+  return { ok: true, rows: (data ?? []) as ApprovedSlotResult[] };
 }

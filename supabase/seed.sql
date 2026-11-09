@@ -94,6 +94,7 @@ values
   ('finance.operations.*', 'finance', 'operations', '*', 'Trainer pay, reimbursements, private-school invoicing, attendance billing.'),
   ('finance.reporting.*', 'finance', 'reporting', '*', 'Company-wide reporting, revenue/cost, balance import, CEO dashboard data.'),
   ('finance.own.read', 'finance', 'own', 'read', 'Read own finance data.'),
+  ('finance.approvals.approve', 'finance', 'approvals', 'approve', 'Approve a confirmed session''s pay, authorizing the amount that resulted from the trainer''s own confirmation -- does not recompute or change it (202611090002, item 185/186).'),
   ('grants.*', 'grants', 'grants', '*', 'Grants management.'),
 
   ('inventory.*', 'inventory', 'inventory', '*', 'Inventory items, movements, custody, status, and return validation.'),
@@ -144,6 +145,7 @@ from (
     ('operations_manager', 'sessions.read'),
     ('operations_manager', 'sessions.create'),
     ('operations_manager', 'org.members.read'),
+    ('operations_manager', 'finance.approvals.approve'),
 
     ('curriculum_manager', 'curriculum.*'),
     ('curriculum_manager', 'curriculum.feedback.*'),
