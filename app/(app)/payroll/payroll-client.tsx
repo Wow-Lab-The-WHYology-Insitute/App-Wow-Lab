@@ -314,6 +314,7 @@ export function PayrollClient({
         entityUnlinked: boolean;
         payableBani: number;
         awaitingApprovalBani: number;
+        awaitingApprovalSlotCount: number;
         pendingBani: number;
         rows: {
           key: string;
@@ -341,6 +342,7 @@ export function PayrollClient({
           entityUnlinked: session.entityUnlinked,
           payableBani: 0,
           awaitingApprovalBani: 0,
+          awaitingApprovalSlotCount: 0,
           pendingBani: 0,
           rows: [],
         };
@@ -363,8 +365,12 @@ export function PayrollClient({
       if (slot.confirmed && slot.approved && slot.approvedAmountBani !== null) {
         entry.payableBani += slot.approvedAmountBani;
       } else if (slot.bani !== null) {
-        if (slot.confirmed) entry.awaitingApprovalBani += slot.bani;
-        else entry.pendingBani += slot.bani;
+        if (slot.confirmed) {
+          entry.awaitingApprovalBani += slot.bani;
+          entry.awaitingApprovalSlotCount += 1;
+        } else {
+          entry.pendingBani += slot.bani;
+        }
       }
     }
 
@@ -394,6 +400,7 @@ export function PayrollClient({
         trainers: typeof trainers;
         payableBani: number;
         awaitingApprovalBani: number;
+        awaitingApprovalSlotCount: number;
         pendingBani: number;
       }
     >();
@@ -401,12 +408,13 @@ export function PayrollClient({
       const key = tr.entityId ?? (tr.entityUnlinked ? "__unlinked__" : "__unreadable__");
       let b = buckets.get(key);
       if (!b) {
-        b = { key, name: tr.entityName, unlinked: tr.entityUnlinked, trainers: [], payableBani: 0, awaitingApprovalBani: 0, pendingBani: 0 };
+        b = { key, name: tr.entityName, unlinked: tr.entityUnlinked, trainers: [], payableBani: 0, awaitingApprovalBani: 0, awaitingApprovalSlotCount: 0, pendingBani: 0 };
         buckets.set(key, b);
       }
       b.trainers.push(tr);
       b.payableBani += tr.payableBani;
       b.awaitingApprovalBani += tr.awaitingApprovalBani;
+      b.awaitingApprovalSlotCount += tr.awaitingApprovalSlotCount;
       b.pendingBani += tr.pendingBani;
     }
     const entities = [...buckets.values()].sort((a, b) => {
@@ -856,7 +864,36 @@ export function PayrollClient({
           {pendingClose === period ? (
             <p className="font-body text-muted text-sm italic">{t("closing_month", { month: monthLabel })}</p>
           ) : alreadyClosed ? (
-            <p className="font-body text-muted text-sm">{t("already_closed_notice", { month: monthLabel })}</p>
+            <div className="flex flex-col gap-1.5">
+              <p className="font-body text-muted text-sm">{t("already_closed_notice", { month: monthLabel })}</p>
+              {/* CORRECTED 2026-11-09 (item 187, point 1, Mihai's own wording):
+                  the snapshot's own 0,00 lei is true and stays untouched --
+                  this does not recompute it, it explains it, next to it, per
+                  entity (never combined: the per-entity sums block above this
+                  one already never shows a cross-entity total, on purpose --
+                  Brandine and Experimente Wow genuinely are two different
+                  invoices, and a single combined "4.675,00 lei" would hide
+                  that exactly the way a combined payable figure would).
+                  Computed live from the same monthSlots this screen already
+                  has, every render -- if someone approves 5 of 26 tomorrow,
+                  these two numbers move on their own, nothing to maintain. */}
+              {alreadyClosed && paySumsAvailable && trainerSums.entities.some((ent) => ent.awaitingApprovalSlotCount > 0) && (
+                <ul className="flex flex-col gap-0.5">
+                  {trainerSums.entities
+                    .filter((ent) => ent.awaitingApprovalSlotCount > 0)
+                    .map((ent) => (
+                      <li key={ent.key} className="font-body text-muted text-xs">
+                        {t("already_closed_breakdown", {
+                          entity: ent.unlinked ? t("sums_entity_unlinked") : ent.name ?? t("sums_entity_unreadable"),
+                          approved: formatLei(ent.payableBani, locale),
+                          awaiting: formatLei(ent.awaitingApprovalBani, locale),
+                          n: ent.awaitingApprovalSlotCount,
+                        })}
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </div>
           ) : confirming ? (
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-body text-ink text-sm">
@@ -944,7 +981,10 @@ export function PayrollClient({
                     about that entity's invoice, not about the month. */}
                 {ent.awaitingApprovalBani > 0 && (
                   <p className="font-body -mt-2 mb-2 text-xs text-amber-700">
-                    {t("sums_entity_awaiting_approval", { amount: formatLei(ent.awaitingApprovalBani, locale) })}
+                    {t("sums_entity_awaiting_approval", {
+                      amount: formatLei(ent.awaitingApprovalBani, locale),
+                      n: ent.awaitingApprovalSlotCount,
+                    })}
                   </p>
                 )}
                 {ent.pendingBani > 0 && (

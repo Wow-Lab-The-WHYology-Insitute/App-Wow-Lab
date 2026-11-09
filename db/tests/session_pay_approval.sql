@@ -175,11 +175,21 @@ begin;
 rollback;
 
 -- ============================================================================
--- Block 4: the freeze survives a grid restatement -- the measurement that
--- decided this design, proven rather than only reasoned about. A rate
--- mutated IN PLACE on the same version_id changes what a fresh
--- calculate_session_pay call returns; the already-approved amount does
--- not move.
+-- Block 4: the freeze survives a grid CORRECTION -- the measurement that
+-- decided this design, proven rather than only reasoned about.
+--
+-- CORRECTED 2026-11-09 (202611090003, item 187 point 2): this block used
+-- to restate the rate IN PLACE on the existing version_id, via a raw
+-- UPDATE -- the exact in-place restatement 202611090003's own trigger now
+-- refuses once a session has confirmed against it, which Teodora's
+-- confirmation two statements below does. That UPDATE would now raise
+-- (proven in db/tests/trainer_grade_rate_immutability.sql), so this block
+-- expresses the same correction the sanctioned way instead: a NEW
+-- trainer_grade_versions row, corrects_version_id pointing at the
+-- original, same effective_date, Teodora's own grade doubled and the
+-- other five carried over unchanged. The point this block exists to
+-- prove is unchanged: a fresh calculate_session_pay call moves, the
+-- already-approved, frozen amount on the session does not.
 -- ============================================================================
 begin;
   select set_config(
@@ -214,26 +224,42 @@ begin;
   );
   select app.rpc_approve_session_pay(array['ca100000-0000-0000-0000-000000000004'::uuid]);
 
-  -- Restate the rate IN PLACE on the existing version -- same shape as
-  -- 202610300001's own UPDATE, doubled here so the drift is unmistakable.
-  update public.trainer_grade_rates
-    set rate = rate * 2
-    where version_id = current_setting('app.teodora_version')::uuid
-      and grade_level = (select grade_level from public.trainer_grade_assignments where trainer_id = current_setting('app.teodora')::uuid);
+  -- The sanctioned correction (202611090003): a new version correcting
+  -- the one Teodora's grade already resolved to, same effective_date,
+  -- her own grade doubled, the other five carried over unchanged -- not
+  -- an UPDATE, which the new trigger would now refuse outright.
+  select set_config('app.teodora_correction_version', 'ca900000-0000-0000-0000-000000000004', true);
+
+  insert into public.trainer_grade_versions (id, organization_id, effective_date, created_by, corrects_version_id, note)
+  select current_setting('app.teodora_correction_version')::uuid, v.organization_id, v.effective_date,
+         (select id from public.users where email = 'catalina_moale@yahoo.com'), v.id,
+         'test fixture, 202611090003: corrects ' || v.id
+  from public.trainer_grade_versions v
+  where v.id = current_setting('app.teodora_version')::uuid;
+
+  insert into public.trainer_grade_rates (id, organization_id, version_id, grade_level, rate)
+  select gen_random_uuid(), r.organization_id, current_setting('app.teodora_correction_version')::uuid, r.grade_level,
+         case
+           when r.grade_level = (select grade_level from public.trainer_grade_assignments where trainer_id = current_setting('app.teodora')::uuid)
+             then r.rate * 2
+           else r.rate
+         end
+  from public.trainer_grade_rates r
+  where r.version_id = current_setting('app.teodora_version')::uuid;
 
   insert into check_results values (
-    'a fresh calculate_session_pay call now returns roughly double -- the restatement DID move the live answer',
+    'a fresh calculate_session_pay call now returns roughly double -- the correction DID move the live answer',
     (select app.calculate_session_pay('ca100000-0000-0000-0000-000000000004', current_setting('app.teodora')::uuid)
        > (select trainer_principal_approved_amount_bani / 100.0 * 1.5 from public.sessions where id = 'ca100000-0000-0000-0000-000000000004'))
   );
   insert into check_results values (
-    'the already-approved, frozen amount on the session is UNCHANGED by the restatement',
+    'the already-approved, frozen amount on the session is UNCHANGED by the correction',
     (select trainer_principal_approved_amount_bani from public.sessions where id = 'ca100000-0000-0000-0000-000000000004')
     =
     (select amount_bani from (select * from app.rpc_approve_session_pay(array['ca100000-0000-0000-0000-000000000004'::uuid]) where slot = 'principal') x)
   );
   insert into check_results values (
-    're-running approval on an already-approved session after the restatement still reports already_approved, not a new amount',
+    're-running approval on an already-approved session after the correction still reports already_approved, not a new amount',
     (select status = 'already_approved' from app.rpc_approve_session_pay(array['ca100000-0000-0000-0000-000000000004'::uuid]) where slot = 'principal')
   );
 

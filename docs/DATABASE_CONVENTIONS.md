@@ -677,6 +677,19 @@ Every one of those is a screen deciding for itself which row is the true one.
 `db/tests/grid_version_in_force.sql`; §17c (the family this is the worst case of);
 `OPEN_ITEMS.md` items 147 and 162.
 
+**ADDENDUM, 2026-11-09 — the net caught the person who built it, same day, on the very first reuse
+of this convention.** `202611090003` (item 187 point 2, §26 below) needed trainer_grade's own
+version-selection to exclude a corrected-away version, and wrote that as a SEPARATE function
+(`app.resolve_trainer_grade_version`), rewiring `resolve_trainer_grade_rate` to call it instead of
+`app.resolve_grid_version` — a second definition of "which trainer_grade version is in force,"
+for trainer_grade only, the exact shape this section exists to end. `db/tests/grid_version_in_force.sql`'s
+own SABOTAGE block (which replaces `resolve_grid_version` and re-asserts that trainer-grade pay is
+still affected) caught it within the same session, before it was reported to anyone — corrected
+same-day by `202611090004`, which moved the exclusion INTO `resolve_grid_version`'s own
+`trainer_grade` branch instead and dropped the standalone function. Recorded here, not only in
+`OPEN_ITEMS.md` item 187, because it is this section's own worked example of why a SABOTAGE-style
+test earns its cost: the convention did not just describe a past mistake, it caught a fresh one.
+
 ## 23. `row_history.actor_user_id = NULL` is a documented state, not an absence
 
 **Decided 2026-10-30 by Mihai, on the first real case — `202610300008`, item 152's correction.**
@@ -737,10 +750,23 @@ grid is **restated in place** (not expired — corrected on the same `version_id
 own: `trainer_grade_rates` has no date column, only `version_id` + `grade_level` + `rate`, so a
 restatement obviously changes what every date mapped to that version resolves to. **That argument
 was not trusted as the answer.** Instead, `db/tests/session_pay_approval.sql` Block 4 actually
-doubled a live rate in place, inside a disposable transaction, and called the function before and
-after: the fresh calculation moved, the already-frozen amount on the session did not. The decision
-to freeze the approved amount (rather than leave it as a pointer to recompute later) was made on
-that observation, not on the schema argument that preceded it.
+doubled a live rate — originally in place, inside a disposable transaction; since `202611090003`
+made in-place rate edits impossible once a session has resolved on one (item 187), the same block
+now expresses the identical mutation the sanctioned way, a correcting version, and still measures
+the same thing — and called the function before and after: the fresh calculation moved, the
+already-frozen amount on the session did not. The decision to freeze the approved amount (rather
+than leave it as a pointer to recompute later) was made on that observation, not on the schema
+argument that preceded it.
+
+**The counter-reciprocal, added 2026-11-09 (item 187 point 2, Mihai's own correction): proving
+reproducibility under ONE induced mutation proves it only for that mutation, not for every way the
+same function's inputs could change.** Doubling a rate in place proved the freeze survives a RATE
+change. It proved nothing about whether the freeze would survive a deleted version, a shifted
+`duration_minutes` band boundary, a moved `location_tier`, or a `trainer_grade_assignments` row
+backdated underneath an already-confirmed session — each is a different mutation, on a different
+table, and the one test run says nothing about the others. State plainly which mutation was induced
+and which were not, every time this convention is invoked — "proven reproducible" without naming
+the mutation is a claim one test cannot support, and reads as more settled than it is.
 
 **The general form: when a decision depends on whether a function's answer can change under a
 real, named mutation, induce that exact mutation in a rollback-safe transaction and observe the
@@ -750,11 +776,14 @@ unchecked premise, applied specifically to "does X ever change": the schema argu
 have been the CORRECT conclusion, reached the unverified way — proving it costs one test block and
 removes the question from ever being re-litigated by someone who reads the schema differently.
 
-**Lives in:** `db/tests/session_pay_approval.sql` Block 4 (the induced restatement, and the
+**Lives in:** `db/tests/session_pay_approval.sql` Block 4 (the induced mutation, and the
 before/after assertion); `supabase/migrations/202611090002_session_pay_approval.sql`'s own header
 (states the measurement's result before describing what was built from it); §17/§17b/§17c above
 (the same family of argument-built-on-an-unchecked-premise, here specifically about reproducibility
-rather than about a rejected design); `OPEN_ITEMS.md` item 186 (where this was first run).
+rather than about a rejected design); `OPEN_ITEMS.md` item 186 (where this was first run) and item
+187 (where the counter-reciprocal was added, and where the one mutation this convention had
+actually induced — a rate change — was closed off by making that specific mutation impossible,
+`202611090003`/`202611090004`, §26 below).
 
 ## 25. A capability gate is walked by the real account it is meant to admit, not read off the role it is documented to serve
 
@@ -785,3 +814,65 @@ person, not against a specification.
 feature itself — `finance.approvals.approve` added to its `||` chain with the reason written
 beside it); `OPEN_ITEMS.md` item 186 (where this was caught, the day it was built, before asking
 Cătălina to test anything).
+
+## 26. A row that something has already relied on is never edited — a correction is a new row that says which one it replaces
+
+**Decided 2026-11-09, item 187 point 2, on the second real case the same day as the first
+(`contracts.amends_contract_id`, 202611090001) — written as the general principle, on Mihai's own
+instruction, rather than as two unrelated fixes: "acelasi principiu decis azi dimineata pentru
+contracte... un principiu, doua tabele."**
+
+The GRANT on `trainer_grade_rates`/`trainer_grade_versions` (202608310002) already said this —
+"No UPDATE, no DELETE... a mistake gets corrected by inserting a new version, full stop" — and said
+it as a stated design intent, not as something enforced. It wasn't: `202610200001` and
+`202610300001` both ran a plain `UPDATE` on the live row, successfully, because a GRANT restricts
+`authenticated` only — nothing stopped a migration, or any privileged role, from editing a row
+something had already depended on. **A documented intent with no enforcement is not a convention,
+it is a comment that happens to still be true.**
+
+**The rule:** once anything has resolved against a versioned row — read it, confirmed a session
+against it, invoiced from it — that row becomes immutable, enforced by a trigger that fires
+regardless of role or grants, not merely a GRANT that restricts `authenticated`. A correction is
+expressed as a NEW row, carrying a pointer back to the one it replaces, never as an edit to the
+existing one. The two real instances so far point in different directions, and that difference is
+the thing worth naming, not papering over:
+
+- **`contracts.amends_contract_id`** chains SEQUENTIAL, non-overlapping periods backward in time —
+  the newer row points at the predecessor it genuinely succeeds (Avenor: Brandine from 2026-10-01
+  amends Experimente Wow, September only). The dates are DIFFERENT and both periods are true,
+  simultaneously, forever.
+- **`trainer_grade_versions.corrects_version_id`** chains CORRECTIONS of the SAME period — the
+  newer row points at the one it corrects, sharing its `effective_date` exactly. The dates are THE
+  SAME and only one of the two is current truth; the other is wrong-and-superseded, kept rather
+  than deleted because it IS what was actually relied on while it stood.
+
+Both resolve to "find the live head, walking a pointer, rather than trusting `order by
+date desc limit 1` on a table that can now hold more than one row per period" — which is why both
+needed their table's own uniqueness constraint relaxed to a PARTIAL one (unique per period only
+among HEAD rows — `corrects_version_id`/`amends_contract_id is null`), not dropped outright.
+
+**Measured, not assumed, before building the second instance:** whether the rule would have
+refused the two real corrections it is retroactively judged against.
+`202610200001` (2026-10-20 10:49:57 UTC) would NOT have been refused — zero sessions had
+confirmed against the 2026-09-01 grid at that exact moment, by `row_history`'s own timestamps.
+`202610300001` (2026-10-30 11:36:10 UTC) WOULD have been refused, for 3 of its 6 rows (grades 2, 3,
+6 — the ones with confirmed sessions by then) — its correct expression under this rule is a single
+new version, `corrects_version_id` pointing at the original, carrying all six rates (three
+unchanged, three corrected), never a partial UPDATE. **This is the test Mihai named as the one that
+matters: "o regula care ar fi blocat o corectie necesara fara sa ofere drumul corect e o regula
+care va fi ocolita la prima urgenta."** A rule that only forbids, with no sanctioned path, gets
+disabled at the first real emergency; this one was checked, before being built, to have a path.
+
+**Where else this applies today:** `location_bonus_rates`, `language_bonus_rates`,
+`duration_multiplier_rates`, `contract_type_uplift_rates` share the identical GRANT-only,
+no-trigger exposure and are explicitly NOT made immutable by this convention's first two
+instances — named here rather than silently left (§20), a decision for whoever next restates one
+of them in place.
+
+**Lives in:** `supabase/migrations/202611090001_amends_contract_id_avenor_entity_split.sql` (the
+first instance); `202611090003_immutable_trainer_grade_rates.sql` and
+`202611090004_route_trainer_grade_lock_through_shared_resolver.sql` (the second, and its same-day
+§22 correction); `db/tests/trainer_grade_rate_immutability.sql`; `app.trainer_grade_rate_is_locked`,
+`app.resolve_grid_version`'s `trainer_grade` branch; §22 above (the shared-resolver discipline both
+the correction mechanism and its own bug sit inside); §24 above (the freeze-measurement method this
+reuses to answer "would it have been refused"); `OPEN_ITEMS.md` item 187.

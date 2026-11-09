@@ -37,6 +37,15 @@ export const payrollDict: Dictionary = {
   confirm_close_button: { en: "Yes, close it", ro: "Da, închide" },
   cancel: { en: "Cancel", ro: "Anulează" },
   already_closed_notice: { en: "{{month}} is already closed.", ro: "{{month}} este deja închisă." },
+  // Item 187, point 1 (corrected 2026-11-09, Mihai's own wording): explains
+  // the snapshot's 0,00 lei where it is seen, per entity — never a combined
+  // figure, same discipline as sums_entity_awaiting_approval above. Live,
+  // not the frozen snapshot: this is the number that is supposed to move
+  // the moment someone approves through the real screen.
+  already_closed_breakdown: {
+    en: "{{entity}}: {{approved}} lei approved; {{awaiting}} lei confirmed, not yet approved ({{n}} slots)",
+    ro: "{{entity}}: {{approved}} lei aprobați; {{awaiting}} lei confirmați, neaprobați ({{n}} sloturi)",
+  },
   // Dead-zone cover for the close button: shown from the moment the close
   // action succeeds until the revalidated `periods` prop actually
   // contains it -- isPending ending is not that signal (it resolves a
@@ -207,8 +216,8 @@ export const payrollDict: Dictionary = {
     ro: "încă {{amount}} lei pe această entitate, neconfirmați — încă nu sunt de plată",
   },
   sums_entity_awaiting_approval: {
-    en: "{{amount}} lei more for this entity, confirmed but not yet approved — not payable yet",
-    ro: "încă {{amount}} lei pe această entitate, confirmați dar neaprobați — încă nu sunt de plată",
+    en: "{{amount}} lei more for this entity ({{n}} slots), confirmed but not yet approved — not payable yet",
+    ro: "încă {{amount}} lei pe această entitate ({{n}} sloturi), confirmați dar neaprobați — încă nu sunt de plată",
   },
   // The broken chain: the group has no contract, so there is no entity to
   // invoice from. The amount is known — this is not a pay failure, which is
