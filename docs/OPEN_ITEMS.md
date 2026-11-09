@@ -8991,10 +8991,17 @@ Measured against the real timesheet, current school year (from 2026-09-01):
 | Scoala ARC | 20 | Brandine | **no** |
 | Scoala Germana | 13 | — | yes |
 | Lycée | 12 | — | yes |
-| Avenor | 16 | Experimente Wow 10, Brandine 6 | yes, **wrong entity** (item 182 below) |
+| Avenor | 16 | Experimente Wow 10, Brandine 6 | yes, entity split and BUILT (item 182 below) |
 | Wow Lab Party | 3 | Experimente 2, Brandine 1 | **no** |
 
-**Not resolved before writing this: Mihai's own message gives "avem 38" for the coverage figure, but the three covered rows in his own new table (Scoala Germana 13 + Lycée 12 + Avenor 16) sum to 41, not 38.** Written here as both numbers rather than silently picking one — "38" may be the old figure carried forward out of habit rather than recomputed against the new table. Flagged per item 183 below (a mismatch means ask, not a silent pick), not resolved.
+**RESOLVED 2026-11-09 — the 38-vs-41 discrepancy was two different questions sharing one number, not an arithmetic error on either side.** Mihai's instruction: stop giving one figure for "coverage" and give two, each with its own definition, and MEASURE the second rather than assume it.
+
+| definition | count |
+|---|---|
+| **Timesheet rows at schools this application knows about at all** (sums the three "yes" rows above: Scoala Germana 13 + Lycée 12 + Avenor 16) | **41** — an upper bound, not coverage. It only says the application has SOME data for that school, nothing about whether any one row matches. |
+| **Timesheet rows with an actual (session, date, trainer) correspondent, checked row by row** | **40** |
+
+**The one gap, measured, not asserted:** Scoala Germana's 14 October row is where the 41 and the 40 diverge. The timesheet carries exactly one row for that date; the application carries two sessions (chem_me `725eaf35…`, wow_mix `549e2fd1…`) — one of them is this row's real match, the other is not, and nothing available says which (item 152 below). Every other one of the 41 — Lycée's 12, Avenor's 16 (now date-and-group-verified live, not merely "same count"), and Scoala Germana's other 12 — resolves to a specific session at the right date for the right group, with no ambiguity. **41 is the earlier "avem 38" figure's real replacement — it was the old count carried forward out of habit, not a new error — and 40 is the actual answer to "how much of the real year is in this application."**
 
 **"89 of 89" was never going to be a threshold, because the real-world total is not a fixed number — it is "however many rows trainers have filed as of the day someone looks."** This application's coverage will always read as a fraction of a moving, late-filing denominator, never as a count that reaches 100% and stays there. That reframing matters more than either of the two totals above: the next check will not find 105 either.
 
@@ -9675,11 +9682,28 @@ Anca, verbatim, 2026-10-29: *"Pt toti cei notati cu Onorarii traineri sa adaugam
 
 **The alternative Mihai asked to weigh: entity on the SESSION (or the GROUP, since Avenor's two groups moved together), with the contract's `legal_entity_id` kept only as the default a new session inherits at creation.** This is the more correct model for how the business actually works, on both real cases at once: Scoala Altfel needs concurrent per-engagement entities, which only a session/group-level field can represent at all (no amount of contract history solves concurrent); Avenor needs an entity that changes value on its own timeline, independent of the contract's price timeline, which a session-level field (defaulted from the contract, overridable per session or per group) also handles — and handles with the SAME mechanism, rather than `amends_contract_id`'s mechanism for one shape and something else for the other.
 
-**NOT BUILT, by explicit instruction ("NU CONSTRUI INCA").** This item states the live finding and the two candidate fixes; it does not choose between them.
+**NOT BUILT, by explicit instruction ("NU CONSTRUI INCA") — superseded same day, below.** This item first stated the live finding and the two candidate fixes without choosing between them.
 
-**Blocked on:** the exact changeover date (Mihai is asking Anca directly — most likely 1 October, not yet confirmed) and the entity-on-session-vs-contract design choice above, which affects Scoala Altfel's own eventual import (item 172) and should not be decided for Avenor alone. **No further import of any kind proceeds until this is resolved**, per the same instruction.
-**Re-verify when:** Anca confirms the changeover date, or the entity-model decision is made.
-**Lives in:** item 169 above (the finding this corrects the trigger of); item 171 above (the updated coverage table this was found inside); item 172 above (Scoala Altfel, the concurrent case the design choice has to satisfy too); `contracts.legal_entity_id`, `contracts.billing_rule` (the fields the 2026-10-20 renegotiation touched together); `app/(app)/payroll/page.tsx` (`entityOfGroup`).
+**DECIDED AND BUILT, 2026-11-09, same day — `amends_contract_id`, not entity-on-session, and the reason is measured, not "entity-on-session is more complicated."** Mihai measured every real school in the updated timesheet (105 rows) rather than reasoning from Scoala Altfel's shape alone:
+
+| client | entity history | shape |
+|---|---|---|
+| Scoala Germana | Experimente Wow, 09.09–28.10 | one entity |
+| Lycée | Brandine, 07.09–13.10 | one entity |
+| Scoala ARC | Brandine, 19.10–20.10 | one entity |
+| Avenor | Experimente → Brandine, 02.09–30.09 / 07.10–28.10 | **sequential** |
+| Wow Lab Party | Brandine → Experimente, 19.09 / 31.10 | **sequential** |
+| Scoala Altfel | Brandine / STEMplicity / Experimente, same weeks | **concurrent** |
+
+**Scoala Altfel is the only concurrent case, and it is concurrent because "Scoala Altfel" is not one school (item 172), not because entity assignment is concurrent by nature.** 22 October alone has STEMplicity-entity rows at "Other cities" location tier and Brandine-entity rows at "Bucharest" tier, the same day — and the location tier belongs to the physical school (item 144, proved 2026-10-30). Two tiers the same day under one client name means two real schools, not one school billed through two entities at once. **This is the §17 shape named explicitly, by Mihai's own instruction: a correct argument (entity-on-session is the more general mechanism) built on a premise — that Scoala Altfel needs concurrency — that was never checked against item 172's own ruling that "Scoala Altfel" the client must not exist.** Once Altfel's rows resolve into their real schools, every real case left is sequential, and `amends_contract_id` — already live on `supplier_contracts` (202610120009, Raluca Margean's own amendment chain) — fits all of them with the mechanism this schema already has, not a new one.
+
+**Built (`202611090001`):** `contracts.amends_contract_id`, same shape, same constraint name, same column comment pattern as `supplier_contracts.amends_contract_id`. Avenor's existing contract (`906de33a…`, Brandine) retreated its `period_start` to 2026-10-01 and now amends a new predecessor row (Experimente Wow, 2026-09-01..2026-09-30, same billing terms, no `entry_number`/`exit_number` of its own — one underlying agreement, not a second document). October untouched. **The changeover date (2026-10-01) is marked as an assumption in the migration's own header, not a confirmed fact** — Mihai is confirming it with Anca; a different real date changes one parameter, not the shape, per his own instruction.
+
+**The read side changed with it, same commit:** nothing stores an entity on `sessions` — it never has — so "recalculating September" is `app/(app)/payroll/page.tsx`'s `entityOfGroup` walking the amends chain backward from a group's current contract to whichever link's period covers the SESSION'S OWN date, instead of always reading the head contract. Verified live after applying: September's 10 Avenor sessions now resolve to Experimente Wow; October is unchanged (the migration's own assertion). Full RLS suite re-run, green.
+
+**Blocked on:** the exact changeover date only — Anca's confirmation. If it differs from 2026-10-01, the fix is a data update to both rows' `period_start`/`period_end`, not a new migration shape.
+**Re-verify when:** Anca confirms the changeover date.
+**Lives in:** `supabase/migrations/202611090001_amends_contract_id_avenor_entity_split.sql` (+ rollback); `supabase/migrations/202610120009_create_supplier_contracts.sql` (the existing `amends_contract_id` precedent this reuses); item 169 above (the finding this corrects the trigger of); item 171 above (the updated coverage table this was found inside); item 172 above (Scoala Altfel, the concurrent-looking case the §17 check above resolves); item 144 above (the location-tier-belongs-to-the-school proof this decision leans on); `contracts.legal_entity_id`, `contracts.billing_rule` (the fields the 2026-10-20 renegotiation touched together); `app/(app)/payroll/page.tsx` (`entityOfGroup`, `contractForDate`).
 
 ---
 ### 183. "A match confirms; a mismatch means ask, not wrong" — the timesheet was used as a reference all last week, and it is delayed evidence instead
@@ -9696,6 +9720,42 @@ Anca, verbatim, 2026-10-29: *"Pt toti cei notati cu Onorarii traineri sa adaugam
 
 **Blocked on:** nothing to fix — this is a rule for how future reconciliation against the timesheet is read, not a correction of a specific row. **Re-verify when:** the next timesheet-vs-app comparison is run — the rule applies to it before the comparison is trusted either way.
 **Lives in:** item 152 above (the mismatch this rule generalizes from); item 171 above (the coverage numbers this rule now governs how to read); item 182 above (the match-that-wasn't-safety this rule explains after the fact).
+
+**CONFIRMED A SECOND WAY, 2026-11-09, from the opposite direction — "netrecut in pontaj" is not "lipsa din app."** Mihai's own check: Lycée's last timesheet row is 13 October; does the application have sessions after that date? Live-verified: yes — two cancelled (19, 20 October, inside the correctly-recognised autumn break, item 155/159) and **two real, delivered-cadence sessions on 2 and 3 November**, still `planned`/unconfirmed, which the timesheet simply has not reached yet. The same asymmetry item 170 already named for whole weeks ("a week the recurring calendar shows empty is a week with no work in it" — false in general, true for these three clients) applies at the single-session grain too: an app row with no timesheet row behind it yet is not an app error, any more than a timesheet row with no app session yet (Avenor/DSBU, above) was.
+**Lives in (added):** item 170 above (the same asymmetry, at the week grain); item 184 below (these same two Lycée rows, among the full org-wide unconfirmed-past-session count).
+
+---
+### 184. The trainer confirmation path has never been used — zero self-confirmations, by any real trainer, ever, org-wide
+
+2026-11-09, measured live rather than assumed, per Mihai's explicit question: *"daca nu a confirmat niciunul in app, atunci drumul trainerului nu e folosit, si asta conteaza mai mult decat orice import."*
+
+**Every `row_history` change to `sessions.trainer_principal_confirmed_at`, ever, for every real (non-test) trainer who has a session at all:**
+
+| trainer | self-confirmed via the app | confirmed by someone else (import/correction) | later withdrawn |
+|---|---|---|---|
+| Cătălina Moale | **0** | 26 | 0 |
+| Teodora Merișan | **0** | 6 | 0 |
+| Lorina Ciurusniuc | **0** | 6 | 2 (item 152/176's withdrawal) |
+
+**Zero, across all three, every time.** Every real confirmation this application has ever recorded came from an import or an Operations/owner correction — never from a trainer opening the app and tapping confirm. This is not a UI failure found by testing; it is what the actual `row_history` says happened, on every row that currently carries a trainer's name.
+
+**Org-wide, past-dated and still `planned` (session_date < 2026-11-09), real trainers only:**
+
+| school | trainer | count | dates |
+|---|---|---|---|
+| Scoala Avenor | Cătălina Moale | 4 | 28 Oct ×2, 4 Nov ×2 |
+| Școala Franceză (Lycée) | Cătălina Moale | 2 | 2–3 Nov (item 183 above) |
+| Scoala Germana | Lorina Ciurusniuc | 4 | 28 Oct ×2, 4 Nov ×2 |
+
+Ten real sessions, already in the past, that nobody — trainer or Operations — has confirmed either way, on top of the two Scoala Germana rows item 152/176 already withdrew for a different reason.
+
+**Lorina's own account is the sharpest case, because it is the one with the most evidence behind it, and the evidence does not agree with itself.** Mihai's premise ("cont de pe 27 octombrie") does not match what the account itself records: `created_at`/`confirmed_at` are both **2026-10-19**; the one sign-in timestamp the account carries, `last_sign_in_at`, is **2026-10-29**. Neither is 27 October — flagged, not silently resolved, per item 183's own rule. **And "last sign-in" is the only login fact that exists at all**: `auth.audit_log_entries` — the table that would hold a real login history — has **zero rows, org-wide**, for every account, real or test. There is no record of a FIRST login, for Lorina or for anyone; only ever the single most recent one, overwritten each time. Lorina has an active account, a recorded sign-in nine days after this report's own cutoff, held on it for over three weeks — and has confirmed precisely nothing in that time.
+
+**What this means for the 2026-10-30 decision this bears on:** the two Scoala Germana sessions withdrawn that day (item 152/176) were left as "unconfirmed, repairable the moment a trainer or Operations looks at them" on the explicit premise that **the trainer path exists to do that looking**. It exists, is reachable (Lorina has signed in since), and has not been used once, by her or by either of the other two real trainers, for any session, ever. The "readiness before invitation" standing decision's own second condition — "they confirm the correct one, without mis-tapping on the phone" — has accordingly never been exercised for real by any trainer this application has, independent of whether the screen itself would pass it.
+
+**Not a fix — a report, per no instruction to build anything here.** The question of whether this is a UI problem, a habit problem, or simply too early to judge from three people and ten sessions is Mihai's to weigh, not this item's to guess.
+**Blocked on:** nothing technical; this is a measurement. **Re-verify when:** any real trainer confirms a session through the app for the first time — the first data point that would change this table's own first column away from all-zero.
+**Lives in:** item 164 above (human-adoption steps having no mechanism — the same gap, now with a number); the "Readiness before invitation" standing decision at the top of this register (condition 2, never yet exercised for real); item 152/176 above (the two sessions this directly concerns); item 183 above (the Lycée addendum, among this item's own past-unconfirmed table); `public.row_history`, `auth.users`, `auth.audit_log_entries` (empty, org-wide — the limit on what "first login" can even mean here).
 
 ---
 ### 18. Pending invites — cut deliberately

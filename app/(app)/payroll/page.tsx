@@ -31,7 +31,18 @@ type SessionRow = {
   location_tier: string | null;
 };
 type GroupRow = { id: string; client_id: string; language_group: string | null; contract_id: string | null };
-type ContractEntityRow = { id: string; legal_entity_id: string };
+// period_start/period_end/amends_contract_id exist so entity resolution can
+// walk BACKWARD in time from a group's current contract (202611090001,
+// item 182) -- a group's contract_id always names the contract in force
+// TODAY; an older session can belong to a predecessor contract the chain
+// points at instead.
+type ContractEntityRow = {
+  id: string;
+  legal_entity_id: string;
+  period_start: string;
+  period_end: string | null;
+  amends_contract_id: string | null;
+};
 type LegalEntityRow = { id: string; name: string };
 type GradeRow = { trainer_id: string; grade_level: number; effective_from: string };
 type ClientRow = { id: string; name: string };
@@ -218,28 +229,68 @@ export default async function PayrollPage({
   // the invoicing entity is not. That is a third state, not a pay failure,
   // and it gets its own reason rather than being dropped into whichever
   // bucket a join happens to put it in.
-  const contractIds = [...new Set((groups ?? []).map((g) => g.contract_id).filter((v): v is string => v !== null))];
-  const { data: contractEntities } =
-    contractIds.length > 0
-      ? await supabase.from("contracts").select("id, legal_entity_id").in("id", contractIds).returns<ContractEntityRow[]>()
-      : { data: [] as ContractEntityRow[] };
-  const entityIdByContractId = new Map((contractEntities ?? []).map((c) => [c.id, c.legal_entity_id]));
+  // Fetched as a CHAIN, not a flat lookup: a group's contract_id is the
+  // contract in force today, and 202611090001 (item 182) can give it a
+  // PREDECESSOR via amends_contract_id when the invoicing entity changed
+  // mid-relationship (Avenor: Experimente Wow for September, Brandine from
+  // October) rather than at a contract renewal. Walking a few extra rounds
+  // here keeps the "one query, not one per row" rule -- the loop runs at
+  // most as many times as the longest amends chain, not once per session.
+  const headContractIds = [...new Set((groups ?? []).map((g) => g.contract_id).filter((v): v is string => v !== null))];
+  const contractById = new Map<string, ContractEntityRow>();
+  {
+    let frontier = headContractIds;
+    while (frontier.length > 0) {
+      const { data } = await supabase
+        .from("contracts")
+        .select("id, legal_entity_id, period_start, period_end, amends_contract_id")
+        .in("id", frontier)
+        .returns<ContractEntityRow[]>();
+      const next: string[] = [];
+      for (const row of data ?? []) {
+        contractById.set(row.id, row);
+        if (row.amends_contract_id && !contractById.has(row.amends_contract_id)) next.push(row.amends_contract_id);
+      }
+      frontier = [...new Set(next)];
+    }
+  }
 
-  const entityIds = [...new Set((contractEntities ?? []).map((c) => c.legal_entity_id))];
+  const entityIds = [...new Set([...contractById.values()].map((c) => c.legal_entity_id))];
   const { data: legalEntities } =
     entityIds.length > 0
       ? await supabase.from("legal_entities").select("id, name").in("id", entityIds).returns<LegalEntityRow[]>()
       : { data: [] as LegalEntityRow[] };
   const entityNameById = new Map((legalEntities ?? []).map((e) => [e.id, e.name]));
 
+  // Which contract, in the head's own amends chain, actually covers a given
+  // date -- walking backward only while the date is EARLIER than the
+  // current link's period_start. Falls back to the head contract itself if
+  // the chain runs out before covering the date (should not happen for real
+  // data, since a chain is built exactly to cover the whole relationship,
+  // but a session older than the earliest known contract reads as that
+  // earliest contract's entity rather than as a silent gap).
+  const contractForDate = (headId: string, date: string): ContractEntityRow | null => {
+    let current = contractById.get(headId) ?? null;
+    let last = current;
+    let guard = 0;
+    while (current && date < current.period_start && current.amends_contract_id) {
+      const prior = contractById.get(current.amends_contract_id) ?? null;
+      if (!prior || ++guard > 20) break;
+      current = prior;
+      last = current;
+    }
+    return last;
+  };
+
   // Null entityId is the broken chain. Null entityName with a non-null id
   // would mean RLS hid the entity row, which is a different thing and must
   // not read as "no contract" -- kept distinct for the same reason item 123
   // keeps "unreadable" apart from "absent".
-  const entityOfGroup = (groupId: string) => {
+  const entityOfGroup = (groupId: string, date: string) => {
     const group = (groups ?? []).find((g) => g.id === groupId);
     if (!group || group.contract_id === null) return { id: null, name: null, unlinked: true };
-    const id = entityIdByContractId.get(group.contract_id) ?? null;
+    const contract = contractForDate(group.contract_id, date);
+    const id = contract?.legal_entity_id ?? null;
     if (id === null) return { id: null, name: null, unlinked: true };
     return { id, name: entityNameById.get(id) ?? null, unlinked: false };
   };
@@ -448,9 +499,9 @@ export default async function PayrollPage({
   for (const g of groups ?? []) {
     if (!sampleGroupIdByClient.has(g.client_id)) sampleGroupIdByClient.set(g.client_id, g.id);
   }
-  const entityOfClient = (clientId: string) => {
+  const entityOfClient = (clientId: string, date: string) => {
     const groupId = sampleGroupIdByClient.get(clientId);
-    return groupId ? entityOfGroup(groupId) : { id: null, name: null, unlinked: true };
+    return groupId ? entityOfGroup(groupId, date) : { id: null, name: null, unlinked: true };
   };
 
   // The snapshot itself, named for display -- a null legal_entity_id is
@@ -498,7 +549,7 @@ export default async function PayrollPage({
         sessions={(sessions ?? []).map((s) => {
           const clientId = clientIdByGroupId.get(s.group_id);
           const clientName = (clientId ? clientNameById.get(clientId) : undefined) ?? "Unknown";
-          const entity = entityOfGroup(s.group_id);
+          const entity = entityOfGroup(s.group_id, s.session_date);
           return {
             id: s.id,
             sessionDate: s.session_date,
@@ -540,7 +591,7 @@ export default async function PayrollPage({
         })}
         unpriceable={unpriceable}
         principalBonuses={(bonusRows ?? []).map((r) => {
-          const entity = entityOfClient(r.client_id);
+          const entity = entityOfClient(r.client_id, r.bonus_date);
           return {
             trainerId: r.trainer_id,
             trainerName: nameById.get(r.trainer_id) ?? "Unknown",

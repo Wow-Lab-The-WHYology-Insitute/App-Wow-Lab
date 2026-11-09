@@ -116,24 +116,35 @@ is in Romanian; code, comments, commits and this file are in English.
   open question is whether a future correction Mihai directs personally should impersonate that
   account instead. Read it as the example of checking a conclusion against this register's own
   prior entries, not just against what's in front of you.
-- **Item 182, 2026-11-09, found on Anca's updated timesheet (105 rows, not 89) — Avenor's billing
-  entity changed mid-contract, live-verified, NOT fixed.** One client, one contract, one entity for
-  the whole relationship (Brandine) is what the app has always had for Avenor; the real record
-  shows September really belonged to Experimente Wow, October correctly to Brandine. Reopens item
-  169 through a mechanism item 169 itself didn't predict. Two candidate fixes written up
-  (`amends_contract_id` vs. entity-on-session-with-contract-default) and NOT chosen between — read
-  it before touching `contracts.legal_entity_id` or routing any new import. **No import of any kind
-  proceeds until this is resolved** — Mihai is asking Anca for the exact changeover date.
-- **Item 183, new rule, 2026-11-09 — a match against the real timesheet confirms; a mismatch means
+- **Item 182, BUILT 2026-11-09 (`202611090001`) — Avenor's billing entity split by contract, not by
+  session.** `contracts.amends_contract_id` (same shape already live on `supplier_contracts`) lets
+  the existing Avenor contract (Brandine, from 2026-10-01) amend a new predecessor (Experimente Wow,
+  September only). Entity-on-session was measured and rejected, not just judged more complex: every
+  real school's entity history is sequential except Scoala Altfel, whose apparent concurrency is
+  item 172's own CUI-identity problem, not a true need (§17 shape, named explicitly). Read-side
+  change in the same commit: `app/(app)/payroll/page.tsx`'s `entityOfGroup` now walks the amends
+  chain by the SESSION'S OWN date. Full RLS suite re-run, green. **Blocked only on the assumed
+  2026-10-01 changeover date** — marked as an assumption in the migration header, pending Anca.
+- **Item 183, rule, 2026-11-09 — a match against the real timesheet confirms; a mismatch means
   "ask," never "the app is wrong."** The timesheet is delayed evidence (trainers file late, Anca
-  corrects it after the fact), not a settled reference — the 2026-10-30 "confirmations" (Lycée
-  12/12, Avenor 14/14) were lucky matches against a file that was itself incomplete, proven by
-  Scoala Germana's own mismatch the same batch. Read it before trusting any future
-  timesheet-vs-app comparison either way.
-- **Item 171's coverage table is superseded, not the item — 105 real rows now, not 89, and the
-  denominator itself grows** (trainers file late; Teodora alone went 7→20 rows in ten days). "X of
-  Y" coverage was never a threshold that reaches 100%. One unresolved discrepancy inside the new
-  numbers, flagged not silently picked: "avem 38" vs. the new table's own 41 — Mihai's to confirm.
+  corrects it after the fact), not a settled reference. Confirmed a second way the same day: Lycée
+  has two real, `planned` sessions (2–3 Nov) past its own last timesheet row (13 Oct) — an app row
+  with no timesheet row yet is not an app error, same asymmetry item 170 already named at the week
+  grain. Read it before trusting any future timesheet-vs-app comparison either way.
+- **Item 171's coverage is now TWO numbers, not one — 41 (upper bound: timesheet rows at schools the
+  app knows about) vs. 40 (rows with an actual session/date/trainer correspondent, measured row by
+  row).** The one gap is Scoala Germana's 14 October ambiguity (item 152). The old "avem 38" figure
+  and the new 41 were answering different questions, not disagreeing — resolved, not a lingering
+  discrepancy. "X of Y" coverage was never a threshold that reaches 100%; the denominator itself
+  grows (Teodora alone went 7→20 rows in ten days).
+- **Item 184, new, 2026-11-09 — zero real trainers have ever self-confirmed a session through the
+  app.** Measured via `row_history`: every confirmation any of the three real trainers
+  (Cătălina, Teodora, Lorina) has ever carried came from an import or a correction, never from the
+  trainer tapping confirm — including Lorina, whose account has been active and signed-in for
+  weeks. Ten real sessions, already past, sit unconfirmed org-wide. `auth.audit_log_entries` is
+  empty (0 rows) org-wide — there is no first-login record for anyone, only ever the latest
+  sign-in. Read it before assuming the trainer confirmation path is actually being exercised by
+  anyone, for any decision that depends on it (item 152/176's own withdrawal did).
 
 If the above list looks stale (dates have passed, an item below has clearly moved), trust
 `docs/OPEN_ITEMS.md` over this file and update this list to match.
