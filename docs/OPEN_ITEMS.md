@@ -8946,6 +8946,8 @@ The real timesheet carries a "Company" column from the cost-tracking register �
 **Blocked on:** nothing to fix now — no one-off engagement with this shape exists in the application today. **Re-verify when:** the first one-off engagement (Scoala Altfel, Wow Lab Party, or similar) is entered without a client contract behind it, and needs its invoicing entity recorded.
 **Lives in:** `app/(app)/payroll/page.tsx` (`entityOfGroup`, the unattributable bucket); `contracts.legal_entity_id`; `groups.contract_id` (item 19 below — nullable by design, the exact seam this item falls through).
 
+**CORRECTED 2026-11-09 — it already broke, before the trigger above, and a different way.** The sentence this item itself wrote, "[invoicing entity and cost-bearing entity are the same fact] for the three recurring schools... because each has exactly one client, one contract, one entity, for the whole relationship" is false for Avenor as of this date. Avenor still has exactly one client and one contract — but not one entity for the whole relationship: the real record shows the entity itself changing mid-contract, not a one-off engagement arriving with no contract at all. See item 182 below for the live-verified finding, the schema question it raises, and why this item's stated re-verify trigger named the wrong mechanism.
+
 ---
 ### 170. `blocks_workshop = true` stops the recurring club — it does not mean the trainers didn't work
 
@@ -8966,7 +8968,7 @@ The real timesheet carries a "Company" column from the cost-tracking register �
 **Lives in:** `docs/DATABASE_CONVENTIONS.md` §18; items 154, 159 above (the calendar work this week's cancellations came from); item 172 below (Altfel/Verde's own missing client identity).
 
 ---
-### 171. Coverage, in numbers: 38 of the current school year's 89 real rows are in this application — not "three schools of nine"
+### 171. Coverage, in numbers: 38 of the current school year's 89 real rows are in this application — not "three schools of nine" — SUPERSEDED 2026-11-09, the denominator itself grows
 
 Measured against the real timesheet, current school year (from 2026-09-01):
 
@@ -8980,6 +8982,21 @@ Measured against the real timesheet, current school year (from 2026-09-01):
 | Wow Lab Party | 1 | Brandine | **no** |
 
 38 of 89. "Three schools of nine" is the kind of true-but-vague sentence this register's own §20 exists to replace with a number.
+
+**UPDATED 2026-11-09, against Anca's updated timesheet — 105 rows now, not 89, and the count keeps moving because trainers file late (Anca, verbatim: sometimes after the 1st of the following month; Teodora alone went from 7 to 20 rows in ten days).**
+
+| client | rows | entities | in the application? |
+|---|---|---|---|
+| Scoala Altfel | 41 | Brandine 37, STEMplicity 2, Experimente 2 | **no** |
+| Scoala ARC | 20 | Brandine | **no** |
+| Scoala Germana | 13 | — | yes |
+| Lycée | 12 | — | yes |
+| Avenor | 16 | Experimente Wow 10, Brandine 6 | yes, **wrong entity** (item 182 below) |
+| Wow Lab Party | 3 | Experimente 2, Brandine 1 | **no** |
+
+**Not resolved before writing this: Mihai's own message gives "avem 38" for the coverage figure, but the three covered rows in his own new table (Scoala Germana 13 + Lycée 12 + Avenor 16) sum to 41, not 38.** Written here as both numbers rather than silently picking one — "38" may be the old figure carried forward out of habit rather than recomputed against the new table. Flagged per item 183 below (a mismatch means ask, not a silent pick), not resolved.
+
+**"89 of 89" was never going to be a threshold, because the real-world total is not a fixed number — it is "however many rows trainers have filed as of the day someone looks."** This application's coverage will always read as a fraction of a moving, late-filing denominator, never as a count that reaches 100% and stays there. That reframing matters more than either of the two totals above: the next check will not find 105 either.
 
 **Scoala ARC specifically, since it is new enough to need its own check before anyone imports it.** First row in the timesheet's entire history is 2026-10-19 — this client has never existed before. 16 rows, two days: 19 October (Cătălina ×6, Lorina ×6) and 20 October (Lorina ×4). All Brandine, all Bucharest (0% location bonus), **no CUI anywhere in the timesheet rows themselves** — but the "Mapări Tip Trainer" tab carries CUI **37239989** against the ARC name. **To confirm before any import: which CUI is real, and whether the blank in the timesheet rows is an omission or means something.** Confirmed live: no client named ARC, and no supplier/client anywhere carrying CUI 37239989, exists in this application today — this is a genuinely new entry, not a rename.
 
@@ -9008,6 +9025,8 @@ Found searching the timesheet for ARC (item 171), by contrast: ARC's 16 rows nam
 **Blocked on:** nothing to fix — this is a rule for later, written before the need is urgent. **Re-verify when:** anyone proposes importing Scoala Altfel/Săptămâna Verde history, or creating a client to hold it.
 **Lives in:** `DATABASE_CONVENTIONS.md` §18 (the sibling rule this one restates for identity instead of dates); item 171 above (the coverage count these 205+59 rows are the uncovered half of); item 170 above (the same weeks, from the workload side).
 
+**CONFIRMED 2026-11-09, by Anca, verbatim: "trecem si la client si la modul Scoala Altfel."** The rule above was proposed here, not asked for; this is her confirming it, not us proposing it a second time. The client is the real school; `delivery_format = 'scoala_altfel'` marks what kind of week it was — exactly as written. Still blocked on the same thing: which real school behind each of the 205+59 rows, which still has to come from somewhere else.
+
 ---
 ### 173. Five more gaps, named by a real user rather than found by reading
 
@@ -9032,6 +9051,9 @@ A real process with no application counterpart at all today: no self-nomination 
 
 **Blocked on:** nothing — not scoped, not designed, not started. Recorded so a future design starts from Anca's own words rather than reconstructing the shape from `rd. 75` alone.
 **Lives in:** `docs/WOWLAB_Spec_Trainer_Principal_Secundar.md` (the closest existing document); item 150 above (`rd. 75`, the narrower open question this supersedes in scope, not in validity).
+
+**2026-11-09, Anca's answer directly contradicts what the application already does — report only, per instruction, not a fix.** Asked specifically about principal vs. secundar, verbatim: *"Trainerii se inteleg intre ei dupa care completeaza numele in Planificator. NU E OK SA SE PUNA AUTOMAT NUMELE IN APLICATIE. Mai bine alegem noi."* The 172 future workshops generated by `202610200009` do exactly what she says is not okay: each one's trainer is templated automatically from the group's most recent non-cancelled session (item 160/161 above already found the staleness consequence of this same mechanism). **What this concretely means is not decided here** — two different shapes would both satisfy her sentence: the propagated name stays as a SUGGESTION with someone confirming it before it is written, or the generated workshop carries no trainer at all until the allocation workflow above (self-propose → Cătălina confirms) assigns one. Which of the two is correct is a product decision, not a technical one; not chosen here.
+**Re-verify when:** that choice is made — it changes what `202610200009`'s own generation step is allowed to write.
 
 ---
 ### 151. `trainer_grade_assignments.source` accepts `'computed'` and nothing computes — the automation it was built for needs an hours history we do not have
@@ -9167,6 +9189,13 @@ This is the same distinction `202610200004` already drew the next day for the si
 **THE CONCRETE DAMAGE, 2026-10-30, Mihai's own words: not "two extra rows" — an assertion made in a person's name, who never made it.** The broken reason did not just let two unapproved workshops into the confirmed total. It wrote, into `row_history`, that **Anca personally asserted, at 2026-10-20 12:24:11.221, that these two specific workshops happened** — a fact she never actually stated, carried forward only because the migration's own reason assumed every row in the batch had her approval behind it, and two of them didn't. That assertion sat there, attributed to a real person, for ten days, until this check found it. **This is the best argument for the rule above, better than the two extra rows ever were:** a wrong reason doesn't just miscount money, it puts words in someone's mouth, in a record that is supposed to be exactly who-did-what.
 
 **Corrected 2026-10-30 (`202610300008`): the confirmation itself is withdrawn, not the two rows.** `trainer_principal_confirmed_at` cleared on both — status stays `delivered`, nothing deleted, nothing cancelled, because nobody has checked whether these two were actually taught, in either direction. Deliberately **not re-attributed to Anca, or to anyone** — `app.current_user_id()` is `auth.uid()`, and with no `request.jwt.claims` set (confirmed by `202608260001`'s own test of exactly this), it resolves to a clean NULL. `row_history`'s newest row for both sessions carries `actor_user_id = NULL`. In wow-lab today, the only two real accounts holding the capability (`org.settings.manage`/`finance.operations.*`) this correction's own write path (`app.rpc_correct_session_confirmation`) would have gated on are Anca and Laura — and neither of them decided this; Mihai did, directly, and his own real account holds no role in wow-lab at all. Impersonating either of them to pass that gate would have been a second false attribution, written to clear the first one. **Lorina's October figure, re-verified live after the clear, matches exactly what was predicted before applying it:** 238,00 payable (07.10 only), 476,00 pending (14.10 + 28.10), 714,00 total — unchanged, because nothing about the MONEY changed, only the STATEMENT.
+
+**2026-11-09, the first evidence back since the clear — one pair resolved by the shape of the record, the other still genuinely open.** Anca's updated timesheet (105 rows, up from 89 — item 171 above) answers part of what `202610300008` left open, ten days later:
+
+- **The 28 October pair** (`a06dab18…`, group chem_me; `6cd3b968…`, group wow_mix) now BOTH appear in the updated sheet (Lorina, Experimente Wow). Live-verified: both still `status = planned`, `trainer_principal_confirmed_at IS NULL` — nothing was ever asserted about either of them, so there is nothing to correct now that evidence exists: they simply move from "no evidence either way" to "evidence exists, not yet entered." The companion finding (item 176) called this pair "untouched — nothing asserted about them"; that is still exactly true, now with external confirmation behind it.
+- **The 14 October pair** (`725eaf35…`, group chem_me, 15:30; `549e2fd1…`, group wow_mix, 16:25) — the updated sheet carries exactly ONE row for that date, where the app holds two. One of them is real; the other is not. Neither Anca's summary nor any source available here carries the module or the time, so which one stays genuinely undecided — not a gap in checking, the fallback already named when the confirmation was cleared: ask Lorina directly.
+
+**This is itself the proof the clear was the right shape, not just a cautious one.** Clearing the CONFIRMATION and leaving the SESSION alone is exactly what let new evidence narrow "unknown" toward "one of these two is real" without the record ever having asserted the wrong thing in either direction first. Had the 14 October pair been cancelled instead, this same evidence would now be contradicting a cancellation that was never justified either — the asymmetry (§ guard, `202610220001`) paid for itself a second time, on the rows it was built for.
 
 ---
 
@@ -9462,6 +9491,8 @@ Anca, verbatim, 2026-10-29: *"Pt toti cei notati cu Onorarii traineri sa adaugam
 **Blocked on:** nothing technical. **Re-verify when:** Anca's parallel confirmation lands, and again once Scoala ARC (item 171) or any other real engagement with a staffed secundar actually enters the schema — the first real amount this function will ever compute.
 **Lives in:** `supabase/migrations/202610300003_trainer_principal_bonus.sql`; `db/tests/principal_bonus.sql`; `app/(app)/payroll/page.tsx` (`entityOfClient`, the bonus fetch) and `payroll-client.tsx` (`bonusSums`, its own rendered section); `app/(app)/payroll/i18n.ts` (`bonus_heading`/`bonus_hint`); item 167 above (the secundar-requires-principal fix this bonus depends on for its very first worked example to be unambiguous); item 171 above (Scoala ARC, the first real case).
 
+**Anca's parallel confirmation landed 2026-10-30/2026-11-09 — partial.** She repeated the specification unchanged and confirmed the trigger explicitly: the bonus applies "in cazul in care lucreaza 2 traineri" (when two trainers work), matching the shape already built. **She did not explicitly answer the mixed-day case** — a trainer's own responsibility at a school being real once that day regardless of how many of that day's workshops there actually needed a secundar — which is still Mihai's own accepted assumption (2026-10-30, above), not hers in her own words. Left as **confirmed on the trigger, unconfirmed on the mixed day**, not silently merged into one "confirmed" status.
+
 **NAMED EXPLICITLY, per Mihai's own instruction, 2026-10-30: this is the first time §20 was applied to a finding of this project's own making, rather than to something asked for.** Every prior §20 instance (the three non-blocking `school_calendar_closures` rows, the `contract_type_uplift` assertion) recorded an absence someone else's question had surfaced. Here the absence — zero real sessions have ever carried a secundar trainer — is a fact about this function's own first day alive, checked before the migration's assertion was written rather than discovered afterward by someone asking "did this do anything." The convention held without being invoked by name.
 
 ---
@@ -9595,6 +9626,15 @@ Anca, verbatim, 2026-10-29: *"Pt toti cei notati cu Onorarii traineri sa adaugam
 **Re-verify when:** Anca answers the three questions, or OD-5 is explicitly closed.
 **Lives in:** `docs/WOWLAB_SAD_Domeniul_Operational_Groups_Sessions.md` §2 (the `session_child_attendance` deferral, now triggered) and §5 ("Prezență nominală pe copil — rămâne numeric-first, cum e stabilit" — also now triggered); `docs/WOW_LAB_OS_Solution_Architecture_Document.md` (the `children`/`group_enrollments`/`session_attendance` design, OD-5, the `gdpr_source` precedent); `sessions.attendance_count` (what would become derived); `groups.children_confirmed`/`children_billed` (the open question in point 1); item 177 above (the month-close verification shape point 2 borrows).
 
+**2026-11-09, Anca's full specification — still not built, per the same instruction, recorded so the design starts from her words, not a guess:**
+
+- **Scope: Lycée Français only** — not every group, settling question 4's second bullet above. (Still open: whether this is the only client it will ever apply to, or the first.)
+- **OD-5 is answered, and resolved in the direction the existing SAD's recommendation argued against: full name + surname, not "first name + last initial."** Anca's own reason is the school's requirement, not a platform preference — the school asks for the full name, so `children`'s PII-minimal shape (point 1 above) needs the full name, not the initial the SAD recommended as the default. The class (`clasa`) is a third required field alongside name and surname — not previously named in point 1's minimal schema, and not optional.
+- **The list is not fixed for the school year** — it can change mid-year when a new child enrolls, confirming the existing SAD's `group_enrollments` design (membership with a `start_date`, not a static roster) is the right shape, not an edge case to special-case later.
+- **The actual per-workshop interaction: a checklist per child, Present/Absent** — matching `session_attendance`'s `present` boolean design in point 1 exactly, one row per session per child.
+
+**Still unanswered, per question 4's remaining two bullets — Mihai will ask again, not guessed here:** where the initial list comes from (who at the school sends it, who owns updating it when a child joins mid-year — "it can change" names the fact, not the mechanism), and whether a written agreement with the school already covers its students' data the way `gdpr_source = school_agreement` assumes for photos, or whether this would be the first. OD-5's retention-after-group-end question is also still open — Anca's answer resolved the FORMAT (full name) but not the lifecycle.
+
 ---
 ### 181. CORRECTED, same day — not "no real account corresponds to Mihai's own authority." An account exists and passes the gate; it wasn't used. The real question is which address is him.
 
@@ -9619,6 +9659,43 @@ Anca, verbatim, 2026-10-29: *"Pt toti cei notati cu Onorarii traineri sa adaugam
 
 **Blocked on:** Mihai's answer to that one question. **Re-verify when:** the next correction he directs personally — the first real chance to apply whichever he picks.
 **Lives in:** §23 above (unaffected by this correction — the convention that NULL is documented, not absent, remains correct no matter which account is used going forward); item 157 above (the record this item should have read before concluding); item 18 below (confirms `maxdigitalro@gmail.com`'s own history as a role-verification account Mihai himself holds — compatible with it also being "his," not a contradiction: not a new team member onboarding, which is what item 18 was checking, but genuinely his own identity); item 152 above (the correction this was found deciding).
+
+---
+### 182. Avenor's entity changed mid-contract — item 169 broke earlier and differently than its own trigger predicted
+
+2026-11-09. Anca's updated timesheet (105 rows, item 171 above) carries Avenor under **Experimente Wow** for September (02, 09, 16, 23, 30) and under **Brandine Advertising** for October (07, 14, 28). **Not reported, verified live:** Avenor has exactly one client, one contract (`906de33a…`, `period_start 2026-09-01`, `period_end 2027-06-30`, `legal_entity_id` = Brandine Advertising SRL), covering both of its groups (`wow_mix`, Wednesday 15:15 and 16:15, principal trainer Cătălina Moale throughout) for the entire relationship. Every Avenor session the application holds — September's 10 delivered rows included — reads Brandine. **September is wrong.** October (4 delivered on the 7th/14th, 2 cancelled the 21st, 2 planned the 28th) already reads Brandine correctly — live-verified, nothing to move there.
+
+**This reopens item 169, but not through the mechanism item 169 itself named.** That item's own sentence — "[invoicing entity and cost-bearing entity are the same fact] for the three recurring schools... because each has exactly one client, one contract, one entity, for the whole relationship" — is false for Avenor today, and item 169's stated re-verify trigger ("the first one-off engagement entered without a client contract behind it") never fired, because Avenor has a contract. **One contract, but not one entity for the whole relationship — the entity itself changed, most likely around 1 October**, mid-contract, which is a third shape neither item 169 nor Scoala Altfel's concurrent-multi-entity case represents.
+
+**The 2026-10-20 retroactive renegotiation is the connected mistake, not a separate one.** Anca's decision that day ("renegotierea e retroactiva, de la 1 septembrie") was applied to the single existing contract row by updating BOTH its price and its `legal_entity_id` together, back to 1 September — and `amends_contract_id` was taken off the critical path the same day on the reasoning "no case exists." **The price change really was retroactive to 1 September; the entity change was not — it happened roughly a month later.** Treating them as one event silently back-dated the entity along with the price, which is the live error: September's Avenor trainer pay (10 sessions, 1.875,00 lei — Cătălina Moale, 10 × 187,50, Mihai's own figure, not independently recomputed here) sits on Brandine's total and belongs on Experimente Wow's.
+
+**What `amends_contract_id` would mean, now that a real case exists for it.** Contracts hold `legal_entity_id` (and price/`billing_rule`) as a single current value with no history. Using the column as named — a new row superseding an old one — would mean closing the original Avenor contract on 2026-09-30 (Experimente Wow, its original terms) and opening a second row from 2026-10-01 (Brandine, `amends_contract_id` → the first), instead of overwriting the one row in place. That gets Avenor right, because Avenor's break is sequential: one entity, then another, at a boundary in time.
+
+**It does not get Scoala Altfel right.** Scoala Altfel's entity varies by ENGAGEMENT, concurrently — three entities in the same weeks, not in sequence (item 169's own finding: Brandine 37, STEMplicity 2, Experimente 2, all in the current window at once). `amends_contract_id`'s own shape — one row supersedes the prior one — is sequential by construction; it cannot represent three contracts in force on the same client at the same time, because a client relationship with one active contract has no second or third slot for "also, concurrently, under a different entity."
+
+**The alternative Mihai asked to weigh: entity on the SESSION (or the GROUP, since Avenor's two groups moved together), with the contract's `legal_entity_id` kept only as the default a new session inherits at creation.** This is the more correct model for how the business actually works, on both real cases at once: Scoala Altfel needs concurrent per-engagement entities, which only a session/group-level field can represent at all (no amount of contract history solves concurrent); Avenor needs an entity that changes value on its own timeline, independent of the contract's price timeline, which a session-level field (defaulted from the contract, overridable per session or per group) also handles — and handles with the SAME mechanism, rather than `amends_contract_id`'s mechanism for one shape and something else for the other.
+
+**NOT BUILT, by explicit instruction ("NU CONSTRUI INCA").** This item states the live finding and the two candidate fixes; it does not choose between them.
+
+**Blocked on:** the exact changeover date (Mihai is asking Anca directly — most likely 1 October, not yet confirmed) and the entity-on-session-vs-contract design choice above, which affects Scoala Altfel's own eventual import (item 172) and should not be decided for Avenor alone. **No further import of any kind proceeds until this is resolved**, per the same instruction.
+**Re-verify when:** Anca confirms the changeover date, or the entity-model decision is made.
+**Lives in:** item 169 above (the finding this corrects the trigger of); item 171 above (the updated coverage table this was found inside); item 172 above (Scoala Altfel, the concurrent case the design choice has to satisfy too); `contracts.legal_entity_id`, `contracts.billing_rule` (the fields the 2026-10-20 renegotiation touched together); `app/(app)/payroll/page.tsx` (`entityOfGroup`).
+
+---
+### 183. "A match confirms; a mismatch means ask, not wrong" — the timesheet was used as a reference all last week, and it is delayed evidence instead
+
+2026-11-09. Found applying the finding in reverse: Anca's updated timesheet (105 rows, item 171 above, up from 89) reveals that the three "confirmations" item 152/171 drew on 2026-10-30 — Lycée 12 app rows against 12 timesheet rows, Avenor 14 against 14 — were comparisons against a file that was itself incomplete at the time, not a settled authority the app was being checked against.
+
+**Anca, verbatim, on why the file moves: trainers file late, sometimes after the 1st of the following month, and she corrects entries afterward** ("trainerii nu intotdeauna completeaza corect"). Teodora's own row count went from 7 to 20 in ten days. **The timesheet is not a reference — it is delayed evidence, a record that keeps arriving and keeps being corrected after the fact**, and it was used as the former all last week.
+
+**THE RULE:**
+
+> **A match between the application and the timesheet confirms — two independently-arrived-at records agreeing is real evidence. A mismatch means "ask," never "the application is wrong."** The timesheet can just as easily be the incomplete or wrong party, as it in fact was.
+
+**Why this is not a hypothetical caution:** this exact batch produced the counter-example. Scoala Germana's own comparison, same date, same migration, came out 12-in-app-vs-10-in-pontaj — a mismatch, correctly investigated rather than assumed to mean the app was wrong — and the investigation (item 152) found the app had two unapproved rows, not that the timesheet was short. **Lycée's 12/12 and Avenor's 14/14 "matches" the same day were real matches against what existed then — but they were not safety, they were luck that held twice.** Had either school's trainer filed late that week the same way Scoala Germana's near-miss proved possible, "12/12" would have been read as confirmation of a row that the next month's filing would go on to contradict — exactly Avenor's own shape now, one layer later (item 182 above): a match today says nothing about whether the file behind it is finished.
+
+**Blocked on:** nothing to fix — this is a rule for how future reconciliation against the timesheet is read, not a correction of a specific row. **Re-verify when:** the next timesheet-vs-app comparison is run — the rule applies to it before the comparison is trusted either way.
+**Lives in:** item 152 above (the mismatch this rule generalizes from); item 171 above (the coverage numbers this rule now governs how to read); item 182 above (the match-that-wasn't-safety this rule explains after the fact).
 
 ---
 ### 18. Pending invites — cut deliberately
