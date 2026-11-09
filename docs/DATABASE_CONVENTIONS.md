@@ -690,6 +690,16 @@ same-day by `202611090004`, which moved the exclusion INTO `resolve_grid_version
 `OPEN_ITEMS.md` item 187, because it is this section's own worked example of why a SABOTAGE-style
 test earns its cost: the convention did not just describe a past mistake, it caught a fresh one.
 
+**How long, named honestly (`OPEN_ITEMS.md` item 188 point 3):** the migration filenames
+(`202611090003`, `202611090004`) carry a date, not a time of day, so no minutes-or-hours figure is
+recorded here — one is not invented to fill the gap. What is actually true, and is the fact this
+addendum is for: the violation was introduced and caught inside one uninterrupted working session,
+before either migration was reported to Mihai, before the suite's green result was reported, before
+anything crossed this session's own boundary. Zero production exposure, zero reported-then-retracted
+state. A test that catches a violation before it is ever reported is worth more than one that catches
+it after, even when the exact minute isn't on record — that is the comparison this number is for, not
+a stopwatch reading.
+
 ## 23. `row_history.actor_user_id = NULL` is a documented state, not an absence
 
 **Decided 2026-10-30 by Mihai, on the first real case — `202610300008`, item 152's correction.**
@@ -768,22 +778,46 @@ table, and the one test run says nothing about the others. State plainly which m
 and which were not, every time this convention is invoked — "proven reproducible" without naming
 the mutation is a claim one test cannot support, and reads as more settled than it is.
 
-**The general form: when a decision depends on whether a function's answer can change under a
-real, named mutation, induce that exact mutation in a rollback-safe transaction and observe the
-before/after — a correct-sounding argument from the data model's shape is not a substitute for
-running it.** This is the same discipline §17/§17b/§17c already name for an argument built on an
-unchecked premise, applied specifically to "does X ever change": the schema argument here would
-have been the CORRECT conclusion, reached the unverified way — proving it costs one test block and
-removes the question from ever being re-litigated by someone who reads the schema differently.
+**The general form, rewritten 2026-11-09 (item 188 point 1) in its strong shape, because the
+weaker wording above did not enforce itself.** "Prove reproducibility by inducing the mutation, not
+by reasoning about the schema" left room for exactly the failure it was meant to end: a check that
+REASONS ALONGSIDE the real computation — rebuilding the same answer from reading the code or the
+tables — instead of asking the real computation itself. That is not a smaller violation than
+skipping verification outright; it looks like verification, carries the same confidence, and is
+wrong in the same way the schema argument above would have been, had it not been checked. The rule
+now states the only two things that count as proof:
+
+> **A claim about money is produced by CALLING the production function (or by replicating its exact
+> logic and confronting the result against it) — never by reconstructing the answer from reading the
+> code.**
+
+**Both halves of today's own measurement are the worked example, because the second one is only
+findable next to the first.** Asked to measure which legal entity September's confirmed-unapproved
+pay split across (`OPEN_ITEMS.md` item 188 point 1), the first attempt produced "18 Brandine / 8
+Experimente Wow" — wrong, caught by Mihai's own arithmetic (Avenor alone has 10 September sessions).
+That number did not come from calling `/payroll`'s own `entityOfGroup`/`contractForDate` chain walk;
+it came from reasoning about the join — session → group → contract → `legal_entity_id` — without
+actually walking `amends_contract_id` back through the September predecessor contract, the exact
+shape this section's own first paragraph already named as insufficient and was violated by its own
+author eleven days after writing it. **The second attempt induced it**: a recursive SQL CTE
+mechanically replicating `contractForDate`'s exact walk, cross-checked a second, independent way
+against `app.calculate_session_pay` summed per real client — producing 8 Brandine / 18 Experimente
+Wow, confirmed by two independent paths agreeing. The difference between the two attempts is not
+carefulness; it is which of the rule's two permitted shapes was followed. One reasoned past the
+production computation. One replicated it exactly and confronted the result against an independent
+second method. Both are documented, not only the one that was right — in `OPEN_ITEMS.md` item 188
+point 1 and item 187 point 1's own in-place correction — because the rule is legible only with the
+failure next to the success.
 
 **Lives in:** `db/tests/session_pay_approval.sql` Block 4 (the induced mutation, and the
 before/after assertion); `supabase/migrations/202611090002_session_pay_approval.sql`'s own header
 (states the measurement's result before describing what was built from it); §17/§17b/§17c above
 (the same family of argument-built-on-an-unchecked-premise, here specifically about reproducibility
-rather than about a rejected design); `OPEN_ITEMS.md` item 186 (where this was first run) and item
-187 (where the counter-reciprocal was added, and where the one mutation this convention had
-actually induced — a rate change — was closed off by making that specific mutation impossible,
-`202611090003`/`202611090004`, §26 below).
+rather than about a rejected design); `OPEN_ITEMS.md` item 186 (where this was first run), item 187
+(where the counter-reciprocal was added, and where the one mutation this convention had actually
+induced — a rate change — was closed off by making that specific mutation impossible,
+`202611090003`/`202611090004`, §26 below) and item 188 point 1 (the rule's own author violating it,
+caught, corrected, and the strong wording this produced).
 
 ## 25. A capability gate is walked by the real account it is meant to admit, not read off the role it is documented to serve
 

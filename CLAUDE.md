@@ -173,7 +173,9 @@ is in Romanian; code, comments, commits and this file are in English.
   built, across two rounds the same day.** (1) Both already-closed months snapshot at ZERO in
   `payroll_period_totals`, correctly — zero approvals exist yet. **Explained ON SCREEN now**,
   live, per entity, next to the 0,00 — never a combined figure (September's 26 confirmed-
-  unapproved slots really do split 18 Brandine / 8 Experimente Wow). Mihai corrected the first
+  unapproved slots split 8 Brandine / 18 Experimente Wow — **corrected 2026-11-09, item 188: first
+  written backwards, 18/8, my own verification error, not the resolver's; Mihai's own arithmetic
+  caught it**). Mihai corrected the first
   draft's wording: explain what's true about the month, not when the feature shipped. (2) **36
   real sessions, 6,563.00 lei** (26 Sept / 10 Oct), confirmed before approval existed, held no
   frozen amount. **Decided: (b)** — stay confirmed-unapproved, 6,563.00 lei known not silent,
@@ -191,6 +193,16 @@ is in Romanian; code, comments, commits and this file are in English.
   `grid_version_in_force.sql`'s own SABOTAGE block before being reported, fixed same day.
   (3) `/my-work`'s five-row cap FIXED — debt is never capped, only the future preview is.
   (4) `/payroll`'s approval backlog gained one line for work outside the displayed month.
+- **Item 188, 2026-11-09, measured, NOT built — §26 covers 1 of 5 pay inputs; the other four
+  sized, not extended.** `location_bonus` (2 of 3 live rows touched, doubling the busiest one
+  moves 1.065,00 lei) and `language_bonus` (1 of 2 rows touched, ALL 36 confirmed slots on one
+  row, moving it 10 points moves 549,80 lei) match `trainer_grade`'s own shape and could share one
+  generic lock — small. `duration_multiplier` matches by nearest-band, not equality (2 of 7 rows
+  touched; doubling the busiest moves 3.863,00 lei, the largest of the four since it scales the
+  whole rate); needs its own predicate. `contract_type_uplift` has **zero rows**, and
+  `calculate_session_pay` never calls its resolver at all (the uplift is baked into the 111-150
+  grid instead, by design) — zero exposure, structurally, nothing to lock. Not one migration for
+  all four, not four separate builds — three shapes. Mihai's to order next, not decided here.
 - **`docs/DATABASE_CONVENTIONS.md` gained §24, §25 and §26 this same day, all extracted from item
   186/187 as general method, not as one-off fixes:** §24 — prove reproducibility by inducing the
   real mutation, never by reasoning about the schema alone; **its counter-reciprocal, added in the
