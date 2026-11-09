@@ -152,11 +152,17 @@ export default async function PayrollPage({
     .eq("user_id", user.id)
     .returns<MembershipRow[]>();
 
+  // finance.approvals.approve added 2026-11-09 (item 185/186) -- without
+  // it, Cătălina (Operations Manager, holding only the new capability)
+  // would pass canApprove below but never reach this page at all, since
+  // this outer gate used to check only finance.operations.*/org.settings.
+  // manage. Caught before asking her to test, not after.
   let orgId: string | null = null;
   for (const m of memberships ?? []) {
     if (
       (await checkCapability(supabase, "finance.operations.*", m.organization_id)) ||
-      (await checkCapability(supabase, "org.settings.manage", m.organization_id))
+      (await checkCapability(supabase, "org.settings.manage", m.organization_id)) ||
+      (await checkCapability(supabase, "finance.approvals.approve", m.organization_id))
     ) {
       orgId = m.organization_id;
       break;
