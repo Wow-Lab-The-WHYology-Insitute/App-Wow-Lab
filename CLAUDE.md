@@ -169,6 +169,29 @@ is in Romanian; code, comments, commits and this file are in English.
   Full RLS suite re-run, 386/386 green. **Not built:** withdrawing an approval, a four-eyes rule —
   Mihai's open questions for Anca. **First live case prepared, not yet run:** Cătălina's own six
   past-unconfirmed sessions (Avenor ×4, Lycée ×2) — the only person who can test both halves.
+- **Item 187, 2026-11-09 — closing the loop on item 186: three real gaps, two measured and
+  reported, two repaired before the Cătălina test.** (1) Both already-closed months (September,
+  real org and test org) snapshot at ZERO in `payroll_period_totals`, correctly — zero approvals
+  exist anywhere yet, so the rebuilt snapshot (item 186) is reading an honest absence, not a bug.
+  No on-screen explanation of that zero exists yet — reported, not built, Mihai's call on wording.
+  (2) Measured further than the freeze question itself required: **36 real sessions, 6,563.00
+  lei** (26 Sept / 10 Oct, 4,675.00 / 1,888.00 lei), confirmed before approval existed, hold no
+  frozen amount at all and are retroactively exposed by the exact mechanism item 186's own
+  freeze-measurement proved. Two ways to close it — retroactive freeze (needs Mihai's explicit
+  instruction, §23-shaped, no human approver) or leave exposed-but-documented until a real
+  approver clears them. **Neither built; his decision.** (3) `/my-work`'s five-row cap FIXED —
+  it was capping the whole list including overdue debt, so a 6th real unconfirmed session could
+  silently fall off the list the banner still counted; now only the future-preview rows are
+  capped, debt never is. (4) `/payroll`'s approval backlog is month-scoped by screen but not by
+  Anca's real process — one line ADDED (not a rewrite): "N de aprobat în alte luni," computed
+  org-wide from confirmed-unapproved state, not from the whole sessions table.
+- **`docs/DATABASE_CONVENTIONS.md` gained §24 and §25 this same day, both extracted from item 186
+  as general method, not as one-off fixes:** §24 — prove a function's reproducibility by inducing
+  the real mutation in a disposable transaction, never by reasoning about the schema alone (how
+  the freeze decision was actually settled). §25 — a capability gate is verified by walking the
+  real, named account through every gate between request and action, never by checking that each
+  gate's own written list now mentions the right capability (how the missing `/payroll` page-gate
+  branch was caught, same day, before asking Cătălina to test anything).
 
 If the above list looks stale (dates have passed, an item below has clearly moved), trust
 `docs/OPEN_ITEMS.md` over this file and update this list to match.

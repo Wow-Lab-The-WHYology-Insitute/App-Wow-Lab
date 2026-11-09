@@ -725,3 +725,63 @@ from context.
 (a real, non-test, capability-holding account for Mihai existed and was not used — corrected same
 day after being first written with the wrong premise; the NULL this convention documents stays
 correct regardless of which account a future correction chooses to use instead).
+
+## 24. Prove reproducibility by inducing the mutation, not by reasoning about the schema
+
+**Decided 2026-11-09, item 186 (session-pay approval) — written as method, not as a one-off fix,
+on Mihai's explicit instruction after it worked.**
+
+The question was: can `app.calculate_session_pay` reproduce a session's past amount after its
+grid is **restated in place** (not expired — corrected on the same `version_id`, the exact shape
+`202610300001` and `202610200001` both applied)? The schema-reading answer looked sufficient on its
+own: `trainer_grade_rates` has no date column, only `version_id` + `grade_level` + `rate`, so a
+restatement obviously changes what every date mapped to that version resolves to. **That argument
+was not trusted as the answer.** Instead, `db/tests/session_pay_approval.sql` Block 4 actually
+doubled a live rate in place, inside a disposable transaction, and called the function before and
+after: the fresh calculation moved, the already-frozen amount on the session did not. The decision
+to freeze the approved amount (rather than leave it as a pointer to recompute later) was made on
+that observation, not on the schema argument that preceded it.
+
+**The general form: when a decision depends on whether a function's answer can change under a
+real, named mutation, induce that exact mutation in a rollback-safe transaction and observe the
+before/after — a correct-sounding argument from the data model's shape is not a substitute for
+running it.** This is the same discipline §17/§17b/§17c already name for an argument built on an
+unchecked premise, applied specifically to "does X ever change": the schema argument here would
+have been the CORRECT conclusion, reached the unverified way — proving it costs one test block and
+removes the question from ever being re-litigated by someone who reads the schema differently.
+
+**Lives in:** `db/tests/session_pay_approval.sql` Block 4 (the induced restatement, and the
+before/after assertion); `supabase/migrations/202611090002_session_pay_approval.sql`'s own header
+(states the measurement's result before describing what was built from it); §17/§17b/§17c above
+(the same family of argument-built-on-an-unchecked-premise, here specifically about reproducibility
+rather than about a rejected design); `OPEN_ITEMS.md` item 186 (where this was first run).
+
+## 25. A capability gate is walked by the real account it is meant to admit, not read off the role it is documented to serve
+
+**Decided 2026-11-09, found while preparing Cătălina's own readiness check for item 186 — written
+as method, not as a one-off fix, on Mihai's explicit instruction after it was caught.**
+
+`finance.approvals.approve` was granted to Operations Manager, and `app.rpc_approve_session_pay`'s
+own gate was written and tested to admit it correctly — the RPC-level proof (§ item 186's test
+Block 1/2) was real and passed. **That was treated as proof the feature reached Cătălina. It was
+not proof of that**, because `/payroll`'s own OUTER page-access gate — the separate check deciding
+whether the page renders at all, upstream of anything the RPC checks — had been written before this
+capability existed and still read only `finance.operations.*`/`org.settings.manage`. Cătălina holds
+neither. She would have passed every check inside the feature and never reached the screen that
+contains it. Found only by asking the concrete question — "walk Cătălina's own real row in
+`user_org_roles`/`role_capabilities` through every gate between a request and the action, in
+order" — not the abstract one — "does the capability's documented holder list now include
+Operations Manager."
+
+**The general form: once a capability is granted to someone, the verification is "take this one
+real account and walk it through every gate the request actually passes through, in the order it
+passes through them," never "does each gate's own written list of accepted capabilities now
+mention the right name."** A feature can be internally correct — gate, RPC, test all agreeing with
+each other — while an unrelated, earlier gate upstream of all of them silently excludes the one
+person the feature was built for. The check only catches this when it is run against a named
+person, not against a specification.
+
+**Lives in:** `app/(app)/payroll/page.tsx` (the outer gate, fixed same day, same commit as the
+feature itself — `finance.approvals.approve` added to its `||` chain with the reason written
+beside it); `OPEN_ITEMS.md` item 186 (where this was caught, the day it was built, before asking
+Cătălina to test anything).

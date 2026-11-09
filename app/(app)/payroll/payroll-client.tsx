@@ -134,6 +134,7 @@ export function PayrollClient({
   unpriceable,
   paySumsAvailable,
   canApprove,
+  otherMonthsAwaitingApproval,
   principalBonuses,
   bonusesAvailable,
   closedSnapshot,
@@ -159,6 +160,12 @@ export function PayrollClient({
   // roles). Gates only whether the approve button renders; the real gate
   // is app.rpc_approve_session_pay's own check.
   canApprove: boolean;
+  // Confirmed-but-unapproved slots OUTSIDE the displayed month, by month
+  // (item 185/186, corrected 2026-11-09): approval work spans months by
+  // construction (trainers confirm after the 1st; approving is a later,
+  // separate pass), so this screen's own month scope can never show the
+  // whole backlog on its own -- this is the one fact that says so.
+  otherMonthsAwaitingApproval: { month: string; count: number }[];
   principalBonuses: PrincipalBonus[];
   bonusesAvailable: boolean;
   closedSnapshot: ClosedSnapshotRow[];
@@ -722,13 +729,13 @@ export function PayrollClient({
               approval capability; everyone else still sees the list, so
               a trainer who is not an approver still knows their
               confirmation worked and is simply waiting on someone else. */}
-          {awaitingApprovalSlots.length > 0 && (
+          {(awaitingApprovalSlots.length > 0 || otherMonthsAwaitingApproval.length > 0) && (
             <div className="mt-3 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="font-body text-sm font-semibold text-amber-800">
                   {t("approve_section_heading")} ({awaitingApprovalSlots.length})
                 </span>
-                {canApprove && (
+                {canApprove && awaitingApprovalSlots.length > 0 && (
                   <button
                     type="button"
                     disabled={isApproving}
@@ -743,19 +750,33 @@ export function PayrollClient({
               {approveMessage && (
                 <p className="font-body text-xs font-semibold text-amber-900">{approveMessage}</p>
               )}
-              <ul className="flex flex-col gap-1 border-t border-amber-200/70 pt-3">
-                {awaitingApprovalSlots.map(({ session, slot }, i) => (
-                  <li
-                    key={`${session.id}-${i}`}
-                    className="font-body flex flex-wrap items-baseline justify-between gap-x-3 text-xs text-amber-900"
-                  >
-                    <span className="font-semibold">{slot.name}</span>
-                    <span className="text-amber-700">
-                      {session.clientName} · {formatShortDate(session.sessionDate, locale)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              {awaitingApprovalSlots.length > 0 && (
+                <ul className="flex flex-col gap-1 border-t border-amber-200/70 pt-3">
+                  {awaitingApprovalSlots.map(({ session, slot }, i) => (
+                    <li
+                      key={`${session.id}-${i}`}
+                      className="font-body flex flex-wrap items-baseline justify-between gap-x-3 text-xs text-amber-900"
+                    >
+                      <span className="font-semibold">{slot.name}</span>
+                      <span className="text-amber-700">
+                        {session.clientName} · {formatShortDate(session.sessionDate, locale)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {/* The one line item 183's own "spans months by construction"
+                  finding asked for -- not a second list, just the fact that
+                  this month's own count above is not the whole backlog. */}
+              {otherMonthsAwaitingApproval.length > 0 && (
+                <p className="font-body border-t border-amber-200/70 pt-3 text-xs text-amber-800">
+                  {t("approve_other_months", {
+                    list: otherMonthsAwaitingApproval
+                      .map(({ month, count }) => t("approve_other_months_item", { n: count, month: formatPeriodLabel(`${month}-01`, locale) }))
+                      .join(", "),
+                  })}
+                </p>
+              )}
             </div>
           )}
 

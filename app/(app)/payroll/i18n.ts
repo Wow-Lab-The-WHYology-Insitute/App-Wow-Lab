@@ -246,6 +246,15 @@ export const payrollDict: Dictionary = {
     en: "{{approved}} slot(s) approved; {{errors}} could not be — see the pay reason on those rows.",
     ro: "{{approved}} sloturi aprobate; {{errors}} nu au putut fi aprobate — vezi motivul pe acele rânduri.",
   },
+  // Item 185/186, corrected 2026-11-09: approval work spans months by
+  // construction (trainers confirm after the 1st; approving is a later,
+  // separate pass) — this month's own count above is never the whole
+  // backlog, so this is the one line that says what is waiting elsewhere.
+  approve_other_months: {
+    en: "Also waiting outside this month: {{list}}.",
+    ro: "Mai sunt de aprobat și în afara acestei luni: {{list}}.",
+  },
+  approve_other_months_item: { en: "{{n}} in {{month}}", ro: "{{n}} în {{month}}" },
 
   // ---- The trainer-principal bonus (B2, item 175) ----
   // Its own section, never folded into "What each trainer is owed" above --

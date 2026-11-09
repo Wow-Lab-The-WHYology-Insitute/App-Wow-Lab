@@ -161,7 +161,22 @@ export default async function MyWorkPage() {
   const futureSessions = mine
     .filter((s) => s.session_date > todayIso && notCancelled(s))
     .sort((a, b) => a.session_date.localeCompare(b.session_date));
-  const upcomingSessions = [...overdueDebt, ...todaySessions, ...futureSessions].slice(0, 5);
+
+  // CORRECTED 2026-11-09 (item 161, found while preparing Cătălina's own
+  // readiness check for item 186): the plafond of 5 used to apply to the
+  // WHOLE list, so a sixth real overdue session dropped off this list while
+  // the banner above still counted it -- the banner said "6", this list
+  // showed 5, and the sixth was only reachable sideways through a co-group
+  // card. Same two-liars-on-one-screen shape the 27 October correction
+  // already named, reappeared here. Debt is actionable, not a preview: it
+  // is never capped. Only the future rows -- the actual "what's next"
+  // preview this plafond was always meant for -- fill whatever room is
+  // left after every overdue and today's row is already shown.
+  const upcomingSessions = [
+    ...overdueDebt,
+    ...todaySessions,
+    ...futureSessions.slice(0, Math.max(0, 5 - overdueDebt.length - todaySessions.length)),
+  ];
 
   const upcomingGroupIds = [...new Set(upcomingSessions.map((s) => s.group_id))];
   const { data: upcomingGroups } = upcomingGroupIds.length > 0

@@ -214,6 +214,52 @@ export default async function PayrollPage({
     .lt("session_date", toExclusive)
     .returns<SessionRow[]>();
 
+  // ---- Approval backlog OUTSIDE the displayed month (item 185/186,
+  // corrected 2026-11-09) ----
+  // Mihai: work to approve spans months BY CONSTRUCTION -- Anca's own
+  // process has trainers confirming after the 1st, and approving is a
+  // second, later pass -- so a screen scoped to one month can never show
+  // the whole backlog, same shape as session_date DESC burying a card at
+  // position 31. Not a rewrite: this is a single extra fact next to the
+  // list that already exists, not a second list.
+  //
+  // Unscoped by month, but NOT the unbounded sessions scan item 139's own
+  // comment above warns against: the filter is on confirmed-but-
+  // unapproved state, which is a backlog that should trend toward zero,
+  // not a growing historical table. Bounded by outstanding work, not by
+  // "every session this org has ever run."
+  const { data: otherMonthApprovalRows } = await supabase
+    .from("sessions")
+    .select(
+      "session_date, trainer_principal_id, trainer_principal_confirmed_at, trainer_principal_approved_at, trainer_secundar_id, trainer_secundar_confirmed_at, trainer_secundar_approved_at",
+    )
+    .eq("organization_id", orgId)
+    .or(`session_date.lt.${from},session_date.gte.${toExclusive}`)
+    .returns<
+      Pick<
+        SessionRow,
+        | "session_date"
+        | "trainer_principal_id"
+        | "trainer_principal_confirmed_at"
+        | "trainer_principal_approved_at"
+        | "trainer_secundar_id"
+        | "trainer_secundar_confirmed_at"
+        | "trainer_secundar_approved_at"
+      >[]
+    >();
+
+  const otherMonthsAwaitingApprovalCount = new Map<string, number>();
+  for (const s of otherMonthApprovalRows ?? []) {
+    const month = s.session_date.slice(0, 7);
+    let n = 0;
+    if (s.trainer_principal_id && s.trainer_principal_confirmed_at !== null && s.trainer_principal_approved_at === null) n++;
+    if (s.trainer_secundar_id && s.trainer_secundar_confirmed_at !== null && s.trainer_secundar_approved_at === null) n++;
+    if (n > 0) otherMonthsAwaitingApprovalCount.set(month, (otherMonthsAwaitingApprovalCount.get(month) ?? 0) + n);
+  }
+  const otherMonthsAwaitingApproval = [...otherMonthsAwaitingApprovalCount.entries()]
+    .map(([month, count]) => ({ month, count }))
+    .sort((a, b) => a.month.localeCompare(b.month));
+
   const groupIds = [...new Set((sessions ?? []).map((s) => s.group_id))];
   const { data: groups } =
     groupIds.length > 0
@@ -565,6 +611,7 @@ export default async function PayrollPage({
         monthKey={monthKey}
         paySumsAvailable={payRows !== null}
         canApprove={canApprove}
+        otherMonthsAwaitingApproval={otherMonthsAwaitingApproval}
         periods={(periods ?? []).map((p) => ({
           id: p.id,
           period: p.period,
