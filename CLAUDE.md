@@ -246,6 +246,23 @@ is in Romanian; code, comments, commits and this file are in English.
   out of item 191 on Mihai's instruction: the only real fix for the nested `postcss` copy requires
   this jump, but a major framework upgrade gets its own breaking-change review, not a decision
   folded into a security triage.
+- **Item 193, 2026-11-10 — Scoala ARC, the fourth client, built as far as the real data is
+  unambiguous (`202611100001`).** Client (CUI 37239989, from Mihai directly, blank on every pontaj
+  row) and contract (`one_off_event`, Brandine Advertising, 19–20.10.2026, `signed`) are live.
+  **Sessions are deliberately NOT built** — the pontaj cannot tell joint delivery (6+4 physical
+  sessions needing a principal/secundar pair) from parallel delivery (12+8 independent ones, no
+  bonus ever eligible), and guessing either way asserts a fact about what happened on-site that
+  nothing here supports. Blocked on Anca's answer; same "don't assert a fact we don't have" rule as
+  item 152, no exception for the inconvenience of waiting. Hazard 1 (pontaj duration is in hours,
+  `sessions.duration_minutes` expects minutes) is narrowed but not retired by the existing
+  15-minute-floor CHECK — `db/tests/arc_duration_hazard.sql` proves both halves live, induced
+  through the real functions (412/412 suite green). **Also corrected item 171 and extended item 189
+  (point 5, a fifth §24 instance, a different shape than the other four)**: that item's own "UN
+  SINGUR bonus de 20 lei" was never Anca's quote — it was Mihai's own anticipatory note, promoted to
+  a citation it never earned, caught only while deciding ARC's session shape. Mihai's own hand-check
+  of the eventual total (2.626,00 lei) is already known to be off by 28,00 lei once real sessions
+  exist — Teodora's live grade is 3, not 4 as assumed; real rate 127, not 134 — not adjusted to
+  match, per §24.
 - **`docs/DATABASE_CONVENTIONS.md` gained §24, §25 and §26 this same day, all extracted from item
   186/187 as general method, not as one-off fixes:** §24 — prove reproducibility by inducing the
   real mutation, never by reasoning about the schema alone, **rewritten same day in its strong

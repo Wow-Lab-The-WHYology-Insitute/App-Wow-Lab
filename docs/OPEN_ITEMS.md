@@ -9009,10 +9009,10 @@ Measured against the real timesheet, current school year (from 2026-09-01):
 
 **Scoala ARC specifically, since it is new enough to need its own check before anyone imports it.** First row in the timesheet's entire history is 2026-10-19 — this client has never existed before. 16 rows, two days: 19 October (Cătălina ×6, Lorina ×6) and 20 October (Lorina ×4). All Brandine, all Bucharest (0% location bonus), **no CUI anywhere in the timesheet rows themselves** — but the "Mapări Tip Trainer" tab carries CUI **37239989** against the ARC name. **To confirm before any import: which CUI is real, and whether the blank in the timesheet rows is an omission or means something.** Confirmed live: no client named ARC, and no supplier/client anywhere carrying CUI 37239989, exists in this application today — this is a genuinely new entry, not a rename.
 
-**19 October is also the real-world case the trainer-principal bonus (item 175 below) was designed against**, not a constructed example: two trainers, one school, six workshops each, in Anca's own words *"UN SINGUR bonus de 20 lei"* — whichever of the two held the principal slot that day.
+**19 October is also the real-world case the trainer-principal bonus (item 175 below) was designed against** — two trainers, one school, six workshops each. **CORRECTED 2026-11-10: *"UN SINGUR bonus de 20 lei"* above was never Anca's verbatim words.** It was Mihai's own anticipatory note about how the bonus rule would apply here, written into this item in a prior session and, by being italicized and quoted, presented as if it had been said rather than inferred. The pontaj itself cannot distinguish "6 workshops delivered jointly by both trainers" from "12 independent, parallel workshops that happen to share a school and a date" — both produce the identical row shape in the timesheet. Whether 19/20 October were joint deliveries (needing a principal/secundar pair) or parallel ones (needing none) is **not established by anything measured here**, and item 193 below declines to guess it either way.
 
-**Blocked on:** the CUI question above, before any of Scoala Altfel's 34 rows, ARC's 16, or Wow Lab Party's 1 are imported. **Re-verify when:** that's answered, and again whenever the timesheet's current-school-year total changes (it will, every month this year runs).
-**Lives in:** item 172 below (why Scoala Altfel's 34 rows specifically cannot be imported as-is, regardless of the CUI question); item 159 above (the three schools' own calendars, the half of coverage that already exists).
+**Blocked on:** the CUI question above, before any of Scoala Altfel's 34 rows, ARC's 16, or Wow Lab Party's 1 are imported — **and, separately for ARC's sessions specifically, Anca's answer on joint-vs-parallel delivery (item 193 below)**, now that the CUI question is itself answered (37239989, confirmed by Mihai 2026-11-10). **Re-verify when:** that's answered, and again whenever the timesheet's current-school-year total changes (it will, every month this year runs).
+**Lives in:** item 172 below (why Scoala Altfel's 34 rows specifically cannot be imported as-is, regardless of the CUI question); item 159 above (the three schools' own calendars, the half of coverage that already exists); item 193 below (ARC's client/contract, built; its sessions, deliberately not); item 189 below, point 5 (this misattribution, as its own named instance of the §24 pattern).
 
 ---
 ### 172. "Scoala Altfel" has no identity in the real payroll record — and no future import may create a client named that
@@ -9918,9 +9918,29 @@ item 184 originally found and item 190 found again in the other direction: a set
 already-moving thing displaces a question that hasn't been answered yet, regardless of what's
 wrapped around it.
 
-**Blocked on:** nothing technical. Mihai's own review of the `contract_type_uplift` choice, already live — revert is available (`supabase/rollbacks/202611090006...`) if he decides otherwise.
-**Re-verify when:** the next "measure, don't build" ask, against §24's own strong wording and this item's own third instance — the thing to watch for is a report using a settled-sounding word ("measured," "complete," "verified") without the method that word claims actually being named next to it. Point 4's own corrected mechanism applies even when the prompt carries no build instruction at all — watch for ANY already-available action, not only a bundled one.
-**Lives in:** `docs/DATABASE_CONVENTIONS.md` §24 (the rewritten strong form, and the new recurring-pattern addendum, now covering four dated instances); `supabase/migrations/202611090005_immutable_duration_multiplier_rates.sql` and `202611090006_comment_contract_type_uplift_tables.sql` (both already applied); `public.row_history` (the induced evidence for point 1 and for point 4's own re-measurement); item 188 (the claim this corrects, and the choice this re-presents); item 152 (the 2026-10-30 instance named in point 3); item 191 (point 4's own `next`-bump episode, in full).
+**5. A fifth instance, 2026-11-10, a different shape than the first four, found by Mihai, not by
+self-correction.** Item 171's own ARC paragraph quoted Anca, in italics, saying *"UN SINGUR bonus de
+20 lei"* about 19 October. She never said it. The sentence was Mihai's own anticipatory note —
+a prediction about how the principal bonus (item 175) would apply once ARC's real two-trainer day
+entered the schema — written into the register in a prior session, and in the writing it picked up
+quotation marks and an attribution it never earned. Nobody fabricated a number this time; a working
+assumption was promoted to a cited fact by the act of formatting it as one. The other four instances
+in this item are all "a claim arrives, and the check that would confirm or refute it doesn't run."
+This one is upstream of that: the claim had already been dressed as *already checked* — as something
+with a quote and a source — so the next read of it (this session's own, while building item 193) had
+no visible seam inviting verification at all. It survived two corrections already (the item was
+touched again in later sessions without anyone re-reading it against its own origin) specifically
+*because* it looked settled. **That is what makes it more dangerous than the other four, not less:**
+a bare unmeasured claim gets caught the next time someone asks "says who" — a claim already wearing
+a citation does not prompt that question in the first place. Caught only because Mihai, asked to
+decide ARC's session shape today, went back far enough to notice the "quote" was never checked
+against anything Anca actually said, and named it as his own.
+**Corrected in item 171 directly, 2026-11-10** — same discipline as every other correction in this
+register: fixed in place, dated, not hidden.
+
+**Blocked on:** nothing technical. Mihai's own review of the `contract_type_uplift` choice, already live — revert is available (`supabase/rollbacks/202611090006...`) if he decides otherwise. Point 5's own open question (joint vs. parallel delivery for ARC's 19/20 October) is Anca's to answer, tracked in item 193, not this item.
+**Re-verify when:** the next "measure, don't build" ask, against §24's own strong wording and this item's own third instance — the thing to watch for is a report using a settled-sounding word ("measured," "complete," "verified") without the method that word claims actually being named next to it. Point 4's own corrected mechanism applies even when the prompt carries no build instruction at all — watch for ANY already-available action, not only a bundled one. Point 5's own trigger: any sentence in this register quoting a named person, in a future session, before confirming the quote traces to something that person actually said rather than to an earlier session's own working note.
+**Lives in:** `docs/DATABASE_CONVENTIONS.md` §24 (the rewritten strong form, and the new recurring-pattern addendum, now covering five dated instances); `supabase/migrations/202611090005_immutable_duration_multiplier_rates.sql` and `202611090006_comment_contract_type_uplift_tables.sql` (both already applied); `public.row_history` (the induced evidence for point 1 and for point 4's own re-measurement); item 188 (the claim this corrects, and the choice this re-presents); item 152 (the 2026-10-30 instance named in point 3); item 191 (point 4's own `next`-bump episode, in full); item 171 above (the misattributed quote, corrected there); item 193 below (where point 5 was found, mid-build).
 
 ---
 ### 190. The same pattern, in the other source, in its more serious form — a POSITIVE example, §20
@@ -10072,6 +10092,102 @@ own measurement pass, not on anything item 191 left unresolved.
 own `postcss` version at that time, since both may have moved again by then.
 **Lives in:** item 191 (where this was split from, and where the reason for splitting it out is
 argued in full).
+
+---
+### 193. Scoala ARC, the fourth client — built as far as the real data is unambiguous, deliberately not one step further
+
+2026-11-10, from Anca's real October timesheet, read fresh for this ask, not from memory (Mihai's
+own framing) — 20 rows, two days, all at Scoala ARC, all Brandine Advertising, all Bucharest (0%
+location tier), all "Romanian or English," all duration 1 (the unit is hours, confirmed against the
+timesheet's own column header, not assumed): 19 October — Cătălina Trușan ×6, Lorina Ciurușniuc ×6;
+20 October — Lorina ×4, Teodora Merișan ×4. CUI blank on every pontaj row; **37239989 was supplied
+by Mihai directly** (the "Mapări Tip Trainer" tab's own value, item 171), not read from the timesheet
+rows themselves.
+
+**Built, unambiguous, live:**
+- `public.clients` — Scoala ARC, `client_type = 'private_school'`, `cui = '37239989'`, `status =
+  'active'`. Confirmed live before insert: no client and no supplier anywhere in this organization
+  already carries that CUI or that name (re-confirmed 2026-11-10, same check item 171 ran, not
+  reused).
+- `public.contracts` — `contract_type = 'one_off_event'` (the enum's own fit for a two-day
+  engagement, not a repurposed `recurring_annual`), `legal_entity_id` → Brandine Advertising SRL,
+  `period_start`/`period_end` 2026-10-19/2026-10-20, `status = 'signed'` — matching the live
+  convention every other real contract in this org already uses (Avenor, Lycée, Scoala Germana are
+  all `'signed'` too, `entry_number`/`exit_number` null on at least one of each), not a status
+  invented for this one row.
+- The model needed nothing new for the shape itself. Measured before building, as asked:
+  `groups.delivery_format` already has `'custom'` (one-off, no enforced recurrence), `sessions` has
+  no `UNIQUE(group_id, session_date)` of any kind, and `resolve_duration_multiplier`'s delivery
+  context already treats `'custom'` as `'standard'` (202609260001) — a burst is not a shape this
+  schema has to be taught, and nothing here invents a recurrence that doesn't exist to make one fit.
+
+**NOT built: the 20 (or 10, or some other count of) sessions.** The pontaj cannot distinguish two
+real possibilities that would require different session counts and different trainer allocations:
+six 19-October workshops delivered JOINTLY (Cătălina + Lorina both present per workshop — 6 physical
+sessions, each needing a principal and a secundar chosen) versus twelve delivered IN PARALLEL (each
+trainer running her own separate group, coincidentally the same school and date — 12 independent
+sessions, no secundar on any of them, no bonus ever eligible). Both produce the identical 6-and-6
+row shape in the timesheet; the file does not carry the fact that would tell them apart, and
+guessing wrong in either direction asserts a fact about what physically happened on 19/20 October
+that nothing here actually supports. **Mihai's own instruction, verbatim, once this was surfaced:**
+"Niciuna din cele trei [candidate answers I'd proposed] — toate scriu sesiuni pe o presupunere, iar
+sesiunile sunt coloana de bani." An import asserts a fact; this one doesn't have the fact yet — same
+rule as item 152, no exception for the inconvenience of waiting. The sessions stay unwritten until
+Anca answers joint-vs-parallel for both days.
+
+**The trainer-principal bonus (item 175) is consequently still untested against ARC — item 171's own
+"this is the bonus's first real case" is not wrong, only premature.** It will be, the moment the
+sessions are written, in whichever shape Anca confirms.
+
+**Found mid-build, corrected, not ARC's own fault: item 171's "UN SINGUR bonus de 20 lei" was never
+Anca's verbatim quote** — it was Mihai's own anticipatory note from a prior session, formatted as a
+citation it never earned. Corrected in item 171 directly, and named as its own instance of the §24
+pattern in item 189 point 5 — a different shape than that item's other four, kept separate there.
+
+**Hazard measured and partly already covered, not invented new:** the pontaj's duration column is in
+HOURS (1 / 1.5 / 2) on every row across the whole sheet, and `sessions.duration_minutes` expects
+minutes. Writing a raw "1" as minutes would be the exact import bug Mihai named — except, measured
+against the live schema rather than assumed: `sessions_duration_minutes_range_check`
+(202610160006, `duration_minutes between 15 and 480`) already rejects 1, 1.5-truncated, and 2
+outright at INSERT time, loudly, before `app.resolve_duration_multiplier` ever runs — none of ARC's
+three real duration values can reach the 30-minute band by this route, because none of them clears
+the floor. **This narrows, but does not retire, the hazard Mihai named:** a raw hour-value of 15 or
+more (a multi-hour block entered as "15", "20", "60" minutes by the same unit slip) WOULD clear the
+floor and land on a real, payable, wrong band — silently, exactly as described — for any future
+import this project does, ARC's own included if a longer block is ever added. `db/tests/
+arc_duration_hazard.sql` asserts both halves, induced, not reasoned: `duration_minutes = 1` against a
+disposable Test Org B session is refused by the live constraint (the narrowed case); a disposable
+`duration_minutes = 15` row is accepted and resolves, through the real `app.resolve_duration_multiplier`,
+to the 30-minute band's `1.0` multiplier (the open case) — proof the hazard is real for the class of
+input the CHECK doesn't cover, not merely argued from the constraint's own text. The actual ARC
+import, whenever it happens, converts hours to minutes explicitly (`duration_minutes = pontaj_hours *
+60`) rather than relying on the floor to catch a mistake it wasn't written to catch in general.
+
+**Verification deferred with the sessions, for the same reason:** Mihai's own hand-check (6×150 +
+10×119 + 4×134 = 2.626,00 lei before bonus, induced via `app.calculate_org_session_pay` once real
+rows exist) cannot be run today because there is nothing to run it against yet. **One number is
+already known to differ, measured ahead of the import so it isn't re-discovered as a surprise
+later:** Teodora Merișan's live `trainer_grade_assignments.grade_level` is **3** today (confirmed
+live, zero `row_history` entries ever on her assignment — not a recent change, how she has always
+been recorded), not 4. Current grade-3 rate is **127**, not 134. Re-running the same hand-check with
+her real grade: 6×150 (Cătălina) + 10×119 (Lorina) + 4×127 (Teodora) = **2.598,00 lei**, 28,00 lei
+below Mihai's own figure — the exact gap 4×(134−127) predicts. Per his own standing rule (§24, "if
+the function gives something else, the function is right and I want to know why — don't adjust
+anything to make my own number come out"): nothing here is adjusted to reach 2.626,00; the real
+function, once there are real sessions to feed it, is expected to say 2.598,00, and that is the
+number to treat as correct unless Teodora's own grade turns out to be wrong for some reason not yet
+found.
+
+**Blocked on:** Anca's answer, joint-vs-parallel delivery for 19 and 20 October — nothing else.
+**Re-verify when:** that answer arrives — build the sessions in whichever shape she confirms, then
+run the real `app.calculate_org_session_pay` and `app.calculate_org_principal_bonus` and report
+whatever they actually say, including if it still isn't 2.626,00 or still isn't zero.
+**Lives in:** `supabase/migrations/202611100001_scoala_arc_client_contract.sql`;
+`db/tests/arc_duration_hazard.sql`; item 171 above (the coverage entry this client closes one line
+of, and the misattributed quote corrected there); item 175 (the principal bonus this is the first
+real-world test case for, once sessions exist); item 152 (the "don't assert a fact we don't have"
+rule this follows without exception); item 189 point 5 above (the quote-attribution pattern found
+while building this).
 
 ---
 ### 18. Pending invites — cut deliberately

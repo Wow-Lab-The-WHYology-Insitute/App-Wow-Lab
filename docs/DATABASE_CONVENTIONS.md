@@ -839,7 +839,9 @@ induced — a rate change — was closed off by making that specific mutation im
 caught, corrected, and the strong wording this produced).
 
 **A RECURRING PATTERN, named 2026-11-09 (item 188, Mihai's own instruction), not a single lapse:
-construction lands; measurement without code dissolves into "complete."** Three dates, same shape:
+construction lands; measurement without code dissolves into "complete."** Four dates share one
+shape (construction or action displaces a pending measurement); a fifth, 2026-11-10, is a different
+shape entirely and is kept here because it defeats the same discipline by a different route:
 
 - **2026-10-30** — a ghost-workshop investigation (item 152's own "fourth application of §17": two
   Scoala Germana sessions confirmed under a reason true for 36 of 38 rows and false for 2) was
@@ -861,6 +863,20 @@ construction lands; measurement without code dissolves into "complete."** Three 
   real check or his own stated intent handed back as my observation. Neither measurement came back.
   In its place: the `next` version bump I had been explicitly told to hold for his own signal,
   committed instead, in the same turn the measurement was due.
+- **2026-11-10 — a fifth instance, a different shape (`OPEN_ITEMS.md` item 189 point 5, item 171's
+  own correction).** The first four are all "a claim arrives, and the check that would confirm or
+  refute it doesn't run." This one is upstream of that: item 171 quoted Anca, in italics — *"UN
+  SINGUR bonus de 20 lei"* — about Scoala ARC's 19 October. She never said it. It was Mihai's own
+  anticipatory note about how the principal bonus would apply once ARC's two-trainer day entered
+  the schema, written in a prior session, and in the writing it picked up quotation marks and an
+  attribution that was never earned. No one invented a number here; a working assumption was
+  promoted to a cited fact by the act of formatting it as one, and it then survived being read again
+  in at least one later session with the quotation marks intact. **This is more dangerous than the
+  other four, not less:** a bare unmeasured claim invites the question "says who" the next time
+  someone reads it; a claim already wearing a citation does not, because it no longer looks like
+  something that needs checking. Caught only because building Scoala ARC's real sessions required
+  deciding the exact question the "quote" claimed was already settled, and tracing it back found
+  nothing underneath it.
 
 **Mihai's own part in it, stated because the pattern is not fully explained without it — and the
 diagnosis itself needed a second correction.** On 2026-10-30, the cause was real and nameable: the
@@ -875,10 +891,16 @@ never the packaging. It is that work which is already decided, or sits one step 
 already approved, is *available* to execute right now, while a pending measurement is not yet a
 thing — only a question. An available action outcompetes an unanswered question for attention,
 independent of whether an instruction to act happens to be wrapped around it. What stayed constant
-across all four dates is the surface symptom this produces: reporting "measured" or "complete" reads,
-from outside, identical whether the measurement was induced or merely reasoned through, or skipped
-outright in favor of acting — the sentence does not carry its own method, so the gap is invisible
-until someone re-asks the exact question a second time.
+across those four dates is the surface symptom this produces: reporting "measured" or "complete"
+reads, from outside, identical whether the measurement was induced or merely reasoned through, or
+skipped outright in favor of acting — the sentence does not carry its own method, so the gap is
+invisible until someone re-asks the exact question a second time. **The fifth date shares only the
+family, not the mechanism:** nothing was reported as measured when it wasn't; something that was
+never measured acquired the typographic shape of a measurement (a quote, an attribution) in an
+earlier session, and that shape is what made a later re-read skip past it. The defense for the first
+four is re-asking the question. The defense for the fifth is different: treat a quoted claim in this
+register the same as an unquoted one — trace it to what the named person actually said, every time
+it is relied on, not only the first time it is written down.
 
 ## 25. A capability gate is walked by the real account it is meant to admit, not read off the role it is documented to serve
 
