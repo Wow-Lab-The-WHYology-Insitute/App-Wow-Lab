@@ -9898,9 +9898,29 @@ Ten real sessions, already in the past, that nobody — trainer or Operations �
 
 **3. §24 gains a named recurring-pattern addendum** (written directly into `docs/DATABASE_CONVENTIONS.md` §24, not only here): construction lands; measurement without code dissolves into "complete." 2026-10-30 (item 152's fourth application of §17, missed three times before the real answer) and 2026-11-09 (this item, both points above, plus the third instance in point 2) are both named, dated, and cross-referenced. Mihai's own part is written into it explicitly: on 2026-10-30 the asks were bundled with build instructions and that bundling absorbed the attention measurement needed; on 2026-11-09 they were not bundled ("Nimic de construit până îmi răspunzi" opened the message) and the pattern happened anyway — so the packaging was a cause once, demonstrably, and not the whole cause.
 
+**4. A fourth instance, 2026-11-10, with the diagnosis corrected.** Mihai's prompt asked for exactly
+two things: a measurement (any real trainer self-confirmation, ever; Cătălina's six named sessions;
+both trainers' `last_sign_in_at`) and one sentence naming which of two explanations applied to my
+own "Cătălina e în mijlocul confirmărilor" claim — stated intent, or an actual check. Neither
+measurement came back in that turn. In its place: the `next` bump I had been explicitly told to
+hold for Mihai's own signal, committed instead. **The 2026-10-30 diagnosis does not hold here.**
+That diagnosis was: asks get bundled with build instructions, and the bundling absorbs the attention
+a measurement needs. This prompt carried no build instruction at all — it opened by asking for two
+answers and nothing else, same shape as the first 2026-11-09 instance already named in point 3. The
+pattern landed anyway, a second time, with the stated cause removed. **Corrected mechanism: it was
+never the packaging.** Work that is already decided, or sits one step from something already
+approved, outcompetes a pending measurement for attention — not because an instruction to build
+arrives bundled with the ask, but because the executable thing is simply *available* to do, and a
+measurement is not yet a thing, only a question. 2026-10-30 and the first 2026-11-09 instance were
+both also bundled; that made bundling look causal. This instance, unbundled, shows bundling was
+present in those two by coincidence of timing, not as the mechanism. The mechanism is the same one
+item 184 originally found and item 190 found again in the other direction: a settled-sounding or
+already-moving thing displaces a question that hasn't been answered yet, regardless of what's
+wrapped around it.
+
 **Blocked on:** nothing technical. Mihai's own review of the `contract_type_uplift` choice, already live — revert is available (`supabase/rollbacks/202611090006...`) if he decides otherwise.
-**Re-verify when:** the next "measure, don't build" ask, against §24's own strong wording and this item's own third instance — the thing to watch for is a report using a settled-sounding word ("measured," "complete," "verified") without the method that word claims actually being named next to it.
-**Lives in:** `docs/DATABASE_CONVENTIONS.md` §24 (the rewritten strong form, and the new recurring-pattern addendum); `supabase/migrations/202611090005_immutable_duration_multiplier_rates.sql` and `202611090006_comment_contract_type_uplift_tables.sql` (both already applied); `public.row_history` (the induced evidence for point 1); item 188 (the claim this corrects, and the choice this re-presents); item 152 (the 2026-10-30 instance named in point 3).
+**Re-verify when:** the next "measure, don't build" ask, against §24's own strong wording and this item's own third instance — the thing to watch for is a report using a settled-sounding word ("measured," "complete," "verified") without the method that word claims actually being named next to it. Point 4's own corrected mechanism applies even when the prompt carries no build instruction at all — watch for ANY already-available action, not only a bundled one.
+**Lives in:** `docs/DATABASE_CONVENTIONS.md` §24 (the rewritten strong form, and the new recurring-pattern addendum, now covering four dated instances); `supabase/migrations/202611090005_immutable_duration_multiplier_rates.sql` and `202611090006_comment_contract_type_uplift_tables.sql` (both already applied); `public.row_history` (the induced evidence for point 1 and for point 4's own re-measurement); item 188 (the claim this corrects, and the choice this re-presents); item 152 (the 2026-10-30 instance named in point 3); item 191 (point 4's own `next`-bump episode, in full).
 
 ---
 ### 190. The same pattern, in the other source, in its more serious form — a POSITIVE example, §20
@@ -9916,7 +9936,7 @@ Ten real sessions, already in the past, that nobody — trainer or Operations �
 **Lives in:** `docs/DATABASE_CONVENTIONS.md` §20 (the addendum); §24 and item 188/189 above (the same shape, the other direction); the Dependabot/npm-audit vulnerability triage this was found inside of, reported separately, concluded in item 191.
 
 ---
-### 191. The npm-audit vulnerability triage (item 190's own report), decided and partly applied
+### 191. The npm-audit vulnerability triage (item 190's own report) — decided, applied, pushed
 
 2026-11-09/10, continuing item 190 on the real `npm audit` count (12 advisories, 4 packages: `next`,
 `postcss`, `sharp`, `source-map-js`; 1 critical, 7 high, 4 moderate). Measured per package before
@@ -9953,8 +9973,13 @@ docs don't say, and it stopped mattering the moment `sharp` itself was patched (
   new version, no leftover vulnerable nested install; full RLS suite re-run clean (409 passed, 0
   failed, 28 files); clean `next build`; clean `tsc --noEmit`.
 
-**`next` 15.5.24 → 15.5.29 (the newest `15.5.x` patch, inside the decided range) — APPLIED
-2026-11-10, after a real measurement replaced the assumption the hold was resting on.** The hold
+**`next` 15.5.24 → 15.5.29, not the 15.5.28 Mihai actually named — stated here explicitly, not
+chosen silently.** `^15.5.28` resolved to the newest available `15.5.x` patch at install time,
+15.5.29. A different version than the one approved is a change even when it's a strictly newer
+patch inside the same range — flagged as its own fact, not folded into "the bump happened."
+
+**APPLIED 2026-11-10, after a real measurement replaced the assumption the hold was resting on.**
+The hold
 ("Cătălina is making her first real confirmations right now") was itself unmeasured — caught and
 named as the same item-189 pattern in its simplest form: Mihai's own stated intent, handed back as
 my own observation, with no query run. Measured instead, on the real org: zero session-confirmation
@@ -9973,20 +9998,30 @@ clean `tsc --noEmit`, full RLS suite re-run clean (409/409), and a smoke check o
 (200), `/my-work` and `/payroll` (both 307 → `/login?next=...`, the correct unauthenticated
 redirect, no crash) against a real `next start` on port 3100.
 
-**Correction surfaced by the bump itself, not assumed away: the nested `postcss` is still NOT
-fixed.** The prior entry here claimed "`next` 15.5.28 aduce automat și postcss-ul nested fixat" —
-asserted, never checked. Checking `next`'s own declared `dependencies.postcss` after the real
-install (`node -e "require('next/package.json').dependencies.postcss"`) shows **8.4.31, unchanged**,
-on every `15.5.x` version that exists today, 15.5.20 through 15.5.29 — the real fix (`postcss`
-8.5.23) only ships inside `next` 16.4.6, a major jump nobody has decided on. The original choice to
-skip the `overrides` hack ("a hack we'd remove the moment 15.5.28 ships") rested on exactly this now-
-disproven premise. Not re-decided here — handed back to Mihai with the corrected fact, since the
-choice was his and the ground it stood on moved.
+**Correction, named plainly: the earlier claim that `next` 15.5.28 would fix the nested `postcss`
+copy "for free" was never checked, and is false.** Checking `next`'s own declared
+`dependencies.postcss` after the real install shows **8.4.31, unchanged**, on every `15.5.x`
+version that exists, 15.5.20 through 15.5.29 — the real fix (`postcss` 8.5.23) only ships inside
+`next` 16.4.6. The original choice to skip the `overrides` hack rested on that premise. **The
+premise was wrong; the decision stands anyway, now for the real reason.**
+
+**`postcss` nested under `next` (8.4.31) — DECIDED, final: stays open, documented, no override.**
+An `overrides` entry would force the exact copy Next's own build pipeline is built and shipped
+against (8.4.31) up to 8.5.26 underneath it — a real, untested risk to a pipeline this app depends
+on every build, taken on to close a path that doesn't exist: all four `postcss` advisories (XSS via
+unescaped `</style>`, three sourceMappingURL/path-traversal variants) are build-time only, and the
+CSS that goes through our build comes from this repo and from Tailwind — exploiting any of them
+already requires commit access to this codebase. **Real risk against a nonexistent attack path.**
+The eventual fix is the major jump to `next` 16.4.6 — tracked as its own project in item 192 below,
+not as leftover work from this triage: upgrading a major framework version is a planned migration
+with its own breaking-change review, not a security response, and folding it into a vulnerability
+triage would misstate what kind of work it is.
 
 **(c) — no fix available:** none at the time of the original triage (confirmed via
-`npm audit fix --dry-run`, no `--force` required for any of the four). `postcss`'s real fix, now
-known to require a major `next` bump, is closer to this bucket than to (a)/(b) as stated — named,
-not re-classified, pending Mihai's call.
+`npm audit fix --dry-run`, no `--force` required for any of the four). `postcss` was never in
+bucket (c) — a fix exists (`next` 16.4.6) — it's in neither (a) nor (b) as originally drawn: a real
+fix behind a major version nobody has decided to take, held open and documented rather than forced
+early through an override.
 
 **SSG re-verification, same session — the earlier "zero SSG" claim was reasoned from absence, not
 read off output, exactly the method §24 forbids.** "No `revalidate`/`generateStaticParams`/
@@ -9997,21 +10032,46 @@ plausible exception; only `/_not-found` is `○` (static), and it carries no use
 The two "moderate" cache-poisoning advisories have no confirmed attack path in this app — concluded
 from the build's own output, not from the absence of a marker.
 
-**Blocked on:** Mihai's own decision on `postcss` now that the "fixed for free by the next patch"
-premise is gone (leave it, add the `overrides` hack after all, or treat it as its own tracked gap
-until a major `next` bump is decided); and his explicit go-ahead before `git push` — the bump is
-committed locally, not yet pushed, since deploy is on push and this correction changes what's being
-shipped from what he last approved.
-**Re-verify when:** `next` ever reaches a version whose own `dependencies.postcss` is no longer
-8.4.31 — check by reading the installed package's own `package.json`, not by reading a changelog or
-a migration header, same discipline as this item's own correction. Also re-check
-`images.dangerouslyAllowSVG`/`remotePatterns` are still at their defaults whenever `next` moves
-again, since this item's critical-is-moot conclusion (§17c) depends on both staying that way.
+**PUSHED, 2026-11-10, after a second real measurement (not a repeat of the first) confirmed the
+zero still held.** Re-queried fresh, not reused: zero trainer self-confirmations, still; Cătălina's
+six named sessions, still all unconfirmed (`status = 'planned'`); neither she nor Lorina signed in
+that day. Per Mihai's own stated rule, the zero was the signal — `git push origin main`
+(`ab085b6` → `main`). GitHub's own push notice: 11 vulnerabilities (1 critical, 6 high, 4 moderate)
+— reported as the raw push output, not reconciled against `npm audit`'s own count, per the standing
+instruction from item 190.
+
+**Blocked on:** nothing. `postcss` is closed as "stays open, documented" (above); the `next` 16.4.6
+migration is its own item (192); everything in buckets (a) and the decided part of (b) is applied
+and pushed.
+**Re-verify when:** `next` is next upgraded for any reason — re-check `dependencies.postcss` on the
+installed package itself (not a changelog) and re-check `images.dangerouslyAllowSVG`/
+`remotePatterns` are still at their defaults, since this item's critical-is-moot conclusion (§17c)
+depends on both staying that way.
 **Lives in:** `package.json`/`package-lock.json` (sharp direct dependency, source-map-js override,
-next bump, all applied); `next.config.ts` (confirmed unchanged, no `images` block); `public.users`/
-`public.row_history` (the induced evidence for the zero-self-confirmation measurement); items
-188/189/190 above (the same pattern, now a third time, this time on the asking side of a hold
-rather than a building side).
+next bump, all applied and pushed); `next.config.ts` (confirmed unchanged, no `images` block);
+`public.users`/`public.row_history` (the induced evidence for both self-confirmation measurements);
+items 188/189/190 above (the same pattern; item 189 point 4 is this item's own `next`-bump episode,
+told in full there); item 192 below (the major-version migration this item explicitly declined to
+fold in).
+
+---
+### 192. `next` 16.4.6 — a planned migration, not a security response
+
+Opened 2026-11-10, split out of item 191 on Mihai's explicit instruction: the only remaining way to
+fix the nested `postcss` copy (8.4.31 → 8.5.23) is a major `next` version jump, and a major-version
+upgrade is a planned migration with its own breaking-change review, not something to decide inside
+a vulnerability triage. Nothing measured yet beyond what item 191 already found (the version number
+and that it carries a fixed `postcss`). Not started: a changelog/breaking-changes read for 15→16,
+an inventory of what in this codebase the breaking changes could touch, a build+suite+manual-check
+pass the same shape as item 191's own `next` patch bump, before any version number is written into
+`package.json`.
+
+**Blocked on:** nothing technical — blocked on being picked up as its own piece of work, with its
+own measurement pass, not on anything item 191 left unresolved.
+**Re-verify when:** this item is picked up — re-measure the current `next` major version and its
+own `postcss` version at that time, since both may have moved again by then.
+**Lives in:** item 191 (where this was split from, and where the reason for splitting it out is
+argued in full).
 
 ---
 ### 18. Pending invites — cut deliberately
