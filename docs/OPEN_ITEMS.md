@@ -9913,7 +9913,80 @@ Ten real sessions, already in the past, that nobody — trainer or Operations �
 
 **Blocked on:** nothing — the vulnerability triage itself continues on `npm audit`'s real 12/4/1-critical/7-high/4-moderate count, not on the retracted figures.
 **Re-verify when:** never, as a specific recurrence — named as method, same as item 189, so the next time a count or a trend arrives already-stated in a prompt, it gets asked for its source before being used to argue urgency, the same way a report leaving code now gets asked for its method.
-**Lives in:** `docs/DATABASE_CONVENTIONS.md` §20 (the addendum); §24 and item 188/189 above (the same shape, the other direction); the Dependabot/npm-audit vulnerability triage this was found inside of, reported separately.
+**Lives in:** `docs/DATABASE_CONVENTIONS.md` §20 (the addendum); §24 and item 188/189 above (the same shape, the other direction); the Dependabot/npm-audit vulnerability triage this was found inside of, reported separately, concluded in item 191.
+
+---
+### 191. The npm-audit vulnerability triage (item 190's own report), decided and partly applied
+
+2026-11-09/10, continuing item 190 on the real `npm audit` count (12 advisories, 4 packages: `next`,
+`postcss`, `sharp`, `source-map-js`; 1 critical, 7 high, 4 moderate). Measured per package before
+anything was touched: which fix is a patch/minor bump vs. which requires a major; whether the
+attack path exists in THIS app specifically, not just "the package is present."
+
+**The critical (`next`/`sharp`, CVE-2026-96889, GHSA-2464-fhr4-w9xw + GHSA-wq5f-xc86-pv6w) — RCE via
+`librsvg`, reachable through Next's `/_next/image` route.** Concluded "not exploitable as configured
+today," but per §17c a conclusion resting on a configuration property is only as durable as that
+property being written down, not just reached. The three it rests on, written here so a future
+change to any one of them is the trigger to re-open this: (1) `next.config.ts` carries no `images`
+block at all — confirmed by reading the file, not inferring from its absence elsewhere —
+so `images.dangerouslyAllowSVG` is at Next's own default, `false` (SVG rejected); (2)
+`images.remotePatterns` is likewise at its default, empty (any unlisted remote host gets a 400);
+(3) `next/image` is used in exactly two files in this codebase (`shell-chrome.tsx`,
+`login-content.tsx`), both pointed at one static local asset (`/logo-wowlab.png`), never an SVG,
+never a remote or user-controlled URL. Left genuinely open, not resolved by assumption: whether
+Next's SVG-rejection check runs before or after `sharp`/libvips decodes the submitted bytes — public
+docs don't say, and it stopped mattering the moment `sharp` itself was patched (below).
+
+**Bucket (a) — safe, no breaking changes — DECIDED and APPLIED:**
+- `sharp` 0.34.5 → 0.35.5, added as a **direct** `dependencies` entry (not an override): the app
+  genuinely calls it at runtime through `next/image`, so it belongs in `package.json` where someone
+  reading it in six months can see the real version in use, not hidden in next's own optional
+  dependency resolution. Checked first: `next@15.5.24`'s own `optionalDependencies` declares
+  `sharp: "^0.34.3 || ^0.35.3"` — 0.35.5 satisfies that range, no conflict, no override needed. This
+  single bump also clears both of `sharp`'s own "high" advisories (libvips, libheif).
+- `source-map-js` 1.2.1 → 1.2.2, via npm `overrides`, not a direct dependency: unlike `sharp`, no
+  code in this app ever calls it — it's pulled in transitively by `postcss`/`@tailwindcss/postcss`
+  as build tooling only. An override is the honest shape here (visible in `package.json`, not
+  silently absorbed), where a direct dependency would overstate something this app doesn't actually
+  use.
+- Verified after, not assumed: `npm ls sharp source-map-js` shows one deduped copy of each at the
+  new version, no leftover vulnerable nested install; full RLS suite re-run clean (409 passed, 0
+  failed, 28 files); clean `next build`; clean `tsc --noEmit`.
+
+**`postcss` (nested under `next`, 8.4.31) — NOT touched, deliberately, not forgotten.** The only fix
+without bumping `next` itself is an `overrides` entry reaching into next's own dependency
+resolution — a hack whose only purpose is to be removed the moment `next` 15.5.28 ships, which the
+next point says is coming soon anyway. Skipped outright rather than applied and reverted days later.
+
+**`next` 15.5.24 → 15.5.28 — DECIDED, held, not yet applied.** The one package with a confirmed,
+live attack path today: 13 files use Server Actions, and the DoS advisory targets exactly that
+surface. The fix is a patch release inside the existing `^15.5.24` range, not a major bump, and
+bumping it resolves the nested `postcss` copy too in the same move. Held anyway: Cătălina is making
+the first real trainer self-confirmations in this app's history in the hours around this triage, and
+deploy happens on push — a subtle break surfacing now would mean debugging Next instead of learning
+whether her screen actually works. **Waiting on Mihai's own signal to proceed**, at which point: bump
+alone, `next build`, full suite, then a manual check of `/my-work` and `/payroll` before push — no
+other package bundled into that commit.
+
+**(c) — no fix available:** none. All four packages have a fix (confirmed via
+`npm audit fix --dry-run`, no `--force` required for any of them).
+
+**SSG re-verification, same session — the earlier "zero SSG" claim was reasoned from absence, not
+read off output, exactly the method §24 forbids.** "No `revalidate`/`generateStaticParams`/
+`export const dynamic` anywhere in `app/`" does not prove zero static routes — App Router generates a
+route static BY DEFAULT in that exact absence. Corrected by running `next build` and reading its own
+route table: every real route is `ƒ` (dynamic), including `/login`, the one route flagged as a
+plausible exception; only `/_not-found` is `○` (static), and it carries no user-controlled content.
+The two "moderate" cache-poisoning advisories have no confirmed attack path in this app — concluded
+from the build's own output, not from the absence of a marker.
+
+**Blocked on:** Mihai's own go-ahead for the `next` 15.5.28 bump (held for Cătălina's/Anca's
+confirmation-and-approval window, not for any technical reason).
+**Re-verify when:** `next` 15.5.28 ships — at that point also re-check whether `images.dangerouslyAllowSVG`/`remotePatterns` are still at their defaults, since this item's critical-is-moot
+conclusion depends on both staying that way (§17c).
+**Lives in:** `package.json`/`package-lock.json` (sharp direct dependency, source-map-js override,
+applied); `next.config.ts` (confirmed unchanged, no `images` block); items 189/190 above (the
+measurement discipline this item's own SSG correction is itself an instance of).
 
 ---
 ### 18. Pending invites — cut deliberately
