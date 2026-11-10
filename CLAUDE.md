@@ -224,19 +224,23 @@ is in Romanian; code, comments, commits and this file are in English.
   7 high, 4 moderate) — asking for the source instead of shaping a list to total 9. Mihai checked
   his own transcript and retracted both numbers in full. Written into §20 as its own addendum: §24's
   discipline binds a claim arriving IN a prompt as hard as one leaving code.
-- **Item 191, 2026-11-10 — npm-audit vulnerability triage, decided and partly applied.** `sharp`
-  0.34.5→0.35.5 (direct dependency — `next/image` genuinely calls it) and `source-map-js`
-  1.2.1→1.2.2 (via `overrides` — nothing in this app calls it directly, pure build tooling) are
-  BUMPED and APPLIED: suite 409/409, clean `next build`, clean `tsc --noEmit`. The nested `postcss`
-  copy and `next` 15.5.24→15.5.28 itself are DECIDED but HELD on Mihai's own signal — Cătălina's
-  first real trainer confirmations are happening in this exact window and deploy is on push. The
-  critical RCE (`next`/`sharp`, CVE-2026-96889) is moot now that `sharp` is patched, but its "not
-  exploitable as configured" conclusion rests on three config properties written down per §17c (no
-  `images` block in `next.config.ts` → `dangerouslyAllowSVG`/`remotePatterns` both at Next's safe
-  defaults; `next/image` used only on one static local PNG) — re-check those three, not just the
-  package version, before trusting this item again. Also corrects a same-day SSG claim reasoned from
-  absence of markers rather than `next build`'s own route table — re-run: every real route is
-  dynamic (`ƒ`) including `/login`, only `/_not-found` is static.
+- **Item 191, 2026-11-10 — npm-audit vulnerability triage, now fully applied except `postcss`,
+  held before `git push`.** `sharp` 0.34.5→0.35.5 (direct dependency), `source-map-js` 1.2.1→1.2.2
+  (via `overrides`), and `next` 15.5.24→15.5.29 are all BUMPED and APPLIED: suite 409/409, clean
+  `next build` (same route table), clean `tsc --noEmit`, smoke check of `/login`/`/my-work`/
+  `/payroll` against a real `next start`. The `next` bump's own hold ("Cătălina is confirming right
+  now") was itself unmeasured — Mihai's stated intent, handed back as my own observation, same
+  item-189 shape in its simplest form. Measured instead: zero session-confirmation events ever by
+  any real trainer (`row_history`, actor via `current_setting('app.current_user_id')`); Cătălina's
+  own six named sessions still all unconfirmed; neither she nor Lorina signed in on 2026-11-10
+  itself. Per Mihai's own stated rule, the zero was the signal to proceed. **Correction found by the
+  bump itself:** the claim that 15.5.28 would fix the nested `postcss` "for free" was never checked
+  and is false — every `15.5.x` release through 15.5.29 still vendors `postcss` 8.4.31; the real fix
+  only ships in `next` 16.4.6. The original "skip the override" choice rested on that now-disproven
+  premise — not re-decided unilaterally, handed back to Mihai. The critical RCE (`next`/`sharp`,
+  CVE-2026-96889) stays moot now that `sharp` is patched, conclusion still resting on the same three
+  §17c config properties (no `images` block in `next.config.ts`). Local commit only — `git push`
+  held pending Mihai's own go-ahead, since the postcss correction changes what would actually ship.
 - **`docs/DATABASE_CONVENTIONS.md` gained §24, §25 and §26 this same day, all extracted from item
   186/187 as general method, not as one-off fixes:** §24 — prove reproducibility by inducing the
   real mutation, never by reasoning about the schema alone, **rewritten same day in its strong

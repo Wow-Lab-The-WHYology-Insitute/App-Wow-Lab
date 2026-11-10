@@ -9953,23 +9953,40 @@ docs don't say, and it stopped mattering the moment `sharp` itself was patched (
   new version, no leftover vulnerable nested install; full RLS suite re-run clean (409 passed, 0
   failed, 28 files); clean `next build`; clean `tsc --noEmit`.
 
-**`postcss` (nested under `next`, 8.4.31) — NOT touched, deliberately, not forgotten.** The only fix
-without bumping `next` itself is an `overrides` entry reaching into next's own dependency
-resolution — a hack whose only purpose is to be removed the moment `next` 15.5.28 ships, which the
-next point says is coming soon anyway. Skipped outright rather than applied and reverted days later.
+**`next` 15.5.24 → 15.5.29 (the newest `15.5.x` patch, inside the decided range) — APPLIED
+2026-11-10, after a real measurement replaced the assumption the hold was resting on.** The hold
+("Cătălina is making her first real confirmations right now") was itself unmeasured — caught and
+named as the same item-189 pattern in its simplest form: Mihai's own stated intent, handed back as
+my own observation, with no query run. Measured instead, on the real org: zero session-confirmation
+events, ever, by any of the three real trainers (`row_history` on `sessions`, every
+`confirmed_at` null→not-null transition, actor resolved via `current_setting('app.current_user_id')`
+— reliable even through the `SECURITY DEFINER` RPC, since the trigger reads the real caller's
+session setting, not the definer's identity; every actor across the table's entire history is Anca's
+2026-10-20 import, test accounts, or Mihai's own Test-Org-B walkthrough — never Cătălina, Lorina, or
+Teodora). Cătălina's own six named sessions (Avenor 28.10 ×2, Lycée 02-03.11 ×2, Avenor 04.11 ×2),
+checked individually: all six still `status = 'planned'`, all six `trainer_principal_confirmed_at
+IS NULL`. `last_sign_in_at`: Cătălina 2026-09-06, Lorina 2026-10-29 — neither signed in on
+2026-11-10, the day the hold's own premise claimed it was happening. Per Mihai's own stated rule
+("daca e tot zero, semnalul vine oricum"), the zero stands as the signal. Applied: bump alone (no
+other package in the same change), clean `next build` (identical route table to the pre-bump run),
+clean `tsc --noEmit`, full RLS suite re-run clean (409/409), and a smoke check of `/login`
+(200), `/my-work` and `/payroll` (both 307 → `/login?next=...`, the correct unauthenticated
+redirect, no crash) against a real `next start` on port 3100.
 
-**`next` 15.5.24 → 15.5.28 — DECIDED, held, not yet applied.** The one package with a confirmed,
-live attack path today: 13 files use Server Actions, and the DoS advisory targets exactly that
-surface. The fix is a patch release inside the existing `^15.5.24` range, not a major bump, and
-bumping it resolves the nested `postcss` copy too in the same move. Held anyway: Cătălina is making
-the first real trainer self-confirmations in this app's history in the hours around this triage, and
-deploy happens on push — a subtle break surfacing now would mean debugging Next instead of learning
-whether her screen actually works. **Waiting on Mihai's own signal to proceed**, at which point: bump
-alone, `next build`, full suite, then a manual check of `/my-work` and `/payroll` before push — no
-other package bundled into that commit.
+**Correction surfaced by the bump itself, not assumed away: the nested `postcss` is still NOT
+fixed.** The prior entry here claimed "`next` 15.5.28 aduce automat și postcss-ul nested fixat" —
+asserted, never checked. Checking `next`'s own declared `dependencies.postcss` after the real
+install (`node -e "require('next/package.json').dependencies.postcss"`) shows **8.4.31, unchanged**,
+on every `15.5.x` version that exists today, 15.5.20 through 15.5.29 — the real fix (`postcss`
+8.5.23) only ships inside `next` 16.4.6, a major jump nobody has decided on. The original choice to
+skip the `overrides` hack ("a hack we'd remove the moment 15.5.28 ships") rested on exactly this now-
+disproven premise. Not re-decided here — handed back to Mihai with the corrected fact, since the
+choice was his and the ground it stood on moved.
 
-**(c) — no fix available:** none. All four packages have a fix (confirmed via
-`npm audit fix --dry-run`, no `--force` required for any of them).
+**(c) — no fix available:** none at the time of the original triage (confirmed via
+`npm audit fix --dry-run`, no `--force` required for any of the four). `postcss`'s real fix, now
+known to require a major `next` bump, is closer to this bucket than to (a)/(b) as stated — named,
+not re-classified, pending Mihai's call.
 
 **SSG re-verification, same session — the earlier "zero SSG" claim was reasoned from absence, not
 read off output, exactly the method §24 forbids.** "No `revalidate`/`generateStaticParams`/
@@ -9980,13 +9997,21 @@ plausible exception; only `/_not-found` is `○` (static), and it carries no use
 The two "moderate" cache-poisoning advisories have no confirmed attack path in this app — concluded
 from the build's own output, not from the absence of a marker.
 
-**Blocked on:** Mihai's own go-ahead for the `next` 15.5.28 bump (held for Cătălina's/Anca's
-confirmation-and-approval window, not for any technical reason).
-**Re-verify when:** `next` 15.5.28 ships — at that point also re-check whether `images.dangerouslyAllowSVG`/`remotePatterns` are still at their defaults, since this item's critical-is-moot
-conclusion depends on both staying that way (§17c).
+**Blocked on:** Mihai's own decision on `postcss` now that the "fixed for free by the next patch"
+premise is gone (leave it, add the `overrides` hack after all, or treat it as its own tracked gap
+until a major `next` bump is decided); and his explicit go-ahead before `git push` — the bump is
+committed locally, not yet pushed, since deploy is on push and this correction changes what's being
+shipped from what he last approved.
+**Re-verify when:** `next` ever reaches a version whose own `dependencies.postcss` is no longer
+8.4.31 — check by reading the installed package's own `package.json`, not by reading a changelog or
+a migration header, same discipline as this item's own correction. Also re-check
+`images.dangerouslyAllowSVG`/`remotePatterns` are still at their defaults whenever `next` moves
+again, since this item's critical-is-moot conclusion (§17c) depends on both staying that way.
 **Lives in:** `package.json`/`package-lock.json` (sharp direct dependency, source-map-js override,
-applied); `next.config.ts` (confirmed unchanged, no `images` block); items 189/190 above (the
-measurement discipline this item's own SSG correction is itself an instance of).
+next bump, all applied); `next.config.ts` (confirmed unchanged, no `images` block); `public.users`/
+`public.row_history` (the induced evidence for the zero-self-confirmation measurement); items
+188/189/190 above (the same pattern, now a third time, this time on the asking side of a hold
+rather than a building side).
 
 ---
 ### 18. Pending invites — cut deliberately
