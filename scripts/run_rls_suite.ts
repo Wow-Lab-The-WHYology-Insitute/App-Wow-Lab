@@ -28,6 +28,16 @@
  * ALTER POLICY, or any migration that renames/drops a column a policy or
  * a test reads (that's what broke it twice already):
  *   npx tsx scripts/run_rls_suite.ts
+ *
+ * Don't run two invocations of this script against the same linked
+ * project at once: there is no lock here, and every block spawns its own
+ * `supabase db query --linked` subprocess, which negotiates a fresh
+ * ad-hoc login role per call (confirmed by reading the CLI binary itself,
+ * 2026-11-10) -- two full suites at once roughly doubles the rate of
+ * those role-creation/connect attempts in the same short window, which
+ * is exactly the shape of the transient "failed to connect as temp role"
+ * block errors seen that day on two unrelated files, gone on the next,
+ * non-concurrent run.
  */
 
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "fs";
