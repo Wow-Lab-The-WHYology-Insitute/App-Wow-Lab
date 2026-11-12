@@ -980,11 +980,44 @@ matters: "o regula care ar fi blocat o corectie necesara fara sa ofere drumul co
 care va fi ocolita la prima urgenta."** A rule that only forbids, with no sanctioned path, gets
 disabled at the first real emergency; this one was checked, before being built, to have a path.
 
-**Where else this applies today:** `location_bonus_rates`, `language_bonus_rates`,
-`duration_multiplier_rates`, `contract_type_uplift_rates` share the identical GRANT-only,
-no-trigger exposure and are explicitly NOT made immutable by this convention's first two
-instances — named here rather than silently left (§20), a decision for whoever next restates one
-of them in place.
+**Where else this applies today:** `location_bonus_rates`, `language_bonus_rates` and
+`contract_type_uplift_rates` share the identical GRANT-only, no-trigger exposure and are NOT made
+immutable — named here rather than silently left (§20). (`duration_multiplier_rates` was listed
+here too until item 188 made it the third instance, `202611090005`; corrected 2026-11-12.)
+
+**ADDENDUM 2026-11-12 (item 194) — making a table immutable is not finished when the migration is.
+The missing step is going back to every screen and RPC that writes to it.** Nobody went back to
+`/payment-config` after `202611090003`/`202611090005`. The reasoning that skipped it sounded right:
+the screen never UPDATEs, it only inserts new versions, so a trigger on UPDATE cannot affect it.
+Induced through the real screen (Test Org B, a Finance Operations account, a real browser), that
+reasoning turned out backwards. **The screen's INSERT was the hole, not something outside it.** A
+new version dated before already-confirmed sessions edits no row, so no trigger fires. It still
+changes what those sessions resolve to. The screen saved it with no warning, and a confirmed
+session's secundar pay went from 328,13 to 1.873,13 (grade) and then to 3.746,25 (duration). The
+same two inserts, run on real wow-lab data in a rolled-back transaction through RLS, moved the
+6.563,00 lei of confirmed-unapproved pay by +60,00 and +392,30. Approval (item 186) freezes an
+amount; confirmation does not. **What has to stay immutable is the ANSWER a relied-on session
+resolves to, not only the row it resolved on.** A rule that guards the row and leaves the answer
+movable is §26 in letter only.
+
+The general form: when a table becomes immutable, list every writer to it IN THE SAME CHANGE —
+screens, RPCs, grants — and induce each one against the new rule. Don't reason about whether a
+writer's verb (INSERT vs UPDATE) is the one the trigger guards. **The inventory for the four pay
+grids, measured live 2026-11-12** (`pg_policies`, `information_schema.role_table_grants`, every
+`public`/`app` function body):
+- **One application writer:** `/payment-config` (`app/(app)/payment-config/actions.ts`,
+  `createVersion()`). It does INSERT only, through RLS, into all eight `*_versions`/`*_rates` tables
+  of trainer_grade, duration_multiplier, location_bonus and language_bonus (plus the two
+  contract_type_uplift tables).
+- **Zero RPCs or functions** write to any of the eight.
+- **Grants to `authenticated`: INSERT only**, on all eight. There is no UPDATE and no DELETE. The
+  UPDATE triggers of `202611090003`/`202611090005` therefore guard a path no app user can take; they
+  only stop migrations and privileged roles, which is what `202610300001` was. That is still worth
+  having, but it is not the user-reachable path.
+- **Migrations and service-role scripts** bypass RLS. That is the "only by migration, by Mihai" path,
+  whatever item 194 decides.
+
+**Lives in:** `OPEN_ITEMS.md` item 194 (the full induced record and the decision it leaves open).
 
 **Lives in:** `supabase/migrations/202611090001_amends_contract_id_avenor_entity_split.sql` (the
 first instance); `202611090003_immutable_trainer_grade_rates.sql` and

@@ -263,6 +263,14 @@ is in Romanian; code, comments, commits and this file are in English.
   of the eventual total (2.626,00 lei) is already known to be off by 28,00 lei once real sessions
   exist — Teodora's live grade is 3, not 4 as assumed; real rate 127, not 134 — not adjusted to
   match, per §24.
+- **Item 194, 2026-11-12 — `/payment-config` goes AROUND the §26 lock rather than breaking on it.
+  Measured, NOT fixed, a decision for Mihai.** The screen has no edit controls. Its only path is
+  "Versiune nouă" with a free date, and a backdated new version re-prices confirmed sessions
+  silently. Induced in a real browser on Test Org B (328,13 → 1.873,13). On real wow-lab data, in a
+  rollback, it moved 6.563,00 lei of confirmed-unapproved pay by +60,00 and +392,30 through RLS.
+  The duration form also drops 2 of the grid's 7 bands (Scoala Altfel at 60 min: ×1,0 → ×2,0, even
+  for a version dated today). §26 tranche 2 (location/language) waits on this decision. Read the
+  item before touching `/payment-config`, `createVersion()`, or any grid's triggers or policies.
 - **`docs/DATABASE_CONVENTIONS.md` gained §24, §25 and §26 this same day, all extracted from item
   186/187 as general method, not as one-off fixes:** §24 — prove reproducibility by inducing the
   real mutation, never by reasoning about the schema alone, **rewritten same day in its strong

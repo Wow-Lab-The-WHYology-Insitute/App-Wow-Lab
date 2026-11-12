@@ -10198,6 +10198,101 @@ rule this follows without exception); item 189 point 5 above (the quote-attribut
 while building this).
 
 ---
+### 194. `/payment-config` after immutability: the screen doesn't break, it goes around the lock — measured, NOT fixed, a decision for Mihai
+
+2026-11-12, on Mihai's instruction to measure the screen consequence of items 187/188's
+immutability before building §26's second tranche (location/language bonus). He set the method
+explicitly: induce it and report what the person SEES, don't deduce from code, and don't repair
+yet. **The result is neither of the two outcomes he named in advance** ("fails ugly" → an error
+message to fix; "doesn't offer the correct path" → a missing feature, so corrections happen by
+migration only). It is a third: **the screen succeeds, silently, at exactly what the lock was
+built to stop.**
+
+**What the screen offers.** It has no edit control of any kind, on any grid. Each section shows
+the version in force, its history, and "+ Versiune nouă": a free effective date (`type="date"`,
+no minimum, default today) plus every row's value. The server actions contain no UPDATE at all
+(`actions.ts`, `createVersion()`: header INSERT, then rows INSERT). The page's own subtitle says
+so: "o schimbare de valoare creează o versiune nouă, nu editează istoricul." So "edit grade 2, 3
+or 6 in place" is not an attempt a person can make from this screen. The question becomes what
+the one offered path does.
+
+**Induced through the real screen.** Test Org B, as `test+ui-contract-admin-b@wowlab.dev` (Finance
+Operations), in a real browser (headless Chromium, the dev server on this commit, magic link
+generated with the service role and opened through `/auth/callback`). Test Org B's grade version
+(2020-01-01) has grades 1–3 locked. Its duration version has 120/standard locked. Session
+`76839d92` (30.09, confirmed, 120 min) prices its secundar on locked grade 2: 328,13 before.
+1. **New grade version dated 01.09.2026, grade 2 = 999.** It saved with no error, no warning, and
+   nothing in the console. The screen now shows it as "VERSIUNEA CURENTĂ · Efectivă din 01.09.26".
+   The confirmed session's secundar pay: **328,13 → 1.873,13**, read off
+   `app.calculate_org_session_pay`, the function `/payroll` uses.
+2. **New grade version dated 01.01.2020** (the existing head's own date, the closest the screen
+   comes to "replace"). The person sees **"Versiunea nu a putut fi salvată. Verifică valorile și
+   încearcă din nou."** The values are fine; the date is what's refused (the partial unique index
+   on head versions). No raw Postgres text appears on screen or in the console. The message points
+   the person at the wrong field.
+3. **New duration version dated 01.09.2026, 120/standard = 3,0.** It saved silently. The same
+   session: principal 187,50 → 375,00, secundar → 3.746,25.
+4. Cleaned up through the service role. Pay is back to 187,50 / 328,13, re-measured.
+
+**Induced on real wow-lab data.** A rolled-back transaction, as Anca, `authenticated`, through RLS,
+running exactly `createVersion()`'s two inserts. Grade version in force: 2026-09-01, with grades 2,
+3 and 6 locked. Duration version in force: 2026-09-01, with 60 and 90 standard locked. Confirmed
+slots (Sept–Nov) total **6.563,00 lei** before, the same 36 sessions as item 187.
+- A version dated 02.09 with grade 3 +10: **+60,00**, no error.
+- Then a duration version dated 02.09 with 60/standard = 1,1: **+392,30**, no error.
+- Verified afterwards: 0 leftover rows.
+
+None of this money is approved (zero approvals exist), so none of it is frozen. Item 186's freeze
+is the only thing that would have held.
+
+**A second defect, found while inducing: the duration form has 5 fields, but the live grid has 7
+rows.** `DURATION_KEYS` has no 60 or 90 for `scoala_altfel_saptamana_verde`. Both wow-lab's grid
+and Test Org B's carry those two rows. Any duration version saved from the screen, **even one
+dated today**, silently drops them. The nearest-band resolver (`202610160004`) then sends a 60- or
+90-minute Scoala Altfel / Săptămâna Verde session to the 120 band. Induced on both orgs:
+**×1,0 → ×2,0** at 60 minutes. It is latent today: 0 real sessions of those formats are ≤ 90 min.
+
+**A third, latent, induced only in part.** If the rows insert fails after the header insert
+succeeds, `createVersion()` tries `.delete()` on the header. `authenticated` has no DELETE grant.
+Induced: `42501 permission denied`. The action doesn't check that result, so it returns
+"save_failed" and leaves an empty header behind. A header with no rates, dated on or before
+today, makes every pay calculation after it raise "incomplete version". The trigger condition
+(the rows insert failing) was **not** induced: there are no value CHECKs, so it needs overflow or a
+dropped connection.
+
+**Is there any path in the interface to the correct correction** (`corrects_version_id`, same
+date, a new row pointing at the one it corrects, as built in 202611090003/005)? **No.** The form
+has no such field and the action never sends one. Today a sanctioned correction can only be made
+by migration.
+
+**The decision this leaves (Mihai's, not built).** Repairing the error message alone is not the
+fix. The hole is the INSERT path, and it exists for any writer, not just this screen. Candidate
+shapes, not chosen:
+- (a) Refuse, in the database, a new head version dated on or before any confirmed session that
+  would resolve differently under it. A screen correction then becomes impossible, and corrections
+  go by migration only.
+- (b) Make the screen express a correction: an explicit "corectează versiunea X" that sends
+  `corrects_version_id`, guarded by the same rule. Future-dated succession stays the default.
+- (c) Both.
+
+§26's second tranche (location/language bonus) waits on this. Built on the same UPDATE-only
+trigger, it would inherit the same hole twice over. Per Mihai's own sequencing, they get built
+together with the repair, not before it.
+
+**Blocked on:** Mihai's choice among (a)/(b)/(c), plus whether the duration form's two missing keys
+are fixed in the same change (they are a separate defect with the same root: the screen was never
+re-checked against the grid it writes).
+**Re-verify when:** any change to `createVersion()`, `DURATION_KEYS`, or the four grids' policies or
+triggers. Re-run the Test Org B browser induction and the wow-lab rolled-back induction, and read
+the confirmed-slot total before and after.
+**Lives in:** `app/(app)/payment-config/actions.ts`, `payment-config-client.tsx` (`DURATION_KEYS`,
+`NewVersionForm`); `supabase/migrations/202611090003_immutable_trainer_grade_rates.sql`,
+`202611090005_immutable_duration_multiplier_rates.sql` (UPDATE-only triggers);
+`202608310002_payment_config_tables.sql` (INSERT-only grants and policies);
+`DATABASE_CONVENTIONS.md` §26's 2026-11-12 addendum (the general rule and the writer inventory);
+items 186/187/188 above.
+
+---
 ### 18. Pending invites — cut deliberately
 
 Investigated as a dashboard-candidate block (org.members.manage-gated,
