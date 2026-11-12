@@ -23,8 +23,55 @@ type UpliftRate = { version_id: string; contract_type: string; uplift_percent: n
 const GRADE_LEVELS = [1, 2, 3, 4, 5, 6];
 const LOCATION_TIERS = ["bucuresti", "imprejurimi", "alte_orase"] as const;
 const LANGUAGE_GROUPS = ["ro_en", "fr_de_es"] as const;
-const DURATION_KEYS = ["30:standard", "60:standard", "90:standard", "120:standard", "120:scoala_altfel_saptamana_verde"];
+// Used only when an org has no duration version yet. Otherwise the form and
+// the display take their bands from the grid's own rows: a fixed list here
+// once silently dropped two bands from every version saved (item 194).
+const DEFAULT_DURATION_KEYS = ["30:standard", "60:standard", "90:standard", "120:standard", "120:scoala_altfel_saptamana_verde"];
 const CONTRACT_TYPES = ["pfa", "srl", "drepturi_autor"] as const;
+
+function durationBandKeys(rows: DurationRate[]): string[] {
+  const keys = [...new Set(rows.map((r) => `${r.duration_minutes}:${r.delivery_context}`))];
+  return keys.sort((a, b) => {
+    const [am, ac] = a.split(":");
+    const [bm, bc] = b.split(":");
+    if (ac !== bc) return ac === "standard" ? -1 : 1;
+    return Number(am) - Number(bm);
+  });
+}
+
+function useDescribeError(labelFor?: (key: string) => string) {
+  const t = useTranslations(paymentConfigDict);
+  const { locale } = useLocale();
+  const tag = locale === "ro" ? "ro-RO" : "en-GB";
+  const lei = (n: number) => new Intl.NumberFormat(tag, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  const month = (ym: string) => new Intl.DateTimeFormat(tag, { month: "long", year: "numeric" }).format(new Date(`${ym}-01T12:00:00`));
+
+  return function describe(result: Exclude<ActionResult, { ok: true }>): string {
+    switch (result.error) {
+      case "incomplete_form":
+        return t("error_incomplete_form");
+      case "date_taken":
+        return t("error_date_taken");
+      case "missing_bands":
+        return t("error_missing_bands", { list: result.missing.map((k) => labelFor?.(k) ?? k).join(", ") });
+      case "would_change_confirmed_pay": {
+        const d = result.detail;
+        // Romanian puts "de" between a number and its noun from 20 up ("20 de sesiuni").
+        const de = d.sessions % 100 === 0 || d.sessions % 100 >= 20 ? "de " : "";
+        const message = t("error_would_change_confirmed_pay", {
+          sessions: d.sessions === 1 ? t("sessions_one") : t("sessions_many", { n: d.sessions, de }),
+          months: d.months.map(month).join(", "),
+          before: lei(d.total_before),
+          after: lei(d.total_after),
+          delta: `${d.delta >= 0 ? "+" : "−"}${lei(Math.abs(d.delta))}`,
+        });
+        return d.unpriceable_slots > 0 ? `${message} ${t("error_unpriceable_suffix", { n: d.unpriceable_slots })}` : message;
+      }
+      default:
+        return t("error_save_failed");
+    }
+  };
+}
 
 // Today's date as a plain component, not new Date() reached for inside a
 // render path repeatedly -- computed once per mount for each form's
@@ -113,6 +160,7 @@ function TrainerGradesSection({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const describeError = useDescribeError();
   const [effectiveDate, setEffectiveDate] = useState(todayIso());
   const [note, setNote] = useState("");
   const [values, setValues] = useState<Record<number, string>>(
@@ -142,7 +190,7 @@ function TrainerGradesSection({
     createTrainerGradeVersion(orgId, effectiveDate, note, values).then((result: ActionResult) => {
       setIsPending(false);
       if (!result.ok) {
-        setError(t(result.error === "incomplete_form" ? "error_incomplete_form" : "error_save_failed"));
+        setError(describeError(result));
       } else {
         setIsFormOpen(false);
         setValues(Object.fromEntries(GRADE_LEVELS.map((n) => [n, ""])));
@@ -226,6 +274,7 @@ function LocationBonusesSection({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const describeError = useDescribeError();
   const [effectiveDate, setEffectiveDate] = useState(todayIso());
   const [note, setNote] = useState("");
   const [values, setValues] = useState<Record<string, string>>(
@@ -257,7 +306,7 @@ function LocationBonusesSection({
     createLocationBonusVersion(orgId, effectiveDate, note, values).then((result: ActionResult) => {
       setIsPending(false);
       if (!result.ok) {
-        setError(t(result.error === "incomplete_form" ? "error_incomplete_form" : "error_save_failed"));
+        setError(describeError(result));
       } else {
         setIsFormOpen(false);
         setValues(Object.fromEntries(LOCATION_TIERS.map((tier) => [tier, ""])));
@@ -341,6 +390,7 @@ function LanguageBonusesSection({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const describeError = useDescribeError();
   const [effectiveDate, setEffectiveDate] = useState(todayIso());
   const [note, setNote] = useState("");
   const [values, setValues] = useState<Record<string, string>>(
@@ -372,7 +422,7 @@ function LanguageBonusesSection({
     createLanguageBonusVersion(orgId, effectiveDate, note, values).then((result: ActionResult) => {
       setIsPending(false);
       if (!result.ok) {
-        setError(t(result.error === "incomplete_form" ? "error_incomplete_form" : "error_save_failed"));
+        setError(describeError(result));
       } else {
         setIsFormOpen(false);
         setValues(Object.fromEntries(LANGUAGE_GROUPS.map((g) => [g, ""])));
@@ -456,16 +506,18 @@ function DurationMultipliersSection({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const describeError = useDescribeError(keyLabel);
+  const currentBandKeys = durationBandKeys(rates.filter((r) => r.version_id === currentVersionId));
+  const formKeys = currentBandKeys.length > 0 ? currentBandKeys : DEFAULT_DURATION_KEYS;
   const [effectiveDate, setEffectiveDate] = useState(todayIso());
   const [note, setNote] = useState("");
   const [values, setValues] = useState<Record<string, string>>(
-    Object.fromEntries(DURATION_KEYS.map((k) => [k, ""])),
+    Object.fromEntries(formKeys.map((k) => [k, ""])),
   );
 
   function keyLabel(key: string) {
     const [minutes, context] = key.split(":");
-    if (context === "scoala_altfel_saptamana_verde") return t("context_extended");
-    return `${t(`duration_${minutes}`)} — ${t("context_standard")}`;
+    return `${t(`duration_${minutes}`)} — ${t(context === "standard" ? "context_standard" : "context_scoala_altfel")}`;
   }
 
   // THE VERSION IN FORCE, resolved by app.resolve_grid_version through
@@ -491,10 +543,10 @@ function DurationMultipliersSection({
     createDurationMultiplierVersion(orgId, effectiveDate, note, values).then((result: ActionResult) => {
       setIsPending(false);
       if (!result.ok) {
-        setError(t(result.error === "incomplete_form" ? "error_incomplete_form" : "error_save_failed"));
+        setError(describeError(result));
       } else {
         setIsFormOpen(false);
-        setValues(Object.fromEntries(DURATION_KEYS.map((k) => [k, ""])));
+        setValues(Object.fromEntries(formKeys.map((k) => [k, ""])));
         setNote("");
       }
     });
@@ -506,7 +558,7 @@ function DurationMultipliersSection({
 
       {current ? (
         <CurrentVersionBox version={current} creatorName={creatorNameById[current.created_by]}>
-          {DURATION_KEYS.map((key) => {
+          {durationBandKeys(currentRows).map((key) => {
             const [minutes, context] = key.split(":");
             const row = currentRows.find((r) => r.duration_minutes === Number(minutes) && r.delivery_context === context);
             return <Kv key={key} label={keyLabel(key)} value={row?.multiplier.toString() ?? "—"} suffix="×" />;
@@ -520,7 +572,7 @@ function DurationMultipliersSection({
         versions={history}
         creatorNameById={creatorNameById}
         renderRows={(versionId) =>
-          DURATION_KEYS.map((key) => {
+          durationBandKeys(rates.filter((r) => r.version_id === versionId)).map((key) => {
             const [minutes, context] = key.split(":");
             const row = rates.find((r) => r.version_id === versionId && r.duration_minutes === Number(minutes) && r.delivery_context === context);
             return <Kv key={key} label={keyLabel(key)} value={row?.multiplier.toString() ?? "—"} suffix="×" />;
@@ -539,12 +591,12 @@ function DurationMultipliersSection({
           onCancel={() => setIsFormOpen(false)}
           onSubmit={handleSubmit}
         >
-          {DURATION_KEYS.map((key) => (
+          {formKeys.map((key) => (
             <input
               key={key}
               type="number"
               step="0.01"
-              value={values[key]}
+              value={values[key] ?? ""}
               onChange={(e) => setValues((prev) => ({ ...prev, [key]: e.target.value }))}
               placeholder={`${keyLabel(key)} — ${t("multiplier_placeholder")}`}
               className="font-body text-ink rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-pink focus:ring-2 focus:ring-brand-pink/20"
@@ -579,6 +631,7 @@ function ContractTypeUpliftsSection({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const describeError = useDescribeError();
   const [effectiveDate, setEffectiveDate] = useState(todayIso());
   const [note, setNote] = useState("");
   const [values, setValues] = useState<Record<string, string>>(
@@ -610,7 +663,7 @@ function ContractTypeUpliftsSection({
     createContractTypeUpliftVersion(orgId, effectiveDate, note, values).then((result: ActionResult) => {
       setIsPending(false);
       if (!result.ok) {
-        setError(t(result.error === "incomplete_form" ? "error_incomplete_form" : "error_save_failed"));
+        setError(describeError(result));
       } else {
         setIsFormOpen(false);
         setValues(Object.fromEntries(CONTRACT_TYPES.map((ty) => [ty, ""])));

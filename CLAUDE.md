@@ -263,14 +263,21 @@ is in Romanian; code, comments, commits and this file are in English.
   of the eventual total (2.626,00 lei) is already known to be off by 28,00 lei once real sessions
   exist — Teodora's live grade is 3, not 4 as assumed; real rate 127, not 134 — not adjusted to
   match, per §24.
-- **Item 194, 2026-11-12 — `/payment-config` goes AROUND the §26 lock rather than breaking on it.
-  Measured, NOT fixed, a decision for Mihai.** The screen has no edit controls. Its only path is
-  "Versiune nouă" with a free date, and a backdated new version re-prices confirmed sessions
-  silently. Induced in a real browser on Test Org B (328,13 → 1.873,13). On real wow-lab data, in a
-  rollback, it moved 6.563,00 lei of confirmed-unapproved pay by +60,00 and +392,30 through RLS.
-  The duration form also drops 2 of the grid's 7 bands (Scoala Altfel at 60 min: ×1,0 → ×2,0, even
-  for a version dated today). §26 tranche 2 (location/language) waits on this decision. Read the
-  item before touching `/payment-config`, `createVersion()`, or any grid's triggers or policies.
+- **Item 194, 2026-11-12 — §26 RE-FOUNDED: protect the PAY a confirmed session resolves to, not the
+  grid row. BUILT (`202611120001`/`002`).** The 10–11 Nov UPDATE triggers stopped only migrations,
+  because app users hold INSERT only. `/payment-config`'s "Versiune nouă" with a backdated date
+  re-priced confirmed sessions silently (induced: 328,13 → 1.873,13). Now
+  `app.grid_guard_confirmed_pay` (a deferred constraint trigger on all 8 tables of the 4 pay grids,
+  INSERT and UPDATE, any writer, migrations included) refuses any write that changes
+  `calculate_org_session_pay`'s answer for a confirmed, not-yet-approved slot. The refusal gives
+  sessions, months and lei. Future-dated and pay-neutral writes pass. `app.rpc_create_grid_version`
+  is the one atomic write path (no orphan header) and refuses dropped bands. The duration form
+  renders the grid's own rows (7, not 5). Location/language (tranche 2) are covered by the same
+  trigger. Read the item before touching any pay grid, `calculate_*_pay`, or `/payment-config`.
+- **Item 195 — the sanctioned correction path for a rate confirmed sessions already used. NOT
+  BUILT, Mihai decides after seeing (a) in use.** Until then nobody can correct such a rate:
+  neither the screen nor a migration (the guard refuses both) without approving first or
+  disabling the guard deliberately.
 - **`docs/DATABASE_CONVENTIONS.md` gained §24, §25 and §26 this same day, all extracted from item
   186/187 as general method, not as one-off fixes:** §24 — prove reproducibility by inducing the
   real mutation, never by reasoning about the schema alone, **rewritten same day in its strong
@@ -279,8 +286,9 @@ is in Romanian; code, comments, commits and this file are in English.
   within hours of writing it; carries the counter-reciprocal (proving it under ONE mutation proves
   it only for that mutation) and the recurring-pattern addendum (item 189) naming both occurrences.
   §25 — a capability gate is verified by walking the real, named account through every gate, never
-  by checking that each gate's written list mentions the right capability. §26 — a row something
-  has relied on is never edited; a correction is a new row pointing at the one it replaces — the
+  by checking that each gate's written list mentions the right capability. §26 — **re-founded
+  2026-11-12 (item 194)**: the protected object is the pay a confirmed session resolves to, not the
+  row; as first written: a row something has relied on is never edited; a correction is a new row pointing at the one it replaces — the
   general form behind `contracts.amends_contract_id`, `trainer_grade_versions.corrects_version_id`,
   and now `duration_multiplier_versions.corrects_version_id` too (item 188).
 

@@ -10198,7 +10198,16 @@ rule this follows without exception); item 189 point 5 above (the quote-attribut
 while building this).
 
 ---
-### 194. `/payment-config` after immutability: the screen doesn't break, it goes around the lock — measured, NOT fixed, a decision for Mihai
+### 194. `/payment-config` after immutability: the screen didn't break, it went around the lock — measured, then DECIDED (a) and BUILT the same day (`202611120001`/`002`)
+
+**What 2026-11-10/11's immutability actually did, written plainly, on Mihai's instruction, not as
+"partial coverage."** The triggers of `202611090003`/`202611090005` guard UPDATE. App users hold
+INSERT only, with no UPDATE and no DELETE, on all eight grid tables. So the immutability built on
+10–11 November stopped exactly one actor: migrations. It stopped no app user, because no app user
+could ever take the path it guarded. It was a correct measure applied to the wrong object, and
+for two days it produced a false sense of safety, which is worse than having no measure. The
+object to protect was never the grid row a session read. **It is the pay a confirmed session
+resolves to.** §26 has been rewritten on that invariant, not extended.
 
 2026-11-12, on Mihai's instruction to measure the screen consequence of items 187/188's
 immutability before building §26's second tranche (location/language bonus). He set the method
@@ -10265,32 +10274,135 @@ date, a new row pointing at the one it corrects, as built in 202611090003/005)? 
 has no such field and the action never sends one. Today a sanctioned correction can only be made
 by migration.
 
-**The decision this leaves (Mihai's, not built).** Repairing the error message alone is not the
-fix. The hole is the INSERT path, and it exists for any writer, not just this screen. Candidate
-shapes, not chosen:
-- (a) Refuse, in the database, a new head version dated on or before any confirmed session that
-  would resolve differently under it. A screen correction then becomes impossible, and corrections
-  go by migration only.
-- (b) Make the screen express a correction: an explicit "corectează versiunea X" that sends
-  `corrects_version_id`, guarded by the same rule. Future-dated succession stays the default.
-- (c) Both.
+**The decision, as first written (three shapes):** (a) the database refuses a write that re-prices
+confirmed sessions; (b) the screen gains an explicit "corectează versiunea X"; (c) both.
+**Mihai chose (a), the same day, and (b) became its own item (195, below), not built.**
 
-§26's second tranche (location/language bonus) waits on this. Built on the same UPDATE-only
-trigger, it would inherit the same hole twice over. Per Mihai's own sequencing, they get built
-together with the repair, not before it.
+**BUILT 2026-11-12 — variant (a), on the new invariant.**
+- **The guard (`202611120001`).** `app.grid_guard_confirmed_pay` is a DEFERRABLE INITIALLY
+  DEFERRED constraint trigger on all eight `*_versions`/`*_rates` tables of trainer_grade,
+  duration_multiplier, location_bonus and language_bonus, for INSERT and UPDATE. It refuses
+  (SQLSTATE `P0W01`) any write that changes `app.calculate_org_session_pay`'s answer for a
+  **confirmed, not-yet-approved** slot. That holds for any writer: the screen, PostgREST, or a
+  migration.
+  - **How "would change" is decided:** by calling the production function twice (§24), once on
+    the written state and once inside a subtransaction where the write is undone. Nothing
+    re-derives the price.
+  - **Approved slots are outside it:** approval already froze their amount.
+  - **Unconfirmed slots are outside it:** nothing has been asserted about them.
+  - **What still passes:** a future-dated version touching no confirmed session passes without
+    computing anything, and so does a backdated version whose values leave every confirmed slot's
+    pay unchanged. It blocks a retroactive change over an assertion, not a price change.
+  - **The refusal says what it protected:** how many sessions, which months, and the total before,
+    after and the delta in lei. On real wow-lab data, the migration's own self-test was refused
+    with: *"6 confirmed session(s) (6 pay slot(s)) in 2026-09 would be re-priced by this
+    trainer_grade change: 762.00 -> 822.00 lei (+60.00)"*. That is the same +60,00 that was
+    induced through RLS earlier the same day.
+- **A defect in the guard, caught by its own test before anything relied on it (`202611120002`).**
+  For an UPDATE, the undo is itself an UPDATE. Under IMMEDIATE constraints that undo re-fired the
+  guard, recursing until "stack depth limit exceeded". Fixed with a flag local to the undo
+  subtransaction.
+- **Atomic writes (defect 2).** `app.rpc_create_grid_version` (with a `public` wrapper,
+  SECURITY INVOKER, so the existing INSERT policies stay the gate) writes the header and the rows
+  in one transaction, all or nothing. It runs the guard immediately, so a refusal comes back as
+  data. `/payment-config`'s `actions.ts` now makes one RPC call, with no client-composed steps and
+  no compensating DELETE. Induced through real PostgREST as the Test Org B finance user: a rows
+  insert failing after the header (grade 7, a CHECK violation) leaves **0 headers behind**. That
+  is the second half Mihai asked for. The first half (the refused DELETE, `42501`) was induced
+  earlier in this item.
+- **Missing bands (defect 1).** The duration form and its display now render the grid's own rows,
+  however many there are, not a fixed list of 5. A fixed list is used only for an org with no
+  version yet. Induced in a real browser on Test Org B: the display shows 7 bands and the form
+  has 7 fields. The RPC also refuses (`missing_bands`, naming them) any version that drops a key
+  present in the version it supersedes. Tested with exactly the old 5-field payload: refused,
+  naming `60:` and `90:scoala_altfel_saptamana_verde`. **This had to land before the Scoala Altfel
+  import, not after.** Mihai's correction to "latent": Scoala Altfel rows lasting 1 hour are queued
+  for import once Anca answers, so the defect would have gone live the day of that import. **The
+  count is Mihai's ("41 de rinduri, toate cu durata 1 ora") and was not re-measured here.** Item
+  172's own figure is 205 historical Scoala Altfel rows. It also says none of them can be imported
+  until each row's real school is found, not merely once Anca answers. These may be different
+  slices (current year vs. all time); that is unresolved and needs one measurement against the
+  timesheet before anyone relies on either number.
+- **The "same date" message** now says the date is taken (`date_taken`). It used to say "check the
+  values".
+- **What a person sees now,** in a real browser, as the Test Org B Finance Operations account,
+  with no console errors:
+  - **Grade:** *"Refuzat: această versiune ar schimba plata pentru o sesiune deja confirmată și
+    încă neaprobată (septembrie 2026), de la 328,13 la 1.873,13 lei (+1.545,00). Plata unei
+    sesiuni confirmate nu se schimbă retroactiv. Alege o dată efectivă de după ultima sesiune
+    confirmată; dacă o rată deja folosită a fost greșită, cere corecția administratorului
+    platformei."*
+  - **Duration, location and language:** each refused the same way (+515,62, +20,62 and +41,25 on
+    that session).
+  - **A version dated 2029 saved normally.** It was deleted afterwards through the service role,
+    and nothing is left on Test Org B.
+- **Tests:** `db/tests/grid_confirmed_pay_guard.sql` (11 blocks).
+  - Per grid, through the RPC as the screen calls it: refused, with nothing left behind;
+    identical values backdated pass; a future-dated version passes.
+  - **SABOTAGE per grid:** the guard triggers are disabled, and the refusal check flips.
+  - **Scope:** an unconfirmed slot passes, an approved slot passes, and a confirmed-unapproved
+    slot is refused, written migration-style.
+  - **UPDATE in place on location and language:** refused under a confirmed slot, passes where
+    there is none.
+  - **The RPC's own refusals:** missing bands, atomicity, and `date_taken`.
+  - **Full suite after the change:** 443/443, 0 block errors, 30 files. Plus a clean `tsc
+    --noEmit` and `next build`.
 
-**Blocked on:** Mihai's choice among (a)/(b)/(c), plus whether the duration form's two missing keys
-are fixed in the same change (they are a separate defect with the same root: the screen was never
-re-checked against the grid it writes).
-**Re-verify when:** any change to `createVersion()`, `DURATION_KEYS`, or the four grids' policies or
-triggers. Re-run the Test Org B browser induction and the wow-lab rolled-back induction, and read
-the confirmed-slot total before and after.
-**Lives in:** `app/(app)/payment-config/actions.ts`, `payment-config-client.tsx` (`DURATION_KEYS`,
-`NewVersionForm`); `supabase/migrations/202611090003_immutable_trainer_grade_rates.sql`,
-`202611090005_immutable_duration_multiplier_rates.sql` (UPDATE-only triggers);
-`202608310002_payment_config_tables.sql` (INSERT-only grants and policies);
-`DATABASE_CONVENTIONS.md` §26's 2026-11-12 addendum (the general rule and the writer inventory);
-items 186/187/188 above.
+**§26 tranche 2 (location_bonus + language_bonus) is built by the same change, on the new
+invariant.** It is the same trigger on their four tables, covering INSERT and UPDATE (they never
+had the old row lock). **Recorded because it is true: the condition Mihai set on 2026-11-12
+("build them together with the screen repair, not before") held by luck, not by foresight.** Had
+the two been built on 2026-11-11, on the row-lock mechanism the way grade and duration were, they
+would have carried the same hole twice. Nobody had seen the hole yet. The sequencing was right
+for a reason nobody knew.
+
+**What (a) leaves with no path, named:** a rate that confirmed, not-yet-approved sessions have
+already used cannot be corrected by anyone right now. That includes a `corrects_version_id`
+correction and a migration, because the guard refuses those too. The only ways through are to
+approve those sessions first, or to disable the guard deliberately inside a migration. That is
+exactly the test Mihai set for §26 on 2026-11-09: "o regula care ar fi blocat o corectie
+necesara fara sa ofere drumul corect e o regula care va fi ocolita la prima urgenta". **(a) alone
+fails it, knowingly, until item 195 is decided.**
+
+**Not covered, named (§20):** DELETE of grid rows or headers. App users have no DELETE grant, so
+only migrations and the service role can take that path; this item's own Test Org B clean-ups
+took it, twice. `contract_type_uplift` is also not covered, because pay never reads it.
+
+**Blocked on:** nothing for (a). Item 195 for the correction path.
+**Re-verify when:** any change to `app.calculate_org_session_pay` or `app.calculate_session_pay`
+(the guard's whole judgement runs through them), to the grids' grants or policies, or to
+`rpc_create_grid_version`. Re-run `db/tests/grid_confirmed_pay_guard.sql` and the browser
+induction. Also re-verify when the Scoala Altfel import lands: check that its 60-minute sessions
+resolve to the 60 band (×1,0), not the 120 band.
+**Lives in:** `supabase/migrations/202611120001_guard_confirmed_pay_on_grid_writes.sql`,
+`202611120002_grid_guard_no_recursion_on_update_undo.sql`; `db/tests/grid_confirmed_pay_guard.sql`;
+`app/(app)/payment-config/actions.ts` (one RPC call), `payment-config-client.tsx`
+(`durationBandKeys`, `useDescribeError`), `i18n.ts` (the refusal copy);
+`202611090003`/`005` (the row locks, kept, now subordinate, see §26);
+`DATABASE_CONVENTIONS.md` §26 (rewritten on this item's invariant); item 195 below; items
+186/187/188 above.
+
+---
+### 195. Correcting a rate that confirmed sessions already used — variant (b), NOT BUILT, decided separately
+
+2026-11-12, split out of item 194 by Mihai. Item 194's guard (variant (a)) refuses any write that
+re-prices confirmed, not-yet-approved pay. That is right as a default and leaves no sanctioned way
+to correct a rate that was genuinely wrong when sessions were confirmed against it. Today the only
+ways through are approving the sessions first (which freezes the wrong amount) or disabling the
+guard inside a migration. Mihai's own words on why this matters: (b) is the escape hatch without
+which (a) will be bypassed at the first emergency.
+
+**The candidate shape (from item 194, not designed further):** an explicit "corectează versiunea
+X" on `/payment-config`. It sends `corrects_version_id`, shows the re-pricing the guard would
+refuse (sessions, months, lei, the same numbers the refusal already computes), and records who
+authorised it. That presumably needs a named capability and a deliberate bypass of the guard for
+that one write, not a weakening of the guard for everyone.
+
+**Not built, on purpose.** Mihai decides it separately, after seeing how (a) behaves in use.
+**Blocked on:** Mihai's decision, after (a) has been in use.
+**Re-verify when:** the first real refusal of (a) happens. That is the evidence the decision waits
+for: what was being corrected, and whether the refusal was right.
+**Lives in:** item 194 above (the guard this would be the sanctioned exception to); §26.
 
 ---
 ### 18. Pending invites — cut deliberately

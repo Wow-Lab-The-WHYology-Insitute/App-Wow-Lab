@@ -932,97 +932,88 @@ feature itself — `finance.approvals.approve` added to its `||` chain with the 
 beside it); `OPEN_ITEMS.md` item 186 (where this was caught, the day it was built, before asking
 Cătălina to test anything).
 
-## 26. A row that something has already relied on is never edited — a correction is a new row that says which one it replaces
+## 26. What a confirmed session resolves to is never changed retroactively — protect the pay, not the row
 
-**Decided 2026-11-09, item 187 point 2, on the second real case the same day as the first
-(`contracts.amends_contract_id`, 202611090001) — written as the general principle, on Mihai's own
-instruction, rather than as two unrelated fixes: "acelasi principiu decis azi dimineata pentru
-contracte... un principiu, doua tabele."**
+**Re-founded 2026-11-12 (OPEN_ITEMS item 194), on Mihai's instruction, on a different invariant
+from the one first written here on 2026-11-09.** It was not extended; it was rebuilt. The first
+version protected the wrong object, and that history stays below because the error is the lesson.
 
-The GRANT on `trainer_grade_rates`/`trainer_grade_versions` (202608310002) already said this —
-"No UPDATE, no DELETE... a mistake gets corrected by inserting a new version, full stop" — and said
-it as a stated design intent, not as something enforced. It wasn't: `202610200001` and
-`202610300001` both ran a plain `UPDATE` on the live row, successfully, because a GRANT restricts
-`authenticated` only — nothing stopped a migration, or any privileged role, from editing a row
-something had already depended on. **A documented intent with no enforcement is not a convention,
-it is a comment that happens to still be true.**
+**What the first version guarded, plainly.** It said "a row something has relied on is never
+edited," and enforced that with UPDATE triggers on `trainer_grade_rates`/`_versions`
+(`202611090003`) and `duration_multiplier_rates`/`_versions` (`202611090005`). App users hold
+INSERT only on every pay grid table, with no UPDATE and no DELETE. So the immutability built on
+10–11 November stopped exactly one actor, migrations, and no app user, because no app user could
+take the path it guarded. Their only path, a new version with a free effective date, edits no
+row. A backdated one still re-prices every confirmed session after its date (induced through the
+real screen: 328,13 → 1.873,13). **A correct measure applied to the wrong object, which gave a
+false sense of safety for two days. That is worse than having no measure.**
 
-**The rule:** once anything has resolved against a versioned row — read it, confirmed a session
-against it, invoiced from it — that row becomes immutable, enforced by a trigger that fires
-regardless of role or grants, not merely a GRANT that restricts `authenticated`. A correction is
-expressed as a NEW row, carrying a pointer back to the one it replaces, never as an edit to the
-existing one. The two real instances so far point in different directions, and that difference is
-the thing worth naming, not papering over:
+**The invariant:** the pay `app.calculate_org_session_pay` returns for a **confirmed,
+not-yet-approved** slot does not change because of a write to a pay grid. That holds for any
+writer, by any path (screen, PostgREST, migration), and whether the write is a new version, a row
+added to an existing version, or a row or header updated.
+- **Approved slots are outside it.** Approval already freezes the amount (item 186). The window
+  this protects is confirmation → approval.
+- **Unconfirmed slots are outside it.** Nothing has been asserted about them, so re-pricing them is
+  legitimate.
+- **A version dated after every confirmed session passes, without friction.** So does a backdated
+  version whose values leave every confirmed slot's pay unchanged. **Block a retroactive change
+  over an assertion, not a change of price.**
 
-- **`contracts.amends_contract_id`** chains SEQUENTIAL, non-overlapping periods backward in time —
-  the newer row points at the predecessor it genuinely succeeds (Avenor: Brandine from 2026-10-01
-  amends Experimente Wow, September only). The dates are DIFFERENT and both periods are true,
-  simultaneously, forever.
-- **`trainer_grade_versions.corrects_version_id`** chains CORRECTIONS of the SAME period — the
-  newer row points at the one it corrects, sharing its `effective_date` exactly. The dates are THE
-  SAME and only one of the two is current truth; the other is wrong-and-superseded, kept rather
-  than deleted because it IS what was actually relied on while it stood.
+**Decided by the production function, never re-derived (§24).** The guard calls
+`app.calculate_org_session_pay` twice, once on the written state and once inside a subtransaction
+where the write is undone and then rolled back, and compares the two answers per slot. A rule
+that predicted "would this change pay" by reading rates itself would drift from the engine the
+way `/payroll`'s mirror once did.
 
-Both resolve to "find the live head, walking a pointer, rather than trusting `order by
-date desc limit 1` on a table that can now hold more than one row per period" — which is why both
-needed their table's own uniqueness constraint relaxed to a PARTIAL one (unique per period only
-among HEAD rows — `corrects_version_id`/`amends_contract_id is null`), not dropped outright.
+**A refusal says what it protected.** It gives how many confirmed sessions, which months, and the
+total before, after and the delta, in lei. A refusal that only says "failed" reads as bureaucracy
+and gets worked around.
 
-**Measured, not assumed, before building the second instance:** whether the rule would have
-refused the two real corrections it is retroactively judged against.
-`202610200001` (2026-10-20 10:49:57 UTC) would NOT have been refused — zero sessions had
-confirmed against the 2026-09-01 grid at that exact moment, by `row_history`'s own timestamps.
-`202610300001` (2026-10-30 11:36:10 UTC) WOULD have been refused, for 3 of its 6 rows (grades 2, 3,
-6 — the ones with confirmed sessions by then) — its correct expression under this rule is a single
-new version, `corrects_version_id` pointing at the original, carrying all six rates (three
-unchanged, three corrected), never a partial UPDATE. **This is the test Mihai named as the one that
-matters: "o regula care ar fi blocat o corectie necesara fara sa ofere drumul corect e o regula
-care va fi ocolita la prima urgenta."** A rule that only forbids, with no sanctioned path, gets
-disabled at the first real emergency; this one was checked, before being built, to have a path.
+**Enforcement (`202611120001`/`002`):** `app.grid_guard_confirmed_pay`, a DEFERRABLE INITIALLY
+DEFERRED constraint trigger on all eight `*_versions`/`*_rates` tables of trainer_grade,
+duration_multiplier, location_bonus and language_bonus, for INSERT and UPDATE. Deferred, so that
+a header and its rows are judged together at commit. The one app write path,
+`app.rpc_create_grid_version`, forces it immediately so the refusal comes back as data.
 
-**Where else this applies today:** `location_bonus_rates`, `language_bonus_rates` and
-`contract_type_uplift_rates` share the identical GRANT-only, no-trigger exposure and are NOT made
-immutable — named here rather than silently left (§20). (`duration_multiplier_rates` was listed
-here too until item 188 made it the third instance, `202611090005`; corrected 2026-11-12.)
+**The row locks stay, and are now subordinate.** `202611090003`/`005` still refuse an in-place
+edit of a grade or duration row any confirmed session resolved on, approved ones included. That is
+a narrower, stricter guard against migrations, kept because it costs nothing. It is not the rule.
 
-**ADDENDUM 2026-11-12 (item 194) — making a table immutable is not finished when the migration is.
-The missing step is going back to every screen and RPC that writes to it.** Nobody went back to
-`/payment-config` after `202611090003`/`202611090005`. The reasoning that skipped it sounded right:
-the screen never UPDATEs, it only inserts new versions, so a trigger on UPDATE cannot affect it.
-Induced through the real screen (Test Org B, a Finance Operations account, a real browser), that
-reasoning turned out backwards. **The screen's INSERT was the hole, not something outside it.** A
-new version dated before already-confirmed sessions edits no row, so no trigger fires. It still
-changes what those sessions resolve to. The screen saved it with no warning, and a confirmed
-session's secundar pay went from 328,13 to 1.873,13 (grade) and then to 3.746,25 (duration). The
-same two inserts, run on real wow-lab data in a rolled-back transaction through RLS, moved the
-6.563,00 lei of confirmed-unapproved pay by +60,00 and +392,30. Approval (item 186) freezes an
-amount; confirmation does not. **What has to stay immutable is the ANSWER a relied-on session
-resolves to, not only the row it resolved on.** A rule that guards the row and leaves the answer
-movable is §26 in letter only.
+**The correction mechanism keeps its shape.** A correction is a new row pointing at the one it
+replaces: `contracts.amends_contract_id` for a succession of periods,
+`trainer_grade_versions`/`duration_multiplier_versions.corrects_version_id` for a correction of
+the same period. **Under the invariant, a correcting version is refused too if it re-prices
+confirmed, not-yet-approved pay.** Today, therefore, nobody has a path to correct a rate that such
+sessions already used. The only ways through are approving them first or disabling the guard
+inside a migration. Mihai's own test, from 2026-11-09, applies to this rule as written: "o regula
+care ar fi blocat o corectie necesara fara sa ofere drumul corect e o regula care va fi ocolita la
+prima urgenta." **This rule fails that test, knowingly, until OPEN_ITEMS item 195 (the sanctioned
+correction path, variant (b)) is decided.**
 
-The general form: when a table becomes immutable, list every writer to it IN THE SAME CHANGE —
-screens, RPCs, grants — and induce each one against the new rule. Don't reason about whether a
-writer's verb (INSERT vs UPDATE) is the one the trigger guards. **The inventory for the four pay
-grids, measured live 2026-11-12** (`pg_policies`, `information_schema.role_table_grants`, every
-`public`/`app` function body):
-- **One application writer:** `/payment-config` (`app/(app)/payment-config/actions.ts`,
-  `createVersion()`). It does INSERT only, through RLS, into all eight `*_versions`/`*_rates` tables
-  of trainer_grade, duration_multiplier, location_bonus and language_bonus (plus the two
-  contract_type_uplift tables).
-- **Zero RPCs or functions** write to any of the eight.
-- **Grants to `authenticated`: INSERT only**, on all eight. There is no UPDATE and no DELETE. The
-  UPDATE triggers of `202611090003`/`202611090005` therefore guard a path no app user can take; they
-  only stop migrations and privileged roles, which is what `202610300001` was. That is still worth
-  having, but it is not the user-reachable path.
-- **Migrations and service-role scripts** bypass RLS. That is the "only by migration, by Mihai" path,
-  whatever item 194 decides.
+**The step that is always missing when a table is made immutable is not the migration. It is
+going back to every screen and RPC that writes to it, IN THE SAME CHANGE, and inducing each one
+against the invariant.** Don't reason about whether a writer's verb (INSERT vs UPDATE) is the one
+the trigger watches; that reasoning is exactly what skipped `/payment-config` on 2026-11-10/11.
+**The writer inventory for the four pay grids, measured live 2026-11-12** (`pg_policies`,
+`information_schema.role_table_grants`, every `public`/`app` function body):
+- **One application writer:** `/payment-config`, now through `app.rpc_create_grid_version` only.
+- **Zero other RPCs or functions** write to any of the eight tables.
+- **Grants to `authenticated`: INSERT only.** No UPDATE, no DELETE.
+- **Migrations and the service role** bypass RLS, and are held by the guard all the same.
+- **Not covered, named (§20):** DELETE, which only migrations and the service role can take;
+  `contract_type_uplift`, which pay never reads.
 
-**Lives in:** `OPEN_ITEMS.md` item 194 (the full induced record and the decision it leaves open).
+**Recorded because it is true:** the second tranche (location_bonus, language_bonus) was held
+back on 2026-11-12 "until the screen repair," and that held by luck, not by foresight. Built a day
+earlier on the row-lock mechanism, they would have carried the same hole twice. They are now built
+on the invariant itself, in the same trigger.
 
-**Lives in:** `supabase/migrations/202611090001_amends_contract_id_avenor_entity_split.sql` (the
-first instance); `202611090003_immutable_trainer_grade_rates.sql` and
-`202611090004_route_trainer_grade_lock_through_shared_resolver.sql` (the second, and its same-day
-§22 correction); `db/tests/trainer_grade_rate_immutability.sql`; `app.trainer_grade_rate_is_locked`,
-`app.resolve_grid_version`'s `trainer_grade` branch; §22 above (the shared-resolver discipline both
-the correction mechanism and its own bug sit inside); §24 above (the freeze-measurement method this
-reuses to answer "would it have been refused"); `OPEN_ITEMS.md` item 187.
+**Lives in:** `supabase/migrations/202611120001_guard_confirmed_pay_on_grid_writes.sql`,
+`202611120002_grid_guard_no_recursion_on_update_undo.sql` (the invariant);
+`202611090003_immutable_trainer_grade_rates.sql`, `202611090004_...`,
+`202611090005_immutable_duration_multiplier_rates.sql` (the row locks, kept);
+`202611090001_amends_contract_id_avenor_entity_split.sql` (the first correction-as-new-row
+instance); `db/tests/grid_confirmed_pay_guard.sql`, `db/tests/trainer_grade_rate_immutability.sql`;
+`app/(app)/payment-config/` (the one writer); §22 (one resolver), §24 (decide by calling the
+production function); `OPEN_ITEMS.md` items 186, 187, 188, 194 and 195.

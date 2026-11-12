@@ -42,6 +42,32 @@ export const paymentConfigDict: Dictionary = {
     en: "Could not save this version. Check the values and try again.",
     ro: "Versiunea nu a putut fi salvată. Verifică valorile și încearcă din nou.",
   },
+  error_date_taken: {
+    en: "A version with this effective date already exists. Choose another date.",
+    ro: "Există deja o versiune cu această dată efectivă. Alege altă dată.",
+  },
+  error_missing_bands: {
+    en: "A new version cannot drop rows the version it replaces has. Missing: {{list}}.",
+    ro: "O versiune nouă nu poate pierde rânduri pe care le are versiunea pe care o înlocuiește. Lipsesc: {{list}}.",
+  },
+  // Says what the refusal protects, in money, or it reads as bureaucracy and
+  // gets worked around (202611120001, item 194).
+  error_would_change_confirmed_pay: {
+    en: "Refused: this version would change the pay of {{sessions}} ({{months}}), from {{before}} to {{after}} lei ({{delta}}). Confirmed pay is not changed retroactively. Choose an effective date after the last confirmed session; if a rate already used was wrong, ask the platform administrator.",
+    ro: "Refuzat: această versiune ar schimba plata pentru {{sessions}} ({{months}}), de la {{before}} la {{after}} lei ({{delta}}). Plata unei sesiuni confirmate nu se schimbă retroactiv. Alege o dată efectivă de după ultima sesiune confirmată; dacă o rată deja folosită a fost greșită, cere corecția administratorului platformei.",
+  },
+  sessions_one: {
+    en: "one confirmed, not-yet-approved session",
+    ro: "o sesiune deja confirmată și încă neaprobată",
+  },
+  sessions_many: {
+    en: "{{n}} confirmed, not-yet-approved sessions",
+    ro: "{{n}} {{de}}sesiuni deja confirmate și încă neaprobate",
+  },
+  error_unpriceable_suffix: {
+    en: "{{n}} pay slot(s) would also become impossible to price.",
+    ro: "{{n}} poziții de plată ar rămâne, în plus, fără preț.",
+  },
 
   // Missing-grids banner: only rendered when at least one of the five
   // grids below has zero versions. Absent entirely once all five have a
@@ -104,10 +130,7 @@ export const paymentConfigDict: Dictionary = {
   duration_90: { en: "90 min", ro: "90 min" },
   duration_120: { en: "120 min", ro: "120 min" },
   context_standard: { en: "Standard", ro: "Standard" },
-  context_extended: {
-    en: "120 min — Scoala Altfel / Saptamana Verde (×2 exception)",
-    ro: "120 min — Școala Altfel / Săptămâna Verde (excepția ×2)",
-  },
+  context_scoala_altfel: { en: "Scoala Altfel / Saptamana Verde", ro: "Școala Altfel / Săptămâna Verde" },
   multiplier_placeholder: { en: "Multiplier", ro: "Coeficient" },
 
   // 5. contract_type_uplifts
