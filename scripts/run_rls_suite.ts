@@ -29,8 +29,9 @@
  * a test reads (that's what broke it twice already):
  *   npx tsx scripts/run_rls_suite.ts
  *
- * Don't run two invocations of this script against the same linked
- * project at once: there is no lock here, and every block spawns its own
+ * Two invocations against the same linked project at once are refused at
+ * startup (rls_suite_lock.ts, exit 2, holder's pid in the message): every
+ * block spawns its own
  * `supabase db query --linked` subprocess, which negotiates a fresh
  * ad-hoc login role per call (confirmed by reading the CLI binary itself,
  * 2026-11-10) -- two full suites at once roughly doubles the rate of
@@ -44,6 +45,7 @@ import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { execFileSync } from "child_process";
+import { acquireSuiteLock } from "./rls_suite_lock";
 
 const TESTS_DIR = "db/tests";
 
@@ -116,6 +118,16 @@ function runBlock(blockSql: string, tmpDir: string, index: number): BlockResult 
 }
 
 function main() {
+  const lock = acquireSuiteLock();
+  if (!lock.ok) {
+    console.error(
+      `Refusing to start: an RLS suite is already running against this project ` +
+        `(pid ${lock.holderPid ?? "unknown"}${lock.holderStartedAt ? `, started ${lock.holderStartedAt}` : ""}). ` +
+        `Concurrent runs make RLS blocks fail to connect. Lock: ${lock.lockPath}`,
+    );
+    process.exit(2);
+  }
+
   const { readdirSync } = require("fs") as typeof import("fs");
   const files = readdirSync(TESTS_DIR)
     .filter((f: string) => f.endsWith(".sql"))

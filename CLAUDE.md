@@ -288,7 +288,9 @@ If the above list looks stale (dates have passed, an item below has clearly move
 - `npx tsx scripts/run_rls_suite.ts` — the full RLS + business-logic test suite
   (`db/tests/*.sql`). Run after any migration touching `CREATE POLICY`/`ALTER POLICY`/
   `DROP POLICY`, or any migration renaming/dropping a column a policy or test reads. Takes several
-  minutes; run in the background and poll rather than blocking on it.
+  minutes; run in the background and poll rather than blocking on it. Never two at once: a second
+  concurrent run exits 2 immediately (`scripts/rls_suite_lock.ts`; its test is
+  `npx tsx scripts/test_rls_suite_lock.ts`) because concurrent runs make RLS blocks fail to connect.
 - `npx tsx scripts/check_open_items_register.ts` — validates `docs/OPEN_ITEMS.md`'s own internal
   cross-references (an "item N above/below" pointing the wrong direction fails CI-style). Run
   after editing the register.
