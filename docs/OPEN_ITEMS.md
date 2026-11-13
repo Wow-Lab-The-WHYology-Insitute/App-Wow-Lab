@@ -9017,7 +9017,7 @@ Measured against the real timesheet, current school year (from 2026-09-01):
 ---
 ### 172. "Scoala Altfel" has no identity in the real payroll record — and no future import may create a client named that
 
-Found searching the timesheet for ARC (item 171), by contrast: ARC's 16 rows name a real school. **"Scoala Altfel" as a school name, across 205 rows, never does:**
+Found searching the timesheet for ARC (item 171), by contrast: ARC's 16 rows name a real school. **"Scoala Altfel" as a school name, across 205 rows (whole file, every year, as exported 2026-10-30 — see the window correction at the end of this item), never does:**
 
 - CUI: blank on 188 rows, `"-"` on 17. Never a real tax id, on any row, ever.
 - Location: three different tiers — Bucharest 118, Other cities 63, Surroundings 24.
@@ -9035,6 +9035,19 @@ Found searching the timesheet for ARC (item 171), by contrast: ARC's 16 rows nam
 **Lives in:** `DATABASE_CONVENTIONS.md` §18 (the sibling rule this one restates for identity instead of dates); item 171 above (the coverage count these 205+59 rows are the uncovered half of); item 170 above (the same weeks, from the workload side).
 
 **CONFIRMED 2026-11-09, by Anca, verbatim: "trecem si la client si la modul Scoala Altfel."** The rule above was proposed here, not asked for; this is her confirming it, not us proposing it a second time. The client is the real school; `delivery_format = 'scoala_altfel'` marks what kind of week it was — exactly as written. Still blocked on the same thing: which real school behind each of the 205+59 rows, which still has to come from somewhere else.
+
+**WINDOW CORRECTION, 2026-11-13. The "205" above had no window and no date, so it was never a measurement.** Mihai wrote "41 de rinduri" on 2026-11-12 (item 194 recorded it as unmeasured) and named the cause on 2026-11-13: two different windows, on two different exports. Re-measured here against the file itself, counting `School Name = "Scoala Altfel"` and splitting by the `Workshop Date` column. The 205 was not taken on trust from this item, and the 41 not from Mihai.
+
+| export of `Pontaj si Norma` | whole file | 2024 | 2025 | 2026 (calendar) | current school year (`Workshop Date` ≥ 2026-09-01) |
+|---|---|---|---|---|---|
+| downloaded 2026-10-30 12:51 | **205** | 58 | 68 | 79 | 34 |
+| downloaded 2026-11-04 11:35 | **212** | 58 | 68 | 86 | **41** |
+
+- **Both of Mihai's figures check out against the 2026-11-04 export.** The 212 total, 41 for the current year and 58/68/86 by year all match. Mihai's 212 is "the file TODAY" (2026-11-13). The newest export on this machine is from 2026-11-04, and its latest workshop date is 2026-11-03. **Agreement with today's file is not established here**: I have not seen it.
+- **"All 1 hour" holds for the current school year only:** 41 of 41. Across the whole file, 21 rows are 2 hours, all before 2026-09-01. An import of the historical rows would land on the 120-minute `scoala_altfel` band as well as the 60-minute one. Both exist (item 194).
+- **The 205 and the 212 do not disagree.** The file grew by 7 current-year rows in five days. That is item 183's "delayed evidence" again, and item 171's growing denominator.
+
+**THE RULE (item 183, second rule):** every figure taken from the timesheet that enters this register carries its **window** (which rows: date range, which column) and **the date of the export it was counted on**. A number without both is not a measurement. This is the third time in one week, not a third correction: 38 vs 41 (item 171), 18/8 vs 8/18 (item 187/188), 205 vs 41 (here).
 
 ---
 ### 173. Five more gaps, named by a real user rather than found by reading
@@ -9729,8 +9742,15 @@ Anca, verbatim, 2026-10-29: *"Pt toti cei notati cu Onorarii traineri sa adaugam
 **EXTENDED 2026-11-09 — reconciling on VALUE is now impossible by construction, not just by timing.** The timesheet's own approved amounts, current year, resolve to 107/100/121/114/135 — the OLD trainer-grade scale. The application calculates on 111-150. The difference is exactly the 11% uplift Anca asked to be added to the application, not to the timesheet file (item 147, `202610300001`): a deliberate decision, correctly built, and never meant to touch the source document. **From this point on, this rule's own test — "a match confirms, a mismatch means ask" — applies only to ROW EXISTENCE (school, date, trainer), never to the AMOUNT on that row.** A future comparison that finds the application's figure running roughly 11% ahead of the timesheet's has found this decision working as designed, not a new discrepancy to investigate. Written here so that comparison is never made again as if value agreement were the bar.
 **Lives in:** item 147 above (`202610300001`, the uplift decision this divergence is the direct consequence of).
 
+**SECOND RULE, 2026-11-13 (Mihai) — a timesheet figure carries its window and its export date, or it is not a measurement.**
+
+> **Any count or sum taken from the timesheet and written into this register states (1) the window: which rows, by which column and date range; and (2) which export it was counted on, by date.** "205 Scoala Altfel rows" is not a fact. "205 rows with `School Name` = Scoala Altfel, whole file, export of 2026-10-30" is.
+
+The file grows and gets corrected after the fact, as the first rule above already says. So a bare number goes stale the day it is written, and two bare numbers look like a contradiction when they only describe different slices. This week produced three: 38 vs 41 (item 171), 18/8 vs 8/18 (item 187/188), 205 vs 41 (item 172, where the measured table now lives). Written as a rule because a third instance is a pattern, not a run of individual corrections.
+**Re-verify when:** any timesheet figure is added to this register, at the moment it is written.
+
 ---
-### 184. The trainer confirmation path has never been used — zero self-confirmations, by any real trainer, ever, org-wide
+### 184. The trainer confirmation path has never been used — zero self-confirmations, by any real trainer, ever, org-wide (TRUE UNTIL 2026-11-12 20:46 UTC — Cătălina confirmed ten; see the end of this item)
 
 2026-11-09, measured live rather than assumed, per Mihai's explicit question: *"daca nu a confirmat niciunul in app, atunci drumul trainerului nu e folosit, si asta conteaza mai mult decat orice import."*
 
@@ -9777,7 +9797,33 @@ Ten real sessions, already in the past, that nobody — trainer or Operations �
 **Nobody has signed in, so the zero tells us nothing new about the screen.** The most informative result would have been "signed in, confirmed nothing", because that would mean the screen doesn't say what to do. That did not happen. Nobody arrived to try. Item 164's shape still applies (a human adoption step with no mechanism behind it), not a UI finding.
 
 **Not a fix — a report, per no instruction to build anything here.**
-**Blocked on:** nothing technical; this is a measurement. **Re-verify when:** any real trainer confirms a session through the app for the first time.
+
+**2026-11-13 — THE FIRST REAL SELF-CONFIRMATIONS, and the instrument that would never have seen them coming.** This was found while reconstructing state for item 195, not by re-running this item's queries. `row_history` shows a run of confirmations on 2026-11-12, 9h20m after the 11:25 UTC measurement above:
+
+- **Who:** `actor_user_id` = Cătălina Moale's own account, which is the principal on every one of the rows.
+- **When:** 10 updates between **20:46:13 and 20:51:02 UTC** (22:46–22:51 Romanian time).
+- **What changed:** each update changes `trainer_principal_confirmed_at` and nothing else.
+- **Which sessions:** Avenor 28.10 ×2, 04.11 ×2 and 11.11 ×2; Lycée 02.11, 03.11, 09.11 and 10.11. **This includes all six named above.**
+- **Also:** one save on the Avenor group at 20:49:24 that changed no column except `updated_at`.
+- **The path:** her browser session from her 2026-09-06 sign-in was refreshed through the deployed app at 20:43:42 UTC (`auth.sessions.refreshed_at`, user agent "Vercel Edge Functions", i.e. the server-side refresh). No Claude session was running at that hour; this session's transcript has no activity between 16:xx on 11-12 and 15:xx on 11-13. **This is a real person using the real trainer path.**
+- **Money:** 6 × 187,50 (Avenor) and 4 × 225,00 (Lycée) = **2.025,00 lei**, read off `app.calculate_org_session_pay`. Calendar split: 375,00 in October, 1.650,00 in November.
+  - **All 10 are confirmed and unapproved.** Approval org-wide is still **0 slots**.
+  - That is half of item 186's prepared "first live case": the confirming half. The approving half, Cătălina or Anca on `/payroll`, has not happened.
+- **Lorina and Teodora:** nothing. No confirmation, and no session refresh after their one sign-in each (Lorina 2026-10-29, Teodora 2026-09-07; `refreshed_at` null on both). Under the better instrument below, their "has not come back" holds.
+
+**THE INSTRUMENT CORRECTION — on this item's 11-12 measurement and on item 191's push gate:**
+
+- **The flaw.** "`last_sign_in_at` unchanged → nobody signed in" was read as "nobody used the app". `last_sign_in_at` moves only on a fresh sign-in. A trainer whose browser session is still alive, which is the normal case for a phone left logged in, opens the app through a token refresh and never touches it. Cătălina's still reads **2026-09-06** today, the day after she confirmed ten sessions.
+- **What this changes.**
+  - The 11-12 bullet above ("neither has signed in since") was true of sign-ins and **said nothing about use**.
+  - The sentence built on it ("Nobody arrived to try") went further than the instrument could support.
+  - Item 191's push gate rested on "neither she nor Lorina signed in that day". It had the same blind spot.
+- **The facts still hold.** Every *confirmation* count above was correct when measured: zero at 11:25, ten by 20:51.
+- **The instrument to use.** For "did this person use the app", read `auth.sessions.refreshed_at`/`updated_at` and `auth.refresh_tokens.updated_at` alongside `row_history`. Only the latest refresh is kept (same retention shape as `last_sign_in_at`), so a visit between two refreshes is still invisible. Named, not instrumented.
+
+**What this changes in this item's own reading:** the zero is no longer zero, so "the trainer path has never been used" is false as of 2026-11-12 20:46 UTC. It has been used once, by the one person who holds both the trainer seat and the approval capability. That says nothing yet about Lorina or Teodora, the two trainers who are not also approvers. The adoption question (item 164) is open for them exactly as before.
+
+**Blocked on:** nothing technical; this is a measurement. **Re-verify when:** Lorina or Teodora confirms a session through the app for the first time; when Cătălina's ten are approved (the second half of item 186's live case).
 **Lives in:** item 164 above (human-adoption steps having no mechanism — the same gap, now with a number); the "Readiness before invitation" standing decision at the top of this register (condition 2, still genuinely unmet); item 152/176 above (the two sessions this directly concerns); item 183 above (the Lycée addendum, among this item's own past-unconfirmed table); item 185 below (the approval gap this item's correction says is additive, not exculpatory); item 186 below (built, the day after this correction); `public.row_history`, `auth.users`, `auth.audit_log_entries` (empty, org-wide).
 
 ---
@@ -10322,7 +10368,13 @@ confirmed sessions; (b) the screen gains an explicit "corectează versiunea X"; 
   172's own figure is 205 historical Scoala Altfel rows. It also says none of them can be imported
   until each row's real school is found, not merely once Anca answers. These may be different
   slices (current year vs. all time); that is unresolved and needs one measurement against the
-  timesheet before anyone relies on either number.
+  timesheet before anyone relies on either number. **RESOLVED 2026-11-13, measured:** these were
+  different windows on different exports. 41 is the current school year (≥ 2026-09-01) and 212
+  is the whole file, both counted on the 2026-11-04 export; 205 is the whole file on the
+  2026-10-30 export. "All 1 hour" is true for the 41 and not for the whole file, which has 21
+  rows of 2 hours. The table is in item 172; the window-and-date rule is item 183's second rule.
+  Item 172's identity limit still applies to the 41: each row's real school has to be found
+  first.
 - **The "same date" message** now says the date is taken (`date_taken`). It used to say "check the
   values".
 - **What a person sees now,** in a real browser, as the Test Org B Finance Operations account,
@@ -10383,7 +10435,7 @@ resolve to the 60 band (×1,0), not the 120 band.
 186/187/188 above.
 
 ---
-### 195. Correcting a rate that confirmed sessions already used — variant (b), NOT BUILT, decided separately
+### 195. Correcting a rate that confirmed sessions already used — the sanctioned exception to item 194's guard. MEASURED 2026-11-13; two answers given to Mihai before building; NOT BUILT
 
 2026-11-12, split out of item 194 by Mihai. Item 194's guard (variant (a)) refuses any write that
 re-prices confirmed, not-yet-approved pay. That is right as a default and leaves no sanctioned way
@@ -10399,10 +10451,142 @@ authorised it. That presumably needs a named capability and a deliberate bypass 
 that one write, not a weakening of the guard for everyone.
 
 **Not built, on purpose.** Mihai decides it separately, after seeing how (a) behaves in use.
-**Blocked on:** Mihai's decision, after (a) has been in use.
-**Re-verify when:** the first real refusal of (a) happens. That is the evidence the decision waits
-for: what was being corrected, and whether the refusal was right.
-**Lives in:** item 194 above (the guard this would be the sanctioned exception to); §26.
+
+**2026-11-13 — Mihai: no longer optional. The framing, his.** The guard refuses any re-pricing of
+a confirmed session, and a correction is exactly that by definition. So 195 cannot be "guarded by
+the same rule"; it is the rule's *sanctioned exception*. What makes it sanctioned is that it makes
+visible and recorded exactly what (a) refuses silently.
+
+**The refusal already computes half of it.** "6 confirmed session(s) in 2026-09 ... 762.00 ->
+822.00 lei (+60.00)" is the impact statement the correction screen needs. **No second
+calculation:** reuse the guard's own (§22, one resolver, not a second copy that can diverge).
+
+**The shape, as Mihai set it:**
+- A correction is a new version with `corrects_version_id` pointing at the one it replaces.
+- Before the write, the person sees the **whole** impact statement: how many confirmed sessions
+  move, from which months, from what to what, and the total in lei.
+- They confirm **that statement**, not a generic "are you sure?".
+- The record holds who, when, the old and new version, and the total moved.
+
+**Approved sessions are not touched.** They are frozen and stay frozen; the correction *lists*
+them as unaffected and does not move them. Anyone who really needs to change an approved amount
+withdraws the approval first, which is exactly question 2 still open with Anca (withdrawing an
+approval, item 186). **195 and that question touch:** until it is answered, an approved amount
+cannot be corrected by any path.
+
+**Capability: `finance.approvals.approve`, PROVISIONAL.** A correction that re-prices
+already-asserted work is at least as serious as an approval. To be marked provisional in the
+migration header: if Anca's four-eyes answer says otherwise, it changes.
+
+**MEASURED BEFORE BUILDING (Mihai's question 1): would `202610300001`, the real correction, have
+gone through this path, and what would the person have seen?**
+
+*Method (§24).*
+- **Rebuilt** inside one transaction on the real database, then rolled back: the state at
+  2026-10-30 11:36:10 UTC, the second `202610300001` ran.
+  - **Grid:** grades 1–6 back to 100/107/114/121/128/135 on version `e7211c6e`, from
+    `row_history`'s own old values.
+  - **Confirmations:** the ten of 2026-11-12 undone; the two Scoala Germana 14.10 confirmations
+    restored, which `202610300008` cleared at 16:02 the same day.
+  - **Unchanged:** no session was created after T with an earlier confirmation, and no grade
+    assignment changed after T.
+- **Induced** the correction exactly as 195 would write it: a new `trainer_grade_versions` row,
+  same `effective_date` 2026-09-01, `corrects_version_id = e7211c6e`, six rates 111…150.
+  `set constraints all immediate`; the guard's P0W01 caught and its DETAIL read; the guard's own
+  `app.grid_guard_confirmed_unapproved_pay` read before and after for the breakdown.
+- **Residue checked after:** rates back at 111…150, the ten confirmations intact, zero new
+  `row_history` rows, triggers enabled.
+
+*Result.*
+- **The path expresses it.** One correcting version, same date. The shared resolver picks it for
+  2026-09-15 (`resolve_grid_version` = the new id), and the old version stays as it was, true to
+  what it recorded.
+- **The guard's statement:** "38 confirmed session(s) (38 pay slot(s)) in 2026-09, 2026-10 would
+  be re-priced by this trainer_grade change: 6118.50 -> 6801.00 lei (+682.50)".
+- **On today's screen (a) that reads:** *"Refuzat: această versiune ar schimba plata pentru 38 de
+  sesiuni deja confirmate și încă neaprobate (septembrie 2026, octombrie 2026), de la 6.118,50 la
+  6.801,00 lei (+682,50)…"*.
+- **The breakdown the 195 screen would add, from the same two snapshots:**
+
+| month | trainer | slots | before | after |
+|---|---|---|---|---|
+| 2026-09 | Cătălina Moale | 18 | 3.307,50 | 3.675,00 |
+| 2026-09 | Teodora Merișan | 6 | 684,00 | 762,00 |
+| 2026-09 | Lorina Ciurusniuc | 2 | 214,00 | 238,00 |
+| 2026-10 | Cătălina Moale | 8 | 1.485,00 | 1.650,00 |
+| 2026-10 | Lorina Ciurusniuc | 4 | 428,00 | 476,00 |
+| **total** | | **38** | **6.118,50** | **6.801,00** |
+
+*Cross-checks.*
+- **September matches the migration header to the leu** (3.307,50 / 214,00 / 684,00, measured
+  live before the 2026-10-30 run).
+- **October is lower than the header, and the gap is explained.** The header counted *all*
+  sessions; the guard counts *confirmed* ones. The gap is the unconfirmed 28.10 pairs: Cătălina
+  2 × 168,75 = 337,50; Lorina 2 × 107 = 214,00.
+- **38 = the 36 sessions / 6.563,00 lei of item 187 point 2, plus the two Scoala Germana 14.10
+  rows** (6.801,00 − 2 × 119,00 = 6.563,00).
+
+*Not reconstructed.*
+- The pay functions are today's. Item 175's bonus is a separate function and does not read any
+  grid, so it changes nothing here.
+- Approval did not exist on 2026-10-30, and there are 0 approved slots today either.
+
+**What the measurement found that the design has to carry:**
+1. **The false rows would have been inside the aggregate.** Lorina's October line (428,00 →
+   476,00) includes the two Scoala Germana 14.10 rows that were confirmed falsely and withdrawn
+   4½ hours later (item 152/176). A month-level statement hides them. **So the statement goes down
+   to trainer × month, with the sessions listed**, not just one total line.
+2. **The statement can go stale between preview and confirmation. Measured, not hypothetical:**
+   Cătălina confirmed 10 sessions in 5 minutes on the evening of 2026-11-12 (item 184).
+   **Binding:** at write time, the guard recomputes the impact in the same transaction and
+   refuses if it differs from the statement the person confirmed. Then they see the new one and
+   confirm again.
+3. **Only 2 of the 4 grids can be corrected today.** `corrects_version_id` and its exclusion in
+   `app.resolve_grid_version` exist for `trainer_grade` and `duration_multiplier` only.
+   `location_bonus` and `language_bonus` have neither, so 195 adds both, in the same shape as
+   `202611090003`/`005`.
+
+**Mihai's question 2: a correction touching both approved and unapproved sessions. My variant,
+proposed and not built:** apply to the unapproved ones, list the approved ones; never refuse the
+whole thing.
+- **What the statement shows.** The unapproved slots that move (from/to, per trainer × month,
+  with the list), plus a separate section: *"N aprobate, neafectate: rămân la X lei (înghețat);
+  cu rata corectată ar fi Y"*. The approved list is computed by the same function, without the
+  approval filter, not by a second calculation.
+- **What the person confirms** is the whole statement, including the approved section. The
+  record keeps both lists.
+- **Why not refuse it all.**
+  - Approvals accumulate on past months, and corrections almost always reach back over them.
+  - "Refuse if any slot is approved" would make the correction impossible precisely once
+    approvals are routine. That is (a)'s failure again, one layer down: a rule that blocks a
+    needed correction without offering a path gets bypassed at the first emergency.
+  - The freeze already says what happens to an approved slot: it does not move. A wholesale
+    refusal would protect something that is already protected.
+- **The honest cost of this variant.** Take `202610300001` in a world where September had
+  already been approved. Anca asked for it "si pe Septembrie si pe Octombrie". With my variant it
+  would have gone through only for October; September would have waited on question 2. With
+  wholesale refusal it would not have gone through at all. Partial is strictly more than nothing,
+  and the statement makes the missing half visible instead of silent.
+
+**The record, proposed:** one table, `grid_corrections`.
+- **Columns:** grid, org, corrected version, new version, actor (from `auth.uid()`), time, the
+  confirmed statement as jsonb (both lists, totals, delta).
+- **Who writes it:** only the RPC (SECURITY DEFINER, capability-gated). `authenticated` gets no
+  direct INSERT.
+- **How the guard uses it:** the guard lets the write through only if a row for this new version
+  exists in the same transaction, and its statement is identical to what the guard itself
+  computes. So the sanctioned path is not a bypass of the guard. It is the guard, with the result
+  confirmed by a person instead of refused.
+
+**Blocked on:** Mihai's answer on question 2 (the variant above) and on the record's shape.
+Separately, question 2 to Anca (withdrawing an approval) and the four-eyes answer (the
+capability). **Not built.**
+**Re-verify when:** this is built. Re-run this item's `202610300001` induction through the real
+RPC; it has to produce the same 38 / 6.118,50 → 6.801,00, from the same function.
+**Lives in:** item 194 above (the guard this would be the sanctioned exception to); item 184
+above (the 10 confirmations that measured point 2); item 186 above (question 2, withdrawing an
+approval); `202610300001` (the real correction measured here); `202611090003`/`005` (the
+`corrects_version_id` shape to extend to location/language); §26.
 
 ---
 ### 18. Pending invites — cut deliberately

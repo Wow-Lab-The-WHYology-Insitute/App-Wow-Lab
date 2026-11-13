@@ -130,7 +130,11 @@ is in Romanian; code, comments, commits and this file are in English.
   corrects it after the fact), not a settled reference. Confirmed a second way the same day: Lycée
   has two real, `planned` sessions (2–3 Nov) past its own last timesheet row (13 Oct) — an app row
   with no timesheet row yet is not an app error, same asymmetry item 170 already named at the week
-  grain. Read it before trusting any future timesheet-vs-app comparison either way.
+  grain. Read it before trusting any future timesheet-vs-app comparison either way. **Second rule,
+  2026-11-13:** every timesheet figure written into the register carries its window (which rows,
+  which date column/range) and the date of the export it was counted on, or it is not a
+  measurement. Three bare-number collisions in one week (38/41, 18/8, 205/41). Item 172 now holds
+  the measured Scoala Altfel table: 212 whole-file / 41 current-year on the 2026-11-04 export.
 - **Item 171's coverage is now TWO numbers, not one — 41 (upper bound: timesheet rows at schools the
   app knows about) vs. 40 (rows with an actual session/date/trainer correspondent, measured row by
   row).** The one gap is Scoala Germana's 14 October ambiguity (item 152). The old "avem 38" figure
@@ -148,7 +152,11 @@ is in Romanian; code, comments, commits and this file are in English.
   own "27 octombrie" figure was also Mihai's own error, corrected in place to 19 Oct
   created/19 Oct confirmed/29 Oct last sign-in. `auth.audit_log_entries` is empty (0 rows)
   org-wide — known Supabase retention limit, not instrumented, since it only matters under the
-  reading that's now closed.
+  reading that's now closed. **NO LONGER ZERO since 2026-11-12 20:46 UTC: Cătălina confirmed 10 of
+  her own sessions** through the deployed app (Avenor ×6, Lycée ×4, 2.025,00 lei, all unapproved).
+  Her `last_sign_in_at` still reads 2026-09-06, because a live session refreshes without signing
+  in. **Never read `last_sign_in_at` as "did not use the app".** Read `auth.sessions.refreshed_at`
+  and `row_history` instead. Lorina and Teodora: still nothing, by either instrument.
 - **Item 185, 2026-11-09 — measured, then item 186: no approval mechanism existed anywhere in this
   application before today.** No status/column resembled approval; `finance.operations.*`/
   `finance.reporting.*` unlocked nothing narrower than the whole month; nothing between
@@ -274,10 +282,20 @@ is in Romanian; code, comments, commits and this file are in English.
   is the one atomic write path (no orphan header) and refuses dropped bands. The duration form
   renders the grid's own rows (7, not 5). Location/language (tranche 2) are covered by the same
   trigger. Read the item before touching any pay grid, `calculate_*_pay`, or `/payment-config`.
-- **Item 195 — the sanctioned correction path for a rate confirmed sessions already used. NOT
-  BUILT, Mihai decides after seeing (a) in use.** Until then nobody can correct such a rate:
-  neither the screen nor a migration (the guard refuses both) without approving first or
-  disabling the guard deliberately.
+- **Item 195 — the sanctioned correction path for a rate confirmed sessions already used. NO
+  LONGER OPTIONAL (Mihai, 2026-11-13); MEASURED, NOT BUILT, waiting on his answer.**
+  - **The shape:** reuse the guard's own calculation, never a second one. The person confirms the
+    full impact statement. Approved slots are listed, not moved; changing them goes through
+    withdrawing an approval, which is Anca's question 2. The capability is
+    `finance.approvals.approve`, provisional.
+  - **Measured:** `202610300001`, induced on the reconstructed 2026-10-30 state, goes through as
+    one correcting version and would have shown 38 sessions, Sept–Oct, 6.118,50 → 6.801,00
+    (+682,50).
+  - **Proposed, awaiting Mihai:** apply to unapproved and list approved, never refuse the whole
+    correction; a `grid_corrections` record; and refusing at write time if the statement went
+    stale.
+  - **Needed for location/language:** `corrects_version_id` first.
+  - **Until it is built:** nobody can correct such a rate, neither the screen nor a migration.
 - **`docs/DATABASE_CONVENTIONS.md` gained §24, §25 and §26 this same day, all extracted from item
   186/187 as general method, not as one-off fixes:** §24 — prove reproducibility by inducing the
   real mutation, never by reasoning about the schema alone, **rewritten same day in its strong
