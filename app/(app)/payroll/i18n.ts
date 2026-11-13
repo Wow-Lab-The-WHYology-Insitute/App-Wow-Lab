@@ -265,6 +265,44 @@ export const payrollDict: Dictionary = {
   },
   approve_other_months_item: { en: "{{n}} in {{month}}", ro: "{{n}} în {{month}}" },
 
+  // Grid corrections reaching the month on screen (item 195, 202611140001).
+  corrections_heading: {
+    en: "Grid corrections that reach {{month}}",
+    ro: "Corecții de grilă care ating {{month}}",
+  },
+  corrections_item: {
+    en: "{{grid}} — corrected on {{date}} by {{who}}",
+    ro: "{{grid}} — corectată pe {{date}} de {{who}}",
+  },
+  corrections_affected_one: {
+    en: "1 confirmed, then-unapproved pay slot in this month re-priced: {{before}} → {{after}} lei.",
+    ro: "1 poziție de plată confirmată, neaprobată atunci, re-prețuită în luna asta: {{before}} → {{after}} lei.",
+  },
+  corrections_affected: {
+    en: "{{n}} confirmed, then-unapproved pay slots in this month re-priced: {{before}} → {{after}} lei.",
+    ro: "{{n}} {{de}}poziții de plată confirmate, neaprobate atunci, re-prețuite în luna asta: {{before}} → {{after}} lei.",
+  },
+  corrections_frozen_heading_one: {
+    en: "1 pay slot had been approved BEFORE the correction and keeps the amount approved then:",
+    ro: "1 poziție de plată fusese aprobată ÎNAINTE de corecție și păstrează suma aprobată atunci:",
+  },
+  corrections_frozen_heading: {
+    en: "{{n}} pay slots had been approved BEFORE the correction and keep the amount approved then:",
+    ro: "{{n}} {{de}}poziții de plată fuseseră aprobate ÎNAINTE de corecție și păstrează suma aprobată atunci:",
+  },
+  corrections_frozen_line: {
+    en: "{{frozen}} lei, approved {{approved}}, at the rate before the correction (corrected rate: {{would}})",
+    ro: "{{frozen}} lei, aprobat pe {{approved}}, la rata dinaintea corecției (cu rata corectată: {{would}})",
+  },
+  corrections_two_rates_note: {
+    en: "So this month has two rates in force, split by when each amount was approved. Not an error: an approved amount does not move. Changing it needs the approval withdrawn first, which does not exist yet.",
+    ro: "Deci luna are două rate în vigoare, după momentul în care a fost aprobată fiecare sumă. Nu e o eroare: o sumă aprobată nu se mișcă. Schimbarea ei cere întâi retragerea aprobării, care încă nu există.",
+  },
+  grid_trainer_grade: { en: "Trainer grades", ro: "Grade traineri" },
+  grid_duration_multiplier: { en: "Duration multipliers", ro: "Coeficienți de durată" },
+  grid_location_bonus: { en: "Location bonuses", ro: "Bonusuri de locație" },
+  grid_language_bonus: { en: "Language bonuses", ro: "Bonusuri de limbă" },
+
   // ---- The trainer-principal bonus (B2, item 175) ----
   // Its own section, never folded into "What each trainer is owed" above --
   // Anca's own words are "plata pentru o sarcina in plus" (pay for an extra

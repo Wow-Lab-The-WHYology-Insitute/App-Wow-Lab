@@ -9823,6 +9823,31 @@ Ten real sessions, already in the past, that nobody — trainer or Operations �
 
 **What this changes in this item's own reading:** the zero is no longer zero, so "the trainer path has never been used" is false as of 2026-11-12 20:46 UTC. It has been used once, by the one person who holds both the trainer seat and the approval capability. That says nothing yet about Lorina or Teodora, the two trainers who are not also approvers. The adoption question (item 164) is open for them exactly as before.
 
+**2026-11-14 — what Cătălina was SHOWN as unconfirmed, and what she left unticked. Measured per Mihai: the message she was sent asked her explicitly to leave unticked what did not happen.**
+
+*Method.* I rebuilt what was visible as of 20:43 UTC on 2026-11-12, just before her first confirmation. The rule is the one both screens use.
+- `/my-work`'s debt list and the group page's `overdue` bucket both show: her own slot, `session_date` < today, `status <> 'cancelled'`, her `confirmed_at` null.
+- Nothing about those sessions changed between then and now that could shift the set: no other actor wrote to them, and no status changed after 20:43.
+
+*Results.*
+- **She confirmed everything she was shown: 10 of 10. She left nothing unticked.** The 10 are exactly the confirmed list above. Under the reading Mihai set, that means the screen showed her only real things. There is no X to look at.
+- **She has never used "Retrage"**, on any session, ever: zero `confirmed_at` not-null → null transitions with her as actor.
+- **She has written nothing since 20:51:02 UTC on 2026-11-12.**
+
+**Found in the same measurement: `/my-work`'s banner disagrees with its own list. A defect, reported, NOT fixed.**
+- **The four sessions.** She also has 4 past sessions that are `cancelled` (category `vacanta`, cancelled by Operations on 2026-10-20) with no confirmation: Lycée 19.10 and 20.10, Avenor 21.10 ×2. Neither list shows them, correctly. There is nothing to confirm.
+- **The bug.** The banner's count (`unconfirmed` in `app/(app)/my-work/page.tsx`) is `session_date <= today && myConfirmedAt === null`, with no `notCancelled`. So before she started it read **"14 dintre atelierele tale nu sunt confirmate"** against a list of 10, and after she confirmed all 10 it still reads **"4 … nu sunt confirmate"** with nothing to act on. That is the same two-liars-on-one-screen shape as the 2026-10-28 and 2026-11-09 corrections on this page. It also names the current month while counting October.
+- **The fix is one filter.** Not applied: this was a measurement. Mihai decides whether it goes in.
+
+**Her confirmations also broke a test, and it was the test that was wrong.**
+`db/tests/school_calendar_closures.sql` asserted "the year is 172 planned, unconfirmed workshops".
+That was true at generation (2026-10-20). On 2026-11-14 it read 164: exactly the 8 of her 10 that
+fall on or after 2 November. The year still has **172 `planned`** workshops (measured); she
+confirmed 8 of them. "Unconfirmed" was a proxy for "generated", and it was precisely the property
+real use exists to change. Corrected to count `planned` only, with the reason written beside it.
+It is the same shape as §17c: a check whose correctness rested on an unwritten property of the
+data.
+
 **Blocked on:** nothing technical; this is a measurement. **Re-verify when:** Lorina or Teodora confirms a session through the app for the first time; when Cătălina's ten are approved (the second half of item 186's live case).
 **Lives in:** item 164 above (human-adoption steps having no mechanism — the same gap, now with a number); the "Readiness before invitation" standing decision at the top of this register (condition 2, still genuinely unmet); item 152/176 above (the two sessions this directly concerns); item 183 above (the Lycée addendum, among this item's own past-unconfirmed table); item 185 below (the approval gap this item's correction says is additive, not exculpatory); item 186 below (built, the day after this correction); `public.row_history`, `auth.users`, `auth.audit_log_entries` (empty, org-wide).
 
@@ -10065,7 +10090,14 @@ session setting, not the definer's identity; every actor across the table's enti
 Teodora). Cătălina's own six named sessions (Avenor 28.10 ×2, Lycée 02-03.11 ×2, Avenor 04.11 ×2),
 checked individually: all six still `status = 'planned'`, all six `trainer_principal_confirmed_at
 IS NULL`. `last_sign_in_at`: Cătălina 2026-09-06, Lorina 2026-10-29 — neither signed in on
-2026-11-10, the day the hold's own premise claimed it was happening. Per Mihai's own stated rule
+2026-11-10, the day the hold's own premise claimed it was happening. **[CORRECTED 2026-11-14,
+DATABASE_CONVENTIONS §24 instrument addendum: "neither signed in" was true and established nothing
+about presence. `last_sign_in_at` does not move when a live session is refreshed. Cătălina proved
+it two days later: ten confirmations, with that field still on 2026-09-06 (item 184). What actually
+held the gate is the confirmation-events half of this measurement, a record of what people DID:
+zero writes by any real trainer. "Nobody is on the app" cannot be asserted from `last_sign_in_at`.
+A future gate of this kind asks "has anyone written anything in the last N hours", never "has
+anyone signed in".]** Per Mihai's own stated rule
 ("daca e tot zero, semnalul vine oricum"), the zero stands as the signal. Applied: bump alone (no
 other package in the same change), clean `next build` (identical route table to the pre-bump run),
 clean `tsc --noEmit`, full RLS suite re-run clean (409/409), and a smoke check of `/login`
@@ -10408,6 +10440,8 @@ the two been built on 2026-11-11, on the row-lock mechanism the way grade and du
 would have carried the same hole twice. Nobody had seen the hole yet. The sequencing was right
 for a reason nobody knew.
 
+**[CLOSED 2026-11-14 by item 195 below (`202611140001`): the sanctioned correction path exists
+now, on all four grids. The paragraph stays as the record of what (a) alone left.]**
 **What (a) leaves with no path, named:** a rate that confirmed, not-yet-approved sessions have
 already used cannot be corrected by anyone right now. That includes a `corrects_version_id`
 correction and a migration, because the guard refuses those too. The only ways through are to
@@ -10435,7 +10469,7 @@ resolve to the 60 band (×1,0), not the 120 band.
 186/187/188 above.
 
 ---
-### 195. Correcting a rate that confirmed sessions already used — the sanctioned exception to item 194's guard. MEASURED 2026-11-13; two answers given to Mihai before building; NOT BUILT
+### 195. Correcting a rate that confirmed sessions already used — the sanctioned exception to item 194's guard. MEASURED 2026-11-13, DECIDED and BUILT 2026-11-14 (`202611140001`)
 
 2026-11-12, split out of item 194 by Mihai. Item 194's guard (variant (a)) refuses any write that
 re-prices confirmed, not-yet-approved pay. That is right as a default and leaves no sanctioned way
@@ -10578,11 +10612,170 @@ whole thing.
   computes. So the sanctioned path is not a bypass of the guard. It is the guard, with the result
   confirmed by a person instead of refused.
 
-**Blocked on:** Mihai's answer on question 2 (the variant above) and on the record's shape.
-Separately, question 2 to Anca (withdrawing an approval) and the four-eyes answer (the
-capability). **Not built.**
-**Re-verify when:** this is built. Re-run this item's `202610300001` induction through the real
-RPC; it has to produce the same 38 / 6.118,50 → 6.801,00, from the same function.
+**DECIDED 2026-11-14 (Mihai), five points.**
+- **0.** The instrument rule went next to §24, and item 191's gate was corrected (item 184 above).
+- **1.** A measurement. Cătălina confirmed all 10 sessions she was shown; that is item 184.
+- **2. The mixed case: the variant above is ACCEPTED, with a completion I had not named.** After
+  a partial correction, the same month has **two rates in force, split by approval state**.
+  - That is not an inconsistency; it is the record of when each amount was authorized.
+  - It must be **readable afterwards, on the month**, not only recorded in the correction. Mihai:
+    "Altfel Anca deschide septembrie, vede două rate și întreabă de ce — și răspunsul e îngropat
+    într-o înregistrare de corecție pe care n-o deschide nimeni."
+- **3. `grid_corrections`: yes, with its scope stated.**
+  - The version chain and `row_history` already hold who, when, the old version and the new one.
+    **Do not duplicate them.**
+  - What justifies the table is the CONFIRMED STATEMENT: the sessions and amounts the person SAW
+    and accepted. That purpose is written in the table's comment so it never slides into a
+    second source of truth.
+  - Both lists are kept. The capability is `finance.approvals.approve`, PROVISIONAL, marked in
+    the header.
+- **4. Location and language get `corrects_version_id` in the same step, not after.** Tranche 2
+  had made them immutable over confirmed pay with no correction path at all: more locked than the
+  first two. "O grilă imutabilă fără drum de corecție e exact regula care va fi ocolită la prima
+  urgență."
+- **5. Recompute at write time and refuse if the statement no longer matches.** Built that way,
+  on Cătălina's 10-in-5-minutes as the evidence.
+
+**BUILT 2026-11-14 — `202611140001_grid_correction_path.sql`, applied.**
+
+- **One calculation (§22).** `app.grid_confirmed_pay_snapshot` covers every confirmed slot,
+  approved or not, priced by `app.calculate_org_session_pay`.
+  - `app.grid_correction_declaration(before, after)` turns two snapshots into the statement:
+    `affected` (unapproved, before → after), `frozen` (approved, frozen amount and `would_be`),
+    `by_trainer_month`, `summary` and `frozen_summary`.
+  - **The guard's ordinary refusal (P0W01) now carries that statement's `summary`.** The refusal
+    and the correction statement are one computation, not two that agree.
+  - `grid_guard_confirmed_unapproved_pay` was dropped.
+- **The guard's sanctioned mode.** A new version whose id has a `grid_corrections` row in the
+  same transaction passes **only if** the confirmed statement `=` the one the guard recomputes.
+  Otherwise it is refused with **P0W02**, and the new statement is in DETAIL.
+  - A `corrects_version_id` alone sanctions nothing: such a write, migration-style, is refused
+    like any other re-pricing (test block 5).
+- **RPCs** (`public.` wrappers over `app.`): `rpc_preview_grid_correction` and
+  `rpc_apply_grid_correction`. Both share one body, `app.grid_correction_write`, which is
+  SECURITY DEFINER.
+  - **Preview** writes the correction in a subtransaction, reads the statement and rolls it back,
+    so nothing is written.
+  - **Apply** writes the version (same `effective_date`, `corrects_version_id`) and the
+    statement, then runs the guard.
+  - **Refusals:** `forbidden`, `not_found`, `already_corrected` (correct the correction
+    instead), `incomplete_form`, `missing_bands`, `declaration_stale` (returns the new statement).
+- **`public.grid_corrections`:**
+  - Columns: `grid`, `version_id` (the correcting version), `declaration`, and the §4
+    timestamps. **No actor column**; the comment says why.
+  - RLS SELECT has the same read gate as the grids and `/payroll`'s sums. No INSERT, UPDATE or
+    DELETE grant for anyone. A `row_history` trigger, so a migration touching it is recorded.
+- **Location and language:** `corrects_version_id`, the no-self check, the one-correction-per-
+  version unique constraint, and date uniqueness made head-only.
+  - `app.resolve_grid_version` excludes corrected versions for all four pay grids now.
+- **Gate, PROVISIONAL:** exactly `rpc_approve_session_pay`'s predicate (`org.settings.manage` /
+  `finance.operations.*` / `finance.approvals.approve`, platform owner via `has_capability`).
+- **Screens.**
+  - `/payment-config`: "Corectează această versiune" on the current version and on every
+    not-yet-corrected version in history, for the four pay grids.
+    - The form is prefilled with that version's values. "Calculează impactul" shows the statement:
+      a summary sentence, a trainer × month table, slot-by-slot detail and the frozen section.
+    - The confirm button carries the statement's numbers (§21), e.g. *"Confirm corecția: 38 de
+      sesiuni, 6.118,50 → 6.801,00 lei · 2 aprobate rămân neschimbate"*.
+    - Any edit discards the statement. A stale refusal replaces it on screen with the new one and
+      says why.
+    - Labels: "Corecție — înlocuiește versiunea anterioară cu aceeași dată" and "Înlocuită printr-o
+      corecție — nu mai e folosită".
+    - (a)'s refusal text now points here instead of at "the platform administrator".
+  - `/payroll`, Mihai's completion: a panel "Corecții de grilă care ating {luna}". For each
+    correction whose statement names a slot in the month on screen:
+    - who and when, from the version row, plus its note;
+    - what it re-priced in the month;
+    - each slot **approved before the correction**, with its approved amount, approval date and
+      what the corrected rate computes;
+    - the sentence that the month has two rates in force by approval date, and why.
+- **Found and fixed by this item's own test (block 3), the third §24-style catch in a row:**
+  - `set constraints all immediate`, which `rpc_create_grid_version` (item 194) used, **stays in
+    force for the rest of the transaction**. So a second grid write in the same transaction fired
+    the guard on its header **before its rates existed**, judging an empty version.
+  - One call per HTTP request never hit it; a migration or a test calling twice does.
+  - Fixed for both RPCs: `app.grid_guard_check_now()` switches only the eight guard triggers
+    immediate, then back to deferred.
+- **Tests:** `db/tests/grid_correction.sql`, 6 blocks.
+  1. Preview writes nothing. A tampered statement is refused and nothing is left behind. The real
+     statement applies, and the resolver returns the correcting version. S1 is paid what the
+     statement said. S2, approved through the real `rpc_approve_session_pay` as the Operations
+     Manager, keeps its frozen amount and is listed as frozen. The record equals the statement.
+     There is no who/when column. A second correction of the same version gives
+     `already_corrected`.
+  2. **Stale for a real reason:** another session is confirmed between preview and apply. The
+     apply is refused with a statement one slot larger, nothing is written, and the new statement
+     applies.
+  3. Location, language and duration, one after another, each through the RPC.
+  4. **The gate, walked (§25):**
+     - Operations Manager (`finance.approvals.approve` only) passes.
+     - A trainer is refused, on both preview and apply.
+     - A Finance Admin Reporting holder is refused a correction but can still create an ordinary
+       future version. The difference is deliberate, and the role was granted inside the
+       rolled-back block because Test Org B has no such holder.
+  5. Direct INSERT into `grid_corrections` gives 42501; a bare `corrects_version_id` gives P0W01.
+  6. SABOTAGE: with the guard triggers disabled, a tampered statement goes through, and the check
+     flips.
+- **Full suite:** 478/478, 0 block errors, 31 files, re-run after the browser clean-up. The first
+  run was 477/478; the one failure was `school_calendar_closures.sql`, caused by real use, not by
+  this change (item 184). Also clean: `tsc --noEmit` and `next build`.
+- **Re-verified as this item required, through the real RPC.** Inside a rolled-back transaction,
+  with the migration applied, I rebuilt the 2026-10-30 11:36:10 state (grid 100…135; the
+  2026-11-12 confirmations undone; the Scoala Germana 14.10 pair restored). Then I called
+  `rpc_preview_grid_correction` and `rpc_apply_grid_correction` as `maxdigitalro@gmail.com`
+  (Organization Owner).
+  - **38 sessions, 6.118,50 → 6.801,00 (+682,50).** The same five trainer × month lines as the
+    2026-11-13 measurement.
+  - **0 frozen**, since no approval existed then.
+  - The apply passed, and the version's `created_by` is the caller.
+
+**Induced in a real browser, Test Org B, as the Finance Operations account (`/payment-config`, then
+`/payroll?month=2026-09`), with no console errors:**
+- **Fixture.** S1 (15.09) was confirmed. S2 (16.09) was confirmed and then approved through the
+  real `rpc_approve_session_pay`, logged in as the Operations Manager: 328,13 frozen.
+- **The statement after the edit (grade 2 +10):** *"2 sesiuni deja confirmate și încă neaprobate
+  (septembrie 2026): de la 656,26 la 693,76 lei (+37,50)"*.
+  - The trainer × month table and the slot-by-slot list were shown.
+  - So was *"1 poziție de plată aprobată NU se schimbă … (328,13 lei; cu rata corectată ar fi
+    346,88 lei)"*.
+  - The button read *"Confirm corecția: 2 sesiuni, 656,26 → 693,76 lei · 1 aprobată rămâne
+    neschimbată"*.
+- **Staleness, induced.** Between preview and confirm, a third session (22.09) was confirmed
+  through the service role. Confirm then gave *"Impactul s-a schimbat cât timp îl citeai…"*, with
+  the new statement: 3 sessions, 984,39 → 1.040,64. Confirming that one applied.
+- **After the apply.** The current version carried *"Corecție — înlocuiește versiunea anterioară
+  cu aceeași dată"*. In the history, the corrected version read *"Înlocuită printr-o corecție — nu
+  mai e folosită"*, with no correct button.
+- **`/payroll` for September:** *"Corecții de grilă care ating septembrie 2026 · Grade traineri —
+  corectată pe 14 nov. de Test Contract Admin B · 3 poziții … re-prețuite: 984,39 → 1.040,64 lei ·
+  1 poziție de plată fusese aprobată ÎNAINTE de corecție și păstrează suma aprobată atunci: Test
+  Trainer B2 · 16 sept. · 328,13 lei, aprobat pe 14 nov., la rata dinaintea corecției (cu rata
+  corectată: 346,88) · Deci luna are două rate în vigoare…"*.
+- **Found by the browser run and fixed:** Romanian singular forms ("1 poziții" → "1 poziție …").
+- **Cleanup.** Everything induced was removed through the service role: 1 version, 3 sessions,
+  0 left.
+
+**Not covered, named (§20):**
+- **Cătălina cannot correct from the screen.** She holds `finance.approvals.approve` alone, so the
+  RPC admits her, but `/payment-config` opens only for `finance.operations.*` /
+  `finance.reporting.*`, and the grids' SELECT policy is the same. Widening the page to her is a
+  separate decision, bound up with the four-eyes question.
+- **A Finance Admin Reporting holder can create ordinary versions but not corrections.** That
+  follows from the provisional gate, and changes if the gate does.
+- **A migration can write a `grid_corrections` row itself** and sanction its own correction. It is
+  then recorded (`row_history` and the record itself), not silent.
+- **Withdrawing an approval** is still not built (question 2 to Anca). Until it is, an approved
+  amount cannot be corrected by any path, which is exactly what the statement and `/payroll` now
+  say.
+- **The `/payroll` panel** reads amounts from the statement as confirmed at correction time. A
+  frozen slot's live approved amount is still the session row's own, shown in the month's normal
+  lists.
+
+**Blocked on:** nothing for the build. Question 2 to Anca (withdrawing an approval) and the
+four-eyes answer (whether this gate stays) remain open.
+**Re-verify when:** the first real correction is made; read its `/payroll` panel on the corrected
+month with Anca's eyes. Also when the gate changes, or when `calculate_org_session_pay` changes:
+re-run `db/tests/grid_correction.sql` and `grid_confirmed_pay_guard.sql`.
 **Lives in:** item 194 above (the guard this would be the sanctioned exception to); item 184
 above (the 10 confirmations that measured point 2); item 186 above (question 2, withdrawing an
 approval); `202610300001` (the real correction measured here); `202611090003`/`005` (the

@@ -53,8 +53,8 @@ export const paymentConfigDict: Dictionary = {
   // Says what the refusal protects, in money, or it reads as bureaucracy and
   // gets worked around (202611120001, item 194).
   error_would_change_confirmed_pay: {
-    en: "Refused: this version would change the pay of {{sessions}} ({{months}}), from {{before}} to {{after}} lei ({{delta}}). Confirmed pay is not changed retroactively. Choose an effective date after the last confirmed session; if a rate already used was wrong, ask the platform administrator.",
-    ro: "Refuzat: această versiune ar schimba plata pentru {{sessions}} ({{months}}), de la {{before}} la {{after}} lei ({{delta}}). Plata unei sesiuni confirmate nu se schimbă retroactiv. Alege o dată efectivă de după ultima sesiune confirmată; dacă o rată deja folosită a fost greșită, cere corecția administratorului platformei.",
+    en: "Refused: this version would change the pay of {{sessions}} ({{months}}), from {{before}} to {{after}} lei ({{delta}}). Confirmed pay is not changed retroactively. Choose an effective date after the last confirmed session; if a rate already used was wrong, use “Correct this version” on the version in question.",
+    ro: "Refuzat: această versiune ar schimba plata pentru {{sessions}} ({{months}}), de la {{before}} la {{after}} lei ({{delta}}). Plata unei sesiuni confirmate nu se schimbă retroactiv. Alege o dată efectivă de după ultima sesiune confirmată; dacă o rată deja folosită a fost greșită, folosește „Corectează această versiune” pe versiunea respectivă.",
   },
   sessions_one: {
     en: "one confirmed, not-yet-approved session",
@@ -64,9 +64,96 @@ export const paymentConfigDict: Dictionary = {
     en: "{{n}} confirmed, not-yet-approved sessions",
     ro: "{{n}} {{de}}sesiuni deja confirmate și încă neaprobate",
   },
+  sessions_short_one: { en: "1 session", ro: "1 sesiune" },
+  sessions_short_many: { en: "{{n}} sessions", ro: "{{n}} {{de}}sesiuni" },
   error_unpriceable_suffix: {
     en: "{{n}} pay slot(s) would also become impossible to price.",
     ro: "{{n}} poziții de plată ar rămâne, în plus, fără preț.",
+  },
+
+  // Correcting a version (item 195, 202611140001). The statement is the
+  // database's own; this copy only frames it. The confirm button carries the
+  // statement's numbers (§21): what is confirmed is the statement, not "are
+  // you sure?".
+  correct_version_button: { en: "Correct this version", ro: "Corectează această versiune" },
+  correct_form_title: {
+    en: "Correction of the version effective from {{date}}",
+    ro: "Corecție pentru versiunea efectivă din {{date}}",
+  },
+  correct_form_hint: {
+    en: "A correction replaces this version's values for the same period, sessions already confirmed included. Nothing is written until you have read exactly which confirmed sessions change pay, and by how much, and confirmed that.",
+    ro: "O corecție înlocuiește valorile acestei versiuni pentru aceeași perioadă, inclusiv pentru sesiunile deja confirmate. Nu se scrie nimic până nu citești exact ce sesiuni confirmate își schimbă plata, și cu cât, și confirmi asta.",
+  },
+  correct_note_placeholder: {
+    en: "Why — who asked for it, and what was wrong",
+    ro: "De ce — cine a cerut-o și ce era greșit",
+  },
+  correct_preview_button: { en: "Calculate the impact", ro: "Calculează impactul" },
+  decl_title: {
+    en: "What this correction changes — calculated by the same function that pays",
+    ro: "Ce schimbă corecția — calculat de aceeași funcție care calculează plata",
+  },
+  decl_summary: {
+    en: "{{sessions}} ({{months}}): from {{before}} to {{after}} lei ({{delta}}).",
+    ro: "{{sessions}} ({{months}}): de la {{before}} la {{after}} lei ({{delta}}).",
+  },
+  decl_no_affected: {
+    en: "No confirmed, not-yet-approved session changes pay.",
+    ro: "Nicio sesiune confirmată și neaprobată nu își schimbă plata.",
+  },
+  decl_col_month: { en: "Month", ro: "Luna" },
+  decl_col_trainer: { en: "Trainer", ro: "Trainer" },
+  decl_col_slots: { en: "Slots", ro: "Poziții" },
+  decl_col_before: { en: "Before", ro: "Înainte" },
+  decl_col_after: { en: "After", ro: "După" },
+  decl_sessions_toggle_one: { en: "Show the pay slot", ro: "Arată poziția de plată" },
+  decl_sessions_toggle: { en: "Show the {{n}} pay slots, one by one", ro: "Arată cele {{n}} {{de}}poziții de plată, una câte una" },
+  decl_frozen_heading_one: {
+    en: "1 approved pay slot does NOT change: its amount was frozen at approval ({{frozen}} lei; at the corrected rate it would be {{would}} lei).",
+    ro: "1 poziție de plată aprobată NU se schimbă: suma ei a fost înghețată la aprobare ({{frozen}} lei; cu rata corectată ar fi {{would}} lei).",
+  },
+  decl_frozen_heading: {
+    en: "{{n}} approved pay slots do NOT change: their amount was frozen at approval ({{frozen}} lei; at the corrected rate it would be {{would}} lei).",
+    ro: "{{n}} {{de}}poziții de plată aprobate NU se schimbă: suma lor a fost înghețată la aprobare ({{frozen}} lei; cu rata corectată ar fi {{would}} lei).",
+  },
+  decl_frozen_line: { en: "approved {{frozen}} lei; would be {{would}}", ro: "aprobat {{frozen}} lei; ar fi fost {{would}}" },
+  decl_frozen_note: {
+    en: "An approved amount changes only by withdrawing the approval first — and that path does not exist yet.",
+    ro: "O sumă aprobată se schimbă doar retrăgând întâi aprobarea — iar drumul ăsta încă nu există.",
+  },
+  decl_confirm_button: {
+    en: "Confirm the correction: {{sessions}}, {{before}} → {{after}} lei",
+    ro: "Confirm corecția: {{sessions}}, {{before}} → {{after}} lei",
+  },
+  decl_confirm_button_none: {
+    en: "Confirm the correction (no confirmed pay changes)",
+    ro: "Confirm corecția (nu schimbă nicio plată confirmată)",
+  },
+  decl_confirm_frozen_suffix_one: { en: " · 1 approved stays unchanged", ro: " · 1 aprobată rămâne neschimbată" },
+  decl_confirm_frozen_suffix: { en: " · {{n}} approved stay unchanged", ro: " · {{n}} {{de}}aprobate rămân neschimbate" },
+  decl_stale: {
+    en: "The impact changed while you were reading it — someone confirmed or approved a session, or a session changed. This is the new statement; read it and confirm again.",
+    ro: "Impactul s-a schimbat cât timp îl citeai — cineva a confirmat sau a aprobat o sesiune, ori o sesiune s-a modificat. Aceasta e declarația nouă; citește-o și confirm-o din nou.",
+  },
+  correction_badge: {
+    en: "Correction — replaces the earlier version with the same date",
+    ro: "Corecție — înlocuiește versiunea anterioară cu aceeași dată",
+  },
+  corrected_badge: {
+    en: "Replaced by a correction — no longer used",
+    ro: "Înlocuită printr-o corecție — nu mai e folosită",
+  },
+  error_correction_forbidden: {
+    en: "Correcting a version needs the approval capability.",
+    ro: "Corectarea unei versiuni cere capabilitatea de aprobare.",
+  },
+  error_already_corrected: {
+    en: "This version has already been corrected — correct the correction instead.",
+    ro: "Versiunea a fost deja corectată — corectează corecția.",
+  },
+  error_version_not_found: {
+    en: "This version no longer exists. Reload the page.",
+    ro: "Versiunea nu mai există. Reîncarcă pagina.",
   },
 
   // Missing-grids banner: only rendered when at least one of the five

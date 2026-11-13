@@ -163,14 +163,21 @@ begin;
      join public.clients c on c.id = g.client_id
      where s.organization_id = current_setting('app.org')::uuid and c.name = 'Scoala Germana')
   union all
-  select 'the year is 172 planned, unconfirmed workshops',
+  -- CORRECTED 2026-11-14: this used to also require trainer_principal_confirmed_at
+  -- IS NULL -- true at generation (2026-10-20), and exactly the property real
+  -- use is meant to change. It failed 164/172 the first time a real trainer
+  -- confirmed through the app (Cătălina, 2026-11-12, 8 of her 10 confirmations
+  -- fall on or after 2 November; OPEN_ITEMS item 184). What this checks is the
+  -- generation: 172 workshops, still planned. Confirmation does not change
+  -- status, so this stays true as trainers confirm.
+  select 'the year is 172 planned workshops (confirmed or not -- confirming is what they are for)',
     (select count(*)::text from public.sessions
      where organization_id = current_setting('app.org')::uuid and session_date >= '2026-11-02'
-       and status = 'planned' and trainer_principal_confirmed_at is null),
+       and status = 'planned'),
     '172',
     (select count(*) = 172 from public.sessions
      where organization_id = current_setting('app.org')::uuid and session_date >= '2026-11-02'
-       and status = 'planned' and trainer_principal_confirmed_at is null);
+       and status = 'planned');
 rollback;
 
 -- ============================================================================

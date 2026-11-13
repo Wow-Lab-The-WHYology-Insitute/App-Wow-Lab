@@ -62,6 +62,9 @@ Currently attached to: `client_contacts`, `clients`, `contracts`, `file_refs`, `
 `legal_entities`, `org_settings`, `sessions`, `user_org_roles` (confirmed live via `pg_trigger`,
 2026-08-26 — nine tables, not the four previously listed here; five were added and this line was
 never updated). Attach it to any new table marked audited, and update this list when you do.
+Added since: `grid_corrections` (2026-11-14, `202611140001`). The pay-grid tables carry it too
+(row_history rows exist for `trainer_grade_rates`). This list was not re-measured in full when
+that was added, so read `pg_trigger`, not this line, before relying on it.
 
 `audit_log` is append-only: UPDATE and DELETE are denied for everyone, including Platform Owner,
 enforced by a dedicated trigger rather than by policy alone.
@@ -902,6 +905,32 @@ four is re-asking the question. The defense for the fifth is different: treat a 
 register the same as an unquoted one — trace it to what the named person actually said, every time
 it is relied on, not only the first time it is written down.
 
+### §24, the same error at the instrument instead of the calculation — a person's presence is measured by what the person DID, never by a session-metadata field
+
+**Decided 2026-11-14 (Mihai), after `OPEN_ITEMS.md` item 184's 2026-11-13 finding.**
+
+**What happened.** For two weeks, `auth.users.last_sign_in_at` stood in for "has this trainer been in the app".
+
+- It was reported, with confidence, as "nobody signed in → nobody arrived": in item 184 on 2026-11-12, and earlier as item 191's push gate.
+- Meanwhile Cătălina opened the app through a browser session that was still alive, and confirmed ten sessions. The record of that sat in `row_history` the whole time.
+- `last_sign_in_at` answers "when did someone authenticate". It does not answer "when was someone here".
+- A refreshed session never moves it. Hers still read 2026-09-06 the morning after.
+
+The calculation-level form of this error is §24's subject: reconstructing an answer instead of calling the function that produces it. This is the same error one level down. The field was real and correctly read; it just answers a different question than the one being asked.
+
+**THE RULE.**
+
+> **A person's presence or activity is measured by what the person did: rows they wrote, events in `row_history` where `actor_user_id` is them (confirmations, approvals, edits). Never by a session-metadata field** (`last_sign_in_at`, `auth.sessions.refreshed_at`, `auth.refresh_tokens`, audit-log retention). Metadata can corroborate a write ("the session was refreshed three minutes before the first confirmation"). It can never stand in for one, and **its absence never proves absence.**
+
+**Pre-push gates.** A gate of the kind item 191 used ("is anyone on the app right now?") is asked as **"has anyone written anything in the last N hours"**: actor-bearing `row_history` events, plus the INSERT-only tables that carry their own actor column. It is never asked as "has anyone signed in". The second question has a blind spot exactly where the risk is: a user who is already logged in.
+
+**What it does not cover, named (§20).**
+
+- **Reading without writing is invisible to both instruments.** A person who opened the screen, read it and left records nothing anywhere. "Signed in, confirmed nothing" (item 184's most-wanted result) is not measurable with today's instrumentation.
+- That is a limit, recorded as one, not a reason to go back to the metadata field.
+
+**Lives in:** `OPEN_ITEMS.md` item 184 (the finding and its instrument correction), item 191 (the gate whose basis this withdraws).
+
 ## 25. A capability gate is walked by the real account it is meant to admit, not read off the role it is documented to serve
 
 **Decided 2026-11-09, found while preparing Cătălina's own readiness check for item 186 — written
@@ -991,6 +1020,27 @@ care ar fi blocat o corectie necesara fara sa ofere drumul corect e o regula car
 prima urgenta." **This rule fails that test, knowingly, until OPEN_ITEMS item 195 (the sanctioned
 correction path, variant (b)) is decided.**
 
+**CLOSED 2026-11-14, item 195 (`202611140001`): the rule now has its sanctioned exception, and it
+passes Mihai's test.**
+
+- **What a correction is.** A new version with `corrects_version_id` — on all four pay grids now,
+  location and language included — dated the same as the version it corrects.
+- **What it passes through.** Not around the guard. The person reads the impact statement, which
+  the guard's own computation produces: affected unapproved slots, before → after, by trainer ×
+  month and slot by slot. Approved slots are listed as frozen, with what the corrected rate would
+  compute.
+- **How it is confirmed and recorded.** The person confirms that statement. It is written to
+  `grid_corrections` with the correction, and the guard lets the write through only if its own
+  recomputation is identical (P0W02 otherwise).
+- **The general form.** An immutability rule over money gets its exception in the same shape as
+  the rule: the same calculation, with a human confirming what the rule would have refused, and
+  the confirmation recorded. Never a bypass flag.
+- **Approved amounts do not move under a correction.** The corrected month then has two rates in
+  force, split by approval date, and **the month's own screen says so** (`/payroll`'s correction
+  panel). A record nobody opens is not an explanation.
+- **Changing an approved amount needs the approval withdrawn first.** That path does not exist
+  yet (item 186, question 2 to Anca).
+
 **The step that is always missing when a table is made immutable is not the migration. It is
 going back to every screen and RPC that writes to it, IN THE SAME CHANGE, and inducing each one
 against the invariant.** Don't reason about whether a writer's verb (INSERT vs UPDATE) is the one
@@ -998,6 +1048,9 @@ the trigger watches; that reasoning is exactly what skipped `/payment-config` on
 **The writer inventory for the four pay grids, measured live 2026-11-12** (`pg_policies`,
 `information_schema.role_table_grants`, every `public`/`app` function body):
 - **One application writer:** `/payment-config`, now through `app.rpc_create_grid_version` only.
+  **Since 2026-11-14 (item 195), a second writer:** `app.grid_correction_write`, behind
+  `rpc_preview_grid_correction`/`rpc_apply_grid_correction`. It is induced against the invariant
+  by `db/tests/grid_correction.sql`, per this section's own rule.
 - **Zero other RPCs or functions** write to any of the eight tables.
 - **Grants to `authenticated`: INSERT only.** No UPDATE, no DELETE.
 - **Migrations and the service role** bypass RLS, and are held by the guard all the same.

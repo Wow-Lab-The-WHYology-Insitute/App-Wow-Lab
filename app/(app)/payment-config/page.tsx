@@ -7,13 +7,13 @@ import { AccessDenied } from "@/components/ui/access-denied";
 type MembershipRow = { organization_id: string };
 type UserLookupRow = { id: string; full_name: string; first_name: string | null; last_name: string | null };
 
-type GradeVersion = { id: string; effective_date: string; created_by: string; note: string | null };
+type GradeVersion = { id: string; effective_date: string; created_by: string; note: string | null; corrects_version_id: string | null };
 type GradeRate = { version_id: string; grade_level: number; rate: number };
-type LocationVersion = { id: string; effective_date: string; created_by: string; note: string | null };
+type LocationVersion = { id: string; effective_date: string; created_by: string; note: string | null; corrects_version_id: string | null };
 type LocationRate = { version_id: string; location_tier: string; bonus_percent: number };
-type LanguageVersion = { id: string; effective_date: string; created_by: string; note: string | null };
+type LanguageVersion = { id: string; effective_date: string; created_by: string; note: string | null; corrects_version_id: string | null };
 type LanguageRate = { version_id: string; language_group: string; bonus_percent: number };
-type DurationVersion = { id: string; effective_date: string; created_by: string; note: string | null };
+type DurationVersion = { id: string; effective_date: string; created_by: string; note: string | null; corrects_version_id: string | null };
 type DurationRate = { version_id: string; duration_minutes: number; delivery_context: string; multiplier: number };
 type UpliftVersion = { id: string; effective_date: string; created_by: string; note: string | null };
 type UpliftRate = { version_id: string; contract_type: string; uplift_percent: number };
@@ -68,13 +68,13 @@ export default async function PaymentConfigPage() {
     { data: upliftVersions },
     { data: upliftRates },
   ] = await Promise.all([
-    supabase.from("trainer_grade_versions").select("id, effective_date, created_by, note").eq("organization_id", orgId).order("effective_date", { ascending: false }).returns<GradeVersion[]>(),
+    supabase.from("trainer_grade_versions").select("id, effective_date, created_by, note, corrects_version_id").eq("organization_id", orgId).order("effective_date", { ascending: false }).returns<GradeVersion[]>(),
     supabase.from("trainer_grade_rates").select("version_id, grade_level, rate").eq("organization_id", orgId).returns<GradeRate[]>(),
-    supabase.from("location_bonus_versions").select("id, effective_date, created_by, note").eq("organization_id", orgId).order("effective_date", { ascending: false }).returns<LocationVersion[]>(),
+    supabase.from("location_bonus_versions").select("id, effective_date, created_by, note, corrects_version_id").eq("organization_id", orgId).order("effective_date", { ascending: false }).returns<LocationVersion[]>(),
     supabase.from("location_bonus_rates").select("version_id, location_tier, bonus_percent").eq("organization_id", orgId).returns<LocationRate[]>(),
-    supabase.from("language_bonus_versions").select("id, effective_date, created_by, note").eq("organization_id", orgId).order("effective_date", { ascending: false }).returns<LanguageVersion[]>(),
+    supabase.from("language_bonus_versions").select("id, effective_date, created_by, note, corrects_version_id").eq("organization_id", orgId).order("effective_date", { ascending: false }).returns<LanguageVersion[]>(),
     supabase.from("language_bonus_rates").select("version_id, language_group, bonus_percent").eq("organization_id", orgId).returns<LanguageRate[]>(),
-    supabase.from("duration_multiplier_versions").select("id, effective_date, created_by, note").eq("organization_id", orgId).order("effective_date", { ascending: false }).returns<DurationVersion[]>(),
+    supabase.from("duration_multiplier_versions").select("id, effective_date, created_by, note, corrects_version_id").eq("organization_id", orgId).order("effective_date", { ascending: false }).returns<DurationVersion[]>(),
     supabase.from("duration_multiplier_rates").select("version_id, duration_minutes, delivery_context, multiplier").eq("organization_id", orgId).returns<DurationRate[]>(),
     supabase.from("contract_type_uplift_versions").select("id, effective_date, created_by, note").eq("organization_id", orgId).order("effective_date", { ascending: false }).returns<UpliftVersion[]>(),
     supabase.from("contract_type_uplift_rates").select("version_id, contract_type, uplift_percent").eq("organization_id", orgId).returns<UpliftRate[]>(),
@@ -97,6 +97,18 @@ export default async function PaymentConfigPage() {
   const currentVersionIdByGrid = Object.fromEntries(
     ((inForce ?? []) as { grid: string; version_id: string | null }[]).map((r) => [r.grid, r.version_id]),
   ) as Record<string, string | null>;
+
+  // Who may correct a version that confirmed sessions already used (item 195,
+  // 202611140001): the approval gate, PROVISIONAL, exactly as
+  // app.grid_correction_write checks it -- the RPC is the real gate, this
+  // only decides whether the button renders. A holder of
+  // finance.approvals.approve alone (Cătălina) passes the RPC but cannot open
+  // this page (finance.operations.* / finance.reporting.* above), so cannot
+  // correct from the screen -- named in item 195, not widened here.
+  const canCorrect =
+    (await checkCapability(supabase, "org.settings.manage", orgId)) ||
+    (await checkCapability(supabase, "finance.operations.*", orgId)) ||
+    (await checkCapability(supabase, "finance.approvals.approve", orgId));
 
   // Batched creator-name lookup across all five grids' versions -- same
   // two-lookup convention as contracts/page.tsx's clientIds/legalEntityIds,
@@ -122,6 +134,7 @@ export default async function PaymentConfigPage() {
     <div className="flex w-full flex-col gap-6">
       <PaymentConfigClient
         orgId={orgId}
+        canCorrect={canCorrect}
         creatorNameById={Object.fromEntries(creatorNameById)}
         trainerGrades={{ versions: gradeVersions ?? [], rates: gradeRates ?? [], currentVersionId: currentVersionIdByGrid.trainer_grade ?? null }}
         locationBonuses={{ versions: locationVersions ?? [], rates: locationRates ?? [], currentVersionId: currentVersionIdByGrid.location_bonus ?? null }}

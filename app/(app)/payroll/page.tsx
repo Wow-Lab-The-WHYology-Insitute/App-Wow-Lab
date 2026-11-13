@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { checkCapability } from "@/lib/capabilities";
 import { displayName } from "@/lib/display-name";
-import { PayrollClient } from "./payroll-client";
+import { PayrollClient, type MonthCorrection } from "./payroll-client";
+import type { Declaration } from "../payment-config/actions";
 import { AccessDenied } from "@/components/ui/access-denied";
 
 type MembershipRow = { organization_id: string };
@@ -536,6 +537,65 @@ export default async function PayrollPage({
     }
   }
 
+  // ---- Grid corrections that reach this month (item 195, 202611140001) ----
+  // Mihai, 2026-11-14: after a correction that applied to unapproved slots
+  // and left approved ones frozen, the SAME month has two rates in force,
+  // split by approval state. Not an inconsistency -- the record of when each
+  // amount was authorized -- but it has to be readable HERE, on the month,
+  // not buried in a correction record nobody opens. So: every correction
+  // whose confirmed statement names a slot in this month, what it re-priced
+  // here, and which approved slots it left at their pre-correction amount.
+  // Read from grid_corrections (the statement the person confirmed); who and
+  // when from the correcting version row, which is where they live.
+  const monthCorrections: MonthCorrection[] = [];
+  if (canReadPayGrids) {
+    const { data: corrections } = await supabase
+      .from("grid_corrections")
+      .select("grid, version_id, declaration")
+      .eq("organization_id", orgId)
+      .returns<{ grid: string; version_id: string; declaration: Declaration }[]>();
+    const inMonth = (d: string) => d >= from && d < toExclusive;
+    const relevant = (corrections ?? [])
+      .map((c) => ({
+        ...c,
+        affected: c.declaration.affected.filter((a) => inMonth(a.date)),
+        frozen: c.declaration.frozen.filter((f) => inMonth(f.date)),
+      }))
+      .filter((c) => c.affected.length > 0 || c.frozen.length > 0);
+
+    const versionMeta = new Map<string, { created_at: string; created_by: string; note: string | null }>();
+    for (const grid of [...new Set(relevant.map((c) => c.grid))]) {
+      const { data: versions } = await supabase
+        .from(`${grid}_versions`)
+        .select("id, created_at, created_by, note")
+        .in("id", relevant.filter((c) => c.grid === grid).map((c) => c.version_id))
+        .returns<{ id: string; created_at: string; created_by: string; note: string | null }[]>();
+      for (const v of versions ?? []) versionMeta.set(v.id, v);
+    }
+    const missingCreators = [...versionMeta.values()].map((v) => v.created_by).filter((id) => !nameById.has(id));
+    if (missingCreators.length > 0) {
+      const { data: creators } = await supabase
+        .from("users")
+        .select("id, full_name, first_name, last_name")
+        .in("id", [...new Set(missingCreators)])
+        .returns<UserLookupRow[]>();
+      for (const u of creators ?? []) nameById.set(u.id, displayName(u) || "Unnamed");
+    }
+
+    for (const c of relevant) {
+      const meta = versionMeta.get(c.version_id);
+      monthCorrections.push({
+        grid: c.grid,
+        correctedAt: meta?.created_at ?? null,
+        correctedByName: meta ? nameById.get(meta.created_by) ?? "Unknown" : "Unknown",
+        note: meta?.note ?? null,
+        affected: c.affected.map((a) => ({ date: a.date, client: a.client, trainer: a.trainer, before: a.before, after: a.after })),
+        frozen: c.frozen.map((f) => ({ date: f.date, client: f.client, trainer: f.trainer, approvedAt: f.approved_at, frozen: f.frozen, wouldBe: f.would_be })),
+      });
+    }
+    monthCorrections.sort((a, b) => (a.correctedAt ?? "").localeCompare(b.correctedAt ?? ""));
+  }
+
   const payBySlot = new Map<string, PayRow>();
   for (const r of payRows ?? []) {
     payBySlot.set(`${r.session_id}:${r.slot}`, r);
@@ -681,6 +741,7 @@ export default async function PayrollPage({
         })}
         bonusesAvailable={bonusRows !== null}
         closedSnapshot={closedSnapshot}
+        monthCorrections={monthCorrections}
       />
     </div>
   );

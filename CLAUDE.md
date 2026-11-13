@@ -157,6 +157,10 @@ is in Romanian; code, comments, commits and this file are in English.
   Her `last_sign_in_at` still reads 2026-09-06, because a live session refreshes without signing
   in. **Never read `last_sign_in_at` as "did not use the app".** Read `auth.sessions.refreshed_at`
   and `row_history` instead. Lorina and Teodora: still nothing, by either instrument.
+  **2026-11-14:** she confirmed everything she was shown (10/10) and never used "Retrage".
+  `/my-work`'s banner counts her 4 cancelled October sessions as unconfirmed ("4 … nu sunt
+  confirmate" with nothing to act on). The defect is reported in item 184, NOT fixed; it is
+  one filter.
 - **Item 185, 2026-11-09 — measured, then item 186: no approval mechanism existed anywhere in this
   application before today.** No status/column resembled approval; `finance.operations.*`/
   `finance.reporting.*` unlocked nothing narrower than the whole month; nothing between
@@ -282,20 +286,23 @@ is in Romanian; code, comments, commits and this file are in English.
   is the one atomic write path (no orphan header) and refuses dropped bands. The duration form
   renders the grid's own rows (7, not 5). Location/language (tranche 2) are covered by the same
   trigger. Read the item before touching any pay grid, `calculate_*_pay`, or `/payment-config`.
-- **Item 195 — the sanctioned correction path for a rate confirmed sessions already used. NO
-  LONGER OPTIONAL (Mihai, 2026-11-13); MEASURED, NOT BUILT, waiting on his answer.**
-  - **The shape:** reuse the guard's own calculation, never a second one. The person confirms the
-    full impact statement. Approved slots are listed, not moved; changing them goes through
-    withdrawing an approval, which is Anca's question 2. The capability is
-    `finance.approvals.approve`, provisional.
-  - **Measured:** `202610300001`, induced on the reconstructed 2026-10-30 state, goes through as
-    one correcting version and would have shown 38 sessions, Sept–Oct, 6.118,50 → 6.801,00
-    (+682,50).
-  - **Proposed, awaiting Mihai:** apply to unapproved and list approved, never refuse the whole
-    correction; a `grid_corrections` record; and refusing at write time if the statement went
-    stale.
-  - **Needed for location/language:** `corrects_version_id` first.
-  - **Until it is built:** nobody can correct such a rate, neither the screen nor a migration.
+- **Item 195 — the sanctioned correction path. BUILT 2026-11-14 (`202611140001`).**
+  - **How it works:** "Corectează această versiune" on `/payment-config` leads to the impact
+    statement, which comes from the guard's own computation, never a second one. The person
+    confirms it with a button carrying its numbers. The guard recomputes at write time and
+    refuses with P0W02 if anything moved meanwhile.
+  - **Approved slots** are listed as frozen, not moved. `/payroll` shows a corrected month's two
+    rates by approval date.
+  - **`grid_corrections`** holds only the confirmed statement; who and when live on the version
+    row.
+  - **Location and language** got `corrects_version_id` in the same step.
+  - **Gate:** `finance.approvals.approve` and up, PROVISIONAL, pending Anca's four-eyes answer.
+  - **Verified:** `202610300001` re-run through the real RPC reproduces 38 / 6.118,50 → 6.801,00.
+  - **Known limits:** Cătălina cannot reach the page. Withdrawing an approval is still not built.
+  - **Read before touching** any grid write path, `grid_corrections`, or the guard.
+- **§24 instrument addendum (2026-11-14):** presence is measured by what a person WROTE
+  (`row_history` actor), never by `last_sign_in_at` or other session metadata. A pre-push gate
+  asks "has anyone written anything in the last N hours".
 - **`docs/DATABASE_CONVENTIONS.md` gained §24, §25 and §26 this same day, all extracted from item
   186/187 as general method, not as one-off fixes:** §24 — prove reproducibility by inducing the
   real mutation, never by reasoning about the schema alone, **rewritten same day in its strong

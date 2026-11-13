@@ -117,6 +117,19 @@ export type PrincipalBonus = {
 // when the displayed month was never closed, or when the snapshot insert
 // itself failed at close time (logged server-side, not surfaced here as
 // an error -- the close itself still stands either way).
+// A grid correction whose confirmed statement reaches the month on screen
+// (item 195, 202611140001). `frozen` are slots approved BEFORE the
+// correction: they keep the amount authorized then, so the month carries
+// two rates in force, split by approval state -- shown here so that reading
+// the month explains it, without opening the correction record.
+export type MonthCorrection = {
+  grid: string;
+  correctedAt: string | null;
+  correctedByName: string;
+  note: string | null;
+  affected: { date: string; client: string | null; trainer: string | null; before: number | null; after: number | null }[];
+  frozen: { date: string; client: string | null; trainer: string | null; approvedAt: string; frozen: number | null; wouldBe: number | null }[];
+};
 export type ClosedSnapshotRow = {
   trainerId: string;
   trainerName: string;
@@ -138,6 +151,7 @@ export function PayrollClient({
   principalBonuses,
   bonusesAvailable,
   closedSnapshot,
+  monthCorrections,
 }: {
   orgId: string;
   // The month on display, "YYYY-MM", resolved on the server from
@@ -169,6 +183,7 @@ export function PayrollClient({
   principalBonuses: PrincipalBonus[];
   bonusesAvailable: boolean;
   closedSnapshot: ClosedSnapshotRow[];
+  monthCorrections: MonthCorrection[];
 }) {
   const t = useTranslations(payrollDict);
   const { locale } = useLocale();
@@ -785,6 +800,74 @@ export function PayrollClient({
                   })}
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Item 195 (2026-11-14): a corrected period has two rates in force,
+              split by approval state. Rendered only when a correction reaches
+              this month; says what it re-priced here and what it left frozen,
+              at which amount, so the month explains itself. */}
+          {monthCorrections.length > 0 && (
+            <div className="mt-3 flex flex-col gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4">
+              <span className="font-body text-sm font-semibold text-sky-900">
+                {t("corrections_heading", { month: monthLabel })}
+              </span>
+              {monthCorrections.map((c, i) => {
+                const lei = (n: number | null) => (n === null ? "—" : formatLei(Math.round(n * 100), locale));
+                // Romanian puts "de" between a number and its noun from 20 up.
+                const de = (n: number) => (n % 100 === 0 || n % 100 >= 20 ? "de " : "");
+                const before = c.affected.reduce((sum, a) => sum + Math.round((a.before ?? 0) * 100), 0);
+                const after = c.affected.reduce((sum, a) => sum + Math.round((a.after ?? 0) * 100), 0);
+                return (
+                  <div key={i} className="flex flex-col gap-2 border-t border-sky-200/70 pt-3 first:border-0 first:pt-0">
+                    <span className="font-body text-xs font-semibold text-sky-900">
+                      {t("corrections_item", {
+                        grid: t(`grid_${c.grid}`),
+                        date: c.correctedAt ? formatShortDate(c.correctedAt, locale) : "—",
+                        who: c.correctedByName,
+                      })}
+                    </span>
+                    {c.note && <span className="font-body text-xs text-sky-800 italic">{c.note}</span>}
+                    {c.affected.length > 0 && (
+                      <span className="font-body text-xs text-sky-900">
+                        {t(c.affected.length === 1 ? "corrections_affected_one" : "corrections_affected", {
+                          n: c.affected.length,
+                          de: de(c.affected.length),
+                          before: formatLei(before, locale),
+                          after: formatLei(after, locale),
+                        })}
+                      </span>
+                    )}
+                    {c.frozen.length > 0 && (
+                      <div className="flex flex-col gap-1">
+                        <span className="font-body text-xs font-semibold text-sky-900">
+                          {t(c.frozen.length === 1 ? "corrections_frozen_heading_one" : "corrections_frozen_heading", {
+                            n: c.frozen.length,
+                            de: de(c.frozen.length),
+                          })}
+                        </span>
+                        <ul className="flex flex-col gap-1">
+                          {c.frozen.map((f, j) => (
+                            <li key={j} className="font-body flex flex-wrap items-baseline justify-between gap-x-3 text-xs text-sky-900">
+                              <span>
+                                {f.trainer ?? "—"} · {f.client ?? "—"} · {formatShortDate(f.date, locale)}
+                              </span>
+                              <span>
+                                {t("corrections_frozen_line", {
+                                  frozen: lei(f.frozen),
+                                  approved: formatShortDate(f.approvedAt, locale),
+                                  would: lei(f.wouldBe),
+                                })}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                        <span className="font-body text-xs text-sky-800">{t("corrections_two_rates_note")}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 
