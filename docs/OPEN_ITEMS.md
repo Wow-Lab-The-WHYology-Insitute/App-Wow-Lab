@@ -9839,6 +9839,77 @@ Ten real sessions, already in the past, that nobody — trainer or Operations �
 - **The bug.** The banner's count (`unconfirmed` in `app/(app)/my-work/page.tsx`) is `session_date <= today && myConfirmedAt === null`, with no `notCancelled`. So before she started it read **"14 dintre atelierele tale nu sunt confirmate"** against a list of 10, and after she confirmed all 10 it still reads **"4 … nu sunt confirmate"** with nothing to act on. That is the same two-liars-on-one-screen shape as the 2026-10-28 and 2026-11-09 corrections on this page. It also names the current month while counting October.
 - **The fix is one filter.** Not applied: this was a measurement. Mihai decides whether it goes in.
 
+**CORRECTED 2026-11-14, re-measured at Mihai's request: "she confirmed everything she was shown"
+was TOO STRONG.** It was true of the debt lists and false of the screens as a whole.
+
+*Method.* Each of her sessions as of **2026-11-12 20:46:00 UTC**, 13 seconds before her first
+confirmation, placed in the bucket each screen's own code puts it in.
+- **`/my-work`:** `overdueDebt`, which excludes cancelled, plus the banner's `unconfirmed`, which
+  does not.
+- **The group page:** `overdue` / `today` / `upcoming` / `settled`, where `needsConfirmation`
+  returns false for cancelled. `settled` is collapsed by default.
+- Measured 2026-11-14 11:25 UTC. No status change on any of her sessions since 2026-11-09. She
+  had no session on 12.11, so `today` was empty.
+
+**14 sessions were visible as unconfirmed, all principal, all `wow_mix`:**
+
+| school | date | group | status | group page bucket | `/my-work` | after 20:51 |
+|---|---|---|---|---|---|---|
+| Lycée | 19.10 | `efbe7e46` | **cancelled** (vacanta) | **settled**: collapsed; **a Confirm button when expanded** | banner only | **still unconfirmed** |
+| Lycée | 20.10 | `de6e6f56` | **cancelled** (vacanta) | settled, as above | banner only | **still unconfirmed** |
+| Avenor | 21.10 15:15 | `…00a1` | **cancelled** (vacanta) | settled, as above | banner only | **still unconfirmed** |
+| Avenor | 21.10 16:15 | `…00a2` | **cancelled** (vacanta) | settled, as above | banner only | **still unconfirmed** |
+| Avenor | 28.10 ×2, 04.11 ×2, 11.11 ×2 | `…00a1` / `…00a2` | planned | overdue | list + banner | confirmed |
+| Lycée | 02.11, 09.11 / 03.11, 10.11 | `efbe7e46` / `de6e6f56` | planned | overdue | list + banner | confirmed |
+
+**So she did NOT confirm everything the screens showed her.**
+- **What she left.** She left unconfirmed exactly the 4 that did not happen: the autumn-break
+  workshops Operations cancelled on 2026-10-20.
+- **What she confirmed.** All 10 that did happen.
+
+**Whether that was judgment cannot be measured, and I am not writing it as judgment.**
+- **What the writes show.** She worked group by group: `…00a1` from 20:46:13, `…00a2` from
+  20:49:24 (that group save is hers), `efbe7e46` from 20:50:10, `de6e6f56` from 20:50:57. That is
+  the group page's order, not `/my-work`'s. So she was on all four pages where a cancelled session
+  sits.
+- **What they cannot show.** On each of those pages the cancelled session is behind the collapsed
+  `settled` bucket. Whether she expanded it, saw the button and chose not to tap it, leaves no
+  trace. That is the §24 instrument addendum's named limit: reading without writing is invisible.
+- **The banner.** It certainly showed her the number: "14 … nu sunt confirmate" before, "4" after.
+- **The record, then.** The 4 cancelled sessions stayed unconfirmed while she was on their pages
+  and the banner told her 4 were outstanding. That is consistent with judgment, and with not having
+  looked. The data does not separate the two.
+- **"Retrage":** never, on any session (0 withdrawals by her). She has written nothing since
+  20:51:02.
+
+**The 6 of 2026-11-09 against the 10 confirmed: the count filtered differently. The app did not
+show her anything else.**
+- **The 11-09 criterion (item 184's table above):** her slot, `session_date < 2026-11-09`,
+  `status = 'planned'`, unconfirmed. Re-run with today's data it returns exactly those 6: Avenor
+  28.10 ×2 and 04.11 ×2, Lycée 02.11 and 03.11.
+- **Today's criterion (the screens'):** `session_date <` the day she looked (2026-11-12), not
+  cancelled, unconfirmed. That gives 10.
+- **The difference is 4 workshops that became past between 9 and 12 November:** Lycée 09.11 and
+  10.11, Avenor 11.11 ×2. Not a filter that hid something, and not extra items on the screen.
+- `status = 'planned'` in the 11-09 count also excluded the 4 cancelled. So they appeared in
+  neither count, and the banner's 14 was never reconciled with either.
+
+**A second screen defect, found by this measurement. Reported, NOT fixed** (Mihai: nothing to
+build).
+- **The defect.** The group page offers **Confirm** on a cancelled session. `ConfirmationControl`
+  never reads `status`; a cancelled past session in `settled` gets the same button as an overdue
+  one.
+- **The database accepts it.** `app.rpc_confirm_session_attendance` checks only that the date is
+  not in the future.
+- **The consequence.** A trainer can today assert attendance at a workshop Operations recorded as
+  not held. Whether that should become a confirmed slot priced under `cancel_session_pay_rule` is
+  not designed anywhere.
+- **Two fixes, both small.**
+  - **Screen:** no button on `cancelled`, the same rule `needsConfirmation` already applies.
+  - **Database:** refuse `p_confirmed = true` on a cancelled session. That is the real gate; the
+    screen only mirrors it.
+- **Mihai decides,** together with the `/my-work` banner filter above.
+
 **Her confirmations also broke a test, and it was the test that was wrong.**
 `db/tests/school_calendar_closures.sql` asserted "the year is 172 planned, unconfirmed workshops".
 That was true at generation (2026-10-20). On 2026-11-14 it read 164: exactly the 8 of her 10 that

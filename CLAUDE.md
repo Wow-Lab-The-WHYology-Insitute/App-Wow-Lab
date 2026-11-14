@@ -157,10 +157,17 @@ is in Romanian; code, comments, commits and this file are in English.
   Her `last_sign_in_at` still reads 2026-09-06, because a live session refreshes without signing
   in. **Never read `last_sign_in_at` as "did not use the app".** Read `auth.sessions.refreshed_at`
   and `row_history` instead. Lorina and Teodora: still nothing, by either instrument.
-  **2026-11-14:** she confirmed everything she was shown (10/10) and never used "Retrage".
-  `/my-work`'s banner counts her 4 cancelled October sessions as unconfirmed ("4 … nu sunt
-  confirmate" with nothing to act on). The defect is reported in item 184, NOT fixed; it is
-  one filter.
+  **2026-11-14, CORRECTED same day:**
+  - **What she did.** Confirmed all 10 held workshops. Left unconfirmed the 4 cancelled ones
+    (autumn break), which the group page still offers to confirm behind the collapsed "settled"
+    bucket. Never used "Retrage".
+  - **Judgment vs not looking** cannot be told apart: reads leave no trace.
+  - **The 6 on 11-09 vs the 10 she confirmed** is a cut-off date, not a different filter: 4
+    workshops became past between 9 and 12 November.
+  - **Two screen defects, reported in item 184, NOT fixed:**
+    - `/my-work`'s banner counts cancelled sessions.
+    - The group page shows Confirm on cancelled sessions, and `rpc_confirm_session_attendance`
+      accepts it.
 - **Item 185, 2026-11-09 — measured, then item 186: no approval mechanism existed anywhere in this
   application before today.** No status/column resembled approval; `finance.operations.*`/
   `finance.reporting.*` unlocked nothing narrower than the whole month; nothing between
