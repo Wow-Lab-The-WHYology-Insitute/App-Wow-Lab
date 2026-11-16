@@ -538,3 +538,149 @@ begin;
     'prospect' as expected,
     (select public.client_effective_status(c) from public.clients c where id = '66666666-0000-0000-0000-0000000000c1') = 'prospect' as pass;
 rollback;
+
+-- ============================================================================
+-- Point 12 -- WAVE 3, structural: the remaining 6 keys (contacts, lesson
+-- plans, suppliers). Same shape as points 1 and 8.
+-- No OBSERVABLE probe here, and that is a negative result, recorded (§20):
+-- every reader of these rows found on 2026-11-16 reads under RLS on the
+-- child's own organization, or through a DEFINER RPC that checks the
+-- capability on the row's own organization (item 198's map) -- so no
+-- wow-lab figure, status or screen was found that a cross-org row here would
+-- move. The keys close the class structurally all the same; that is the
+-- point of not depending on a search for readers.
+-- ============================================================================
+begin;
+  create temp table res3 (fk text, control text, cross_org text) on commit drop;
+
+  do $$
+  declare
+    w uuid := (select id from public.organizations where slug = 'wow-lab');
+    b uuid := (select id from public.organizations where slug = 'wow-lab-test-b');
+    bt uuid := (select id from public.users where email = 'maxdigitalro+trainerb1@gmail.com');
+    groups_by_org uuid[] := array['bda1f577-f381-4ced-a7f4-4d3399175e95', 'c1000000-0000-0000-0000-0000000000b2']::uuid[];
+    cl uuid[]; cc uuid[]; se uuid[]; lp uuid[]; su uuid[]; sc uuid[]; le uuid[];   -- [1] = Org B (control), [2] = wow-lab (probe)
+    o uuid; k int := 0;
+    t record;
+    ctl text; xo text;
+  begin
+    foreach o in array array[b, w] loop
+      k := k + 1;
+      cl := cl || gen_random_uuid();
+      insert into public.clients (id, organization_id, name, client_type) values (cl[k], o, 'INDUCED isolation test', 'private_school');
+      le := le || gen_random_uuid();
+      insert into public.legal_entities (id, organization_id, name, entity_type) values (le[k], o, 'INDUCED isolation test', 'srl');
+      cc := cc || gen_random_uuid();
+      insert into public.client_contacts (id, organization_id, client_id, full_name) values (cc[k], o, cl[k], 'INDUCED');
+      se := se || gen_random_uuid();
+      insert into public.sessions (id, organization_id, group_id, session_date) values (se[k], o, groups_by_org[k], '2099-01-05');
+      lp := lp || gen_random_uuid();
+      insert into public.lesson_plans (id, organization_id, canonical_title, status) values (lp[k], o, 'INDUCED isolation test', 'planned');
+      su := su || gen_random_uuid();
+      insert into public.suppliers (id, organization_id, name) values (su[k], o, 'INDUCED isolation test');
+      sc := sc || gen_random_uuid();
+      insert into public.supplier_contracts (id, organization_id, supplier_id, legal_entity_id) values (sc[k], o, su[k], le[k]);
+    end loop;
+
+    for t in
+      select * from (values
+        -- $3 = Org B's own client, $4 = Org B's own session, $5 = Org B's own lesson plan,
+        -- $6 = Org B's own supplier, $7 = Org B's own legal entity, $8 = an Org B trainer.
+        ('groups.on_site_contact_id',             'insert into public.groups (organization_id, client_id, module, delivery_format, on_site_contact_id) values ($1, $3, ''gaga'', ''custom'', $2)', 'cc'),
+        ('session_lesson_plans.session_id',       'insert into public.session_lesson_plans (organization_id, session_id, trainer_id, lesson_plan_id) values ($1, $2, $8, $5)', 'se'),
+        ('session_lesson_plans.lesson_plan_id',   'insert into public.session_lesson_plans (organization_id, session_id, trainer_id, lesson_plan_id) values ($1, $4, $8, $2)', 'lp'),
+        ('lesson_plan_modules.lesson_plan_id',    'insert into public.lesson_plan_modules (organization_id, lesson_plan_id, module) values ($1, $2, ''gaga'')', 'lp'),
+        ('supplier_contracts.supplier_id',        'insert into public.supplier_contracts (organization_id, supplier_id, legal_entity_id) values ($1, $2, $7)', 'su'),
+        ('supplier_contracts.amends_contract_id', 'insert into public.supplier_contracts (organization_id, supplier_id, legal_entity_id, amends_contract_id) values ($1, $6, $7, $2)', 'sc')
+      ) v(fk, stmt, parent)
+    loop
+      for i in 1..2 loop
+        declare
+          v_parent uuid := case t.parent when 'cc' then cc[i] when 'se' then se[i] when 'lp' then lp[i] when 'su' then su[i] when 'sc' then sc[i] end;
+          v_out text;
+        begin
+          begin
+            execute t.stmt using b, v_parent, cl[1], se[1], lp[1], su[1], le[1], bt;
+            v_out := 'accepted';
+            raise exception using errcode = 'P0W00';
+          exception
+            when sqlstate 'P0W00' then null;
+            when foreign_key_violation then v_out := 'refused';
+            when others then v_out := 'other ' || sqlstate;
+          end;
+          if i = 1 then ctl := v_out; else xo := v_out; end if;
+        end;
+      end loop;
+      insert into res3 values (t.fk, ctl, xo);
+    end loop;
+  end;
+  $$;
+
+  select 'all 6 wave-3 keys were exercised' as check_name,
+    (select count(*)::text from res3) as actual, '6' as expected,
+    (select count(*) = 6 from res3) as pass
+  union all
+  select 'wave 3 control accepted: ' || fk, control, 'accepted', control = 'accepted' from res3
+  union all
+  select 'wave 3 cross-org refused: ' || fk, cross_org, 'refused', cross_org = 'refused' from res3;
+rollback;
+
+-- ============================================================================
+-- Point 13 -- THE CLASS, not a key: no single-column foreign key may exist
+-- between two org-scoped tables. Every key listed in waves 1-3 is checked
+-- above one by one; this one is for the table nobody has written yet. A new
+-- table with organization_id and a plain foreign key to another org-scoped
+-- table fails the suite here, without anyone having to remember item 198.
+-- Out of scope by design: keys to `users` (global, no organization_id) and
+-- to `organizations` itself (the organization IS the parent). Both are
+-- excluded by construction: neither is in `org_tables` as a parent.
+-- ============================================================================
+begin;
+  select 'no single-column foreign key between two org-scoped tables (the class, waves 1-3)' as check_name,
+    coalesce((
+      select string_agg(cl.relname || '.' || a.attname || ' -> ' || pc.relname, ', ' order by cl.relname, a.attname)
+      from pg_constraint con
+      join pg_class cl on cl.oid = con.conrelid
+      join pg_class pc on pc.oid = con.confrelid
+      join pg_attribute a on a.attrelid = con.conrelid and a.attnum = con.conkey[1]
+      where con.contype = 'f' and cl.relnamespace = 'public'::regnamespace
+        and array_length(con.conkey, 1) = 1
+        and exists (select 1 from pg_attribute x where x.attrelid = cl.oid and x.attname = 'organization_id' and not x.attisdropped)
+        and exists (select 1 from pg_attribute x where x.attrelid = pc.oid and x.attname = 'organization_id' and not x.attisdropped)
+    ), 'none') as actual,
+    'none' as expected,
+    not exists (
+      select 1 from pg_constraint con
+      join pg_class cl on cl.oid = con.conrelid
+      join pg_class pc on pc.oid = con.confrelid
+      where con.contype = 'f' and cl.relnamespace = 'public'::regnamespace
+        and array_length(con.conkey, 1) = 1
+        and exists (select 1 from pg_attribute x where x.attrelid = cl.oid and x.attname = 'organization_id' and not x.attisdropped)
+        and exists (select 1 from pg_attribute x where x.attrelid = pc.oid and x.attname = 'organization_id' and not x.attisdropped)
+    ) as pass;
+rollback;
+
+-- ============================================================================
+-- Point 14 -- SABOTAGE for point 13: a new org-scoped table with a plain key
+-- to an org-scoped parent -- the shape a future migration would write by
+-- habit. Point 13's assertion, verbatim, must now be FALSE.
+-- ============================================================================
+begin;
+  create table public.zz_isolation_sabotage (
+    id uuid primary key default gen_random_uuid(),
+    organization_id uuid not null references public.organizations (id),
+    group_id uuid references public.groups (id)
+  );
+  select 'SABOTAGE: no single-column foreign key between two org-scoped tables, same assertion as point 13, a plain-keyed table added' as check_name,
+    'zz_isolation_sabotage.group_id -> groups present' as actual,
+    'none' as expected,
+    not exists (
+      select 1 from pg_constraint con
+      join pg_class cl on cl.oid = con.conrelid
+      join pg_class pc on pc.oid = con.confrelid
+      where con.contype = 'f' and cl.relnamespace = 'public'::regnamespace
+        and array_length(con.conkey, 1) = 1
+        and exists (select 1 from pg_attribute x where x.attrelid = cl.oid and x.attname = 'organization_id' and not x.attisdropped)
+        and exists (select 1 from pg_attribute x where x.attrelid = pc.oid and x.attname = 'organization_id' and not x.attisdropped)
+    ) as pass;
+rollback;
