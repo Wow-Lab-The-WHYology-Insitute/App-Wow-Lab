@@ -396,3 +396,145 @@ begin;
     current_setting('test.before') as expected,
     round(app.calculate_session_pay('55555555-0000-0000-0000-0000000000b1', current_setting('app.teo')::uuid), 2)::text = current_setting('test.before') as pass;
 rollback;
+
+-- ============================================================================
+-- Point 8 -- WAVE 2, structural: the 8 keys whose parent is a client, a
+-- contract or a legal entity (who is billed, by which entity). Same shape as
+-- point 1: every parent is created EMPTY in this block, in both
+-- organizations; the control points the Org B row at an Org B parent and must
+-- be accepted, the probe points it at a wow-lab parent and must be refused.
+-- ============================================================================
+begin;
+  create temp table res2 (fk text, control text, cross_org text) on commit drop;
+
+  do $$
+  declare
+    w uuid := (select id from public.organizations where slug = 'wow-lab');
+    b uuid := (select id from public.organizations where slug = 'wow-lab-test-b');
+    bt uuid := (select id from public.users where email = 'maxdigitalro+trainerb1@gmail.com');
+    b_pp uuid := (select id from public.payroll_periods where organization_id = (select id from public.organizations where slug = 'wow-lab-test-b') order by period limit 1);
+    pc uuid[]; pl uuid[]; pk uuid[]; ps uuid[];   -- [1] = Org B (control), [2] = wow-lab (probe)
+    o uuid;
+    t record;
+    ctl text; xo text;
+  begin
+    -- Fresh parents in each organization, in the same order: B first, wow-lab second.
+    foreach o in array array[b, w] loop
+      pc := pc || (select id from (select gen_random_uuid() id) x);
+      insert into public.clients (id, organization_id, name, client_type) values (pc[array_length(pc, 1)], o, 'INDUCED isolation test', 'private_school');
+      pl := pl || (select id from (select gen_random_uuid() id) x);
+      insert into public.legal_entities (id, organization_id, name, entity_type) values (pl[array_length(pl, 1)], o, 'INDUCED isolation test', 'srl');
+      pk := pk || (select id from (select gen_random_uuid() id) x);
+      insert into public.contracts (id, organization_id, client_id, legal_entity_id, contract_type) values (pk[array_length(pk, 1)], o, pc[array_length(pc, 1)], pl[array_length(pl, 1)], 'one_off_event');
+      ps := ps || (select id from (select gen_random_uuid() id) x);
+      insert into public.suppliers (id, organization_id, name) values (ps[array_length(ps, 1)], o, 'INDUCED isolation test');
+    end loop;
+
+    for t in
+      select * from (values
+        ('contracts.client_id',                   'insert into public.contracts (organization_id, client_id, legal_entity_id, contract_type) values ($1, $2, $3, ''one_off_event'')', 'c'),
+        ('contracts.legal_entity_id',             'insert into public.contracts (organization_id, client_id, legal_entity_id, contract_type) values ($1, $4, $2, ''one_off_event'')', 'l'),
+        ('contracts.amends_contract_id',          'insert into public.contracts (organization_id, client_id, legal_entity_id, contract_type, amends_contract_id) values ($1, $4, $3, ''one_off_event'', $2)', 'k'),
+        ('contracts.renewal_of',                  'insert into public.contracts (organization_id, client_id, legal_entity_id, contract_type, renewal_of) values ($1, $4, $3, ''one_off_event'', $2)', 'k'),
+        ('client_contacts.client_id',             'insert into public.client_contacts (organization_id, client_id, full_name) values ($1, $2, ''INDUCED'')', 'c'),
+        ('school_calendar_closures.client_id',    'insert into public.school_calendar_closures (organization_id, client_id, school_year, from_date, to_date, kind, label, source_url) values ($1, $2, ''2099-2100'', ''2099-01-01'', ''2099-01-02'', ''alt'', ''INDUCED'', ''INDUCED'')', 'c'),
+        ('payroll_period_totals.legal_entity_id', 'insert into public.payroll_period_totals (organization_id, payroll_period_id, trainer_id, legal_entity_id, amount_bani) values ($1, $5, $6, $2, 0)', 'l'),
+        ('supplier_contracts.legal_entity_id',    'insert into public.supplier_contracts (organization_id, supplier_id, legal_entity_id) values ($1, $7, $2)', 'l')
+      ) v(fk, stmt, parent)
+    loop
+      for i in 1..2 loop
+        declare
+          v_parent uuid := case t.parent when 'c' then pc[i] when 'l' then pl[i] when 'k' then pk[i] end;
+          v_out text;
+        begin
+          begin
+            -- $3 = Org B's own legal entity, $4 = Org B's own client, $7 = Org B's own supplier:
+            -- only the parent under test changes between control and probe.
+            execute t.stmt using b, v_parent, pl[1], pc[1], b_pp, bt, ps[1];
+            v_out := 'accepted';
+            raise exception using errcode = 'P0W00';
+          exception
+            when sqlstate 'P0W00' then null;
+            when foreign_key_violation then v_out := 'refused';
+            when others then v_out := 'other ' || sqlstate;
+          end;
+          if i = 1 then ctl := v_out; else xo := v_out; end if;
+        end;
+      end loop;
+      insert into res2 values (t.fk, ctl, xo);
+    end loop;
+  end;
+  $$;
+
+  select 'all 8 wave-2 keys were exercised' as check_name,
+    (select count(*)::text from res2) as actual, '8' as expected,
+    (select count(*) = 8 from res2) as pass
+  union all
+  select 'wave 2 control accepted: ' || fk, control, 'accepted', control = 'accepted' from res2
+  union all
+  select 'wave 2 cross-org refused: ' || fk, cross_org, 'refused', cross_org = 'refused' from res2;
+rollback;
+
+-- ============================================================================
+-- Point 10 -- WAVE 2, the observable that was induced 2026-11-16: an Org B
+-- contract naming a wow-lab client turned it prospect -> active, through
+-- public.client_effective_status (SECURITY DEFINER, reads contracts by client
+-- only). The write is made as Test Org B's owner through RLS. The client is a
+-- fresh wow-lab prospect -- the control that the status COULD have flipped
+-- (§27): it reads 'prospect' before, so 'prospect' after is a measurement.
+-- ============================================================================
+begin;
+  select set_config('app.org',  (select id::text from public.organizations where slug = 'wow-lab'), true);
+  select set_config('app.orgb', (select id::text from public.organizations where slug = 'wow-lab-test-b'), true);
+  select set_config('app.bown', (select id::text from public.users where email = 'test+user-b@wowlab.dev'), true);
+  select set_config('app.ble',  (select id::text from public.legal_entities where organization_id = (select id from public.organizations where slug = 'wow-lab-test-b') order by id limit 1), true);
+  insert into public.clients (id, organization_id, name, client_type)
+  values ('66666666-0000-0000-0000-0000000000c1', current_setting('app.org')::uuid, 'INDUCED prospect', 'private_school');
+  select set_config('test.before', (select public.client_effective_status(c) from public.clients c where id = '66666666-0000-0000-0000-0000000000c1'), true);
+
+  select set_config('request.jwt.claims', json_build_object('sub', current_setting('app.bown'), 'role', 'authenticated')::text, true);
+  select set_config('role', 'authenticated', true);
+  do $$
+  begin
+    insert into public.contracts (organization_id, client_id, legal_entity_id, contract_type, status)
+    values (current_setting('app.orgb')::uuid, '66666666-0000-0000-0000-0000000000c1', current_setting('app.ble')::uuid, 'one_off_event', 'signed');
+  exception when foreign_key_violation then null;
+  end;
+  $$;
+  select set_config('role', 'postgres', true);
+
+  select 'precondition: the fresh wow-lab client reads prospect, so a flip is possible' as check_name,
+    current_setting('test.before') as actual, 'prospect' as expected,
+    current_setting('test.before') = 'prospect' as pass
+  union all
+  select 'a wow-lab client stays prospect after Org B writes a signed contract naming it',
+    (select public.client_effective_status(c) from public.clients c where id = '66666666-0000-0000-0000-0000000000c1'),
+    'prospect',
+    (select public.client_effective_status(c) from public.clients c where id = '66666666-0000-0000-0000-0000000000c1') = 'prospect';
+rollback;
+
+-- ============================================================================
+-- Point 11 -- SABOTAGE for point 10: contracts.client_id reverted to the plain
+-- key. The Org B contract gets in, the status flips: pass MUST be false.
+-- ============================================================================
+begin;
+  select set_config('app.org',  (select id::text from public.organizations where slug = 'wow-lab'), true);
+  select set_config('app.orgb', (select id::text from public.organizations where slug = 'wow-lab-test-b'), true);
+  select set_config('app.bown', (select id::text from public.users where email = 'test+user-b@wowlab.dev'), true);
+  select set_config('app.ble',  (select id::text from public.legal_entities where organization_id = (select id from public.organizations where slug = 'wow-lab-test-b') order by id limit 1), true);
+  alter table public.contracts drop constraint contracts_client_id_org_fkey;
+  alter table public.contracts add constraint contracts_client_id_fkey foreign key (client_id) references public.clients (id);
+  insert into public.clients (id, organization_id, name, client_type)
+  values ('66666666-0000-0000-0000-0000000000c1', current_setting('app.org')::uuid, 'INDUCED prospect', 'private_school');
+
+  select set_config('request.jwt.claims', json_build_object('sub', current_setting('app.bown'), 'role', 'authenticated')::text, true);
+  select set_config('role', 'authenticated', true);
+  insert into public.contracts (organization_id, client_id, legal_entity_id, contract_type, status)
+  values (current_setting('app.orgb')::uuid, '66666666-0000-0000-0000-0000000000c1', current_setting('app.ble')::uuid, 'one_off_event', 'signed');
+  select set_config('role', 'postgres', true);
+
+  select 'SABOTAGE: a wow-lab client stays prospect after Org B writes a signed contract naming it, same assertion as point 10, key reverted' as check_name,
+    (select public.client_effective_status(c) from public.clients c where id = '66666666-0000-0000-0000-0000000000c1') as actual,
+    'prospect' as expected,
+    (select public.client_effective_status(c) from public.clients c where id = '66666666-0000-0000-0000-0000000000c1') = 'prospect' as pass;
+rollback;
