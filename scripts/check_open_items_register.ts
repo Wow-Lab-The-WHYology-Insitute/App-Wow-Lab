@@ -250,7 +250,7 @@ const TRIAGE: Record<number, Triage> = {
   190: { kind: "not-drift", why: "a record" },
   192: { kind: "not-drift", why: "parked on purpose, named, unscheduled" },
   196: { kind: "not-drift", why: "decided, in flight (item 198 wave 1 first)" },
-  200: { kind: "not-drift", why: "this check; in flight" },
+  200: { kind: "not-drift", why: "the check itself is built; the four it tracks are listed above under DECIDED, NOT DONE" },
 };
 
 const DONE_WORD = /\b(RESOLVED|CLOSED|BUILT|FIXED|APPLIED|DONE|PUSHED|WITHDRAWN|SUPERSEDED|DISCARDED|cut deliberately)\b/;

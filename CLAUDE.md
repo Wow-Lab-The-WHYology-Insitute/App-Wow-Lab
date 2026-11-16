@@ -326,7 +326,14 @@ is in Romanian; code, comments, commits and this file are in English.
     `resolve_grid_version`'s exclusion subquery has no org filter, and my first audit missed it.
   - **Decided:** tests FIRST and failing, then composite keys in 3 waves by money (1: pay
     tables, 194 redone; 2: clients/contracts/entities; 3: rest). The 26 FKs to `users` are out of
-    scope by design. Nothing built yet.
+    scope by design.
+  - **WAVE 1 BUILT (`202611160002`):** 15 pay-table keys are composite with `organization_id`, and
+    `resolve_grid_version`'s subqueries are org-filtered.
+    - `db/tests/cross_org_write_isolation.sql` was written first and failed 15/15 + both probes
+      against the live schema. Each write has a control; each layer holds alone; SABOTAGE flips.
+    - The 79 functions were SCANNED, not audited. The keys make completeness of any scan
+      irrelevant (§26 applied to isolation).
+  - **Waves 2–3 not started.**
   - Read the item before adding any FK or DEFINER read.
 - **Item 199 — session state vs the trainer's own confirmation, one family.**
   - **Decided:** a trainer swap CLEARS the confirmation, never transfers it.

@@ -10428,6 +10428,10 @@ while building this).
 ---
 ### 194. `/payment-config` after immutability: the screen didn't break, it went around the lock — measured, then DECIDED (a) and BUILT the same day (`202611120001`/`002`)
 
+**REDONE 2026-11-16 by item 198's wave 1 (`202611160002`): composite keys make a row's
+organization equal its parent's, so the premise below now holds by construction.** What follows is
+the finding as it was made.
+
 **NOT SOUND ACROSS ORGANIZATIONS — found 2026-11-16, item 198 below; to be redone in wave 1.**
 - **The flaw:** the guard snapshots the organization of the row WRITTEN. A row written in Test
   Org B that points at wow-lab's grid passed it twice:
@@ -11287,7 +11291,69 @@ by design: one person, many organizations, `user_org_roles` saying where. A comp
 job, filtering on the row's own organization, as `resolve_trainer_grade` now does. This is written
 down so it does not read as an omission.
 
-**Not built yet:** Mihai asked for point 0 to be answered before anything else was built.
+**THE METHOD, not just the list (Mihai, 2026-11-16, third round).** I wrote that the list was a
+lower bound. That understated it: **the METHOD could not have produced a complete list.**
+- **What the method was:** "does `organization_id` appear in the statement" cannot tell a statement
+  that FILTERS on the organization from one that only MENTIONS it.
+- **The proof:** `resolve_grid_version` filters in its outer query, not in its subquery, and was
+  passed.
+- **The 79 functions were SCANNED, not AUDITED.** A scan finds what its pattern can see; an audit
+  establishes what each function does. Only the second can be called complete, and it was not
+  done.
+- **This is why the composite keys are the answer,** and not only to the 29 references. They
+  remove the dependence on a method nobody can validate: the database refuses structurally, and
+  whether a scan was complete stops mattering, because a cross-org parent cannot exist under any
+  read. That is §26 applied to isolation: not a rule written down, a state made impossible.
+
+**A PROBE THAT CAN PASS FOR ANOTHER REASON MEASURES NOTHING — Mihai's own, kept as the note it
+asked to be.**
+- **The probe:** his proposed probe, a second `standard` 60-minute band in wow-lab's live version.
+- **Why it misleads:** it is refused by `duration_multiplier_rates_version_key_unique` before any
+  organization check exists. He would have read "refused" as "guarded".
+- **The same trap caught me once while building the tests.** My first point-3 write was dated
+  2020-01-02. That made it the duration version in force for Org B's OWN confirmed sessions, and
+  item 194's guard correctly refused it there. The block errored for a reason that was not the one
+  measured; the dates were moved to 2099.
+- **How the test file prevents it:** every cross-org write targets a fresh empty parent, so no
+  unique key can be the refuser. And every write has a CONTROL: the same row pointed at the
+  writer's own parent, which must be accepted.
+
+**WAVE 1 BUILT 2026-11-16 (`202611160002`), tests first.**
+- **The test:** `db/tests/cross_org_write_isolation.sql` was written before the migration and run
+  against the live schema first.
+  - **Before the repair:** all 15 controls accepted, **all 15 cross-org writes accepted**. The
+    Altfel band probe gave **127,00 → 1.143,00**. The correction probe left wow-lab with **NO
+    version in force on all four pay grids** (worse than first measured, which had covered the
+    grade grid only).
+- **What the migration does:**
+  - a unique `(id, organization_id)` on the 11 parents;
+  - the 15 keys composite with their delete rules kept;
+  - the organization filter in all four corrected-version subqueries.
+- **Data checked first:** **0** existing cross-org references across the 15 keys (the measurement
+  this item had listed as not yet run).
+- **After:** all 15 refused with controls accepted, the slot keeps 127,00, all four grids keep
+  their own version.
+- **Two independent layers:** point 4 shows the subquery filter holding with the key reverted;
+  point 5 shows the key holding with the filter removed.
+- **SABOTAGE:** point 6 removes both and fails (NONE); point 7 reverts the rates key and fails
+  (1.143,00).
+- **Item 194 is redone by construction.** A rates row's organization IS its version's, and a
+  correcting version's IS the corrected one's. The guard's premise is now an invariant, not an
+  assumption; its body is unchanged on purpose.
+- **Suite:** 523/523, 33 files, 0 block errors, after the migration was applied (483 + the 40
+  new checks).
+
+**In wave 1, what it covers:** the seven `*_rates.version_id`, the four `corrects_version_id`,
+`sessions.group_id`, `groups.client_id`/`contract_id` (they decide the principal bonus's school and
+the paying entity), and `payroll_period_totals.payroll_period_id`.
+- **Allocations and grade assignments** reference `users`: out of scope by design, as above. The
+  grade read is already scoped (`202611160001`).
+- **Approvals** are columns on `sessions`, with no foreign key.
+- **Left for wave 2:** `payroll_period_totals.legal_entity_id` (a legal entity) and
+  `groups.on_site_contact_id` (a contact, not pay).
+
+**Out of wave 1 by decision:** item 199 points 2 and 4–5, blocked on Anca's questions 11 and 12.
+Not started partially.
 
 **Not built, a decision for Mihai: the class itself.** *(superseded by the decision above; kept as
 first written)*
@@ -11449,10 +11515,20 @@ shown 149 on any day of those 27.
 - decided-and-undone items (no blocker, no done-word);
 - done-in-code-but-unmarked items (160 and 188 as the first known cases).
 
-Not started: point 0 (item 198's guard question) was to be answered before anything else was built.
+**BUILT 2026-11-16 (`scripts/check_open_items_register.ts`, check 4), moved up beside wave 1 on
+Mihai's instruction.** His reason: left last, it would fall the same way 149, 5, 153 and 21 did,
+because nothing would bring it forward.
+- **What it prints, informational, never a failure:** both directions.
+- **Its first run was noisy:** 27 + ~60 candidates, because headings do not use done-words
+  consistently. So each candidate is triaged ONCE, in the script's `TRIAGE` map, with a reason.
+  Every run reprints the tracked items until their heading carries a done word, plus only NEW
+  untriaged candidates (zero at commit time).
+- **CLAUDE.md now runs it as step 0 of every session,** before reading anything else.
+- **Known limit, named:** detection is heuristic. Item 21 has no "Blocked on" line and was found
+  only by reading; the script carries it because it was triaged by hand.
 
-**Blocked on:** nothing; queued behind item 198's wave 1 tests. Also, what to do with each of the
-four items above.
+**Blocked on:** what to do with each of the four items above; they stay on the script's list until
+done.
 **Lives in:** this register; item 164 (the human-step class 153 belongs to); item 149.
 
 ---
