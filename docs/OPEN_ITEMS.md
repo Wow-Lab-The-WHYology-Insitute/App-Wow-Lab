@@ -646,6 +646,19 @@ calling her a trainer.
 
 ---
 
+**10. Datele a două promovări** — item 197 below. *New 2026-11-16.* Blocks item 193 (ARC).
+
+> În pontaj, Teodora apare la nivelul 3 până pe 23 septembrie și la nivelul 4 de pe 20 octombrie.
+> Alexandra Nuțu apare la nivelul 3 pe 12 octombrie, iar înainte era la 2.
+>
+> De la ce dată e fiecare la nivelul nou?
+
+Why it is hers to answer: we tried to derive it from the hours and it cannot be done. The same step
+happens at anywhere from 10 to 109 hours, and levels sometimes go down (item 197). Any date after
+23.09 moves no confirmed session for Teodora (item 196).
+
+---
+
 **4. Grila de evaluare a performanței** — item 23 below. Six points with no confirmed design.
 
 **5. Cele cinci sume rămase din grile** — item 20 below.
@@ -8033,6 +8046,12 @@ So the three-tier scale is live, not legacy, and `location_bonus_rates`' 0 / 25 
 
 **Elena Bacalum is both** — grade 3 as a trainer and a lesson-plan writer in the same sheet. That is item 130's shape exactly (Cătălina holding a trainer grade and an admin rate), now with a third rate kind, and it is the reason the eventual hours-entry screen cannot key pay on the person.
 
+**CORRECTED 2026-11-16 (item 197): the RATE already had a home when this was written.**
+`202609020002` (2026-09-02) built lesson-plan pay as its own versioned grid, on SAD §12.3. Live: 120,00
+from 2024-01-01, 133,20 from 2026-09-01. The 1–6 bound is deliberate, not a gap. What has no home is
+the WORK: no table records a lesson plan written, and nothing calls `app.resolve_lesson_plan_rate`.
+The paragraph below proposed `admin_rates` without knowing about that grid.
+
 **The nearest existing home is `admin_rates`**, which already holds hourly work keyed by (person, task category) with its own versioning — adding a `lesson_plan` category there is a smaller change than a seventh grade, and it keeps workshop pay and hourly pay in different tables, which is what they are. Not proposed as a decision; recorded as the obvious candidate.
 
 **WORKSHOP TYPES RECONCILED 2026-10-20, and `New Lesson Plan` is the only gap.** Every non-school
@@ -8166,6 +8185,13 @@ and *"to be paid"* say **whether the money moved**.
 **Alexandra Nuțu has progressed 1 → 2 → 3** (the mapping tab's own `Data` column puts her at grade 1 from 18.11.2024). Ours says 2 effective 2026-09-01; the timesheet pays her 3 on 12.10.2026 — and the 228,00 on that row is 114 × 2.00 (grade 3's rate at Other cities), so the grade and the rate agree with each other there. Hers is the correction to make, with the effective date Anca gives for the promotion — and the date matters for the same reason Lorina's did: a grade effective too early calculates a workshop that should raise.
 
 **Why this is worth recording even though only one row is wrong.** The check itself is the finding: *"which of our grades disagrees with what was actually paid"* is answerable in one pass over the timesheet, and nobody had run it. It should be re-run whenever the grid or the assignments are touched, because a grade that drifts does not fail — it quietly pays the wrong rate, and `/payroll` will show a confident figure either way.
+
+**WITHDRAWN 2026-11-16 (item 197): the paragraph below is wrong about the mechanism and the
+"derived, not asked" conclusion.** It says a grade is a crossed hours threshold. Across the whole
+04.11 export, the same step happens at anywhere from 10 to 109 hours, and levels also go DOWN, which
+no rule on hours can produce. Alexandra's promotion is real (the rate corroborates it); its date
+must come from Anca. Her row was also never corrected: still 2 from 2026-09-01. Kept as written, so
+the error is visible.
 
 **RESOLVED 2026-10-20 FROM THE TIMESHEET — it is a real promotion, derived, not asked.** Row 69 of
 the feedback (Cătălina): *"Trainerul vede nivelul la care e încadrat. Trecere automată de nivel la
@@ -10335,8 +10361,17 @@ function, once there are real sessions to feed it, is expected to say 2.598,00, 
 number to treat as correct unless Teodora's own grade turns out to be wrong for some reason not yet
 found.
 
-**Blocked on:** Anca's answer, joint-vs-parallel delivery for 19 and 20 October — nothing else.
-**Re-verify when:** that answer arrives — build the sessions in whichever shape she confirms, then
+**PRECONDITION added 2026-11-16 (Mihai): Teodora's grade is settled BEFORE the ARC sessions are
+built.** The paragraph above was right about the APPLICATION (3, never edited) and wrong to treat
+the 4 as Mihai's error. The timesheet pays her grade 4 (121) from 20.10, and her ARC rows are those
+20.10 rows. Both were true, in different windows (item 183's second rule). Building ARC on today's
+row would price her 4 sessions at 127 instead of 134, silently: -28,00 lei, the exact gap above.
+The date comes from Anca (item 197: it cannot be derived), and is entered as a new
+`trainer_grade_assignments` row. Any date after 23.09 moves no confirmed session (item 196, P1).
+
+**Blocked on:** Anca's answer, joint-vs-parallel delivery for 19 and 20 October, **and** Teodora's
+3 → 4 date (question 10 in the batch).
+**Re-verify when:** both answers arrive — enter the grade first, then build the sessions in whichever shape she confirms, then
 run the real `app.calculate_org_session_pay` and `app.calculate_org_principal_bonus` and report
 whatever they actually say, including if it still isn't 2.626,00 or still isn't zero.
 **Lives in:** `supabase/migrations/202611100001_scoala_arc_client_contract.sql`;
@@ -10851,6 +10886,206 @@ re-run `db/tests/grid_correction.sql` and `grid_confirmed_pay_guard.sql`.
 above (the 10 confirmations that measured point 2); item 186 above (question 2, withdrawing an
 approval); `202610300001` (the real correction measured here); `202611090003`/`005` (the
 `corrects_version_id` shape to extend to location/language); §26.
+
+---
+
+### 196. Item 194's guard covers 8 tables; the pay function reads 3 more, and a write to any of them re-prices confirmed pay silently. MEASURED 2026-11-16, nothing built
+
+Found by Mihai, from the timesheet, while reading Teodora's grade (item 197 below). Everything below
+was induced on the real organization (`wow-lab`), one rolled-back transaction per probe, measured
+with the guard's own instrument (`app.grid_confirmed_pay_snapshot` before/after,
+`app.grid_correction_declaration` for the summary). §24 strong form: nothing here is read off the
+code alone.
+
+**How the grade is chosen, induced, not read.** Three extra rows for Teodora, inserted in this order:
+grade 4 from 10.09, grade 6 from 01.12, grade 1 from 05.09 (inserted last).
+- Her 09.09 sessions read **grade 1 (111)**. Her 16.09 and 23.09 sessions read **grade 4 (134)**.
+- So the rule is: per session date, the row with the latest `effective_from` on or before that date.
+  Neither insertion order nor the newest row decides. The 01.12 row touched nothing.
+- **Both directions work the same way.** Nothing compares a new row to the previous level. The CHECK
+  only bounds 1–6, so a demotion is as writable as a promotion.
+
+**What moves, and the guard said nothing to any of it:**
+
+| probe | write | confirmed slots moved | lei |
+|---|---|---|---|
+| P1 | Teodora grade 4 from **01.10** (Mihai's exact question) | **0** — her 6 confirmed sessions are all 09–23.09 | 0 |
+| P3 | Teodora grade 4 from 02.09 (retroactive promotion) | 6 (Sept) | 762,00 → 804,00 (+42,00) |
+| P4 | Cătălina 6 → **5** from 01.10 (retroactive demotion) | 18 (Oct, Nov) | 3.675,00 → 3.479,00 (**−196,00**) |
+| P5 | grade 6 for Teodora, written **in Test Org B** by Test Org B's owner, through RLS | 6 (Sept, **wow-lab**) | 762,00 → 900,00 (+138,00) |
+| P6 | `groups.language_group` ro_en → fr_de_es, group b2, through the group form's own grant + RLS, as Organization Owner | 5 (Sept, Oct) | 619,00 → 742,80 (+123,80) |
+| P7 | `rpc_update_session_allocation`: confirmed 23.09 session, Teodora → Cătălina as principal | 1 | 127,00 → 150,00 |
+| P8 | `rpc_cancel_session`, `trainer_indisponibil`, on a confirmed session | 1 | 127,00 → 0,00 |
+
+**The complete input list of `app.calculate_org_session_pay`**, i.e. of `app.calculate_session_pay`, set against the 8 guarded tables:
+
+| read | columns | guarded? | who can write it |
+|---|---|---|---|
+| `trainer_grade_versions` / `_rates` | via `resolve_grid_version` | **yes** | — |
+| `duration_multiplier_versions` / `_rates` | same | **yes** | — |
+| `location_bonus_versions` / `_rates` | same | **yes** | — |
+| `language_bonus_versions` / `_rates` | same | **yes** | — |
+| **`trainer_grade_assignments`** | `grade_level`, `effective_from` | **no** | INSERT: `finance.operations.*` / `finance.reporting.*` / platform owner, by direct API (no screen writes it); migrations |
+| **`groups`** | `language_group`, `delivery_format` | **no** | direct column UPDATE grant: `org.settings.manage` / `groups.create` / `contracts.*` — the group edit form |
+| **`sessions`** | `session_date`, `duration_minutes`, `location_tier`, `group_id`, `trainer_*_id`, `status`, `cancellation_category` | **no** | no direct grant; `rpc_update_session_allocation` (trainers), `rpc_cancel_session` (status), INSERT (item 166), migrations |
+
+`contract_type_uplift_*` is not read (item 188). The item-175 bonus
+(`app.calculate_org_principal_bonus`) reads `sessions` and `groups`, plus a literal 20,00. It
+therefore shares the same two unguarded tables and has no grid of its own. `delivery_format` has the same
+grant as `language_group`, but was **not** induced; for it I am stating the grant, not a measurement.
+Approved amounts are frozen on the session row (item 186), so none of this reaches an approved
+slot. **Today wow-lab has 0 approved slots**, which means every confirmed slot is exposed.
+
+**Three findings beyond the one Mihai asked about:**
+1. **`app.resolve_trainer_grade` has no `organization_id` filter** (P5). Test Org B's owner is not
+   a platform owner and not a wow-lab member. Their own capability in Org B is enough to write a
+   grade that wow-lab's pay function then reads. Not every reader sees that row:
+   - **Ignore it:** `/payroll`, running as a wow-lab finance user, because RLS hides the Org B row.
+   - **Use it:** `rpc_approve_session_pay` (SECURITY DEFINER, via `calculate_session_pay`) would
+     freeze the inflated amount, and the trainer's own `/my-work` grade read (own-row branch, no
+     org filter) would show it.
+
+   Only Mihai controls another organization today, so this is latent, not exploited. Any guard on
+   assignments has to fix it first: a guard keyed on the row's own organization would snapshot
+   Org B and see nothing move.
+2. **`rpc_update_session_allocation` keeps the confirmation when it changes the person** (P7).
+   After the swap, Cătălina's slot carries `trainer_principal_confirmed_at` = 2026-10-20, an
+   import's confirmation of Teodora's work (item 152). That is worse than a pay change: it records
+   a confirmation by someone who never made it. This is the §19 shape, and §23 cannot describe it.
+3. **Cancelling a confirmed session** (P8) zeroes its pay and leaves the confirmation in place. This
+   is the mirror image of item 184's defect (Confirm offered on a cancelled session).
+
+**Mihai's proposal (2026-11-16):** extend the guard to `trainer_grade_assignments` and route grade
+changes through item 195's sanctioned form, not a flat refusal. A retroactive promotion is
+legitimate, and a refusal would block the real case (§26, second half).
+
+**My opinion, asked for before any build: yes. The statement half of 195 fits as it is; the
+correction half does not, and does not need to.**
+- **Fits unchanged:** the guard's computation and the staleness recompute. Both are agnostic to
+  the table. P1–P8 were measured with exactly that instrument, and its INSERT branch (undo the row,
+  recompute) needs no version. The declaration is signed, so P4's −196,00 is stated as clearly as
+  P3's +42,00. Nothing new is needed for the direction.
+- **`corrects_version_id` is not needed for the real case.** A retroactive promotion is a new
+  fact, not a correction: Teodora's "3 from 01.09" stays true up to the day before her new row.
+  The only case needing a pointer is a row wrong on its own date. `UNIQUE (trainer_id,
+  effective_from)` blocks fixing that by insertion, and app users have no UPDATE. **No such row is
+  known today** (Teodora's and Alexandra's rows are both true for their windows; item 197), so it
+  is named, not built (§20).
+- **`grid_corrections` keys on `version_id`, and an assignment has no version.** My recommendation
+  is one table of confirmed statements, not two: generalize the column (it holds "the row this
+  statement sanctions") and extend the `grid` CHECK, in one migration. One reader (`/payroll`)
+  changes with it. A second table would split "where a human confirmed a pay impact" in two.
+- **Order inside one migration:** first the org filter on `resolve_trainer_grade` (finding 1),
+  then the guard on assignments, then the sanctioned path. Gate: the same provisional
+  `finance.approvals.approve` as 195.
+- **A demotion gets nothing extra in the schema.** What it lacks is telling the trainer, who has
+  seen the higher figure on `/my-work` since confirming. Nothing in this application notifies
+  anyone (item 164). That is a process gap, and a column would not close it.
+- **Teodora's answer does not wait for this build.** P1: with 01.10, or any date after 23.09, zero
+  confirmed slots move. The build is needed only if Anca names a date on or before 23.09.
+
+**Findings 2 and 3, and `groups`, are separate decisions, not folded into the proposal above.** My
+lean, not decided:
+- The allocation swap should refuse (or clear the slot's confirmation) on a confirmed slot.
+- `language_group`/`delivery_format` belong under the same guard + statement as assignments.
+- Cancelling a confirmed session pairs with item 184's two defects.
+
+**Blocked on:** Mihai's decision on the shape above.
+**Re-verify when:** anything is built here. Rebuild P1–P8 from the table above (each probe is one
+write plus a snapshot before and after, rolled back). Expect P5 to stop moving wow-lab, and P1–P4
+and P6 to refuse or demand a statement. Whatever is built should leave them as `db/tests` blocks.
+**Lives in:** nothing changed. Item 194 (the guard), item 195 (the sanctioned form), item 197 below
+(why the grade question exists), item 193 (the precondition this created), item 152 (the
+confirmation P7 transfers), item 184 (the cancelled-session defects), item 166 (`sessions` INSERT),
+§19, §23, §26.
+
+---
+
+### 197. The grade progression rule cannot be derived from the timesheet — structurally, not statistically. Item 149's "a grade is a crossed hours threshold" is withdrawn
+
+2026-11-16, Mihai's measurement, re-measured by me on the same export before writing it. **Window:
+`New Wow Lab Trainer Calculations Table - Pontaj si Norma (1).csv`, the 2026-11-04 export (file
+mtime 04.11 11:35); 1,557 filled, dated rows with a numeric grade.** The sheet is 10,941 rows, and
+9,379 of them carry no trainer name (template rows). So "10.937 rows" is the sheet's size, not its
+data (item 183's second rule). Grade 7 is excluded throughout (a different rate kind, item 145).
+Cumulative hours run from the sheet's first row (07.08.2024). For anyone working before that they
+are a lower bound.
+
+**The thresholds scatter.** The same 3 → 4 step happens at **10 / 31 / 31,5 / 36 / 70,5 / 109**
+cumulative hours (Elena Bacalum, Sonia Ganea, Andreea Minea, Diana Pricopi, Andrada Eremia, Teodora
+Merișan): a tenfold spread for one step. Mihai's recurring-schools-only filter gives 16 / 30 / 30,5
+/ 51,5 / 101; I did not re-run that filter. All other figures here reproduce exactly.
+
+**The proof: levels go down.**
+- **25 promotions and 2 demotions** day-to-day: Andreea Tudor 2 → 1 (05.03.2025), and Sonia Ganea
+  5 → 4 (21.10.2025), back to 5 on 06.11.2025, 16 days later.
+- **Plus one mixed day:** Viorel Toboșaru on 20.10.2025 carries grades 1 *and* 2.
+- **Why that refutes the model:** cumulative hours only grow, so no rule on hours can produce a
+  demotion. The hours model is refuted, not just left unconfirmed (§20: a strong negative result).
+- **Sonia's dip reads as a correction in the file, not a real demotion:** "trainerii nu
+  întotdeauna completează corect" (Anca, 2026-11-09).
+- **No review cycle either.** Only two days carry more than one transition: 05.05.2025 (3) and
+  01.04.2026 (3). The rest are spread over every month.
+
+**Consequences:**
+1. **Teodora's promotion date cannot be deduced.** Her last grade-3 row is 23.09 (DSBU), her first
+   grade-4 row 20.10 (ARC). The promotion happened somewhere in that interval, and the file does
+   not say where. The question to Anca stays, and it now has a written reason: we tried, and it
+   cannot be done. Alexandra Nuțu's 2 → 3 (first grade-3 row 12.10.2026) is the same question.
+   Item 149 had called hers a data fix "whose date comes from the sheet", and it is not one.
+2. **Feedback row 69 ("trecere automată de nivel la nr. ore prag, azi manual, Laura") has no formula
+   to encode.** Whoever builds it would be **inventing** a rule, not implementing one. Written now so
+   nobody discovers it halfway through building.
+3. **Any grade model must support going down**, which has happened twice, three times counting
+   Viorel's mixed day. A backdated demotion **reduces** a confirmed session's pay. Measured in item
+   196 P4: Cătălina 6 → 5 from 01.10 moves 18 confirmed slots by −196,00 lei, silently.
+   - **What exists handles both directions, and protects neither.** `trainer_grade_assignments`
+     takes a demotion exactly like a promotion: no direction anywhere, CHECK 1–6 only. The guard
+     does not cover the table at all.
+   - **The proposed extension handles both directions by construction:** the declaration is signed.
+
+**Live assignments against the timesheet, school year 2026-27 (rows from 01.09.2026, same export).**
+Nothing repaired, per Mihai's instruction:
+
+| trainer (timesheet name) | timesheet | ours (`grade_level`, `effective_from`, `set_by`, `created_at`) | |
+|---|---|---|---|
+| Teodora Merișan | 3 (7 rows, 09–23.09) → **4** (13 rows, 20–31.10) | 3, 2026-09-01, Anca, 2026-09-24 | **behind** |
+| Alexandra Nuțu | **3** (1 row, 12.10) | 2, 2026-09-01, Anca, 2026-09-24 | **behind** (item 149, never applied) |
+| Andreea Cruglic | 6 (6 rows, 21.10–03.11) | **no user, no row** | **absent** |
+| Diana Cocea | 6 (last row 22.10) | **no user, no row** | **absent** |
+| Cătălina Trușan (= Cătălina Moale, item 178) | 6 | 6, 2026-09-01, Anca, 2026-09-24 | ✓ |
+| Andrada Eremia | 6 | 6, 2026-09-01, Anca, 2026-09-24 | ✓ |
+| Sonia Ganea | 6 | 6, 2026-09-01, Anca, 2026-09-24 | ✓ |
+| Lorina Ciurușniuc | 2 | 2, **2026-09-30**, Anca, 2026-10-19 | ✓ |
+| Raluca Popa | 1 | 1, 2026-09-01, Anca, 2026-09-24 | ✓ |
+
+**Notes on the table:**
+- **`set_by` = Anca on every row is the seed migration's attribution** (`202609240002`, per her
+  2026-09-24 answer), not a sign she typed them.
+- **No real assignment has ever been updated or deleted:** `row_history` holds 3 entries for the
+  table, all Test Org B fixtures.
+- **Exposure today is zero,** as Mihai said. Teodora's and Alexandra's later-grade rows are all at ARC,
+  Scoala Altfel and Wow Lab Party, none imported, and Teodora's 6 confirmed sessions are all
+  September.
+
+**Grade 7, checked in the register before answering.** The 1–6 bound is **deliberate and older than
+the question**. On 2026-09-02, `202609020002` built lesson-plan pay as **its own versioned grid**
+(`lesson_plan_rate_versions`/`_rates`) on SAD §12.3: "un tip de lucru separat… nu o treaptă
+suplimentară". Live: 120,00 from 2024-01-01 and 133,20 from 2026-09-01. So 7 is meant not to fit.
+**What is actually missing is narrower than item 145 said:**
+- **The rate has a home; the work does not.** No table records a lesson plan written, and nothing
+  calls `app.resolve_lesson_plan_rate`.
+- **Item 145 called it "no home" and proposed `admin_rates`** without mentioning this grid.
+  Corrected there.
+
+**Blocked on:** Anca, two dates (Teodora 3 → 4; Alexandra 2 → 3), question 10 in the batch above.
+Andreea Cruglic and Diana Cocea have no account at all, which is an onboarding question, not a grade
+one.
+**Re-verify when:** a new timesheet export arrives. Re-run the per-trainer table on it with the
+export date. Also when anyone proposes automatic progression: point them here first.
+**Lives in:** nothing changed. Item 149 (the claim this withdraws), item 145 (grade 7, corrected),
+item 196 above (the demotion measured), item 193 (Teodora at ARC), item 183 (window + export date),
+`supabase/migrations/202609240002` (the seed), `202609020002` (the lesson-plan grid).
 
 ---
 ### 18. Pending invites — cut deliberately

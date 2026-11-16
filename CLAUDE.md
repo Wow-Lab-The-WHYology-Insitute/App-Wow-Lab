@@ -307,6 +307,26 @@ is in Romanian; code, comments, commits and this file are in English.
   - **Verified:** `202610300001` re-run through the real RPC reproduces 38 / 6.118,50 → 6.801,00.
   - **Known limits:** Cătălina cannot reach the page. Withdrawing an approval is still not built.
   - **Read before touching** any grid write path, `grid_corrections`, or the guard.
+- **Item 196, 2026-11-16, measured, NOT built — the guard covers 8 tables; pay reads 3 more.**
+  - **Unguarded:** `trainer_grade_assignments`, `groups.language_group`/`delivery_format`, and
+    `sessions`. Induced on wow-lab, rolled back: a retroactive grade (both directions; Cătălina
+    6→5 from 01.10 = 18 slots, −196,00), a group language change, a trainer swap, and a cancel
+    each re-price confirmed pay silently.
+  - **The grade rule, induced:** by session date — the latest `effective_from` on or before it.
+  - **`resolve_trainer_grade` has no org filter.** Test Org B's owner moved wow-lab pay through RLS.
+  - **`rpc_update_session_allocation` hands one trainer's confirmation to another.**
+  - **Mihai's proposal:** guard + item 195's statement for grade changes. My opinion is in the
+    item: it fits without `corrects_version_id`; the org filter goes first. Awaiting his decision.
+    Read the item before touching any pay input.
+- **Item 197, 2026-11-16 — the progression rule cannot be derived from the timesheet.**
+  - **Why:** the same step happens at 10 to 109 hours, and levels go DOWN, which no hours rule can
+    produce. Item 149's "crossed hours threshold" is withdrawn.
+  - **Behind / absent:** Teodora (3, timesheet 4 from 20.10) and Alexandra (2, timesheet 3) are
+    behind. Andreea Cruglic and Diana Cocea have no account.
+  - **Grade 7 is deliberately outside 1–6:** lesson-plan pay has had its own grid since
+    `202609020002`; item 145 corrected.
+  - **Item 193 precondition:** Teodora's grade is settled before ARC sessions are built (question
+    10 to Anca).
 - **§24 instrument addendum (2026-11-14):** presence is measured by what a person WROTE
   (`row_history` actor), never by `last_sign_in_at` or other session metadata. A pre-push gate
   asks "has anyone written anything in the last N hours".
