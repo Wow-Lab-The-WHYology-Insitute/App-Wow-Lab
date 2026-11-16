@@ -11367,9 +11367,9 @@ The layers:
 | `trainer_grade_assignments` INSERT | **L1 only** | `trainer_id` → `users`: **no L2 possible**; L5 since `202611160001` | **none** (item 196, not built) | |
 | `sessions` INSERT (column grants + RLS) | **L1 only** | `group_id`: L2; trainers → `users`: no L2 | **none** (items 166/196) | |
 | `sessions` UPDATE: allocation, cancel, confirm, correct, approve, attendance (all DEFINER) | **L4 only** | trainers → `users`: allocation does **not** check that the trainer belongs to the session's organization | **none** | item 199 |
-| `groups` INSERT/UPDATE (column grants include `organization_id` itself) | L1 on the old AND new row: moving an Org B group into wow-lab was **refused** (induced) | `client_id`/`contract_id`: L2; `on_site_contact_id`: wave 3 | **none** for `language_group`/`delivery_format` (item 196) | L2 also refuses that move: its client and its sessions would mismatch |
+| `groups` INSERT/UPDATE (column grants include `organization_id` itself) | L1 on the old AND new row: moving an Org B group into wow-lab was **refused** (induced) | `client_id`/`contract_id`: L2; `on_site_contact_id`: L2 (wave 3) | **none** for `language_group`/`delivery_format` (item 196) | L2 also refuses that move: its client and its sessions would mismatch |
 | `payroll_periods` INSERT (month close) | **L1 only**, plus `closed_by` = the caller | no parent but the organization | — | |
-| `payroll_period_totals` INSERT | **L1 only** | `payroll_period_id`: L2; `legal_entity_id`: wave 2; `trainer_id` → `users` | — | |
+| `payroll_period_totals` INSERT | **L1 only** | `payroll_period_id`: L2; `legal_entity_id`: L2 (wave 2); `trainer_id` → `users` | — | |
 | **migrations / service role, any table** | **nothing** (RLS bypassed, L4 not involved) | **L2 holds** | **L3 holds** | the only layers that bind a migration are the structural ones |
 
 **Read it this way:**
@@ -11389,17 +11389,48 @@ The layers:
 
 **What each wave buys:**
 - **Wave 1 (built):** parent consistency on the pay tables; L3's premise true by construction.
-- **Wave 2:** the 8 keys whose parent is a client, contract or legal entity:
+- **Wave 2 (BUILT, `202611160003`):** the 8 keys whose parent is a client, contract or legal entity:
   - `contracts.client_id`, `contracts.legal_entity_id`, `contracts.amends_contract_id`,
     `contracts.renewal_of`;
   - `client_contacts.client_id`, `school_calendar_closures.client_id`;
   - `payroll_period_totals.legal_entity_id`, `supplier_contracts.legal_entity_id`.
 
   That is who is billed, by which entity. `client_effective_status` is already proven exploitable.
-- **Wave 3:** the remaining 6:
+- **Wave 3 (BUILT, `202611160004`):** the remaining 6:
   - `groups.on_site_contact_id`;
   - `session_lesson_plans.session_id`/`lesson_plan_id`, `lesson_plan_modules.lesson_plan_id`;
   - `supplier_contracts.supplier_id`/`amends_contract_id`.
+
+**WAVES 2 AND 3 BUILT 2026-11-16 — the class is closed structurally.** Same procedure as wave 1,
+each wave in order: tests first and failing, then the migration, then the suite.
+- **Wave 2, before:** 8/8 cross-org writes accepted (controls accepted). An Org B signed contract
+  turned a fresh wow-lab prospect `active`, with the precondition shown: it read `prospect` first,
+  so a flip was possible (§27).
+  - **After:** 8/8 refused; the client stays `prospect`. SABOTAGE (point 11, the key reverted)
+    flips it back to `active`.
+  - **One layer, deliberately:** no filter was added inside `client_effective_status`. That is a
+    separate decision.
+  - **Suite:** 543/543.
+- **Wave 3, before:** 6/6 accepted (controls accepted).
+  - **After:** 6/6 refused.
+  - **No observable probe, a negative result (§20):** no wow-lab figure, status or screen was found
+    that a cross-org row on these keys would move.
+  - **Suite:** 558/558, 33 files, 0 block errors (543 + 15 new, the class test and its
+    SABOTAGE included).
+- **THE CLASS TEST, point 13:** no single-column foreign key may exist between two org-scoped
+  tables, anywhere in `public`.
+  - **Before wave 3** it failed, naming exactly the six remaining keys. **After:** "none".
+  - **SABOTAGE (point 14):** a new table with a plain key to `groups`, the shape a future
+    migration writes by habit, and it flips.
+  - **This is the check for the table nobody has written yet.** It needs nobody to remember this
+    item. Wave 3's migration asserts the same invariant in its own self-test.
+- **Data:** 0 existing cross-org references on any of the 29 keys, measured before each wave.
+- **What stays outside, by design and named:**
+  - keys to `users` (global) and to `organizations` (the organization IS the parent);
+  - **the parentless tables, which rest on RLS alone** (the map above);
+  - **DEFINER RPCs, which rest on their own code** (L4).
+
+  No wave reaches those three, and none was meant to.
 
 **In wave 1, what it covers:** the seven `*_rates.version_id`, the four `corrects_version_id`,
 `sessions.group_id`, `groups.client_id`/`contract_id` (they decide the principal bonus's school and
@@ -11407,8 +11438,9 @@ the paying entity), and `payroll_period_totals.payroll_period_id`.
 - **Allocations and grade assignments** reference `users`: out of scope by design, as above. The
   grade read is already scoped (`202611160001`).
 - **Approvals** are columns on `sessions`, with no foreign key.
-- **Left for wave 2:** `payroll_period_totals.legal_entity_id` (a legal entity) and
-  `groups.on_site_contact_id` (a contact, not pay).
+- **Left for later waves:** `payroll_period_totals.legal_entity_id` (a legal entity, wave 2) and
+  `groups.on_site_contact_id` (a contact, not pay, wave 3). Corrected 2026-11-16: this line first
+  put both in wave 2, while the map above, written the same day, had the contact in wave 3.
 
 **Out of wave 1 by decision:** item 199 points 2 and 4–5, blocked on Anca's questions 11 and 12.
 Not started partially.

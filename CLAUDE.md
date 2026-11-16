@@ -333,7 +333,13 @@ is in Romanian; code, comments, commits and this file are in English.
       against the live schema. Each write has a control; each layer holds alone; SABOTAGE flips.
     - The 79 functions were SCANNED, not audited. The keys make completeness of any scan
       irrelevant (§26 applied to isolation).
-  - **Waves 2–3 not started.**
+  - **WAVES 2–3 BUILT (`202611160003`/`004`): all 29 org-to-org keys are composite.**
+    `cross_org_write_isolation.sql` point 13 fails the suite on ANY future single-column key
+    between two org-scoped tables. That is the check for tables not yet written.
+  - **The isolation map is in item 198.** Parentless tables (version headers, `payroll_periods`,
+    grade assignments, `grid_corrections`, `clients`, `legal_entities`) rest on RLS ALONE.
+    DEFINER RPCs rest on their own code. Read the map before removing or widening any layer.
+  - **§27 (new):** a probe without a control measures nothing; use the empty-parent technique.
   - Read the item before adding any FK or DEFINER read.
 - **Item 199 — session state vs the trainer's own confirmation, one family.**
   - **Decided:** a trainer swap CLEARS the confirmation, never transfers it.
