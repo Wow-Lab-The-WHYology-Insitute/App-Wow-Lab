@@ -8186,6 +8186,12 @@ and *"to be paid"* say **whether the money moved**.
 
 **Why this is worth recording even though only one row is wrong.** The check itself is the finding: *"which of our grades disagrees with what was actually paid"* is answerable in one pass over the timesheet, and nobody had run it. It should be re-run whenever the grid or the assignments are touched, because a grade that drifts does not fail — it quietly pays the wrong rate, and `/payroll` will show a confident figure either way.
 
+**A PROCESS FAILURE, recorded as one (Mihai, 2026-11-16).** This item ended "Blocked on: nothing.
+The correction is a data fix". That was a decision with an action and nothing in its way. The action
+never happened, and for 27 days nobody noticed. The finding is not "Alexandra is behind". It is that
+an open, actionable item can sit in this register indefinitely, because nothing reads the register
+for decided-but-undone work. The register-wide measurement of the same state is item 200 below.
+
 **WITHDRAWN 2026-11-16 (item 197): the paragraph below is wrong about the mechanism and the
 "derived, not asked" conclusion.** It says a grade is a crossed hours threshold. Across the whole
 04.11 export, the same step happens at anywhere from 10 to 109 hours, and levels also go DOWN, which
@@ -9920,6 +9926,10 @@ show her anything else.**
 - `status = 'planned'` in the 11-09 count also excluded the 4 cancelled. So they appeared in
   neither count, and the banner's 14 was never reconciled with either.
 
+**MOVED 2026-11-16: this defect and the banner's cancelled-session count now live in item 199
+below, together with the trainer swap and the cancel on a confirmed session, as one family**
+(Mihai: "aceeași familie"). The text here is the original finding.
+
 **A second screen defect, found by this measurement. Reported, NOT fixed** (Mihai: nothing to
 build).
 - **The defect.** The group page offers **Confirm** on a cancelled session. `ConfirmationControl`
@@ -10990,7 +11000,17 @@ lean, not decided:
 - `language_group`/`delivery_format` belong under the same guard + statement as assignments.
 - Cancelling a confirmed session pairs with item 184's two defects.
 
-**Blocked on:** Mihai's decision on the shape above.
+**DECIDED 2026-11-16 (Mihai): the variant above, accepted in full.**
+- **Shape:** the guard on `trainer_grade_assignments`, through 195's statement, with no
+  `corrects_version_id`. A retroactive promotion is a new fact, not a correction; the reasoning is
+  general and is now written into §26 ("Succession or correction").
+- **Statements table:** a single `grid_corrections`, with the column generalized.
+- **`language_group`/`delivery_format`:** under the same guard.
+- **ORDER CHANGED:** the organization filter first, ALONE, as its own item. It is item 198 below,
+  BUILT (`202611160001`). Then the guard, then the sanctioned path. Findings 2 and 3 (swap,
+  cancel) moved to item 199 below, with item 184's two defects, as one family.
+
+**Blocked on:** nothing; next in order after item 198. Not started.
 **Re-verify when:** anything is built here. Rebuild P1–P8 from the table above (each probe is one
 write plus a snapshot before and after, rolled back). Expect P5 to stop moving wow-lab, and P1–P4
 and P6 to refuse or demand a statement. Whatever is built should leave them as `db/tests` blocks.
@@ -11016,14 +11036,21 @@ cumulative hours (Elena Bacalum, Sonia Ganea, Andreea Minea, Diana Pricopi, Andr
 Merișan): a tenfold spread for one step. Mihai's recurring-schools-only filter gives 16 / 30 / 30,5
 / 51,5 / 101; I did not re-run that filter. All other figures here reproduce exactly.
 
-**The proof: levels go down.**
-- **25 promotions and 2 demotions** day-to-day: Andreea Tudor 2 → 1 (05.03.2025), and Sonia Ganea
-  5 → 4 (21.10.2025), back to 5 on 06.11.2025, 16 days later.
-- **Plus one mixed day:** Viorel Toboșaru on 20.10.2025 carries grades 1 *and* 2.
-- **Why that refutes the model:** cumulative hours only grow, so no rule on hours can produce a
-  demotion. The hours model is refuted, not just left unconfirmed (§20: a strong negative result).
-- **Sonia's dip reads as a correction in the file, not a real demotion:** "trainerii nu
-  întotdeauna completează corect" (Anca, 2026-11-09).
+**The proof: levels go down. It rests on TWO demotions, not three (corrected 2026-11-16).**
+- **Andreea Tudor 2 → 1 (05.03.2025), the clean one.** She has 10 rows at grade 2 (107) to 20.02.
+  Then she has 6 at grade 1 (100) through 03.06.2025, at four different venues (Verita, Săptămâna
+  Verde, Mateas, Lycée). That is a sustained, paid decrease, not one row.
+- **Sonia Ganea 5 → 4 (21.10.2025), back to 5 on 06.11.2025.** She has 9 rows at grade 4 (121)
+  over two days at one client (Electrica), and returns to 5 16 days later. It reads as an entry
+  error ("trainerii nu întotdeauna completează corect", Anca, 2026-11-09). It is still a recorded
+  and paid decrease, which is the property the argument needs.
+- **Viorel Toboșaru FELL at verification and is not counted.** He was first listed as a third
+  demotion (2 → 1, 20.10.2025). His rows are 5 at grade 1 and 5 at grade 2, on the same day, at the
+  same school (Cernavodă). That is an inconsistency in how the day was filled in, not a step down.
+- **Why two are enough:** cumulative hours only grow, so no rule on hours can produce a demotion.
+  The hours model is refuted, not merely left unconfirmed (§20: a strong negative result). A
+  demonstration that loses an example under checking and still stands is stronger than one that
+  was never checked.
 - **No review cycle either.** Only two days carry more than one transition: 05.05.2025 (3) and
   01.04.2026 (3). The rest are spread over every month.
 
@@ -11036,8 +11063,8 @@ Merișan): a tenfold spread for one step. Mihai's recurring-schools-only filter 
 2. **Feedback row 69 ("trecere automată de nivel la nr. ore prag, azi manual, Laura") has no formula
    to encode.** Whoever builds it would be **inventing** a rule, not implementing one. Written now so
    nobody discovers it halfway through building.
-3. **Any grade model must support going down**, which has happened twice, three times counting
-   Viorel's mixed day. A backdated demotion **reduces** a confirmed session's pay. Measured in item
+3. **Any grade model must support going down**, which has happened twice (Viorel's day does not
+   count, above). A backdated demotion **reduces** a confirmed session's pay. Measured in item
    196 P4: Cătălina 6 → 5 from 01.10 moves 18 confirmed slots by −196,00 lei, silently.
    - **What exists handles both directions, and protects neither.** `trainer_grade_assignments`
      takes a demotion exactly like a promotion: no direction anywhere, CHECK 1–6 only. The guard
@@ -11086,6 +11113,236 @@ export date. Also when anyone proposes automatic progression: point them here fi
 **Lives in:** nothing changed. Item 149 (the claim this withdraws), item 145 (grade 7, corrected),
 item 196 above (the demotion measured), item 193 (Teodora at ARC), item 183 (window + export date),
 `supabase/migrations/202609240002` (the seed), `202609020002` (the lesson-plan grid).
+
+---
+
+### 198. Tenant isolation was tested for reads only: a WRITE in one organization could change another organization's computed answers. The grade resolver FIXED (`202611160001`); the class it belongs to, measured and open
+
+2026-11-16, from item 196's P5. **Mihai's framing, and the correct one:** this is not a pay
+problem. It is a breach of isolation between tenants, in a product built to be franchise-ready,
+with a cross-org `platform_owner` in the schema from the start. "Latent, because only Mihai has
+another organization" was the wrong frame: the defect does not wait for a second customer.
+
+**Why it is serious, in one chain.**
+1. Test Org B's owner (not a platform owner, not a wow-lab member) wrote a grade row in Org B for
+   a wow-lab trainer, through RLS, on Org B's own capability.
+2. Six confirmed wow-lab slots moved (762,00 → 900,00).
+3. `/payroll` would not have shown it: it runs SECURITY INVOKER, and RLS hides the Org B row from
+   a wow-lab finance user.
+4. `app.rpc_approve_session_pay` runs as SECURITY DEFINER, would have seen the row, and **would
+   have frozen the inflated amount**.
+5. That makes the breach a frozen, approved amount that **only withdrawing the approval could
+   change**, a path not built yet (question 2 to Anca); item 195's correction leaves approved
+   slots frozen.
+
+**FIXED: `202611160001`, alone in its migration, before item 196's guard.**
+- **The signature:** `app.resolve_trainer_grade(p_organization_id, p_trainer_id, p_as_of)`, with
+  the organization first like its five siblings, and filtered on it.
+- **The old form is gone:** the two-argument form is DROPPED, not left beside the new one, because
+  an unscoped overload that still resolves keeps the breach available.
+- **The one caller:** `app.calculate_session_pay`, measured over every function in `app`/`public`,
+  passes the session's organization. Otherwise its body is byte-identical.
+- **Self-test:** inside the migration.
+- **New test:** `db/tests/cross_org_pay_inputs.sql`. It repeats the induced write as the attacker,
+  through RLS, and reads the answer with the guard's own full-rights instrument, the same
+  visibility approval has. Its SABOTAGE puts the unscoped body back: 6 slots move and the check
+  flips.
+- **Updated test:** the sabotage in `calculate_session_pay.sql` moved to the new signature.
+- **Suite:** 483/483, 32 files, 0 block errors, run after the migration was applied (478 + the 5
+  new checks).
+
+**Why 478 tests did not catch it — the CLASS of test was missing, not one test.** Every tenant
+check in `db/tests` asks the same question: *can a user in Org B SEE Org A's rows?*
+- **Where they live:** `rls_ws_d_read` ("the crown jewel"), `rls_groups_sessions` point 6,
+  `rls_d0_helpers`, the outsider checks.
+- **What none of them asks:** can a row Org B is allowed to WRITE change what Org A's functions
+  COMPUTE?
+- **The exception:** `lesson_plan_catalogue.sql:423` refuses a cross-organization plan reference
+  in an RPC. It was written for that one RPC, not as a property of the schema.
+- **Not a tenant test:** "isolation" in `payroll_org_session_pay.sql` means one failing slot not
+  breaking the others.
+- **So:** every policy test could pass forever while the breach stood, because the breach is not
+  in a policy. Read isolation was proven; write-influence isolation never was.
+
+**The complete list asked for — every function in `app` and `public` (79), each statement that
+reads an org-scoped table (37 tables carry `organization_id`) without filtering on it, read by hand
+after a mechanical pass:**
+
+| function | reads, keyed by | verdict |
+|---|---|---|
+| `app.resolve_trainer_grade` | `trainer_grade_assignments` by trainer (a GLOBAL user) | **the breach; FIXED** |
+| `public.client_effective_status` (DEFINER) | `contracts` by `client_id` | **cross-org, INDUCED:** an Org B contract naming a wow-lab client turned it `prospect` → `active` |
+| `app.resolve_trainer_grade_rate`, `_duration_multiplier`, `_location_bonus`, `_language_bonus`, `_lesson_plan_rate`, `_admin_rate`, `_contract_type_uplift` | `*_rates` by `version_id`, after an org-filtered version lookup | **the function is correct; the data under it is not.** A rates row of Org B can point at Org A's version. **INDUCED:** Org B (which cannot even SELECT that version) wrote a band into wow-lab's live duration grid. Wow-lab's Școala Altfel 30-minute multiplier went 1.0 → **9.0**. The item-194 guard passed it, because it snapshots the organization of the ROW written (B), not of the version (wow-lab) |
+| `app.grid_guard_confirmed_pay` | `grid_corrections` by `version_id` (the row's own) | safe; the version-org mismatch above is its real gap |
+| `app.grid_correction_declaration` (DEFINER, no gate) | `sessions`/`groups`/`clients`/`users` by ids taken from its jsonb INPUT | safe: EXECUTE is held by `postgres` only (measured), so no user can hand it foreign ids |
+| `public.handle_deleted_auth_user` | by user id, on auth deletion | global by design; safe |
+
+**All 13 SECURITY DEFINER RPCs look up a row by id**, take its organization from that row, and
+check the capability against it. That half holds, verified function by function. One gap sits
+beside it: `rpc_update_session_allocation` never checks that the trainer it is given belongs to
+the session's organization.
+
+**The class, measured: none of the 29 foreign keys between org-scoped tables is composite with
+`organization_id`, and the INSERT policies check only the new row's own organization.**
+- **The result:** any child row can name a parent in another organization. Any read that follows
+  the key without filtering picks up the foreign row.
+- **What it holds today:** RLS-filtered screens keep it invisible to a viewer. Definer paths
+  (approval, the guard, `client_effective_status`) see it.
+- **Users are global.** 26 foreign keys from org-scoped tables point at `users`, measured. Ten of
+  them name the person a row is ABOUT, not who acted:
+  - `admin_rates.person_user_id`, `payroll_period_totals.trainer_id`,
+    `session_lesson_plans.trainer_id`;
+  - `sessions.trainer_principal_id`/`_secundar_id`, `suppliers.user_id`;
+  - `trainer_grade_assignments.trainer_id`, `trainer_home_cities.trainer_id`;
+  - `lesson_plans.author_user_id`, `user_org_roles.user_id`.
+
+  Org B can name a wow-lab person in any of them. A reader is safe only if it filters on the
+  organization, as the resolver now does.
+- **Not in that list:** the `/my-work` grade read (app code). It reads the trainer's own rows in
+  every organization, with no org filter, and so displays the Org B row. That is the same breach on
+  a screen. Named here, not fixed: it was not part of "the resolver, alone".
+
+**Not built, a decision for Mihai: the class itself.**
+- **My recommendation, in this order:**
+  1. Composite foreign keys `(parent_id, organization_id) → parent(id, organization_id)` on the 29.
+     This is the standard multi-tenant shape: the database itself refuses a cross-org reference,
+     whoever writes it.
+  2. Until then, the cheap defence the resolver fix used: `and organization_id = p_organization_id`
+     on every `*_rates` read and in `client_effective_status`.
+  3. A tenant-write class of test: for each org-scoped writable table, write as Org B, read Org A
+     with full rights, and expect nothing to move. Each with its SABOTAGE.
+- **Before any of it:** measure whether any cross-org reference already exists in real data
+  (0 expected; not yet run).
+
+**Re-verify when:** any table gains an `organization_id` foreign key, or any DEFINER function reads by
+a key. Run `cross_org_pay_inputs.sql` after any change to the pay resolvers.
+**Lives in:** `supabase/migrations/202611160001_scope_trainer_grade_to_organization.sql`;
+`db/tests/cross_org_pay_inputs.sql`; item 196 (P5, where it was found); item 186 (why a frozen
+amount is the dangerous end); item 195 (why it cannot be corrected); item 27 (platform-owner
+cross-org visibility, the same product property from the read side).
+
+---
+
+### 199. The session's state and the trainer's own assertion move independently, in both directions — one family, four instances
+
+2026-11-16. Mihai's framing: these are one item, not three. In every instance below, either the
+session changes and the trainer's confirmation stays, or the trainer confirms something the
+session record says did not happen.
+
+**The principle, Mihai's, 2026-11-16:** a confirmation is **a person's statement about
+themselves**. It never transfers to anyone, ever.
+
+**1. A trainer swap keeps the confirmation. DECIDED: the swap stays possible, the confirmation is
+CLEARED.** Anca's rule is that the office chooses who goes, so replacement must remain possible.
+- **Induced on wow-lab, rolled back (item 196 P7):** Teodora → Cătălina on a confirmed 23.09
+  session. Cătălina's slot then carried the 2026-10-20 import confirmation of Teodora's work, and
+  the pay went 127 → 150.
+- **§19 is violated by a live code path:** it is item 152's shape again, reached through the UI
+  instead of a migration.
+- Not built yet; see the order below.
+
+**2. A swap on an APPROVED slot — measured first, as asked (Test Org B, rolled back).** The setup:
+a slot confirmed by a grade-2 trainer, approved through the real `rpc_approve_session_pay` as the
+Operations Manager (frozen 328,13), then swapped to a grade-6 trainer through the real
+`rpc_update_session_allocation`. After the swap:
+- **The new trainer holds everything that was the old one's:** `trainer_principal_id` is the new
+  trainer, and `confirmed_at`, `approved_at` and the frozen 32.813 bani are all unchanged. The RPC
+  returns `ok`.
+- **So money computed for one person's work is approved and payable to another.** Computed fresh
+  for the new trainer, the slot would be 656,25. Nothing anywhere shows that the 328,13 belongs to
+  someone else.
+
+**My variant: REFUSE the swap on an approved slot, but item 195 is NOT the route.**
+- **Why not 195:** it corrects grid versions, and it deliberately leaves approved slots frozen
+  (it lists them as frozen, it does not move them).
+- **The route is withdrawing the approval,** which is not built (item 186, question 2 to Anca).
+  Until it exists, the refusal names that path, the way item 194's refusal names 195.
+- **Why a refusal loses nothing real:** an approval comes after the workshop was held. Replacing
+  the person on a past, approved workshop is not an allocation decision ("the office chooses who
+  goes"). It is a correction of who did the work, and that has to undo the money statement first.
+  An unapproved confirmed slot keeps Mihai's rule: swap allowed, confirmation cleared.
+
+**3. Are there real sessions whose confirmation already survived a swap? NO — 0.** Measured over
+every `row_history` UPDATE on `sessions`, all organizations, all paths (UI, RPC, migrations).
+- There have been **8 trainer changes ever, none on a confirmed slot.**
+- So there is nothing to report row by row, the way item 152 had rows. The defect is reachable
+  and was never exercised.
+
+**4. Cancelling a confirmed session keeps the confirmation (item 196 P8).** Pay goes to 0
+(`trainer_indisponibil`), and the confirmation stays on a workshop the record says did not happen.
+
+**5. The reverse direction (item 184's two defects, re-filed here):**
+- the group page offers Confirm on a cancelled session, and `rpc_confirm_session_attendance`
+  accepts it (only the date is checked);
+- `/my-work`'s banner counts cancelled sessions as unconfirmed.
+
+**A single rule that closes 4 and 5 — proposed, not decided:** a confirmation and a cancellation
+may coexist ONLY for `scoala_a_anulat_neanuntat`. That is the one category where the trainer
+really was there (it is why that category pays).
+- **Otherwise:** a cancel on a confirmed slot is refused, and a confirm on a cancelled session is
+  refused. Each contradiction goes back to a person: the trainer withdraws, or Operations corrects
+  through `rpc_correct_session_confirmation`.
+- **The banner** counts only what is confirmable under the same rule.
+- **Why not clear the confirmation on cancel:** the office would erase a person's statement about
+  themselves. That is the same thing point 1 forbids, applied in the other direction.
+
+**Order:** after item 196's guard (Mihai's order: 198 alone first, then the guard, then the
+sanctioned path).
+
+**Blocked on:**
+- Point 1 is decided.
+- Point 2 waits on Mihai's verdict on my variant.
+- Points 4–5 wait on the rule above.
+
+**Re-verify when:** anything here is built. Re-run the approved-swap probe; it must refuse, and
+the unapproved swap must clear exactly the swapped slot's confirmation and leave the other slot
+alone.
+**Lives in:** nothing changed. Item 196 (P7, P8), item 184 (the two defects), item 152 (the same
+shape, through a migration), item 186 (approval and the unbuilt withdrawal), §19.
+
+---
+
+### 200. Register items decided, with an action, and never carried out — measured across all 199 items
+
+2026-11-16, Mihai's ask, after item 149's Alexandra correction was found undone 27 days after
+"Blocked on: nothing". This is a measurement on the REGISTER, not on the database.
+- **Method:** every numbered item was read for a decision, its last `Blocked on:` line and its
+  status words. 48 had "nothing" blocking without a done-word in the header. Every item with a
+  DECIDED / "Decision" / "ANSWERED" in its body was listed too. Each candidate was then read, and
+  its action checked against code, data or docs.
+
+**Fallen: decided, actionable, not done, nobody noticed.**
+
+| item | decided | action | state, measured 2026-11-16 |
+|---|---|---|---|
+| **149** | 2026-10-20 | correct Alexandra Nuțu's grade (data fix) | not done; still 2 from 01.09. The premise is now withdrawn too (item 197: the date must come from Anca) |
+| **5** | (written as "nothing except doing it") | write the `audit_log.payload` convention "before the next 5 event types" | not written anywhere in `docs/`; event types went **5 → 8** since |
+| **153** | 2026-10-20 | "Anka has to be told the answer is NOT YET" — an action on Mihai | no record anywhere that it happened. That is item 164's class: a human step with no mechanism and no assertion |
+| **21** | 2026-09-02 | remove `users.status`, derive from `auth.users`; deferred to "that screen's next rework" | column still there and still written (`admin/users/actions.ts:316/358`). The screen had 6 commits since, including a substantive one on 04.09; none touched it. Its own trigger arguably passed unnoticed |
+
+**Parked on purpose, and still correctly parked** (a trigger or a scheduling, checked):
+- **166:** its two triggers have not fired. No session created since 29.10; `sessions.create`
+  is still held only by Operations Manager / Organization Owner / Platform Owner.
+- **192:** `next` 16, named, explicitly unscheduled.
+- **105:** the CNP decision WAS applied (both `cui` NULL).
+
+**The inverse failure, done in code and never marked:**
+- **160:** `/my-work` now has `upcomingSessions`.
+- **188:** the location/language "next wave" was superseded by items 194/195.
+
+Neither costs money, but both make the register read as more open than it is.
+
+**What the four have in common:** none of them was blocked, so nothing ever re-surfaced it. The
+register is read top-down from the active list in CLAUDE.md. An item that leaves that list
+without its action done has no reader left.
+
+**Not built, proposed:** a check in `scripts/check_open_items_register.ts` (the register's own CI)
+that lists every item whose last `Blocked on:` says "nothing" and whose header carries no done-word.
+The output would be a list for a human, not a failure. Run at the start of a session, it would have
+shown 149 on any day of those 27.
+
+**Blocked on:** Mihai — whether to build that check, and what to do with each of the four.
+**Lives in:** this register; item 164 (the human-step class 153 belongs to); item 149.
 
 ---
 ### 18. Pending invites — cut deliberately

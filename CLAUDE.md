@@ -307,6 +307,21 @@ is in Romanian; code, comments, commits and this file are in English.
   - **Verified:** `202610300001` re-run through the real RPC reproduces 38 / 6.118,50 → 6.801,00.
   - **Known limits:** Cătălina cannot reach the page. Withdrawing an approval is still not built.
   - **Read before touching** any grid write path, `grid_corrections`, or the guard.
+- **Item 198, 2026-11-16 — tenant isolation: a WRITE in one org changed another org's pay.**
+  - **FIXED:** `resolve_trainer_grade` is org-scoped (`202611160001`), and the unscoped form is
+    dropped. `db/tests/cross_org_pay_inputs.sql` is the first test of the missing class: a write
+    as Org B must not move what Org A computes. Suite 483/483.
+  - **OPEN, the class:** 0 of 29 org-to-org foreign keys are composite with `organization_id`.
+    Induced: Org B wrote a band into wow-lab's duration grid (1.0 → 9.0), and an Org B contract
+    flipped a wow-lab client to active. `/my-work`'s grade read has no org filter.
+  - Read the item before adding any FK or DEFINER read.
+- **Item 199 — session state vs the trainer's own confirmation, one family.**
+  - **Decided:** a trainer swap CLEARS the confirmation, never transfers it.
+  - **Measured:** a swap on an APPROVED slot hands the frozen amount to the new person. My variant
+    is to refuse, with approval withdrawal as the route, not 195.
+  - **Real data:** 0 survivors. Cancel/confirm contradictions: a rule is proposed. Nothing built.
+- **Item 200 — register items decided and never done: 149, 5, 153, 21.** 160 and 188 are the
+  inverse (done, not marked). A register check is proposed, not built.
 - **Item 196, 2026-11-16, measured, NOT built — the guard covers 8 tables; pay reads 3 more.**
   - **Unguarded:** `trainer_grade_assignments`, `groups.language_group`/`delivery_format`, and
     `sessions`. Induced on wow-lab, rolled back: a retroactive grade (both directions; Cătălina

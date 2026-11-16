@@ -1062,6 +1062,31 @@ back on 2026-11-12 "until the screen repair," and that held by luck, not by fore
 earlier on the row-lock mechanism, they would have carried the same hole twice. They are now built
 on the invariant itself, in the same trigger.
 
+**Succession or correction: one question decides which, and whether a pointer is needed at all.**
+Added 2026-11-16 (OPEN_ITEMS item 196, accepted by Mihai as general, not about grades). The
+sentence above files `amends_contract_id` under "correction"; it is not one, and the difference
+matters every time a row is written with a date in the past.
+- **The question: was the existing row true for the period it claimed?**
+- **If yes, the new row is a NEW FACT: a succession.** The old row is not superseded; it stays the
+  answer for its own window, and the new one starts where it stops.
+  - Where date order alone expresses that, no pointer exists or is needed: a grade assignment, a
+    grid version with a later `effective_date`.
+  - Where two rows with periods cover the same subject, the successor names its predecessor:
+    `contracts.amends_contract_id` (Avenor: Experimente Wow for September, Brandine from 1 October).
+- **If no, the new row is a CORRECTION.** The old row was false for its own window. The new row
+  covers the same window, points at it (`corrects_version_id`), and the resolver excludes the
+  corrected row from then on.
+- **"Retroactive" does not mean "correction".** Teodora at grade 4 from 01.10, entered on
+  16.11, is written late but says nothing false about the earlier row: "3 from 01.09" remains true
+  until the day before. Modelled as a correction, it would mark her September at grade 3 as an
+  error and erase what she was actually paid then. The inverse error exists too: entering a
+  correction as a later-dated succession leaves the false row answering for the window it got wrong.
+- **The pointer and the guard are independent axes.** The pointer records whether the old row was
+  true. The guard (above) records whether confirmed pay moves. A succession can still move
+  confirmed pay (a backdated promotion), and a correction can move none. Both kinds of write pass
+  through the same impact statement when they move it, and neither is exempt because of which kind
+  it is.
+
 **Lives in:** `supabase/migrations/202611120001_guard_confirmed_pay_on_grid_writes.sql`,
 `202611120002_grid_guard_no_recursion_on_update_undo.sql` (the invariant);
 `202611090003_immutable_trainer_grade_rates.sql`, `202611090004_...`,
