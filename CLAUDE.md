@@ -314,6 +314,13 @@ is in Romanian; code, comments, commits and this file are in English.
   - **OPEN, the class:** 0 of 29 org-to-org foreign keys are composite with `organization_id`.
     Induced: Org B wrote a band into wow-lab's duration grid (1.0 → 9.0), and an Org B contract
     flipped a wow-lab client to active. `/my-work`'s grade read has no org filter.
+  - **Item 194's guard is NOT sound across orgs** (measured second round). It snapshots the
+    written row's org. Org B writes passed it: an Altfel band (127 → 1.143) and a cross-org
+    `corrects_version_id` (all 46 wow-lab confirmed slots, 8.588,00 → unpriceable).
+    `resolve_grid_version`'s exclusion subquery has no org filter, and my first audit missed it.
+  - **Decided:** tests FIRST and failing, then composite keys in 3 waves by money (1: pay
+    tables, 194 redone; 2: clients/contracts/entities; 3: rest). The 26 FKs to `users` are out of
+    scope by design. Nothing built yet.
   - Read the item before adding any FK or DEFINER read.
 - **Item 199 — session state vs the trainer's own confirmation, one family.**
   - **Decided:** a trainer swap CLEARS the confirmation, never transfers it.

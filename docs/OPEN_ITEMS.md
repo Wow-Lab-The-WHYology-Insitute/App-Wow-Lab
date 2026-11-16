@@ -659,6 +659,40 @@ happens at anywhere from 10 to 109 hours, and levels sometimes go down (item 197
 
 ---
 
+**11. Retragerea unei aprobări** — items 186, 199 below. **BLOCHEAZĂ item 199 punctul 2** (raised to
+blocking 2026-11-16; until then it was an open question with no consequence waiting on it). This is
+what items 186/195 call "question 2 to Anca". It is not entry 2 of this batch, and it had no entry
+here until today.
+
+> Dacă o plată a fost aprobată și apoi se constată ceva greșit la ea — alt trainer a ținut de fapt
+> atelierul, sau suma e greșită — cine poate retrage aprobarea, și ce trebuie să rămână scris despre
+> asta?
+
+Why it blocks, measured, not administrative: today, replacing the trainer on an APPROVED slot
+transfers the frozen amount to the new person. 328,13 lei approved for a grade-2 trainer become
+payable to a grade-6 one, with nothing on any screen saying so (item 199, Test Org B, rolled back).
+The decided repair refuses that swap and names withdrawal as the route. A refusal that names a
+route that does not exist is half a repair.
+
+---
+
+**12. Gestul „am mers și sala era goală”** — item 199 below. **BLOCHEAZĂ item 199 punctele 4–5.**
+Mihai calls this "question 7 to Anca". **Its earlier text is not in this register anywhere**
+(searched 2026-11-16), so it is phrased here from his description, and the wording wants his check.
+
+> Când o școală uită să anunțe și trainerul găsește sala goală, atelierul se plătește. Dar în
+> aplicație trainerul nu are cum să spună asta: doar Operațiunile pot anula o sesiune.
+> Cine înregistrează „am mers și sala era goală” — trainerul, din telefon, sau Operațiunile, după ce
+> îi spune trainerul?
+
+Why it blocks: the accepted rule says a confirmation and a cancellation coexist ONLY for
+`scoala_a_anulat_neanuntat`, the one case where the trainer was there. That category currently has
+no way in from the person who knows it happened: `rpc_cancel_session` requires `sessions.create` /
+`org.settings.manage`, which no trainer role holds (measured). Building the refusal before knowing
+who records the exception would refuse the one legitimate case.
+
+---
+
 **4. Grila de evaluare a performanței** — item 23 below. Six points with no confirmed design.
 
 **5. Cele cinci sume rămase din grile** — item 20 below.
@@ -10394,6 +10428,13 @@ while building this).
 ---
 ### 194. `/payment-config` after immutability: the screen didn't break, it went around the lock — measured, then DECIDED (a) and BUILT the same day (`202611120001`/`002`)
 
+**NOT SOUND ACROSS ORGANIZATIONS — found 2026-11-16, item 198 below; to be redone in wave 1.**
+- **The flaw:** the guard snapshots the organization of the row WRITTEN. A row written in Test
+  Org B that points at wow-lab's grid passed it twice:
+  - an Altfel band on a confirmed slot: 127,00 → 1.143,00;
+  - a cross-org `corrects_version_id`: 46 confirmed slots, 8.588,00 → unpriceable.
+- **Within one organization**, everything below still holds.
+
 **What 2026-11-10/11's immutability actually did, written plainly, on Mihai's instruction, not as
 "partial coverage."** The triggers of `202611090003`/`202611090005` guard UPDATE. App users hold
 INSERT only, with no UPDATE and no DELETE, on all eight grid tables. So the immutability built on
@@ -11202,7 +11243,54 @@ the session's organization.
   every organization, with no org filter, and so displays the Org B row. That is the same breach on
   a screen. Named here, not fixed: it was not part of "the resolver, alone".
 
-**Not built, a decision for Mihai: the class itself.**
+**CORRECTED 2026-11-16, second round: the function list above is INCOMPLETE, and item 194's guard
+is not sound across organizations.** Mihai asked whether the 9,0 probe proved the guard failed, or
+only that there was nothing on that band to protect. It proved neither, and I had reported it as the
+first. Induced again, every write as Test Org B's owner through RLS, the deferred guard forced to
+run, each rolled back:
+
+| write | result |
+|---|---|
+| a second `standard` 60 band in wow-lab's version (24 of 36 confirmed slots sit on that band) | **refused by `duration_multiplier_rates_version_key_unique`**, before the guard runs. This measures the key, not the guard |
+| the Altfel 30 band, after creating one CONFIRMED wow-lab 30-minute Altfel session in the same transaction | **guard passed.** That slot: **127,00 → 1.143,00** |
+| a `trainer_grade_versions` row in ORG B with `corrects_version_id` = wow-lab's only grade version | **guard passed.** Wow-lab has no grade version in force; **all 46 confirmed slots, 8.588,00 → unpriceable** |
+
+**Why the guard misses it:** it judges by `new.organization_id`, the organization of the row
+written, and snapshots that organization. A cross-org row moves another one.
+
+**Why my audit missed the third:** `app.resolve_grid_version` filters on organization in its outer
+query, but the subquery that excludes corrected versions (`id not in (select corrects_version_id
+…)`) does not, for any of the four grids. My scanner judged a whole statement by whether
+`organization_id` appeared anywhere in it, and passed it. **So the list above is a lower bound,
+not the complete list it was presented as.** The class fix below closes this one as well: a
+composite key on `corrects_version_id` makes such a row impossible.
+
+**DECIDED 2026-11-16 (Mihai): 194 is redone as part of wave 1 below.** With composite keys, a
+row's organization equals its parent's by construction, and the guard's premise becomes true
+instead of assumed.
+
+**The tests first, the repairs after (Mihai, 2026-11-16).** For every table with
+`organization_id`: Org B writes a legitimate row for itself, and the test checks whether anything in
+wow-lab moves (pay, status, visibility, anything). Written FIRST and left FAILING; the repairs
+then make it pass. A test written after its repair confirms the repair, not the class.
+
+**The composite keys, in three waves ordered by money (Mihai, 2026-11-16).** Each wave is: its
+tables' tests (failing), then the migration, then the suite.
+1. **Wave 1 — everything that touches pay:** the grids (versions, rates, `corrects_version_id`),
+   grade assignments, sessions, groups, allocations, approvals. Item 194's guard is redone here.
+2. **Wave 2 — clients, contracts, legal entities.** `client_effective_status` is already proven.
+3. **Wave 3 — the rest.**
+
+**OUT OF SCOPE, deliberately and explicitly: the 26 foreign keys to `users`.** Users are global
+by design: one person, many organizations, `user_org_roles` saying where. A composite key against
+`users` cannot exist, because `users` has no `organization_id`. Isolation there is the READER's
+job, filtering on the row's own organization, as `resolve_trainer_grade` now does. This is written
+down so it does not read as an omission.
+
+**Not built yet:** Mihai asked for point 0 to be answered before anything else was built.
+
+**Not built, a decision for Mihai: the class itself.** *(superseded by the decision above; kept as
+first written)*
 - **My recommendation, in this order:**
   1. Composite foreign keys `(parent_id, organization_id) → parent(id, organization_id)` on the 29.
      This is the standard multi-tenant shape: the database itself refuses a cross-org reference,
@@ -11286,13 +11374,29 @@ really was there (it is why that category pays).
 - **Why not clear the confirmation on cancel:** the office would erase a person's statement about
   themselves. That is the same thing point 1 forbids, applied in the other direction.
 
+**DECIDED 2026-11-16 (Mihai), second round:**
+- **Point 2:** my variant is accepted. Refuse the swap on an approved slot; the route is
+  withdrawing the approval, not 195.
+- **Points 4–5:** rule A is accepted. Confirmation and cancellation coexist ONLY for
+  `scoala_a_anulat_neanuntat`; otherwise both directions are refused, and a person resolves the
+  contradiction. Nothing is erased on cancel, because nobody takes over the statement; it is only
+  contradicted.
+- **The REASON for point 1 is corrected, the decision stands.** "The confirmation is erased"
+  conflicted with "nobody erases a person's statement". The right form, now in §19: **a
+  confirmation belongs to the allocation, not to the session.** On a swap it stays in
+  `row_history` as what was said, and only stops being attached to a live allocation.
+
 **Order:** after item 196's guard (Mihai's order: 198 alone first, then the guard, then the
 sanctioned path).
 
-**Blocked on:**
-- Point 1 is decided.
-- Point 2 waits on Mihai's verdict on my variant.
-- Points 4–5 wait on the rule above.
+**Blocked on — both on Anca, both BLOCKING since 2026-11-16, not merely open:**
+- **Point 2: question 11 in the batch above** (withdrawing an approval). A refusal must name a
+  route that exists.
+- **Points 4–5: question 12 in the batch above** (who records "I went and the room was empty").
+  The rule's one exception has no way in from the trainer today.
+- **Point 1 alone is buildable.** It is unbuilt, because it cannot ship apart from point 2's
+  refusal: clearing confirmations on swaps while approved slots still transfer would close the
+  smaller hole and leave the money one open.
 
 **Re-verify when:** anything here is built. Re-run the approved-swap probe; it must refuse, and
 the unapproved swap must clear exactly the swapped slot's confirmation and leave the other slot
@@ -11341,7 +11445,14 @@ that lists every item whose last `Blocked on:` says "nothing" and whose header c
 The output would be a list for a human, not a failure. Run at the start of a session, it would have
 shown 149 on any day of those 27.
 
-**Blocked on:** Mihai — whether to build that check, and what to do with each of the four.
+**DECIDED 2026-11-16 (Mihai): build the check, in BOTH directions:**
+- decided-and-undone items (no blocker, no done-word);
+- done-in-code-but-unmarked items (160 and 188 as the first known cases).
+
+Not started: point 0 (item 198's guard question) was to be answered before anything else was built.
+
+**Blocked on:** nothing; queued behind item 198's wave 1 tests. Also, what to do with each of the
+four items above.
 **Lives in:** this register; item 164 (the human-step class 153 belongs to); item 149.
 
 ---

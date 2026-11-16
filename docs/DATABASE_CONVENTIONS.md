@@ -493,7 +493,26 @@ by borrowing a name. `202610200005`'s first draft tried to use an account with n
 right response was to find the account that genuinely holds `Organization Owner` — not to reach for
 someone whose role happened to fit.
 
-**Lives in:** `OPEN_ITEMS.md` items 152, 157 and 159; §17 (the general form — a correct decision
+**A confirmation belongs to the ALLOCATION, not to the session (Mihai, 2026-11-16, OPEN_ITEMS item
+199).** A confirmation is a statement by the person in a slot, about that slot. When the
+allocation changes, when someone else is put in the slot, the statement is not erased as a
+statement:
+- It stays in `row_history`; what Teodora said, she said.
+- It only stops being attached to a live allocation, so that it cannot end up attributed to the
+  new person.
+
+"The confirmation is cleared" is the mechanism, not the reason. The reason is that the slot now
+holds someone who has said nothing. This is the same rule as above, read from the other side.
+Nobody confirms on another's behalf, and nobody **inherits** another's confirmation by being
+placed where they stood. Item 152 did the first through a migration. `rpc_update_session_allocation`
+did the second through a live code path, measured 2026-11-16, before this was written.
+
+**The contrast that fixes the boundary:**
+- **A reallocation:** someone takes over the statement's place. It is detached.
+- **A cancellation:** nobody takes it over; the record only contradicts it. Nothing is detached
+  and nothing erased; the contradiction is refused and returned to a person (item 199).
+
+**Lives in:** `OPEN_ITEMS.md` items 152, 157, 159 and 199; §17 (the general form — a correct decision
 with a wrong reason); `supabase/migrations/202610200007_correct_cancellation_actor.sql`.
 
 ## 20. A negative result is a result — record it, or "checked and irrelevant" becomes "never looked"
