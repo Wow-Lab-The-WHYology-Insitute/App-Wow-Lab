@@ -1114,3 +1114,57 @@ matters every time a row is written with a date in the past.
 instance); `db/tests/grid_confirmed_pay_guard.sql`, `db/tests/trainer_grade_rate_immutability.sql`;
 `app/(app)/payment-config/` (the one writer); §22 (one resolver), §24 (decide by calling the
 production function); `OPEN_ITEMS.md` items 186, 187, 188, 194 and 195.
+
+## 27. A probe without a control measures nothing
+
+**Born on 2026-11-16 from two mistakes, not from an idea** (OPEN_ITEMS item 198). One was Mihai's,
+caught by me; one was mine, caught by me. Together with a third, they make three instances in two
+days, each in the same shape: a refusal or a pass came from somewhere other than the thing being
+measured, and was read as evidence.
+- **Mihai's probe:** a second standard 60-minute band in wow-lab's live duration version, to test
+  item 194's guard across organizations. It would have been refused by
+  `duration_multiplier_rates_version_key_unique` before any organization check existed. "Refused"
+  would have been read as "guarded".
+- **My first correction probe for the test file:** refused by item 194's guard. The probe was not
+  cross-org at fault: I had dated the Org B version so that it touched **Org B's own** confirmed
+  pay. A correct refusal, of the wrong thing.
+- **The original 9,0 probe:** it PASSED, and the pass was read as "the guard does not stop it". The
+  band carried no confirmed session, so the guard had nothing to protect, and the pass proved
+  nothing either way.
+
+**The rule.** A probe is built so that the ONLY thing that can refuse it is the thing measured.
+- **The proof is a CONTROL that must PASS:** the same write with exactly one variable changed.
+  Control accepted + probe refused = you measured that variable. Anything else, and you measured
+  something you cannot name.
+- **For a pass, the control runs the other way:** show that the probe COULD have been refused,
+  i.e. that what it should move is really there. A pass on an empty band is not a pass.
+- **A probe without a control is not a weak measurement. It is not a measurement.**
+
+**The technique that makes the control possible: the empty parent.** Aim the write at a fresh,
+EMPTY parent created in the same transaction (a new version dated far beyond anything real), never
+at a live one.
+- **Why it works:** no unique key, no existing row and no confirmed session can then be what
+  refuses or passes it.
+- **Where the date goes:** beyond every real session of BOTH organizations. A date that lands on
+  the writer's own confirmed pay brings that organization's guard into the measurement, which is
+  exactly my instance above.
+
+**How it looks in practice:** `db/tests/cross_org_write_isolation.sql` point 1. There are 15
+foreign keys, each tried twice from Org B: once at an empty Org B parent (the control, which must
+be accepted) and once at an empty wow-lab parent (the probe, which must be refused). The
+organization is the only variable.
+
+**The same rule applied to a repair with more than one layer.** A SABOTAGE that removes ONE of two
+independent layers cannot flip, because the other one holds. Such a sabotage would be a probe
+without a control in its own right.
+- **First,** show each layer holding alone (pass expected).
+- **Then** remove both (fail required).
+
+That is points 4–6 of the same file.
+
+**Relation to §24:** §24 says to induce the real mutation rather than reason about the schema.
+§27 says the induced mutation must be built so that its outcome can only mean one thing. Inducing
+the wrong thing faithfully is still the wrong thing.
+
+**Lives in:** `db/tests/cross_org_write_isolation.sql`; `OPEN_ITEMS.md` item 198 (the three
+instances, as they happened); §24, §26.

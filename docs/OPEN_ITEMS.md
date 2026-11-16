@@ -11343,6 +11343,64 @@ asked to be.**
 - **Suite:** 523/523, 33 files, 0 block errors, after the migration was applied (483 + the 40
   new checks).
 
+**THE ISOLATION MAP — which layer covers which pay write path (measured 2026-11-16, after wave 1,
+before wave 2).** The point of it is not neatness. It is to know what each wave buys, and so that
+nobody removes a layer in six months believing another covers it. Measured from
+`information_schema` grants (table and column), `pg_policies`, every SECURITY DEFINER body in
+`app`/`public`, triggers and foreign keys; two paths were induced.
+
+The layers:
+- **L1 RLS** `WITH CHECK` on the row's own `organization_id`: the writer must hold the capability
+  in that organization.
+- **L2 composite keys:** the parent must be in the same organization. Wave 1 so far.
+- **L3 item 194's guard:** confirmed, unapproved pay does not move. Four pay grids only.
+- **L4 a DEFINER RPC's own code:** it looks the row up, then checks the capability on THAT row's
+  organization. RLS is bypassed, so this is the whole defence for that path.
+- **L5 reader-side filter:** a resolver filters on the organization it was asked about.
+
+| write path | own `organization_id` | parent in another org | confirmed pay | notes |
+|---|---|---|---|---|
+| grid version header (`*_versions`) INSERT, PostgREST or `rpc_create_grid_version` (invoker) | **L1 only** | `corrects_version_id`: L2 + L5 (subquery filter); the header itself has **no parent but the organization** | L3 (4 grids) | lesson_plan / contract_type_uplift: no L3; pay does not read them |
+| grid rates (`*_rates`) INSERT | **L1 only** | `version_id`: L2 | L3 (4 grids) | |
+| correction, `rpc_apply_grid_correction` → `grid_correction_write` (DEFINER) | L4 | L2 | L3, sanctioned | `grid_corrections.version_id` is **not a foreign key at all** (it spans four grids). Its organization is consistent only because of L4's code |
+| `admin_rate_versions` / `admin_rates` | no app writer: INSERT granted but **no INSERT policy**, RLS on (induced: refused) | `version_id`: L2 | — | migrations only |
+| `trainer_grade_assignments` INSERT | **L1 only** | `trainer_id` → `users`: **no L2 possible**; L5 since `202611160001` | **none** (item 196, not built) | |
+| `sessions` INSERT (column grants + RLS) | **L1 only** | `group_id`: L2; trainers → `users`: no L2 | **none** (items 166/196) | |
+| `sessions` UPDATE: allocation, cancel, confirm, correct, approve, attendance (all DEFINER) | **L4 only** | trainers → `users`: allocation does **not** check that the trainer belongs to the session's organization | **none** | item 199 |
+| `groups` INSERT/UPDATE (column grants include `organization_id` itself) | L1 on the old AND new row: moving an Org B group into wow-lab was **refused** (induced) | `client_id`/`contract_id`: L2; `on_site_contact_id`: wave 3 | **none** for `language_group`/`delivery_format` (item 196) | L2 also refuses that move: its client and its sessions would mismatch |
+| `payroll_periods` INSERT (month close) | **L1 only**, plus `closed_by` = the caller | no parent but the organization | — | |
+| `payroll_period_totals` INSERT | **L1 only** | `payroll_period_id`: L2; `legal_entity_id`: wave 2; `trainer_id` → `users` | — | |
+| **migrations / service role, any table** | **nothing** (RLS bypassed, L4 not involved) | **L2 holds** | **L3 holds** | the only layers that bind a migration are the structural ones |
+
+**Read it this way:**
+1. **Tables with no parent but the organization rest on RLS ALONE for their own
+   `organization_id`.** These are the version headers, `payroll_periods`, `trainer_grade_assignments`
+   (whose only parents are users), `grid_corrections`, `clients` and `legal_entities`.
+   - A composite key has nothing to check there; the parent IS the organization.
+   - **Removing or widening RLS on one of them leaves it open, and no wave changes that.** Writing
+     one in another organization's name is stopped only by `WITH CHECK`.
+2. **DEFINER RPCs rest on their own code alone (L4).** They were verified one by one on
+   2026-11-16, and a new one is unverified until it is walked the same way (§25).
+3. **L2 is the only layer that binds migrations and the service role.** It is the real purchase of
+   each wave, beyond the app path RLS already covered.
+4. **L3 covers confirmed pay only on the 4 pay grids.** Assignments, `groups`' pay columns and
+   `sessions` are item 196's queue, not covered.
+5. **Users:** no structural layer can exist (users are global). It is L5, per reader, or nothing.
+
+**What each wave buys:**
+- **Wave 1 (built):** parent consistency on the pay tables; L3's premise true by construction.
+- **Wave 2:** the 8 keys whose parent is a client, contract or legal entity:
+  - `contracts.client_id`, `contracts.legal_entity_id`, `contracts.amends_contract_id`,
+    `contracts.renewal_of`;
+  - `client_contacts.client_id`, `school_calendar_closures.client_id`;
+  - `payroll_period_totals.legal_entity_id`, `supplier_contracts.legal_entity_id`.
+
+  That is who is billed, by which entity. `client_effective_status` is already proven exploitable.
+- **Wave 3:** the remaining 6:
+  - `groups.on_site_contact_id`;
+  - `session_lesson_plans.session_id`/`lesson_plan_id`, `lesson_plan_modules.lesson_plan_id`;
+  - `supplier_contracts.supplier_id`/`amends_contract_id`.
+
 **In wave 1, what it covers:** the seven `*_rates.version_id`, the four `corrects_version_id`,
 `sessions.group_id`, `groups.client_id`/`contract_id` (they decide the principal bonus's school and
 the paying entity), and `payroll_period_totals.payroll_period_id`.

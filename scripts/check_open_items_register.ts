@@ -205,52 +205,63 @@ function checkMigrationCitations(text: string): number {
 // is listed here exactly once. `fallen` and `unmarked` are reprinted on
 // every run until the item's heading carries a done word; everything else
 // is a reason the candidate is NOT drift, so it stops being reprinted.
+//
+// Every decision carries the date it was made (`on`). A `not-drift` decision
+// is a dismissal, and a dismissal with a wrong reason would otherwise never be
+// seen again -- the very class this check exists to close (items 149, 5, 153,
+// 21: right once, never re-read). So a dismissal older than
+// TRIAGE_EXPIRY_MONTHS comes back ONCE, with its reason printed beside it.
+// If the reason still holds, re-triaging is changing `on` to today: two
+// seconds. If it does not, the item has drifted, and now somebody knows.
+// (Mihai, 2026-11-16, item 200.)
 type Triage =
-  | { kind: "fallen"; why: string }
-  | { kind: "unmarked"; why: string }
-  | { kind: "not-drift"; why: string };
+  | { kind: "fallen"; why: string; on: string }
+  | { kind: "unmarked"; why: string; on: string }
+  | { kind: "not-drift"; why: string; on: string };
+
+const TRIAGE_EXPIRY_MONTHS = 6;
 
 const TRIAGE: Record<number, Triage> = {
   // Decided, actionable, not done -- measured 2026-11-16 (item 200).
-  5: { kind: "fallen", why: "audit_log.payload convention: 'nothing except doing it'; never written; event types went 5 -> 8" },
-  21: { kind: "fallen", why: "remove users.status (decided 2026-09-02), deferred to the screen's next rework; 6 commits on that screen since, column untouched" },
-  149: { kind: "fallen", why: "Alexandra Nutu's grade correction, 'Blocked on: nothing' from 2026-10-20; still 2 from 01.09 (date now needs Anca, item 197)" },
-  153: { kind: "fallen", why: "'Anka has to be told the answer is NOT YET' -- an action on Mihai; no record anywhere that it happened" },
+  5: { kind: "fallen", why: "audit_log.payload convention: 'nothing except doing it'; never written; event types went 5 -> 8", on: "2026-11-16" },
+  21: { kind: "fallen", why: "remove users.status (decided 2026-09-02), deferred to the screen's next rework; 6 commits on that screen since, column untouched", on: "2026-11-16" },
+  149: { kind: "fallen", why: "Alexandra Nutu's grade correction, 'Blocked on: nothing' from 2026-10-20; still 2 from 01.09 (date now needs Anca, item 197)", on: "2026-11-16" },
+  153: { kind: "fallen", why: "'Anka has to be told the answer is NOT YET' -- an action on Mihai; no record anywhere that it happened", on: "2026-11-16" },
   // Done in code, still reads open.
-  160: { kind: "unmarked", why: "/my-work has upcomingSessions (item 187 point 3)" },
-  188: { kind: "unmarked", why: "the location/language 'next wave' was superseded by items 194/195" },
+  160: { kind: "unmarked", why: "/my-work has upcomingSessions (item 187 point 3)", on: "2026-11-16" },
+  188: { kind: "unmarked", why: "the location/language 'next wave' was superseded by items 194/195", on: "2026-11-16" },
   // Raised by the heuristics, read, and not drift -- with the reason.
-  45: { kind: "not-drift", why: "built; its heading says so in its own words" },
-  53: { kind: "not-drift", why: "a citation, not a completion" },
-  77: { kind: "not-drift", why: "built; heading says 'built' in lower case" },
-  85: { kind: "not-drift", why: "built; heading says 'built' in lower case" },
-  91: { kind: "not-drift", why: "'fixed same day' in its heading" },
-  95: { kind: "not-drift", why: "seeded; done" },
-  118: { kind: "not-drift", why: "a proposal with no decision taken -- open, not fallen" },
-  119: { kind: "not-drift", why: "moved to fra1 and measured 2026-10-12; done, by its own heading's words" },
-  122: { kind: "not-drift", why: "waits on a wording decision -- open, not fallen" },
-  133: { kind: "not-drift", why: "built" },
-  134: { kind: "not-drift", why: "cleaned by 202610130002" },
-  135: { kind: "not-drift", why: "waits on a Skew Protection decision" },
-  140: { kind: "not-drift", why: "waits on Anca (the 45-minute band)" },
-  141: { kind: "not-drift", why: "a record, by its own words" },
-  142: { kind: "not-drift", why: "open review work, no decision to have fallen" },
-  143: { kind: "not-drift", why: "'nothing but a decision to do it' -- undecided" },
-  144: { kind: "not-drift", why: "the model change waits on a decision" },
-  147: { kind: "not-drift", why: "resolved (111-150, confirmed by Anca)" },
-  150: { kind: "not-drift", why: "a rule; the rule is the deliverable" },
-  152: { kind: "not-drift", why: "imported; done" },
-  161: { kind: "not-drift", why: "a ranked list, nothing decided to build" },
-  168: { kind: "not-drift", why: "a record" },
-  174: { kind: "not-drift", why: "noted, deliberately not scoped" },
-  175: { kind: "not-drift", why: "built" },
-  177: { kind: "not-drift", why: "built" },
-  186: { kind: "not-drift", why: "built" },
-  189: { kind: "not-drift", why: "a record" },
-  190: { kind: "not-drift", why: "a record" },
-  192: { kind: "not-drift", why: "parked on purpose, named, unscheduled" },
-  196: { kind: "not-drift", why: "decided, in flight (item 198 wave 1 first)" },
-  200: { kind: "not-drift", why: "the check itself is built; the four it tracks are listed above under DECIDED, NOT DONE" },
+  45: { kind: "not-drift", why: "built; its heading says so in its own words", on: "2026-11-16" },
+  53: { kind: "not-drift", why: "a citation, not a completion", on: "2026-11-16" },
+  77: { kind: "not-drift", why: "built; heading says 'built' in lower case", on: "2026-11-16" },
+  85: { kind: "not-drift", why: "built; heading says 'built' in lower case", on: "2026-11-16" },
+  91: { kind: "not-drift", why: "'fixed same day' in its heading", on: "2026-11-16" },
+  95: { kind: "not-drift", why: "seeded; done", on: "2026-11-16" },
+  118: { kind: "not-drift", why: "a proposal with no decision taken -- open, not fallen", on: "2026-11-16" },
+  119: { kind: "not-drift", why: "moved to fra1 and measured 2026-10-12; done, by its own heading's words", on: "2026-11-16" },
+  122: { kind: "not-drift", why: "waits on a wording decision -- open, not fallen", on: "2026-11-16" },
+  133: { kind: "not-drift", why: "built", on: "2026-11-16" },
+  134: { kind: "not-drift", why: "cleaned by 202610130002", on: "2026-11-16" },
+  135: { kind: "not-drift", why: "waits on a Skew Protection decision", on: "2026-11-16" },
+  140: { kind: "not-drift", why: "waits on Anca (the 45-minute band)", on: "2026-11-16" },
+  141: { kind: "not-drift", why: "a record, by its own words", on: "2026-11-16" },
+  142: { kind: "not-drift", why: "open review work, no decision to have fallen", on: "2026-11-16" },
+  143: { kind: "not-drift", why: "'nothing but a decision to do it' -- undecided", on: "2026-11-16" },
+  144: { kind: "not-drift", why: "the model change waits on a decision", on: "2026-11-16" },
+  147: { kind: "not-drift", why: "resolved (111-150, confirmed by Anca)", on: "2026-11-16" },
+  150: { kind: "not-drift", why: "a rule; the rule is the deliverable", on: "2026-11-16" },
+  152: { kind: "not-drift", why: "imported; done", on: "2026-11-16" },
+  161: { kind: "not-drift", why: "a ranked list, nothing decided to build", on: "2026-11-16" },
+  168: { kind: "not-drift", why: "a record", on: "2026-11-16" },
+  174: { kind: "not-drift", why: "noted, deliberately not scoped", on: "2026-11-16" },
+  175: { kind: "not-drift", why: "built", on: "2026-11-16" },
+  177: { kind: "not-drift", why: "built", on: "2026-11-16" },
+  186: { kind: "not-drift", why: "built", on: "2026-11-16" },
+  189: { kind: "not-drift", why: "a record", on: "2026-11-16" },
+  190: { kind: "not-drift", why: "a record", on: "2026-11-16" },
+  192: { kind: "not-drift", why: "parked on purpose, named, unscheduled", on: "2026-11-16" },
+  196: { kind: "not-drift", why: "decided, in flight (item 198 wave 1 first)", on: "2026-11-16" },
+  200: { kind: "not-drift", why: "the check itself is built; the four it tracks are listed above under DECIDED, NOT DONE", on: "2026-11-16" },
 };
 
 const DONE_WORD = /\b(RESOLVED|CLOSED|BUILT|FIXED|APPLIED|DONE|PUSHED|WITHDRAWN|SUPERSEDED|DISCARDED|cut deliberately)\b/;
@@ -334,6 +345,20 @@ function reportDrift(lines: string[], itemPos: Map<number, number>): void {
         console.log(`  ${String(n).padStart(4)}  ${short(n)}\n        ${why}`);
       }
     }
+  }
+
+  const now = new Date();
+  const due = Object.entries(TRIAGE)
+    .filter(([, t]) => t.kind === "not-drift")
+    .filter(([, t]) => {
+      const expires = new Date(`${t.on}T00:00:00Z`);
+      expires.setUTCMonth(expires.getUTCMonth() + TRIAGE_EXPIRY_MONTHS);
+      return expires <= now;
+    })
+    .map(([n, t]) => [Number(n), t] as const);
+  console.log(`\nDISMISSALS OLDER THAN ${TRIAGE_EXPIRY_MONTHS} MONTHS, due for re-triage: ${due.length === 0 ? "none" : ""}`);
+  for (const [n, t] of due) {
+    console.log(`  ${String(n).padStart(4)}  ${short(n)}\n        dismissed ${t.on}: "${t.why}" -- still true? set on: today; if not, reclassify`);
   }
 
   const fresh = [...new Set([...fallenCandidates(spans), ...unmarkedCandidates(lines, spans)])]

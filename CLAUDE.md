@@ -18,7 +18,7 @@ is in Romanian; code, comments, commits and this file are in English.
    has corrected its own past mistakes in place rather than hiding them, and the correction is
    usually the part that matters.
 2. **`docs/DATABASE_CONVENTIONS.md`.** Every schema, RLS, and migration convention this project
-   has settled on, numbered §1–§23 as of this writing. Check a new migration against it before
+   has settled on, numbered §1–§27 as of this writing. Check a new migration against it before
    writing one; conventions here are load-bearing, not style preferences.
 3. **This file**, for how to run things. It does not restate decisions — those live in the two
    files above and go stale here the moment they do.
