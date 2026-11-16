@@ -49,6 +49,26 @@
  * internally consistent and whether the filenames/numbers it cites still
  * exist. See item 71 in the file this checks.
  *
+ *   4. (2026-11-16, OPEN_ITEMS item 200) Items whose STATE has drifted from
+ *      the work, in both directions. Informational: printed, never a
+ *      failure, and meant to be read at the START of a session, not only
+ *      after an edit.
+ *        - DECIDED, NOT DONE: a decision with an action, nothing blocking
+ *          it, and the action never happened. Item 149 sat 27 days like
+ *          this; nothing read the register for it, because an item with no
+ *          blocker never comes back up on its own.
+ *        - DONE, NOT MARKED: the work exists in code, the register still
+ *          reads open (160, 188). Costs no money; makes the register read
+ *          more open than it is, which teaches people to skim it.
+ *      Detection is a heuristic and is noisy on this file's history (27
+ *      candidates on its first run, most of them notes or already-built
+ *      items whose heading says "built" in lower case). So a candidate is
+ *      TRIAGED ONCE, below, with a reason -- the same discipline as
+ *      KNOWN_DELIBERATELY_ABSENT_FILES -- and a session sees: every tracked
+ *      item still not marked done, and only the NEW untriaged candidates.
+ *      An item leaves the tracked list when its own heading carries a done
+ *      word; the script then says so, and the entry below is removed.
+ *
  * Run:
  *   npx tsx scripts/check_open_items_register.ts
  */
@@ -181,6 +201,150 @@ function checkMigrationCitations(text: string): number {
   return confirmCount;
 }
 
+// Check 4's triage. Every candidate the heuristics below have ever raised
+// is listed here exactly once. `fallen` and `unmarked` are reprinted on
+// every run until the item's heading carries a done word; everything else
+// is a reason the candidate is NOT drift, so it stops being reprinted.
+type Triage =
+  | { kind: "fallen"; why: string }
+  | { kind: "unmarked"; why: string }
+  | { kind: "not-drift"; why: string };
+
+const TRIAGE: Record<number, Triage> = {
+  // Decided, actionable, not done -- measured 2026-11-16 (item 200).
+  5: { kind: "fallen", why: "audit_log.payload convention: 'nothing except doing it'; never written; event types went 5 -> 8" },
+  21: { kind: "fallen", why: "remove users.status (decided 2026-09-02), deferred to the screen's next rework; 6 commits on that screen since, column untouched" },
+  149: { kind: "fallen", why: "Alexandra Nutu's grade correction, 'Blocked on: nothing' from 2026-10-20; still 2 from 01.09 (date now needs Anca, item 197)" },
+  153: { kind: "fallen", why: "'Anka has to be told the answer is NOT YET' -- an action on Mihai; no record anywhere that it happened" },
+  // Done in code, still reads open.
+  160: { kind: "unmarked", why: "/my-work has upcomingSessions (item 187 point 3)" },
+  188: { kind: "unmarked", why: "the location/language 'next wave' was superseded by items 194/195" },
+  // Raised by the heuristics, read, and not drift -- with the reason.
+  45: { kind: "not-drift", why: "built; its heading says so in its own words" },
+  53: { kind: "not-drift", why: "a citation, not a completion" },
+  77: { kind: "not-drift", why: "built; heading says 'built' in lower case" },
+  85: { kind: "not-drift", why: "built; heading says 'built' in lower case" },
+  91: { kind: "not-drift", why: "'fixed same day' in its heading" },
+  95: { kind: "not-drift", why: "seeded; done" },
+  118: { kind: "not-drift", why: "a proposal with no decision taken -- open, not fallen" },
+  119: { kind: "not-drift", why: "moved to fra1 and measured 2026-10-12; done, by its own heading's words" },
+  122: { kind: "not-drift", why: "waits on a wording decision -- open, not fallen" },
+  133: { kind: "not-drift", why: "built" },
+  134: { kind: "not-drift", why: "cleaned by 202610130002" },
+  135: { kind: "not-drift", why: "waits on a Skew Protection decision" },
+  140: { kind: "not-drift", why: "waits on Anca (the 45-minute band)" },
+  141: { kind: "not-drift", why: "a record, by its own words" },
+  142: { kind: "not-drift", why: "open review work, no decision to have fallen" },
+  143: { kind: "not-drift", why: "'nothing but a decision to do it' -- undecided" },
+  144: { kind: "not-drift", why: "the model change waits on a decision" },
+  147: { kind: "not-drift", why: "resolved (111-150, confirmed by Anca)" },
+  150: { kind: "not-drift", why: "a rule; the rule is the deliverable" },
+  152: { kind: "not-drift", why: "imported; done" },
+  161: { kind: "not-drift", why: "a ranked list, nothing decided to build" },
+  168: { kind: "not-drift", why: "a record" },
+  174: { kind: "not-drift", why: "noted, deliberately not scoped" },
+  175: { kind: "not-drift", why: "built" },
+  177: { kind: "not-drift", why: "built" },
+  186: { kind: "not-drift", why: "built" },
+  189: { kind: "not-drift", why: "a record" },
+  190: { kind: "not-drift", why: "a record" },
+  192: { kind: "not-drift", why: "parked on purpose, named, unscheduled" },
+  196: { kind: "not-drift", why: "decided, in flight (item 198 wave 1 first)" },
+  200: { kind: "not-drift", why: "this check; in flight" },
+};
+
+const DONE_WORD = /\b(RESOLVED|CLOSED|BUILT|FIXED|APPLIED|DONE|PUSHED|WITHDRAWN|SUPERSEDED|DISCARDED|cut deliberately)\b/;
+
+type ItemSpan = { heading: string; body: string; start: number; end: number };
+
+function itemSpans(lines: string[], itemPos: Map<number, number>): Map<number, ItemSpan> {
+  const starts = [...itemPos.entries()].sort((a, b) => a[1] - b[1]);
+  const spans = new Map<number, ItemSpan>();
+  starts.forEach(([n, line], k) => {
+    const start = line - 1;
+    let end = k + 1 < starts.length ? starts[k + 1][1] - 1 : lines.length;
+    for (let j = start + 1; j < end; j++) {
+      if (lines[j].startsWith("## ")) {
+        end = j;
+        break;
+      }
+    }
+    spans.set(n, { heading: lines[start], body: lines.slice(start, end).join("\n"), start, end });
+  });
+  return spans;
+}
+
+// Candidate "decided, not done": the item's LAST "Blocked on:" says nothing
+// blocks it, it does not describe itself as a note/record/rule, and its
+// heading carries no done word.
+function fallenCandidates(spans: Map<number, ItemSpan>): number[] {
+  const out: number[] = [];
+  for (const [n, s] of spans) {
+    if (DONE_WORD.test(s.heading)) continue;
+    const blocked = [...s.body.matchAll(/\*\*Blocked on:\*\*\s*(.+)/g)].map((m) => m[1]);
+    const last = blocked.at(-1);
+    if (!last || !/^(nothing|nimic|none)\b/i.test(last)) continue;
+    if (/note, not work|this is a (note|report|rule|record|measurement)|nothing to fix|nothing to build|the record, not the work|closed|done|deployed|applied|built|resolved|confirmed\./i.test(last)) continue;
+    out.push(n);
+  }
+  return out;
+}
+
+// Candidate "done, not marked": the item says of itself that something is
+// not built / not fixed, says nothing later in its own body about that
+// changing, and another line of the register cites it next to a done word.
+function unmarkedCandidates(lines: string[], spans: Map<number, ItemSpan>): number[] {
+  const selfOpen = /not built|NOT built|unbuilt|NOT fixed|[Nn]ot fixed|nothing below is built|nothing here is built|Read only/g;
+  const laterDone = /\b(FIXED|BUILT|built|fixed|repaired|superseded|SUPERSEDED|closed by|CLOSED)\b/;
+  const out: number[] = [];
+  for (const [n, s] of spans) {
+    if (DONE_WORD.test(s.heading)) continue;
+    const hits = [...s.body.matchAll(selfOpen)];
+    if (hits.length === 0) continue;
+    const last = hits[hits.length - 1];
+    if (laterDone.test(s.body.slice((last.index ?? 0) + last[0].length))) continue;
+    const cite = new RegExp(`\\bitems? ${n}\\b`);
+    const citedDone = lines.some((l, i) => {
+      if (i >= s.start && i < s.end) return false;
+      const m = cite.exec(l);
+      if (!m) return false;
+      return laterDone.test(l.slice(Math.max(0, m.index - 100), m.index + m[0].length + 100));
+    });
+    if (citedDone) out.push(n);
+  }
+  return out;
+}
+
+function reportDrift(lines: string[], itemPos: Map<number, number>): void {
+  const spans = itemSpans(lines, itemPos);
+  const short = (n: number) => (spans.get(n)?.heading ?? `### ${n}. (missing)`).replace(/^### /, "").slice(0, 90);
+
+  console.log("\n--- item state drift (informational, check 4) ---");
+  for (const [label, kind] of [
+    ["DECIDED, NOT DONE", "fallen"],
+    ["DONE IN CODE, NOT MARKED", "unmarked"],
+  ] as const) {
+    const tracked = Object.entries(TRIAGE).filter(([, t]) => t.kind === kind).map(([n, t]) => [Number(n), t.why] as const);
+    console.log(`\n${label}:`);
+    for (const [n, why] of tracked) {
+      const s = spans.get(n);
+      if (s && DONE_WORD.test(s.heading)) {
+        console.log(`  now marked  ${n} -- its heading carries a done word; remove it from TRIAGE`);
+      } else {
+        console.log(`  ${String(n).padStart(4)}  ${short(n)}\n        ${why}`);
+      }
+    }
+  }
+
+  const fresh = [...new Set([...fallenCandidates(spans), ...unmarkedCandidates(lines, spans)])]
+    .filter((n) => !(n in TRIAGE))
+    .sort((a, b) => a - b);
+  console.log(`\nNEW, UNTRIAGED candidates: ${fresh.length === 0 ? "none" : ""}`);
+  for (const n of fresh) {
+    console.log(`  ${String(n).padStart(4)}  ${short(n)}\n        read it; add it to TRIAGE as fallen / unmarked / not-drift, with the reason`);
+  }
+}
+
 function main() {
   const text = readFileSync(REGISTER_PATH, "utf8");
   const lines = text.split("\n");
@@ -197,6 +361,7 @@ function main() {
 
   const directionFailures = checkDirectionsAndExistence(lines, itemPos);
   const migrationConfirms = checkMigrationCitations(text);
+  reportDrift(lines, itemPos);
 
   console.log(`\n${directionFailures} direction/reference failure(s); ${migrationConfirms} migration filename(s) needing confirmation.`);
   if (directionFailures > 0) {

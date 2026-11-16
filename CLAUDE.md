@@ -5,6 +5,12 @@ is in Romanian; code, comments, commits and this file are in English.
 
 ## Where a new session resumes context from, in this order
 
+0. **Run `npx tsx scripts/check_open_items_register.ts` FIRST, before reading anything else, and
+   read its "item state drift" section.** It lists decisions with nothing blocking them that were
+   never carried out, and work done in code that the register still reads as open (item 200). Item
+   149 sat 27 days in that state because nothing ever surfaced an item with no blocker. A NEW
+   UNTRIAGED candidate gets read and added to the script's `TRIAGE` map, with its reason, in the
+   same session.
 1. **`docs/OPEN_ITEMS.md`.** The single source of truth for what is open, what was decided, and
    what is in flight *right now*. Read the **"Readiness before invitation"** decision near the top
    first — it is Mihai's standing decision and outranks every item below it. Then read the
