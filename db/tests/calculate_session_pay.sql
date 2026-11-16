@@ -185,7 +185,7 @@ begin;
       into v_org, v_session_date, v_duration_minutes, v_location_tier, v_group_id
     from public.sessions where id = p_session_id;
     select delivery_format, language_group into v_delivery_format, v_language_group from public.groups where id = v_group_id;
-    v_grade := app.resolve_trainer_grade(p_trainer_id, v_session_date);
+    v_grade := app.resolve_trainer_grade(v_org, p_trainer_id, v_session_date);
     v_rate := app.resolve_trainer_grade_rate(v_org, v_grade, v_session_date);
     v_duration_multiplier := app.resolve_duration_multiplier(v_org, v_duration_minutes, v_delivery_format, v_session_date);
     v_location_bonus := app.resolve_location_bonus(v_org, v_location_tier, v_session_date);
