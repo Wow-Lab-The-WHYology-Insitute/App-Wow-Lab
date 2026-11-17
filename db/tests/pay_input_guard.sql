@@ -337,3 +337,113 @@ begin;
   select 'SABOTAGE: a group language change that re-prices confirmed pay is refused, same assertion as point 4, guard removed' as check_name,
     (select v from r) as actual, 'refused P0W01' as expected, (select v from r) = 'refused P0W01' as pass;
 rollback;
+
+-- ============================================================================
+-- Point 12 -- the author of a statement (202611170003). A sanctioned group
+-- change is applied by the Organization Owner; a Finance Operations account
+-- WITHOUT org.audit.read (the person this exists for, §25) asks who made it.
+-- It must get exactly ONE answer -- that change's author and moment -- even
+-- though the group already carries other history rows (precondition, shown
+-- non-empty, §27; group de6e6f56 has 2 real rows at 2 earlier moments --
+-- c1...b2 had NONE, so a free search would also have returned one row and
+-- the sabotage could never have flipped: caught when it passed), and reading row_history directly must still give it 0:
+-- the access comes from the function bound to the statement, not from a
+-- widened policy.
+-- ============================================================================
+begin;
+  create temp table r (k text, v jsonb) on commit drop;
+  grant all on r to authenticated;
+  select set_config('app.owner', (select id::text from public.users where email = 'maxdigitalro@gmail.com'), true);
+  select set_config('app.fin',   (select id::text from public.users where email = 'test+finance-ops-a@wowlab.dev'), true);
+  select set_config('test.history_before', (select count(*)::text from public.row_history where table_name = 'groups' and row_id = 'de6e6f56-0d5c-4f6a-b13d-4da9a9ebd558'), true);
+
+  select set_config('request.jwt.claims', json_build_object('sub', current_setting('app.owner'), 'role', 'authenticated')::text, true);
+  select set_config('role', 'authenticated', true);
+  insert into r select 'preview', public.rpc_preview_group_pay_change('de6e6f56-0d5c-4f6a-b13d-4da9a9ebd558', 'fr_de_es', null);
+  insert into r select 'apply', public.rpc_apply_group_pay_change('de6e6f56-0d5c-4f6a-b13d-4da9a9ebd558', 'fr_de_es', null, (select v->'declaration' from r where k = 'preview'));
+  select set_config('role', 'postgres', true);
+  select set_config('test.stmt', (select id::text from public.grid_corrections where group_id = 'de6e6f56-0d5c-4f6a-b13d-4da9a9ebd558'), true);
+  select set_config('test.stmt_at', (select created_at::text from public.grid_corrections where group_id = 'de6e6f56-0d5c-4f6a-b13d-4da9a9ebd558'), true);
+
+  select set_config('request.jwt.claims', json_build_object('sub', current_setting('app.fin'), 'role', 'authenticated')::text, true);
+  select set_config('role', 'authenticated', true);
+  insert into r select 'author', coalesce((select jsonb_agg(to_jsonb(a)) from public.correction_statement_author(current_setting('test.stmt')::uuid) a), '[]'::jsonb);
+  insert into r select 'direct_history', to_jsonb((select count(*) from public.row_history where table_name = 'groups'));
+  select set_config('role', 'postgres', true);
+
+  select 'precondition: the group already has other history rows, so "exactly one" is a measurement' as check_name,
+    current_setting('test.history_before') as actual, '>= 1' as expected, current_setting('test.history_before')::int >= 1 as pass
+  union all
+  select 'a finance user without org.audit.read gets exactly ONE author for the statement',
+    (select jsonb_array_length(v)::text from r where k = 'author'), '1', (select jsonb_array_length(v) = 1 from r where k = 'author')
+  union all
+  select 'the author is the person who made the change, at the statement''s own moment',
+    (select v->0->>'actor_user_id' from r where k = 'author'), current_setting('app.owner'),
+    coalesce((select v->0->>'actor_user_id' = current_setting('app.owner')
+                     and (v->0->>'changed_at')::timestamptz = current_setting('test.stmt_at')::timestamptz from r where k = 'author'), false)
+  union all
+  select 'it returns the author and the moment, nothing else (no old/new values)',
+    (select string_agg(key_name, ',' order by key_name) from r, jsonb_object_keys(r.v->0) as keys(key_name) where r.k = 'author'), 'actor_user_id,changed_at',
+    (select string_agg(key_name, ',' order by key_name) from r, jsonb_object_keys(r.v->0) as keys(key_name) where r.k = 'author') = 'actor_user_id,changed_at'
+  union all
+  select 'the same finance user still reads 0 rows of row_history directly (no widened policy)',
+    (select v::text from r where k = 'direct_history'), '0', (select v::text from r where k = 'direct_history') = '0';
+rollback;
+
+-- ============================================================================
+-- Point 13 -- the author's gate: the statements' own. A trainer gets nothing;
+-- an id that is not a statement gets nothing.
+-- ============================================================================
+begin;
+  create temp table r (k text, v jsonb) on commit drop;
+  grant all on r to authenticated;
+  select set_config('app.owner',  (select id::text from public.users where email = 'maxdigitalro@gmail.com'), true);
+  select set_config('app.lorina', (select id::text from public.users where email = 'lorina.ciurusniuc@gmail.com'), true);
+  select set_config('request.jwt.claims', json_build_object('sub', current_setting('app.owner'), 'role', 'authenticated')::text, true);
+  select set_config('role', 'authenticated', true);
+  insert into r select 'preview', public.rpc_preview_group_pay_change('c1000000-0000-0000-0000-0000000000b2', 'fr_de_es', null);
+  insert into r select 'apply', public.rpc_apply_group_pay_change('c1000000-0000-0000-0000-0000000000b2', 'fr_de_es', null, (select v->'declaration' from r where k = 'preview'));
+  insert into r select 'owner', to_jsonb((select count(*) from public.correction_statement_author((select id from public.grid_corrections where group_id = 'c1000000-0000-0000-0000-0000000000b2'))));
+  insert into r select 'not_a_statement', to_jsonb((select count(*) from public.correction_statement_author(gen_random_uuid())));
+  select set_config('role', 'postgres', true);
+  select set_config('test.stmt', (select id::text from public.grid_corrections where group_id = 'c1000000-0000-0000-0000-0000000000b2'), true);
+  select set_config('request.jwt.claims', json_build_object('sub', current_setting('app.lorina'), 'role', 'authenticated')::text, true);
+  select set_config('role', 'authenticated', true);
+  insert into r select 'trainer', to_jsonb((select count(*) from public.correction_statement_author(current_setting('test.stmt')::uuid)));
+  select set_config('role', 'postgres', true);
+  select 'CONTROL: a reader of statements gets the author' as check_name, (select v::text from r where k = 'owner') as actual, '1' as expected, (select v::text from r where k = 'owner') = '1' as pass
+  union all select 'a trainer gets nothing', (select v::text from r where k = 'trainer'), '0', (select v::text from r where k = 'trainer') = '0'
+  union all select 'an id that is not a statement gets nothing', (select v::text from r where k = 'not_a_statement'), '0', (select v::text from r where k = 'not_a_statement') = '0';
+rollback;
+
+-- ============================================================================
+-- Point 14 -- SABOTAGE for point 12: the function turned into a FREE search
+-- of the group's history (every row, any moment) -- the back door around
+-- org.audit.read it must not be. "Exactly one" must flip.
+-- ============================================================================
+begin;
+  create temp table r (k text, v jsonb) on commit drop;
+  grant all on r to authenticated;
+  create or replace function app.correction_statement_author(p_statement_id uuid)
+  returns table (actor_user_id uuid, changed_at timestamptz)
+  language sql stable security definer set search_path = '' as $sabotage$
+    select h.actor_user_id, h.changed_at from public.row_history h
+    join public.grid_corrections g on g.group_id = h.row_id
+    where g.id = p_statement_id and h.table_name = 'groups';
+  $sabotage$;
+  select set_config('app.owner', (select id::text from public.users where email = 'maxdigitalro@gmail.com'), true);
+  select set_config('app.fin',   (select id::text from public.users where email = 'test+finance-ops-a@wowlab.dev'), true);
+  select set_config('request.jwt.claims', json_build_object('sub', current_setting('app.owner'), 'role', 'authenticated')::text, true);
+  select set_config('role', 'authenticated', true);
+  insert into r select 'preview', public.rpc_preview_group_pay_change('de6e6f56-0d5c-4f6a-b13d-4da9a9ebd558', 'fr_de_es', null);
+  insert into r select 'apply', public.rpc_apply_group_pay_change('de6e6f56-0d5c-4f6a-b13d-4da9a9ebd558', 'fr_de_es', null, (select v->'declaration' from r where k = 'preview'));
+  select set_config('role', 'postgres', true);
+  select set_config('test.stmt', (select id::text from public.grid_corrections where group_id = 'de6e6f56-0d5c-4f6a-b13d-4da9a9ebd558'), true);
+  select set_config('request.jwt.claims', json_build_object('sub', current_setting('app.fin'), 'role', 'authenticated')::text, true);
+  select set_config('role', 'authenticated', true);
+  insert into r select 'author', coalesce((select jsonb_agg(to_jsonb(a)) from public.correction_statement_author(current_setting('test.stmt')::uuid) a), '[]'::jsonb);
+  select set_config('role', 'postgres', true);
+  select 'SABOTAGE: a finance user gets exactly ONE author for the statement, same assertion as point 12, function turned into a free search' as check_name,
+    (select jsonb_array_length(v)::text from r where k = 'author') as actual, '1' as expected,
+    (select jsonb_array_length(v) = 1 from r where k = 'author') as pass;
+rollback;

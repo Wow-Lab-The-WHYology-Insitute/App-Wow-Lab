@@ -684,3 +684,98 @@ begin;
         and exists (select 1 from pg_attribute x where x.attrelid = pc.oid and x.attname = 'organization_id' and not x.attisdropped)
     ) as pass;
 rollback;
+
+-- ============================================================================
+-- Point 15 -- THE CLASS, second form (Mihai, 2026-11-17): a UNIQUE key on an
+-- org-scoped table that neither includes organization_id nor reaches the
+-- organization through a composite key lets one organization make a write
+-- IMPOSSIBLE for another. Nothing moves; something becomes impossible, so no
+-- "did wow-lab change" probe can see it. Excluded, each for a stated reason:
+--   * the primary key on `id` alone -- random uuids; another organization
+--     cannot take an id that has not been generated;
+--   * a key one of whose columns is the child side of a composite
+--     (x, organization_id) foreign key -- that column already belongs to one
+--     organization, so two organizations cannot collide on it.
+-- ============================================================================
+begin;
+  select 'no unique key on an org-scoped table that ignores the organization (the class, second form)' as check_name,
+    coalesce((
+      select string_agg(t.relname || '.' || coalesce(con.conname, i.relname), ', ' order by t.relname)
+      from pg_class t
+      join pg_index ix on ix.indrelid = t.oid and ix.indisunique
+      join pg_class i on i.oid = ix.indexrelid
+      left join pg_constraint con on con.conindid = ix.indexrelid
+      where t.relnamespace = 'public'::regnamespace and t.relkind = 'r'
+        and exists (select 1 from pg_attribute a where a.attrelid = t.oid and a.attname = 'organization_id' and not a.attisdropped)
+        and not exists (select 1 from pg_attribute a where a.attrelid = t.oid and a.attnum = any (ix.indkey) and a.attname = 'organization_id')
+        and not (ix.indisprimary and (select array_agg(a.attname::text) from pg_attribute a where a.attrelid = t.oid and a.attnum = any (ix.indkey)) = array['id'])
+        and not exists (
+          select 1 from pg_constraint fk
+          where fk.conrelid = t.oid and fk.contype = 'f' and array_length(fk.conkey, 1) = 2
+            and fk.conkey[1] = any (ix.indkey)
+            and exists (select 1 from pg_attribute a where a.attrelid = t.oid and a.attnum = fk.conkey[2] and a.attname = 'organization_id'))
+    ), 'none') as actual,
+    'none' as expected,
+    coalesce((
+      select count(*) = 0
+      from pg_class t
+      join pg_index ix on ix.indrelid = t.oid and ix.indisunique
+      where t.relnamespace = 'public'::regnamespace and t.relkind = 'r'
+        and exists (select 1 from pg_attribute a where a.attrelid = t.oid and a.attname = 'organization_id' and not a.attisdropped)
+        and not exists (select 1 from pg_attribute a where a.attrelid = t.oid and a.attnum = any (ix.indkey) and a.attname = 'organization_id')
+        and not (ix.indisprimary and (select array_agg(a.attname::text) from pg_attribute a where a.attrelid = t.oid and a.attnum = any (ix.indkey)) = array['id'])
+        and not exists (
+          select 1 from pg_constraint fk
+          where fk.conrelid = t.oid and fk.contype = 'f' and array_length(fk.conkey, 1) = 2
+            and fk.conkey[1] = any (ix.indkey)
+            and exists (select 1 from pg_attribute a where a.attrelid = t.oid and a.attnum = fk.conkey[2] and a.attname = 'organization_id'))
+    ), false) as pass;
+rollback;
+
+-- ============================================================================
+-- Point 16 -- SABOTAGE for point 15: a new org-scoped table keyed UNIQUE on a
+-- global person -- the shape trainer_home_cities had. Point 15's assertion,
+-- verbatim, must now be FALSE. (Valid only because point 15 passes: while it
+-- failed, a sabotage proved nothing -- §27; it was validated in rolled-back
+-- transactions instead, item 198.)
+-- ============================================================================
+begin;
+  create table public.zz_unique_sabotage (
+    id uuid primary key default gen_random_uuid(),
+    organization_id uuid not null references public.organizations (id),
+    trainer_id uuid not null references public.users (id),
+    unique (trainer_id)
+  );
+  select 'SABOTAGE: no unique key on an org-scoped table that ignores the organization, same assertion as point 15, a table with UNIQUE (trainer_id) added' as check_name,
+    coalesce((
+      select string_agg(t.relname || '.' || coalesce(con.conname, i.relname), ', ' order by t.relname)
+      from pg_class t
+      join pg_index ix on ix.indrelid = t.oid and ix.indisunique
+      join pg_class i on i.oid = ix.indexrelid
+      left join pg_constraint con on con.conindid = ix.indexrelid
+      where t.relnamespace = 'public'::regnamespace and t.relkind = 'r'
+        and exists (select 1 from pg_attribute a where a.attrelid = t.oid and a.attname = 'organization_id' and not a.attisdropped)
+        and not exists (select 1 from pg_attribute a where a.attrelid = t.oid and a.attnum = any (ix.indkey) and a.attname = 'organization_id')
+        and not (ix.indisprimary and (select array_agg(a.attname::text) from pg_attribute a where a.attrelid = t.oid and a.attnum = any (ix.indkey)) = array['id'])
+        and not exists (
+          select 1 from pg_constraint fk
+          where fk.conrelid = t.oid and fk.contype = 'f' and array_length(fk.conkey, 1) = 2
+            and fk.conkey[1] = any (ix.indkey)
+            and exists (select 1 from pg_attribute a where a.attrelid = t.oid and a.attnum = fk.conkey[2] and a.attname = 'organization_id'))
+    ), 'none') as actual,
+    'none' as expected,
+    coalesce((
+      select count(*) = 0
+      from pg_class t
+      join pg_index ix on ix.indrelid = t.oid and ix.indisunique
+      where t.relnamespace = 'public'::regnamespace and t.relkind = 'r'
+        and exists (select 1 from pg_attribute a where a.attrelid = t.oid and a.attname = 'organization_id' and not a.attisdropped)
+        and not exists (select 1 from pg_attribute a where a.attrelid = t.oid and a.attnum = any (ix.indkey) and a.attname = 'organization_id')
+        and not (ix.indisprimary and (select array_agg(a.attname::text) from pg_attribute a where a.attrelid = t.oid and a.attnum = any (ix.indkey)) = array['id'])
+        and not exists (
+          select 1 from pg_constraint fk
+          where fk.conrelid = t.oid and fk.contype = 'f' and array_length(fk.conkey, 1) = 2
+            and fk.conkey[1] = any (ix.indkey)
+            and exists (select 1 from pg_attribute a where a.attrelid = t.oid and a.attnum = fk.conkey[2] and a.attname = 'organization_id'))
+    ), false) as pass;
+rollback;

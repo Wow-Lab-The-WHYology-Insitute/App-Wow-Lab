@@ -51,6 +51,7 @@ type ContractEntityRow = {
 type LegalEntityRow = { id: string; name: string };
 type GradeRow = { trainer_id: string; grade_level: number; effective_from: string };
 type CorrectionRow = {
+  id: string;
   target: string;
   trainer_grade_version_id: string | null;
   duration_multiplier_version_id: string | null;
@@ -566,7 +567,7 @@ export default async function PayrollPage({
     const { data: corrections } = await supabase
       .from("grid_corrections")
       .select(
-        "target, trainer_grade_version_id, duration_multiplier_version_id, location_bonus_version_id, language_bonus_version_id, trainer_grade_assignment_id, group_id, declaration, created_at",
+        "id, target, trainer_grade_version_id, duration_multiplier_version_id, location_bonus_version_id, language_bonus_version_id, trainer_grade_assignment_id, group_id, declaration, created_at",
       )
       .eq("organization_id", orgId)
       .returns<CorrectionRow[]>();
@@ -589,10 +590,11 @@ export default async function PayrollPage({
 
     // Who and when live on the target row, never on the statement (item 195):
     // a version's created_by/created_at, an assignment's set_by/created_at. A
-    // group has no such column -- its author is in row_history, which a
-    // finance viewer may not read -- so for a group the statement's own
-    // created_at (the transaction's moment) is the "when", and the "who" is
-    // left unknown rather than guessed.
+    // group has no such column -- its author is only in row_history, which a
+    // finance viewer may not read. So for a group the author comes from
+    // correction_statement_author (202611170003): bound to THIS statement,
+    // behind the statements' own read gate, returning only who and when --
+    // never a search of row_history (Mihai, 2026-11-17, option 3).
     const versionMeta = new Map<string, { created_at: string; created_by: string | null; note: string | null }>();
     for (const grid of [...new Set(relevant.map((c) => c.target))].filter((t) => t.endsWith("_bonus") || t === "trainer_grade" || t === "duration_multiplier")) {
       const { data: versions } = await supabase
@@ -612,7 +614,9 @@ export default async function PayrollPage({
       for (const a of assignments ?? []) versionMeta.set(a.id, { created_at: a.created_at, created_by: a.set_by, note: null });
     }
     for (const c of relevant.filter((r) => r.target === "group_pay")) {
-      versionMeta.set(c.targetId, { created_at: c.created_at, created_by: null, note: null });
+      const { data: author } = await supabase.rpc("correction_statement_author", { p_statement_id: c.id });
+      const a = ((author ?? []) as { actor_user_id: string | null; changed_at: string }[])[0];
+      versionMeta.set(c.targetId, { created_at: a?.changed_at ?? c.created_at, created_by: a?.actor_user_id ?? null, note: null });
     }
     const missingCreators = [...versionMeta.values()]
       .map((v) => v.created_by)
@@ -631,8 +635,8 @@ export default async function PayrollPage({
       monthCorrections.push({
         grid: c.target,
         correctedAt: meta?.created_at ?? null,
-        // "—", not "Unknown", for a group: nothing went missing, the author
-        // is simply not recorded where this viewer can read it (see above).
+        // "—" only if the author could not be established (the function
+        // returns nothing rather than guess); "Unknown" is a missing name.
         correctedByName: meta?.created_by ? nameById.get(meta.created_by) ?? "Unknown" : "—",
         note: meta?.note ?? null,
         affected: c.affected.map((a) => ({ date: a.date, client: a.client, trainer: a.trainer, before: a.before, after: a.after })),
