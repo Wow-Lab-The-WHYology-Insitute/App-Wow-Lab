@@ -11117,7 +11117,93 @@ lean, not decided:
   BUILT (`202611160001`). Then the guard, then the sanctioned path. Findings 2 and 3 (swap,
   cancel) moved to item 199 below, with item 184's two defects, as one family.
 
-**Blocked on:** nothing; next in order after item 198. Not started.
+**BUILT 2026-11-17 (`202611170001`), in the decided form, tests first.**
+
+**`grid_corrections` became option (b) in the same migration (Mihai, 2026-11-17).**
+- **The shape:** one column per target, six in all: the four grid versions,
+  `trainer_grade_assignment_id` and `group_id`. A `CHECK` requires exactly one, and each has a
+  composite key with `organization_id`, like the 29.
+- **`target` is GENERATED** from which column is set, never written.
+- **Why, in Mihai's words and mine:** item 196 took the polymorphic id from 4 targets to 6. A
+  promise that was at its limit at four is worse at six, and the moment to repair it is BEFORE the
+  generalization: at 0 rows it costs nothing, later it is a data migration.
+  - **More machinery than one polymorphic id, but machinery the DATABASE holds, not a
+    function.** That is the same reasoning as §26: a state made impossible, not a rule
+    written down.
+- **The 0-row precondition was not assumed from the morning's count.** The migration asserts it at
+  the moment of migrating and refuses otherwise. It held: 0.
+
+**What the guard now covers:**
+- **`trainer_grade_assignments`** (INSERT, UPDATE) and **`groups.language_group` /
+  `delivery_format`** (UPDATE) go through `app.pay_input_guard`, a constraint trigger, deferred.
+- **The same computation as the grid guard:** `grid_confirmed_pay_snapshot` +
+  `grid_correction_declaration`, §22.
+- **The same codes:** P0W01 to refuse, P0W02 for a stale statement.
+- **No `corrects_version_id`:** a promotion is a new fact (§26, "Succession or correction").
+- **Both directions:** a demotion is refused like a promotion, and its statement carries the
+  negative delta.
+
+**The sanctioned paths:** `rpc_preview/apply_grade_assignment` and
+`rpc_preview/apply_group_pay_change`, over `app.grade_assignment_write` /
+`app.group_pay_columns_write`, both SECURITY DEFINER.
+- **Same shape as `grid_correction_write`:** preview writes inside a subtransaction, reads the
+  statement and rolls back; apply writes the change and the statement, and the guard compares.
+- **Gate:** PROVISIONAL, the same as item 195's.
+- **A grade can only be given to a person who belongs to the organization** (`not_member`). Users
+  are global; item 198.
+- **A group statement is matched to its change by `written_xact`,** the writing transaction,
+  because a group is the one target that is not a new row.
+
+**Found while building, included because it is the table being guarded:**
+- **The unique key had no organization.** `UNIQUE (trainer_id, effective_from)` meant an Org B
+  row for a shared person on a date blocked wow-lab from that person on that date. That is item
+  198's class, on a unique key.
+  - **Before:** induced through RLS, 23505.
+  - **After:** unique per organization, and the same write is accepted (test point 9).
+
+**Caught by the dry run, before anything reached the database:**
+- **My design error: the target keys must be DEFERRED.** The guard judges a write by undoing it
+  in a subtransaction, and for a new version or assignment the undo is a DELETE of the very row
+  the statement points at. An immediate key refused that undo. This would have broken item 195's
+  grid corrections too, and was caught by point 5.
+  - **Consequence for the test:** point 8 forces the check at once. Otherwise "accepted" would
+    measure WHEN the key is checked, not WHETHER it holds (§27).
+- **Two bugs in my own test, not in what it measures:**
+  - reading `users` after switching to `authenticated`;
+  - writing a result before the sentinel exception that rolled it back, which produced an EMPTY
+    control, not a failed one.
+
+**Before (the live schema):**
+- the two controls passed;
+- the retroactive promotion, the demotion and the group change were all ACCEPTED;
+- the cross-org unique key gave 23505.
+
+**After:**
+- every check passes;
+- SABOTAGE removes each guard and the corresponding assertion flips;
+- the SABOTAGE blocks of `grid_confirmed_pay_guard`/`grid_correction` fail identically with and
+  without the migration.
+- **Suite:** 583/583, 34 files, 0 block errors (558 + the 25 checks of `pay_input_guard.sql`).
+  `tsc --noEmit` and `next build` are clean, with the same route table.
+
+**App changes in the same change:**
+- **`/payroll`'s correction panel** reads the new columns. Who/when come from the target row: a
+  version's `created_by`, an assignment's `set_by`. For a group the author is "—": it lives only in
+  `row_history`, which a finance viewer may not read. The panel shows the statement's moment and
+  does not guess. Two new labels.
+- **The group form:** a refused language change says what was protected, in RO/EN, not the raw
+  P0W01.
+
+**NOT built, named (§20):**
+- **No screen collects a statement for a grade or a group change.** The paths are RPCs. The group
+  form says so plainly instead of sending the person to someone who has no screen either, and no
+  screen writes grade assignments at all (as before).
+- **DELETE is not guarded** on assignments, as on the grids: only migrations and the service role
+  can delete.
+- **`sessions`' own pay columns are still unguarded.** That is item 199 (blocked on Anca's
+  questions 11–12) and item 166.
+
+**Blocked on:** nothing for the build. Anca's four-eyes answer decides the gate, as for 195.
 **Re-verify when:** anything is built here. Rebuild P1–P8 from the table above (each probe is one
 write plus a snapshot before and after, rolled back). Expect P5 to stop moving wow-lab, and P1–P4
 and P6 to refuse or demand a statement. Whatever is built should leave them as `db/tests` blocks.
@@ -11424,12 +11510,12 @@ The layers:
 |---|---|---|---|---|
 | grid version header (`*_versions`) INSERT, PostgREST or `rpc_create_grid_version` (invoker) | **L1 only** | `corrects_version_id`: L2 + L5 (subquery filter); the header itself has **no parent but the organization** | L3 (4 grids) | lesson_plan / contract_type_uplift: no L3; pay does not read them |
 | grid rates (`*_rates`) INSERT | **L1 only** | `version_id`: L2 | L3 (4 grids) | |
-| correction, `rpc_apply_grid_correction` → `grid_correction_write` (DEFINER) | L4 | L2 | L3, sanctioned | `grid_corrections.version_id` is **not a foreign key at all** (it spans four grids). Its organization is consistent only because of L4's code |
+| correction, `rpc_apply_grid_correction` → `grid_correction_write` (DEFINER) | L4 | L2 | L3, sanctioned | ~~`grid_corrections.version_id` is not a foreign key at all~~ **Since `202611170001`, option (b):** one column per target, each with a composite key (L2), and exactly one set (CHECK). Grade and group statements are written by `grade_assignment_write` / `group_pay_columns_write`, which are also L4 |
 | `admin_rate_versions` / `admin_rates` | no app writer: INSERT granted but **no INSERT policy**, RLS on (induced: refused) | `version_id`: L2 | — | migrations only |
-| `trainer_grade_assignments` INSERT | **L1 only** | `trainer_id` → `users`: **no L2 possible**; L5 since `202611160001` | **none** (item 196, not built) | |
+| `trainer_grade_assignments` INSERT | **L1 only** | `trainer_id` → `users`: **no L2 possible**; L5 since `202611160001` | **L3 since `202611170001`** (item 196), with the sanctioned path | |
 | `sessions` INSERT (column grants + RLS) | **L1 only** | `group_id`: L2; trainers → `users`: no L2 | **none** (items 166/196) | |
 | `sessions` UPDATE: allocation, cancel, confirm, correct, approve, attendance (all DEFINER) | **L4 only** | trainers → `users`: allocation does **not** check that the trainer belongs to the session's organization | **none** | item 199 |
-| `groups` INSERT/UPDATE (column grants include `organization_id` itself) | L1 on the old AND new row: moving an Org B group into wow-lab was **refused** (induced) | `client_id`/`contract_id`: L2; `on_site_contact_id`: L2 (wave 3) | **none** for `language_group`/`delivery_format` (item 196) | L2 also refuses that move: its client and its sessions would mismatch |
+| `groups` INSERT/UPDATE (column grants include `organization_id` itself) | L1 on the old AND new row: moving an Org B group into wow-lab was **refused** (induced) | `client_id`/`contract_id`: L2; `on_site_contact_id`: L2 (wave 3) | **L3 since `202611170001`** for `language_group`/`delivery_format` (item 196) | L2 also refuses that move: its client and its sessions would mismatch |
 | `payroll_periods` INSERT (month close) | **L1 only**, plus `closed_by` = the caller | no parent but the organization | — | |
 | `payroll_period_totals` INSERT | **L1 only** | `payroll_period_id`: L2; `legal_entity_id`: L2 (wave 2); `trainer_id` → `users` | — | |
 | **migrations / service role, any table** | **nothing** (RLS bypassed, L4 not involved) | **L2 holds** | **L3 holds** | the only layers that bind a migration are the structural ones |
@@ -11445,8 +11531,9 @@ The layers:
    2026-11-16, and a new one is unverified until it is walked the same way (§25).
 3. **L2 is the only layer that binds migrations and the service role.** It is the real purchase of
    each wave, beyond the app path RLS already covered.
-4. **L3 covers confirmed pay only on the 4 pay grids.** Assignments, `groups`' pay columns and
-   `sessions` are item 196's queue, not covered.
+4. **L3 covers confirmed pay on the 4 pay grids, and since `202611170001` on grade assignments
+   and `groups`' pay columns too (item 196).** `sessions`' own columns are still NOT covered
+   (items 166, 199).
 5. **Users:** no structural layer can exist (users are global). It is L5, per reader, or nothing.
 
 **What each wave buys:**
@@ -11556,7 +11643,10 @@ table anyway.**
 - **What (c) would cost:** the map's principle ("only structural layers bind a migration") would
   have one named exception, kept knowingly.
 
-**Item 196 is therefore NOT started:** its column shape is this decision. Building it first would
+**DECIDED (b) by Mihai 2026-11-17, and BUILT the same day inside item 196's migration
+(`202611170001`).** The integrity is now held by the database; see item 196 above.
+
+**Item 196 was therefore NOT started at first:** its column shape is this decision. Building it first would
 choose (c) through the back door, item 189's pattern.
 
 **In wave 1, what it covers:** the seven `*_rates.version_id`, the four `corrects_version_id`,

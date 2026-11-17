@@ -348,17 +348,18 @@ is in Romanian; code, comments, commits and this file are in English.
   - **Real data:** 0 survivors. Cancel/confirm contradictions: a rule is proposed. Nothing built.
 - **Item 200 — register items decided and never done: 149, 5, 153, 21.** 160 and 188 are the
   inverse (done, not marked). A register check is proposed, not built.
-- **Item 196, 2026-11-16, measured, NOT built — the guard covers 8 tables; pay reads 3 more.**
-  - **Unguarded:** `trainer_grade_assignments`, `groups.language_group`/`delivery_format`, and
-    `sessions`. Induced on wow-lab, rolled back: a retroactive grade (both directions; Cătălina
-    6→5 from 01.10 = 18 slots, −196,00), a group language change, a trainer swap, and a cancel
-    each re-price confirmed pay silently.
-  - **The grade rule, induced:** by session date — the latest `effective_from` on or before it.
-  - **`resolve_trainer_grade` has no org filter.** Test Org B's owner moved wow-lab pay through RLS.
-  - **`rpc_update_session_allocation` hands one trainer's confirmation to another.**
-  - **Mihai's proposal:** guard + item 195's statement for grade changes. My opinion is in the
-    item: it fits without `corrects_version_id`; the org filter goes first. Awaiting his decision.
-    Read the item before touching any pay input.
+- **Item 196, BUILT 2026-11-17 (`202611170001`) — the guard now covers grade assignments and a
+  group's pay columns.** Read it before touching any pay input.
+  - **What is refused:** a write that re-prices confirmed, unapproved pay (P0W01), in both
+    directions.
+  - **The sanctioned paths:** `rpc_preview/apply_grade_assignment` and
+    `rpc_preview/apply_group_pay_change`. They are RPCs only; no screen collects a statement yet.
+  - **`grid_corrections` is option (b):** one column per target (4 grid versions, assignment,
+    group), exactly one set, a composite key on each, `target` generated. The target keys are
+    DEFERRED on purpose (the guards undo by deleting the target).
+  - **Assignments are unique per organization now** (they were cross-org blocking).
+  - **Still unguarded:** `sessions`' own pay columns (items 166, 199).
+  - The grade rule, induced: by session date, the latest `effective_from` on or before it.
 - **Item 197, 2026-11-16 — the progression rule cannot be derived from the timesheet.**
   - **Why:** the same step happens at 10 to 109 hours, and levels go DOWN, which no hours rule can
     produce. Item 149's "crossed hours threshold" is withdrawn.
