@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useTranslations } from "@/lib/i18n";
 import { groupsDict } from "../i18n";
 import { updateGroup } from "../actions";
+import { GROUP_PAY_CHANGE_NEEDS_STATEMENT_ERROR } from "../session-write-errors";
 
 // EMPTY is what an unset field renders. It stays visible on purpose — in an
 // internal record "nobody has filled this in" is information, and a row that
@@ -277,8 +278,9 @@ function GroupEditForm({
           languageGroupValue,
           schedulePatternValue,
         );
-        if (!result.ok) setError(result.error);
-        else onSaved();
+        if (!result.ok) {
+          setError(result.error === GROUP_PAY_CHANGE_NEEDS_STATEMENT_ERROR ? t("group_pay_change_refused") : result.error);
+        } else onSaved();
       } catch {
         setError(t("network_error"));
       }

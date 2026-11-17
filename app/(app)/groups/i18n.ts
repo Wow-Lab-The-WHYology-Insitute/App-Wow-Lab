@@ -333,6 +333,13 @@ export const groupsDict: Dictionary = {
   // Recording attendance shares confirmation_not_assigned_error above (the
   // wording fits both writes) but needs its own month-closed message --
   // "your confirmation" doesn't describe attendance.
+  // 202611170001 (item 196). Says what is protected and what to do; the
+  // statement-confirming screen does not exist yet, and the message says so
+  // rather than sending the person to someone who has no screen for it either.
+  group_pay_change_refused: {
+    en: "Not saved: this change would alter the pay of workshops already confirmed in this group. Confirmed pay changes only with a confirmed impact statement, which this form cannot collect yet.",
+    ro: "Nu s-a salvat: schimbarea ar modifica plata unor ateliere deja confirmate în această grupă. Plata confirmată se schimbă doar cu o declarație de impact confirmată, pe care acest formular încă nu o poate cere.",
+  },
   attendance_month_closed_error: {
     en: "This month is closed. You can no longer change attendance for this workshop.",
     ro: "Luna este închisă. Nu mai poți modifica prezența pentru acest atelier.",

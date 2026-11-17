@@ -50,6 +50,17 @@ type ContractEntityRow = {
 };
 type LegalEntityRow = { id: string; name: string };
 type GradeRow = { trainer_id: string; grade_level: number; effective_from: string };
+type CorrectionRow = {
+  target: string;
+  trainer_grade_version_id: string | null;
+  duration_multiplier_version_id: string | null;
+  location_bonus_version_id: string | null;
+  language_bonus_version_id: string | null;
+  trainer_grade_assignment_id: string | null;
+  group_id: string | null;
+  declaration: Declaration;
+  created_at: string;
+};
 type ClientRow = { id: string; name: string };
 // One row per trainer slot per workshop, from
 // public.calculate_org_session_pay (202610150003). `amount` is already
@@ -547,32 +558,65 @@ export default async function PayrollPage({
   // here, and which approved slots it left at their pre-correction amount.
   // Read from grid_corrections (the statement the person confirmed); who and
   // when from the correcting version row, which is where they live.
+  // Since 202611170001 (item 196, option (b)) a statement names exactly one
+  // target, in its own column: a grid version, a grade assignment, or a
+  // group whose pay columns changed. `target` is derived from which one is set.
   const monthCorrections: MonthCorrection[] = [];
   if (canReadPayGrids) {
     const { data: corrections } = await supabase
       .from("grid_corrections")
-      .select("grid, version_id, declaration")
+      .select(
+        "target, trainer_grade_version_id, duration_multiplier_version_id, location_bonus_version_id, language_bonus_version_id, trainer_grade_assignment_id, group_id, declaration, created_at",
+      )
       .eq("organization_id", orgId)
-      .returns<{ grid: string; version_id: string; declaration: Declaration }[]>();
+      .returns<CorrectionRow[]>();
     const inMonth = (d: string) => d >= from && d < toExclusive;
     const relevant = (corrections ?? [])
       .map((c) => ({
         ...c,
+        targetId:
+          c.trainer_grade_version_id ??
+          c.duration_multiplier_version_id ??
+          c.location_bonus_version_id ??
+          c.language_bonus_version_id ??
+          c.trainer_grade_assignment_id ??
+          c.group_id ??
+          "",
         affected: c.declaration.affected.filter((a) => inMonth(a.date)),
         frozen: c.declaration.frozen.filter((f) => inMonth(f.date)),
       }))
       .filter((c) => c.affected.length > 0 || c.frozen.length > 0);
 
-    const versionMeta = new Map<string, { created_at: string; created_by: string; note: string | null }>();
-    for (const grid of [...new Set(relevant.map((c) => c.grid))]) {
+    // Who and when live on the target row, never on the statement (item 195):
+    // a version's created_by/created_at, an assignment's set_by/created_at. A
+    // group has no such column -- its author is in row_history, which a
+    // finance viewer may not read -- so for a group the statement's own
+    // created_at (the transaction's moment) is the "when", and the "who" is
+    // left unknown rather than guessed.
+    const versionMeta = new Map<string, { created_at: string; created_by: string | null; note: string | null }>();
+    for (const grid of [...new Set(relevant.map((c) => c.target))].filter((t) => t.endsWith("_bonus") || t === "trainer_grade" || t === "duration_multiplier")) {
       const { data: versions } = await supabase
         .from(`${grid}_versions`)
         .select("id, created_at, created_by, note")
-        .in("id", relevant.filter((c) => c.grid === grid).map((c) => c.version_id))
+        .in("id", relevant.filter((c) => c.target === grid).map((c) => c.targetId))
         .returns<{ id: string; created_at: string; created_by: string; note: string | null }[]>();
       for (const v of versions ?? []) versionMeta.set(v.id, v);
     }
-    const missingCreators = [...versionMeta.values()].map((v) => v.created_by).filter((id) => !nameById.has(id));
+    const assignmentIds = relevant.filter((c) => c.target === "trainer_grade_assignment").map((c) => c.targetId);
+    if (assignmentIds.length > 0) {
+      const { data: assignments } = await supabase
+        .from("trainer_grade_assignments")
+        .select("id, created_at, set_by")
+        .in("id", assignmentIds)
+        .returns<{ id: string; created_at: string; set_by: string }[]>();
+      for (const a of assignments ?? []) versionMeta.set(a.id, { created_at: a.created_at, created_by: a.set_by, note: null });
+    }
+    for (const c of relevant.filter((r) => r.target === "group_pay")) {
+      versionMeta.set(c.targetId, { created_at: c.created_at, created_by: null, note: null });
+    }
+    const missingCreators = [...versionMeta.values()]
+      .map((v) => v.created_by)
+      .filter((id): id is string => id !== null && !nameById.has(id));
     if (missingCreators.length > 0) {
       const { data: creators } = await supabase
         .from("users")
@@ -583,11 +627,13 @@ export default async function PayrollPage({
     }
 
     for (const c of relevant) {
-      const meta = versionMeta.get(c.version_id);
+      const meta = versionMeta.get(c.targetId);
       monthCorrections.push({
-        grid: c.grid,
+        grid: c.target,
         correctedAt: meta?.created_at ?? null,
-        correctedByName: meta ? nameById.get(meta.created_by) ?? "Unknown" : "Unknown",
+        // "—", not "Unknown", for a group: nothing went missing, the author
+        // is simply not recorded where this viewer can read it (see above).
+        correctedByName: meta?.created_by ? nameById.get(meta.created_by) ?? "Unknown" : "—",
         note: meta?.note ?? null,
         affected: c.affected.map((a) => ({ date: a.date, client: a.client, trainer: a.trainer, before: a.before, after: a.after })),
         frozen: c.frozen.map((f) => ({ date: f.date, client: f.client, trainer: f.trainer, approvedAt: f.approved_at, frozen: f.frozen, wouldBe: f.would_be })),

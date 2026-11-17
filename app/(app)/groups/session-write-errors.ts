@@ -34,3 +34,12 @@ export const SESSION_CONFIRMATION_FUTURE_ERROR =
 // they'd read almost the same.
 export const SESSION_ATTENDANCE_FUTURE_ERROR =
   "This workshop has not happened yet. You can record attendance on the day.";
+
+// 202611170001 (OPEN_ITEMS item 196): the group's language or workshop type
+// feeds pay, and this group has confirmed, not-yet-approved workshops whose
+// pay the change would move. The database refuses it (P0W01) unless it
+// carries a confirmed impact statement -- a path that exists as an RPC
+// (rpc_preview/apply_group_pay_change) and has NO screen yet. Says what is
+// protected, not which gate fired, like the strings above.
+export const GROUP_PAY_CHANGE_NEEDS_STATEMENT_ERROR =
+  "This change would alter the pay of workshops already confirmed in this group.";

@@ -302,6 +302,9 @@ export const payrollDict: Dictionary = {
   grid_duration_multiplier: { en: "Duration multipliers", ro: "Coeficienți de durată" },
   grid_location_bonus: { en: "Location bonuses", ro: "Bonusuri de locație" },
   grid_language_bonus: { en: "Language bonuses", ro: "Bonusuri de limbă" },
+  // Item 196: the two pay inputs a statement can now sanction besides the grids.
+  grid_trainer_grade_assignment: { en: "A trainer's grade", ro: "Gradul unui trainer" },
+  grid_group_pay: { en: "A group's language or workshop type", ro: "Limba sau tipul de atelier al unei grupe" },
 
   // ---- The trainer-principal bonus (B2, item 175) ----
   // Its own section, never folded into "What each trainer is owed" above --

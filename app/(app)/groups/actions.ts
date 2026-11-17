@@ -9,6 +9,7 @@ import {
   SESSION_ATTENDANCE_MONTH_CLOSED_ERROR,
   SESSION_ATTENDANCE_FUTURE_ERROR,
   SESSION_CONFIRMATION_NOT_ASSIGNED_ERROR,
+  GROUP_PAY_CHANGE_NEEDS_STATEMENT_ERROR,
 } from "./session-write-errors";
 
 export type ActionResult =
@@ -251,6 +252,11 @@ export async function updateGroup(
       .eq("id", groupId);
 
     if (error) {
+      // P0W01: the pay guard (202611170001, item 196) refused a language
+      // change on a group with confirmed, unapproved pay.
+      if (error.code === "P0W01") {
+        return { ok: false, error: GROUP_PAY_CHANGE_NEEDS_STATEMENT_ERROR };
+      }
       return { ok: false, error: error.message };
     }
   }

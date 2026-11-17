@@ -56,7 +56,7 @@ begin;
     (select res->'declaration' from r where k = 'preview'));
   insert into r select 'again', public.rpc_apply_grid_correction('trainer_grade', current_setting('t.v')::uuid, 'TEST correction', (select rows from payload where k = 'changed'),
     (select res->'declaration' from r where k = 'preview'));
-  insert into r select 'record_visible', to_jsonb((select count(*) from public.grid_corrections where version_id = ((select res->>'id' from r where k = 'apply'))::uuid));
+  insert into r select 'record_visible', to_jsonb((select count(*) from public.grid_corrections where trainer_grade_version_id = ((select res->>'id' from r where k = 'apply'))::uuid));
   select set_config('role', 'postgres', true);
 
   insert into r select 'pay_s1_after', to_jsonb(p.amount) from app.calculate_org_session_pay(current_setting('t.org')::uuid, '2026-09-15', '2026-09-16') p where p.session_id = (select id from s where k = 'S1');
@@ -119,7 +119,7 @@ begin;
   select 'grid_corrections holds exactly the statement that was confirmed, and the finance user can read it',
          (select res::text from r where k = 'record_visible'), '1',
          (select res::text from r where k = 'record_visible') = '1'
-         and (select declaration from public.grid_corrections where version_id = (select res->>'id' from r where k = 'apply')::uuid)
+         and (select declaration from public.grid_corrections where trainer_grade_version_id = (select res->>'id' from r where k = 'apply')::uuid)
              = (select res->'declaration' from r where k = 'preview')
   union all
   select 'grid_corrections duplicates no who/when column (the version row holds them)',
@@ -307,8 +307,10 @@ begin;
     perform set_config('request.jwt.claims', json_build_object('sub', current_setting('t.fin'), 'role', 'authenticated')::text, true);
     perform set_config('role', 'authenticated', true);
     begin
-      insert into public.grid_corrections (organization_id, grid, version_id, declaration)
-      values (current_setting('t.org')::uuid, 'trainer_grade', gen_random_uuid(), '{}');
+      -- A real version, so the only thing this write can hit is the missing
+      -- grant (§27): option (b)'s keys and CHECK would all accept it.
+      insert into public.grid_corrections (organization_id, trainer_grade_version_id, declaration)
+      values (current_setting('t.org')::uuid, current_setting('t.v')::uuid, '{}');
       insert into r values ('direct_insert', '"allowed"');
     exception when insufficient_privilege then
       insert into r values ('direct_insert', '"42501"');
