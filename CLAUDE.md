@@ -359,6 +359,16 @@ is in Romanian; code, comments, commits and this file are in English.
     DEFERRED on purpose (the guards undo by deleting the target).
   - **Assignments are unique per organization now** (they were cross-org blocking).
   - **Still unguarded:** `sessions`' own pay columns (items 166, 199).
+  - **The author of a statement:** `correction_statement_author(statement_id)` (`202611170003`).
+    It is BOUND to one statement, never a `row_history` search, behind the statements' read gate.
+    Do not widen it; that would be the `org.audit.read` bypass it replaced.
+- **Item 208 — DELETE/TRUNCATE are unguarded,** for migrations and `service_role` only (no app
+  user can delete). Deleting a rate, an assignment, or a version with its rates silently makes
+  confirmed pay unpriceable.
+  - **Decided:** build it. The form is proposed and awaits Mihai: capture "before" at the first
+    DELETE and compare at commit, because undo-by-reinsert breaks on foreign keys; plus a
+    statement-level `BEFORE TRUNCATE`.
+  - **Before guarding anything, ask:** ALL verbs, ALL mechanisms, ALL writers.
   - The grade rule, induced: by session date, the latest `effective_from` on or before it.
 - **Item 197, 2026-11-16 — the progression rule cannot be derived from the timesheet.**
   - **Why:** the same step happens at 10 to 109 hours, and levels go DOWN, which no hours rule can

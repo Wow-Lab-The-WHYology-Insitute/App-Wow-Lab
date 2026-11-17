@@ -1195,6 +1195,18 @@ That is points 4–6 of the same file.
   variable decides the outcome; here it is the bookkeeping of the test itself, or the timing of
   the check.
 
+**The same rule, applied to a PROTECTION rather than a probe (Mihai, 2026-11-17, OPEN_ITEMS item
+208).**
+- **The case:** deleting the grade version in force was refused, but by the foreign key from its
+  rates, not by the pay guard.
+- **What that key was:** a protection of referential integrity, which happened to cover pay. It
+  disappeared the moment the rates were deleted first: 46 confirmed slots went unpriceable, with
+  the guard silent.
+- **The rule:** a protection that comes from somewhere other than the thing it is credited with is
+  not a protection; it is luck. Never count it as coverage. When a refusal is observed, name WHICH
+  mechanism refused, and ask whether the guarded property would still hold if that mechanism
+  were removed.
+
 **Relation to §24:** §24 says to induce the real mutation rather than reason about the schema.
 §27 says the induced mutation must be built so that its outcome can only mean one thing. Inducing
 the wrong thing faithfully is still the wrong thing.

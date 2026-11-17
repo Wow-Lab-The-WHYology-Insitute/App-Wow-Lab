@@ -11238,9 +11238,30 @@ these tables, and asked first what ELSE would become visible.
     widening of `org.audit.read`.
 - **My opinion: (3).** It gives what (1) is for, without (1)'s side effect. If (1) is still
   preferred, scope it to `table_name = 'groups'` and accept the list above knowingly.
+- **DECIDED (3) by Mihai, BUILT 2026-11-17 (`202611170003`).**
+  - **The function:** `public.correction_statement_author(statement_id)` →
+    `(actor_user_id, changed_at)`.
+  - **Its constraint, written IN THE FUNCTION BODY, not only here:** bound to ONE statement. Its
+    only input is a statement id; the history row is matched on the statement's own target table,
+    target id and `created_at`; it never returns values; and it returns nothing rather than choose
+    if a moment ever matched two actors.
+  - **Read gate:** the statements' own.
+  - **On `/payroll`:** the author of a group change now comes from it; "—" remains only where
+    nothing could be established.
+  - **Tests** (`pay_input_guard.sql` points 12–14, written first):
+    - a Finance Operations account WITHOUT `org.audit.read` gets exactly ONE author, the right one
+      at the statement's moment, with only two fields;
+    - the same account still reads 0 rows of `row_history` directly;
+    - a trainer, and an id that is not a statement, get nothing;
+    - SABOTAGE turns it into a free search of the group's history, and it FAILS (3 rows).
+  - **Suite:** 594/594, 34 files; `tsc --noEmit` clean.
+  - **Caught on the way, §27's empty control again, in the author's own test:** the first test
+    group (`c1…b2`) had NO earlier history rows, so even the free-search sabotage returned one row
+    and could never flip. It PASSED when it should have failed, and that is how it was caught. The
+    test moved to group `de6e6f56`, which has 2 real rows at 2 earlier moments, and the
+    precondition is now printed and required.
 
-**Blocked on:** nothing for the build. Anca's four-eyes answer decides the gate, as for 195. The
-"—" waits on Mihai's choice (1)/(2)/(3).
+**Blocked on:** nothing for the build. Anca's four-eyes answer decides the gate, as for 195.
 **Re-verify when:** anything is built here. Rebuild P1–P8 from the table above (each probe is one
 write plus a snapshot before and after, rolled back). Expect P5 to stop moving wow-lab, and P1–P4
 and P6 to refuse or demand a statement. Whatever is built should leave them as `db/tests` blocks.
@@ -11659,6 +11680,20 @@ whose key does NOT include `organization_id`. **55**, read one by one:
   The text is versioned in `db/tests/pending/cross_org_unique_second_form.sql`, outside the
   runner's reach (it reads only the top level of `db/tests/`). Its header says how it moves in.
 
+**REPAIRED 2026-11-17 (`202611170002`), as Mihai decided:** the key gains the organization,
+`UNIQUE (organization_id, trainer_id)`.
+- **The test** moved from `db/tests/pending/` into `cross_org_write_isolation.sql` as point 15,
+  with its SABOTAGE as point 16. That SABOTAGE is valid now that point 15 passes. The pending
+  file and its header are deleted. Suite 594/594 after both of today's migrations.
+- **AN OPEN QUESTION, written on Mihai's instruction and not pursued now: why does
+  `trainer_home_cities` carry `organization_id` at all?**
+  - **The tension:** a home city is a property of the PERSON, and users are global by design (the
+    26 keys to `users` left out on purpose).
+  - **What it implies:** if the city should be global, the right repair was the opposite one,
+    dropping `organization_id` rather than adding it to the key.
+  - **Why answer it soon:** with 11 rows, all wow-lab, either answer is still cheap. The repair
+    made today is correct for the table as modelled; whether the model is right is the open part.
+
 **The surface is small: one key on one non-pay table.** The repair is one line,
 `UNIQUE (organization_id, trainer_id)`. There are 11 wow-lab rows and 0 in other organizations, so
 nothing can collide when it is applied.
@@ -12054,8 +12089,74 @@ mechanisms through which the guarded object can change?* Not *which ones am I th
 - **The other verb:** TRUNCATE bypasses row triggers entirely. It needs a statement-level refusal
   or a revoke, named so it is not the third time.
 
-**Blocked on:** Mihai's decision.
-**Lives in:** item 194 (the first time), items 196 and 198, §26.
+**DECIDED 2026-11-17 (Mihai): build it, DELETE and TRUNCATE.** His argument is this item's own
+sentence: the hole exists only for migrations and `service_role`, which is exactly the writer the
+guard was first built for. TRUNCATE bypasses row triggers and needs a statement-level `BEFORE
+TRUNCATE`, not the same mechanism.
+
+**THE ACCIDENTAL PROTECTION, written as what it is (Mihai, §27 applied to a protection rather
+than a probe).** Deleting the version in force ALONE was refused, but by the foreign key from its
+rates (23503), not by the guard.
+- **What the key protects:** referential integrity, not pay.
+- **When it vanishes:** the moment the rates are deleted first. In that order, (c2) above, 46
+  slots went unpriceable with the guard silent.
+- **A protection that comes from somewhere other than the thing measured is not protection; it is
+  luck.** It must never be counted as coverage.
+
+**MEASURED FIRST, as Mihai asked: how the guard simulates today, and whether DELETE touches it.**
+Induced in a rolled-back transaction, counting with a SEQUENCE, because what the guard does inside
+its own rolled-back subtransaction would vanish from any table.
+- **The simulation is REAL WRITES:** the inserted rows are DELETEd, or an update is reverted by an
+  UPDATE.
+  - They run inside a subtransaction that a sentinel exception (`P0W00`) always rolls back.
+  - A transaction-local flag (`app.grid_guard_undoing = on`) is set inside it and undone with it.
+  - There is no temporary table, and no recomputation without the real write.
+  - **Measured:** a backdated grade version with 6 rates was refused (P0W01), and its judgment
+    made **6 real DELETEs on `trainer_grade_rates`, all with the flag ON, 0 with it off.**
+- **YES, a DELETE extension touches it, in two ways:**
+  - **(a) The guard's own undo deletes rows,** so a DELETE guard would fire on them. This is solved
+    by what exists: the flag is on during every such delete, and a DELETE guard that checks it
+    FIRST, as both current guards do, returns immediately. Deferred events produced inside the
+    simulation are discarded with its subtransaction. No loop.
+  - **(b) The undo OF a delete would be a re-INSERT, and that breaks.** A rate whose version was
+    deleted in the same transaction cannot be put back first: **refused 23503**, measured. The
+    order in which deferred row triggers fire cannot be controlled. Undo-based judging does not fit
+    DELETE.
+- **This is the same shape as item 196's deferred keys,** through another mechanism: the guard's
+  method collides with what it guards.
+
+**The proposed form, NOT built until Mihai confirms it:**
+- **DELETE, the "before" captured rather than simulated.**
+  - **At the first delete:** a row-level `BEFORE DELETE` trigger, immediate, silent when the
+    undo flag is on, fires once per organization per transaction. It stores that organization's
+    snapshot of ALL confirmed slots, taken while every row still exists, in a transaction-local
+    setting.
+  - **At commit:** a deferred `AFTER DELETE` constraint trigger, once per organization,
+    snapshots again and compares with `grid_correction_declaration`. If any confirmed,
+    unapproved slot moved, including into "unpriceable", it raises P0W01.
+  - **Why it fits:** no undo, no re-insert, no recursion, and it judges the transaction's NET
+    effect from its first delete.
+  - **Known limits, named:**
+    - a delete-and-reinsert with identical values would pass this guard, but is still refused by
+      the INSERT guard's own undo-judging (existing behaviour);
+    - the snapshot lives in a setting whose size grows with the number of confirmed slots (about
+      10 KB for wow-lab's 46). That is fine now, and a temporary table is the next step if it
+      ever is not.
+- **No sanctioned path for DELETE, deliberately.** A correction is a new version (§26), and a
+  promotion a new row. Deleting what confirmed pay rests on is never the legitimate route, and the
+  refusal names the routes that are.
+- **TRUNCATE:** a statement-level `BEFORE TRUNCATE` on the 10 guarded tables (8 grid tables,
+  assignments, `groups`). It sees no rows, so it refuses if ANY confirmed, unapproved slot exists
+  in ANY organization: TRUNCATE is table-wide. `TRUNCATE … CASCADE` fires it on each table it
+  reaches.
+- **The tests, first and failing:**
+  - the four rows of the table above become probes;
+  - the delete of a row carrying NO confirmed session is the control that must pass;
+  - a TRUNCATE probe;
+  - SABOTAGE for each.
+
+**Blocked on:** Mihai's confirmation of the form above (he asked for it before the build).
+**Lives in:** item 194 (the first time), items 196 and 198, §26, §27.
 
 ---
 ### 18. Pending invites — cut deliberately
