@@ -1162,6 +1162,18 @@ without a control in its own right.
 
 That is points 4–6 of the same file.
 
+**The convention working, on a probe written by its own author, the same week (2026-11-17, item
+198).**
+- **The probe:** Test Org B's owner writes a `grid_corrections` row in wow-lab's name, to test
+  isolation. It was refused.
+- **The control:** the same row in Org B's own name. It was refused too (`42501`, no grant).
+- **The reading:** a failing control means the probe did not measure the organization; it measured
+  that no user can write the table at all. The result was recorded as that, a statement about
+  grants, and the table's real write paths were counted instead (one gated DEFINER function, plus
+  migrations).
+- **Without the control,** "refused" would have read as "isolated", which is the exact misreading
+  this section was written to stop.
+
 **Relation to §24:** §24 says to induce the real mutation rather than reason about the schema.
 §27 says the induced mutation must be built so that its outcome can only mean one thing. Inducing
 the wrong thing faithfully is still the wrong thing.

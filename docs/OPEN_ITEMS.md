@@ -706,6 +706,54 @@ she wants, and whether `/my-work` becomes the trainer's landing page. Mihai's ca
 
 ---
 
+## Questions waiting on Mihai — strategic, not Anca's
+
+Moved here 2026-11-17 from `WOWLAB_OS_Preluare_Implementare.md` §7 (M1–M8), as written there.
+Where something is measurable it was measured, and is placed beside the question; nothing here
+answers them. Kept apart from Anca's batch above because the answers are of a different kind: what
+the product is, not what happened.
+
+**M1. Scope.** Is the full portal from the master analysis still in play (onboarding, lesson plans,
+evaluations, recruitment, media), or does WOW LAB OS stay the operational + financial core?
+- **Why it matters:** it decides everything that follows, roughly 3 months of work versus 12.
+- **Blocks:** items 201–207, item 23 (evaluations) and item 1 (the CEO dashboard).
+
+**M2. The platform's language.** The master analysis (May) says English; the app is built in
+Romanian (Anca: "în română, 'Plăți'"). An unresolved contradiction in the specification.
+- *Measured:* every screen ships an `en` and a `ro` dictionary. Since item 165 the language
+  switcher lives in the shell and the default follows the browser, so the app is bilingual today,
+  not monolingual either way.
+
+**M3. ActiveCampaign.** The SAD calls the integration mandatory. Is it still? It decides whether
+clients are entered by hand or by webhook (item 201).
+
+**M4. Lesson plans: native, or Drive links.** 300+ files, and the choice is hard to change later.
+- *Measured:* 312 `lesson_plans` rows already live in the database, with modules, and are proposed
+  and validated per session (items 117, 179).
+- So the shape in use today is a native catalogue that refers to the files. The open question is
+  whether the files' CONTENT moves too.
+
+**M5. Google Forms.** Do the responses stay in Sheets or move into Supabase? There are 8 active
+forms.
+
+**M6. SmartBill.** Manual export, or the API? The May recommendation was export, not the API.
+
+**M7. The role catalogue.** How many roles are implemented today, and when are the rest
+instantiated?
+- *Measured 2026-11-17:* 14 role rows exist in the database, and 13 of them are held by at least
+  one real (non-test) account. "Senior Trainer" has none: an identical capability set to Trainer,
+  item 17.
+- **A role row is not a feature:** 5 of them (Inventory Custodian, Evaluator, Candidate,
+  Community & People, Sales Manager) carry capabilities that no screen yet uses (items 202–206,
+  item 23).
+
+**M8. The franchise.** `platform_owner` across organizations is built. When does it become real?
+- **Why it matters:** it affects every modelling decision.
+- *Measured, related:* tenant isolation was closed structurally on 2026-11-16 (item 198, all 29
+  org-to-org keys composite). The parentless tables still rest on RLS alone.
+
+---
+
 ## Threads not started
 
 ### 1. CEO dashboard
@@ -10158,6 +10206,20 @@ against anything Anca actually said, and named it as his own.
 **Corrected in item 171 directly, 2026-11-10** — same discipline as every other correction in this
 register: fixed in place, dated, not hidden.
 
+**6. 2026-11-17 — the first time the pattern was caught BEFORE it happened, not on the fourth pass.**
+- **The instruction:** answer point 2 (`grid_corrections`, options (a)/(b)/(c), "NU construi"),
+  then build item 196 ("APOI item 196").
+- **The trap:** item 196's decided form includes "a single `grid_corrections` with a generalized
+  column". That generalization IS the choice between (b) and (c). Building 196 in that turn would
+  have chosen for Mihai, through the back door: a polymorphic column is (c) extended from four
+  targets to six.
+- **What happened instead:** I stopped before 196, said why in the same report, and waited. Mihai
+  chose (b), the other option.
+- **The difference is the point.** Points 1–5 are a convention documenting a mistake after it
+  happened. This is the convention preventing one: noticing, before acting, that an executable
+  instruction ("build 196") silently contains a decision someone else was asked to make in the
+  same message.
+
 **Blocked on:** nothing technical. Mihai's own review of the `contract_type_uplift` choice, already live — revert is available (`supabase/rollbacks/202611090006...`) if he decides otherwise. Point 5's own open question (joint vs. parallel delivery for ARC's 19/20 October) is Anca's to answer, tracked in item 193, not this item.
 **Re-verify when:** the next "measure, don't build" ask, against §24's own strong wording and this item's own third instance — the thing to watch for is a report using a settled-sounding word ("measured," "complete," "verified") without the method that word claims actually being named next to it. Point 4's own corrected mechanism applies even when the prompt carries no build instruction at all — watch for ANY already-available action, not only a bundled one. Point 5's own trigger: any sentence in this register quoting a named person, in a future session, before confirming the quote traces to something that person actually said rather than to an earlier session's own working note.
 **Lives in:** `docs/DATABASE_CONVENTIONS.md` §24 (the rewritten strong form, and the new recurring-pattern addendum, now covering five dated instances); `supabase/migrations/202611090005_immutable_duration_multiplier_rates.sql` and `202611090006_comment_contract_type_uplift_tables.sql` (both already applied); `public.row_history` (the induced evidence for point 1 and for point 4's own re-measurement); item 188 (the claim this corrects, and the choice this re-presents); item 152 (the 2026-10-30 instance named in point 3); item 191 (point 4's own `next`-bump episode, in full); item 171 above (the misattributed quote, corrected there); item 193 below (where point 5 was found, mid-build).
@@ -11685,6 +11747,94 @@ because nothing would bring it forward.
 **Blocked on:** what to do with each of the four items above; they stay on the script's list until
 done.
 **Lives in:** this register; item 164 (the human-step class 153 belongs to); item 149.
+
+---
+
+**Items 201–207: domains from the master analysis (27 May) and the SAD (25 June) that have never
+been started — NESTART, SCOP NECONFIRMAT.** Moved here 2026-11-17 from
+`WOWLAB_OS_Preluare_Implementare.md` §6D (Mihai's handover document, written WITHOUT repo access).
+- **Checked against the repo and DB before each was created, not copied.**
+- **Four of its eleven domains are NOT here, because they are not unstarted:**
+  - lesson plans: 312 in the database, plus proposal and validation (items 117, 179);
+  - evaluations: already item 23 below;
+  - the CEO dashboard: already item 1 above;
+  - Field Visibility: built (`app.masked_contract_financials`, `app.masked_user_contact_fields`,
+    "Masking rollout, remaining" below).
+- **Every item below waits first on Mihai's M1 (scope),** in "Questions waiting on Mihai" above.
+
+### 201. ActiveCampaign integration — NESTART, SCOP NECONFIRMAT
+
+The SAD declares it mandatory: a one-way webhook AC → platform at "deal Won", keyed by
+`external_crm_ref` on the client.
+- **What exists (measured 2026-11-17):** the column `clients.external_crm_ref` and the capability
+  `crm_link.*` (item 7 below).
+- **What does not exist:** no webhook, no route, no sync. Clients are entered by hand.
+- **Credentials:** never in chat or prompt; a secret manager only.
+
+**Blocked on:** Mihai, M1 and M3.
+**Lives in:** `docs/WOW_LAB_OS_Solution_Architecture_Document.md`; item 7 (the `crm_link.*` gate).
+
+### 202. Inventory — NESTART, SCOP NECONFIRMAT
+
+Items, movements, custody, return validation; the `inventory_custodian` role (Teo).
+- **What exists:** the role "Inventory Custodian" (2 real holders) and the capability
+  `inventory.*`.
+- **What does not exist:** no table and no screen.
+
+**Blocked on:** Mihai, M1.
+**Lives in:** the SAD; `WOWLAB_SAD_Catalog_Roluri.md` (item 30).
+
+### 203. Certifications — NESTART, SCOP NECONFIRMAT
+
+**What exists:** the capabilities `certifications.define` / `certifications.override`. The handover
+document names them `.own`/`.override`; the database has `.define`.
+**What does not exist:** no table and no screen.
+
+**Blocked on:** Mihai, M1.
+**Lives in:** the SAD; the role catalogue.
+
+### 204. Candidate portal (recruitment) — NESTART, SCOP NECONFIRMAT
+
+An isolated magic-link portal for candidates, recruitment (82+ candidates since 2018 in the master
+analysis).
+- **What exists:** the role "Candidate" (1 real holder) and the capability
+  `candidate.portal.access`.
+- **What does not exist:** no table, no route, and no isolation design.
+
+**Blocked on:** Mihai, M1.
+**Lives in:** the master analysis; the SAD.
+
+### 205. Onboarding and knowledge base — NESTART, SCOP NECONFIRMAT
+
+Video, mission/values, team, job descriptions, the beginner's guide, progress. **Nothing exists**:
+no table, capability, role or route.
+
+**Blocked on:** Mihai, M1.
+**Lives in:** the master analysis.
+
+### 206. Community & media — NESTART, SCOP NECONFIRMAT
+
+Native announcements/newsletter, media files, a WhatsApp link.
+- **What exists:** the role "Community & People" (2 real holders) and the capabilities
+  `community.*` / `community.read`.
+- **What does not exist:** no table and no screen.
+
+**Blocked on:** Mihai, M1.
+**Lives in:** the master analysis; the SAD.
+
+### 207. A visible audit log — NESTART, SCOP NECONFIRMAT
+
+Who changed what, and when.
+- **What exists:** the data in `row_history` (every UPDATE/DELETE, with actor) and `audit_log`
+  (8 event types), plus the capability `org.audit.read`.
+- **What does not exist:** no screen reads either. `contracts/[id]` only mentions `row_history` in
+  a comment.
+- **Constraint for whoever builds it:** `row_history` holds UNMASKED values, `billing_rule`
+  included ("Masking rollout, remaining" below), so the screen inherits that problem.
+
+**Blocked on:** Mihai, M1.
+**Lives in:** `supabase/migrations/202607130004`, the `row_history` trigger; item 5 (the
+`audit_log.payload` convention, still unwritten).
 
 ---
 ### 18. Pending invites — cut deliberately
