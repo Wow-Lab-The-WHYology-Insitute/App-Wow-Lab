@@ -11432,6 +11432,71 @@ each wave in order: tests first and failing, then the migration, then the suite.
 
   No wave reaches those three, and none was meant to.
 
+**THE DIRECT-WRITE CLASS — measured 2026-11-17, a NEGATIVE result.** The waves closed the
+REFERENTIAL class. The other class is a row written straight into another organization's name, on
+the tables whose only parent is the organization. Induced as Test Org B's owner through RLS, with
+both §27 controls, everything rolled back:
+
+| table | probe, `organization_id` = wow-lab | control 1, same row, `organization_id` = Org B | control 2: the probe's row written outside RLS — what it would move in wow-lab |
+|---|---|---|---|
+| `trainer_grade_versions` (dated 02.09) | **refused, 42501 RLS** | accepted | **46 confirmed slots, 8.588,00 → unpriceable** |
+| `trainer_grade_assignments` (Teodora, 6 from 02.09) | **refused, 42501 RLS** | accepted | 6 confirmed slots, 762,00 → 900,00 |
+| `payroll_period_totals` (wow-lab's September period) | **refused, 42501 RLS** | accepted | a 999.999 lei snapshot in the month's drift banner |
+| `grid_corrections` | refused, **42501 no grant** | **refused, no grant** | a statement attached to wow-lab's live grade version, which nobody corrected |
+| `payroll_periods`, `clients`, `legal_entities` (added for completeness) | **refused, 42501 RLS** | accepted | not measured |
+
+**Read by §27:**
+- **Every probe was refused by RLS specifically,** not by a key, the guard or a grant.
+- **Every control passed,** so the organization was the only variable.
+- **Every refusal mattered:** control 2 shows a real movement each time.
+- **`grid_corrections` is the exception that proves the method.** Its control FAILS, so that probe
+  measures the grant, not the organization: no user can write the table at all. Its write paths
+  are counted below.
+
+**The direct-write class is covered by L1 alone, as the map says, and it holds. Item 196 stays
+the priority.**
+
+**`grid_corrections.version_id` — integrity by promise, MEASURED, options for Mihai, NOT built.**
+It is the only place in the model where consistency rests on a function's code rather than a
+constraint. It spans four grids, so it cannot be a plain key.
+- **Write paths, counted 2026-11-17:**
+  - **ONE application path:** `app.grid_correction_write`, SECURITY DEFINER, with its own gate
+    (`org.settings.manage` / `finance.operations.*` / `finance.approvals.approve` on the
+    corrected version's organization). It is reached from `rpc_preview_grid_correction` /
+    `rpc_apply_grid_correction`, and is also directly executable by `authenticated`, behind the
+    same gate.
+  - **`authenticated`:** SELECT only, no write grant.
+  - **No trigger** writes the table.
+  - **The service key appears in app code** only in `admin/users/actions.ts` (account
+    operations), which never touches it.
+  - **Outside the application:** `postgres` (migrations) and `service_role`. Control 2 above shows
+    what such a write can do.
+  - **Today:** 0 rows. One `row_history` entry: item 195's browser cleanup.
+- **(a) A discriminator column + CHECK + four partial keys.** Postgres has no partial foreign keys.
+  Built honestly, (a) becomes four generated columns (`case when grid = 'x' then version_id
+  end`), each with its own key: the same result as (b), with more machinery.
+- **(b) Four nullable columns, one per grid, with `CHECK (num_nonnulls(...) = 1)`.** Each column
+  gets its own key, composite with `organization_id` like the 29. The structural answer, and it
+  binds migrations too (the map's point 3).
+- **(c) Stays as it is, documented.** The measurement supports it for the app (one path, DEFINER,
+  gated), and Mihai named that condition himself. It leaves the one table in the model where a
+  migration can write an inconsistent row silently: the wrong grid, the wrong organization, or a
+  statement on a version nobody corrected.
+
+**My opinion: (b), and not on its own. Inside item 196's migration, because item 196 changes this
+table anyway.**
+- **Why then:** item 196 generalizes the column, so that a statement can also sanction a grade
+  assignment and a group's pay columns. That generalization IS this choice.
+  - Done as one polymorphic id, it turns (c)'s promise from four targets into six.
+  - Done as (b), each target gets its own key: four grid versions, `trainer_grade_assignments`
+    and `groups`.
+- **Why it is cheap now:** the table has 0 rows.
+- **What (c) would cost:** the map's principle ("only structural layers bind a migration") would
+  have one named exception, kept knowingly.
+
+**Item 196 is therefore NOT started:** its column shape is this decision. Building it first would
+choose (c) through the back door, item 189's pattern.
+
 **In wave 1, what it covers:** the seven `*_rates.version_id`, the four `corrects_version_id`,
 `sessions.group_id`, `groups.client_id`/`contract_id` (they decide the principal bonus's school and
 the paying entity), and `payroll_period_totals.payroll_period_id`.
