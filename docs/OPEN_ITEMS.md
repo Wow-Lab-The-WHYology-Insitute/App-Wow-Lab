@@ -11203,7 +11203,44 @@ lean, not decided:
 - **`sessions`' own pay columns are still unguarded.** That is item 199 (blocked on Anca's
   questions 11–12) and item 166.
 
-**Blocked on:** nothing for the build. Anca's four-eyes answer decides the gate, as for 195.
+**The "—" for a group change's author on `/payroll` — MEASURED 2026-11-17, a decision for Mihai.**
+"—" says neither who nor why. Whoever reviews an impact statement needs to know who made the
+change. Mihai prefers option (1), granting finance read access to the actor on `row_history` for
+these tables, and asked first what ELSE would become visible.
+- **Today `row_history` is read only by Organization Owner and Platform Owner**
+  (`org.audit.read`, deliberately narrow).
+- **RLS filters rows, not columns.** A policy admitting finance to `row_history` "for groups and
+  grade assignments" admits the WHOLE row: `old_values`, `new_values` and the actor, for EVERY
+  change to those tables, not just the pay ones.
+- **Measured on wow-lab:**
+  - `groups` has 19 history rows. The keys that ever changed are `address`, `notes`,
+    `children_billed`, `children_confirmed`, `contract_id`, `language_group`, `delivery_format`.
+  - `trainer_grade_assignments` has 0 rows (INSERTs are not captured, and nothing was ever
+    updated).
+- **The three roles that would gain it** (Finance Operations, Finance Admin & Reporting,
+  Operations Manager) can already read `groups`' CURRENT values. What (1) adds is new in kind:
+  - the full past of every group field, including notes as they were before an edit;
+  - WHO edited each one: the activity of Operations staff, which is exactly what
+    `org.audit.read` keeps owner-only.
+- **(2), "author not visible with your rights":** honest, but it leaves the reviewer without the
+  one fact they need.
+- **(3), measured and proposed: show the author of THAT change and nothing else.**
+  - **Why it is exact:** `row_history_capture` writes `changed_at = now()`, and a statement's
+    `created_at` is `now()` too. In one transaction they are identical.
+  - **Induced:** a sanctioned group change was applied through the real RPC as the Organization
+    Owner, then rolled back. It produced exactly ONE `row_history` row at the statement's moment
+    (`13:47:46.615884`), with `actor = the caller` and `ro_en → fr_de_es`, and 0 other rows for
+    that group.
+  - **The function:** a SECURITY DEFINER function behind `grid_corrections`' own read gate,
+    returning only `(actor, changed_at)` for (target table, target id, the statement's
+    `created_at`).
+  - **What it discloses:** the one fact the reviewer needs. No values, no other change, no
+    widening of `org.audit.read`.
+- **My opinion: (3).** It gives what (1) is for, without (1)'s side effect. If (1) is still
+  preferred, scope it to `table_name = 'groups'` and accept the list above knowingly.
+
+**Blocked on:** nothing for the build. Anca's four-eyes answer decides the gate, as for 195. The
+"—" waits on Mihai's choice (1)/(2)/(3).
 **Re-verify when:** anything is built here. Rebuild P1–P8 from the table above (each probe is one
 write plus a snapshot before and after, rolled back). Expect P5 to stop moving wow-lab, and P1–P4
 and P6 to refuse or demand a statement. Whatever is built should leave them as `db/tests` blocks.
@@ -11581,6 +11618,51 @@ each wave in order: tests first and failing, then the migration, then the suite.
 
   No wave reaches those three, and none was meant to.
 
+**THE CLASS, SECOND FORM — UNIQUE keys that ignore the organization. MEASURED 2026-11-17, NOT
+repaired (Mihai: show the surface first).** Mihai's framing:
+- **What it is:** item 198's class through another mechanism, which point 13 does not catch (it
+  checks references, not uniqueness).
+- **What it does:** the damage is DENIAL, not corruption. One organization silently makes a write
+  IMPOSSIBLE for another; nothing in the victim moves.
+- **Why no probe of the "did anything change" kind sees it.**
+
+**Measured:** every UNIQUE constraint and unique index on a table carrying `organization_id`
+whose key does NOT include `organization_id`. **55**, read one by one:
+
+| group | count | verdict |
+|---|---|---|
+| primary key on `id` alone (`gen_random_uuid()`) | 33 | not a cross-org block: an organization cannot take an id that has not been generated |
+| a key column is the child side of a composite `(x, organization_id)` key (`version_id`, `corrects_version_id`, `lesson_plan_id`, `session_id`, the six `grid_corrections` targets) | 21 | scoped implicitly: that column already belongs to one organization, so two organizations cannot collide |
+| **`trainer_home_cities_trainer_unique (trainer_id)`** | **1** | **cross-org denial, INDUCED** |
+
+**What that one blocks, induced through RLS, rolled back:**
+- **Control:** Org B records a home city for its own trainer → accepted.
+- Org B records **Teodora's** → refused 23505, because wow-lab already has her.
+- **The other direction:** Org B records **Lorina's** first (accepted), and wow-lab can then NO
+  LONGER record its own trainer's home city → 23505.
+- **What it feeds:** the trainer's home city is read by `groups/[id]` (the session form).
+- **The second instance found this week:** item 196 found and fixed the first,
+  `trainer_grade_assignments (trainer_id, effective_from)`.
+
+**THE TEST, second form (point 15), written and VALIDATED, deliberately NOT yet in the suite.**
+- **Its rule:** no unique key on an org-scoped table that neither includes `organization_id` nor
+  reaches it through a composite key. The two exclusions above are written into the check with
+  their reasons.
+- **On the live schema:** it FAILS and names exactly `trainer_home_cities_trainer_unique`.
+- **Its SABOTAGE proves nothing while the main check already fails** (§27): both fail, and the
+  comparison carries no information. It was therefore validated inside a rolled-back
+  transaction:
+  - with the one bad key scoped, the check reads "none";
+  - with a sabotage table `UNIQUE (trainer_id)` added, it flips.
+- **Why not in `db/tests` yet:** unrepaired, it would keep the suite red for every session, and the
+  repair was not authorized. It goes in together with the repair, the same procedure as the waves.
+  The text is versioned in `db/tests/pending/cross_org_unique_second_form.sql`, outside the
+  runner's reach (it reads only the top level of `db/tests/`). Its header says how it moves in.
+
+**The surface is small: one key on one non-pay table.** The repair is one line,
+`UNIQUE (organization_id, trainer_id)`. There are 11 wow-lab rows and 0 in other organizations, so
+nothing can collide when it is applied.
+
 **THE DIRECT-WRITE CLASS — measured 2026-11-17, a NEGATIVE result.** The waves closed the
 REFERENTIAL class. The other class is a row written straight into another organization's name, on
 the tables whose only parent is the organization. Induced as Test Org B's owner through RLS, with
@@ -11925,6 +12007,55 @@ Who changed what, and when.
 **Blocked on:** Mihai, M1.
 **Lives in:** `supabase/migrations/202607130004`, the `row_history` trigger; item 5 (the
 `audit_log.payload` convention, still unwritten).
+
+---
+
+### 208. DELETE is the missing verb, a second time — "we guarded the operations we thought of." MEASURED 2026-11-17, nothing built
+
+**The pattern, written because it has now happened twice (Mihai, 2026-11-17):**
+- **10–11 November:** the immutability triggers guarded UPDATE, while app users only ever held
+  INSERT (item 194).
+- **This week:** the guards (items 194, 196) cover INSERT and UPDATE, and DELETE is missing.
+- **Item 198:** the foreign key was covered, and uniqueness was not (the class's second form).
+- **What is common:** each time, the guard covered the operations and mechanisms its author was
+  thinking about at that moment.
+
+**The question to ask of every guard from now on:** *which are ALL the operations and ALL the
+mechanisms through which the guarded object can change?* Not *which ones am I thinking of now?*
+- **The verbs:** INSERT / UPDATE / DELETE / TRUNCATE.
+- **The paths:** direct / through a referenced row / through a key that blocks / through a function
+  that reads by key.
+- **The writers:** app user / DEFINER RPC / migration / service role.
+
+**Measured:**
+- **Live state:**
+  - **No application user holds DELETE** on any pay table. No DELETE policy exists, and no
+    function deletes from them except the guards themselves, undoing their own test writes.
+  - The guards fire on `[INSERT, UPDATE]` and the row locks on `[UPDATE]`.
+  - **So the hole is migrations and `service_role` only.** That is a different severity from an
+    app path, and it is exactly the writer that bit on 10–11 November.
+- **The app path, with its control (§27):** the Organization Owner, through RLS, INSERTs a grade
+  version → accepted (control). DELETEs a grade rate or a grade assignment → refused **42501, no
+  grant**. The refusal is the grant's, not the person's.
+- **The migration / service-role path,** on wow-lab, each delete undone, guards forced to run. Each
+  probe carries its non-empty control, the confirmed slots on the row before the delete:
+
+| delete | confirmed slots on it before | the guard | wow-lab confirmed pay |
+|---|---|---|---|
+| the grade-3 rate of the version in force | 6 | **silent** | 6 slots, **762,00 → unpriceable** |
+| Teodora's grade assignment | 6 | **silent** | 6 slots, **762,00 → unpriceable** |
+| the grade version in force, alone | — | not reached | **refused, 23503**, by the foreign key from its rates, NOT the guard: an accidental protection that disappears the moment the rates go first |
+| the same version, together with its rates | 46 | **silent** | **46 slots, 8.588,00 → unpriceable** |
+
+**Not built (Mihai: "nimic de construit pînă răspunzi").** The obvious shape:
+- **The guard:** fires on DELETE too, its undo being a re-INSERT of the old row.
+- **Its test:** written first and failing (the four rows above as probes), each with the delete of
+  a row carrying NO confirmed session as the control that must pass.
+- **The other verb:** TRUNCATE bypasses row triggers entirely. It needs a statement-level refusal
+  or a revoke, named so it is not the third time.
+
+**Blocked on:** Mihai's decision.
+**Lives in:** item 194 (the first time), items 196 and 198, §26.
 
 ---
 ### 18. Pending invites — cut deliberately

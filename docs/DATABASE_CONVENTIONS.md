@@ -1174,6 +1174,27 @@ That is points 4–6 of the same file.
 - **Without the control,** "refused" would have read as "isolated", which is the exact misreading
   this section was written to stop.
 
+**Two more ways a probe lies, both found on 2026-11-17 by the author on his own tests
+(`db/tests/pay_input_guard.sql`, item 196).**
+- **An EMPTY control is not a FAILED control. It is no control at all.**
+  - **The case:** I recorded a result before the sentinel exception that rolled the subtransaction
+    back, so the control's row vanished, and the check read "no result" instead of "accepted".
+  - **The general rule:** a control must be SHOWN to be non-empty. If it produced no row, it
+    proved nothing, and it can pass for nothing too.
+  - **The same holds for a count used as a precondition.** "0 confirmed slots on this row" makes
+    every delete harmless and every guard look idle. Print the precondition, and require it to be
+    non-zero when the probe is about moving something (item 208's table does).
+- **On a DEFERRED constraint, "accepted" measures WHEN, not WHETHER.**
+  - **The case:** item 196's statement keys had to be `DEFERRABLE INITIALLY DEFERRED`. A
+    cross-organization statement was then "accepted" inside the test block, because the key only
+    checks at commit, and the block never got there.
+  - **The rule:** any probe on a deferred constraint forces the check at once (`SET CONSTRAINTS
+    ... IMMEDIATE`, or the guard's own `check_now`). Otherwise it is lying by default, and the lie
+    reads as the strongest possible result.
+- **The same family as the empty parent:** in each case something other than the measured
+  variable decides the outcome; here it is the bookkeeping of the test itself, or the timing of
+  the check.
+
 **Relation to §24:** §24 says to induce the real mutation rather than reason about the schema.
 §27 says the induced mutation must be built so that its outcome can only mean one thing. Inducing
 the wrong thing faithfully is still the wrong thing.
