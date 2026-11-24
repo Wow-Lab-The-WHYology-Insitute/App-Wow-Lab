@@ -1207,6 +1207,28 @@ That is points 4–6 of the same file.
   mechanism refused, and ask whether the guarded property would still hold if that mechanism
   were removed.
 
+**The count, because it changes what this section is (Mihai, 2026-11-24).** A convention that
+catches its own author is a different thing from one that documents past mistakes.
+- **Counted from the commits, not taken from the prompt.** The prompt said "the third time in a
+  week". The record says four times, all within 22 hours. §27 was written 2026-11-16 18:36
+  (`3f4af02`). Every catch was on a test by the convention's own author, before it was reported:
+
+| # | when | the test | what the control caught |
+|---|---|---|---|
+| 1 | 2026-11-17 14:48, `d8ad363` | `grid_corrections` cross-org probe | the control was refused too (`42501`): it measured grants, not the organization |
+| 2 | 2026-11-17 15:22, `5d7c72d` | `pay_input_guard.sql` | an EMPTY control: the sentinel rollback erased the control's own row |
+| 3 | same commit | `pay_input_guard.sql` | "accepted" on a deferred key: the block never reached the check |
+| 4 | 2026-11-17 16:14, `5af0d46` | the author function, points 12–14 | the SABOTAGE PASSED: the group had no earlier history, so a free search also returned one row |
+
+- **What the count says:**
+  - **The rule did not stop the mistake.** Its author made it four times right after writing it.
+  - **What caught it, every time,** was the control or SABOTAGE inside the test file itself.
+  - **So the control is part of the test, not a review step.** A rule that relies on remembering
+    it would have caught none of the four.
+- **Negative result, recorded (§20):** the next build, item 208 on 2026-11-24 (18 points), produced
+  no fifth catch. Each control asserts it is non-empty. Point 12's refusal is attributed to its
+  table by its message, which is the protection rule above, applied before it was needed.
+
 **Relation to §24:** §24 says to induce the real mutation rather than reason about the schema.
 §27 says the induced mutation must be built so that its outcome can only mean one thing. Inducing
 the wrong thing faithfully is still the wrong thing.

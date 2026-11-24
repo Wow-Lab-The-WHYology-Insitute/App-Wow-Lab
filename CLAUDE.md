@@ -362,12 +362,15 @@ is in Romanian; code, comments, commits and this file are in English.
   - **The author of a statement:** `correction_statement_author(statement_id)` (`202611170003`).
     It is BOUND to one statement, never a `row_history` search, behind the statements' read gate.
     Do not widen it; that would be the `org.audit.read` bypass it replaced.
-- **Item 208 — DELETE/TRUNCATE are unguarded,** for migrations and `service_role` only (no app
-  user can delete). Deleting a rate, an assignment, or a version with its rates silently makes
-  confirmed pay unpriceable.
-  - **Decided:** build it. The form is proposed and awaits Mihai: capture "before" at the first
-    DELETE and compare at commit, because undo-by-reinsert breaks on foreign keys; plus a
-    statement-level `BEFORE TRUNCATE`.
+- **Item 208, BUILT 2026-11-24 (`202611240001`) — DELETE and TRUNCATE on the 10 pay-input
+  tables are guarded now.**
+  - **How DELETE is judged:** the "before" is CAPTURED at the transaction's first delete per
+    organization and compared at commit (P0W01). A guard that judges by undo can guard only
+    reversible operations.
+  - **TRUNCATE:** refused unconditionally (P0W03).
+  - **Test:** `db/tests/pay_input_delete_guard.sql`, 18 points.
+  - **Still unguarded:** DELETE on `sessions` (`service_role` holds it), and the deliberate
+    bypasses (`DISABLE TRIGGER`, `session_replication_role = replica`, measured allowed).
   - **Before guarding anything, ask:** ALL verbs, ALL mechanisms, ALL writers.
   - The grade rule, induced: by session date, the latest `effective_from` on or before it.
 - **Item 197, 2026-11-16 — the progression rule cannot be derived from the timesheet.**

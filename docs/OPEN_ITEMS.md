@@ -12045,7 +12045,7 @@ Who changed what, and when.
 
 ---
 
-### 208. DELETE is the missing verb, a second time — "we guarded the operations we thought of." MEASURED 2026-11-17, nothing built
+### 208. DELETE is the missing verb, a second time — "we guarded the operations we thought of." MEASURED 2026-11-17; BUILT 2026-11-24 (`202611240001`)
 
 **The pattern, written because it has now happened twice (Mihai, 2026-11-17):**
 - **10–11 November:** the immutability triggers guarded UPDATE, while app users only ever held
@@ -12155,8 +12155,86 @@ its own rolled-back subtransaction would vanish from any table.
   - a TRUNCATE probe;
   - SABOTAGE for each.
 
-**Blocked on:** Mihai's confirmation of the form above (he asked for it before the build).
-**Lives in:** item 194 (the first time), items 196 and 198, §26, §27.
+**CONFIRMED 2026-11-24 (Mihai), and BUILT the same day (`202611240001`).**
+
+**The general reason capture is right, not just this case (Mihai):**
+- A guard that judges by UNDO can guard only operations that are reversible.
+- A cascade-shaped delete is not reversible BY DEFINITION, not by accident. That is why the
+  re-insert gave 23503.
+- **For any irreversible operation, the state before it is CAPTURED, never simulated.**
+- It is the same shape as freezing the amount at approval (item 186): the past is not
+  recomputed, it is kept.
+
+**What was built:**
+- **The capture:** a `BEFORE DELETE` row trigger on each of the 10 tables. At the transaction's
+  first delete in an organization, it stores the snapshot of all its confirmed slots, and it
+  counts every delete.
+- **The check:** a deferred `AFTER DELETE` constraint trigger, compared through
+  `grid_correction_declaration`.
+  - **On which slots:** only those confirmed BEFORE the first delete. A confirmation made later
+    in the same transaction is not the delete's effect.
+  - **The refusal:** P0W01. Its message names the routes that are legitimate.
+  - **When no capture is behind a delete:** it refuses (fails closed).
+- **TRUNCATE:** a statement-level `BEFORE TRUNCATE` on the 10 tables, P0W03, **unconditional**.
+- **The helpers:** `grid_guard_check_now()` / `grid_guard_defer()` now also cover the 10 DELETE
+  checks.
+
+**Two things written in the CODE, as Mihai asked, not only here:**
+- **The moment of capture** (comment in `app.pay_delete_guard_capture`).
+  - **What it sees:** the first delete sees the state AFTER an earlier INSERT in the same
+    transaction. That is not a gap: the insert is judged by its own guard, at commit, alone.
+    This guard judges from its first delete on, so every change is judged once.
+  - **A correction to the prompt's wording:** the INSERT guard has not "already validated" the
+    insert at that moment. It is deferred, so it validates at commit. The reasoning holds either
+    way.
+  - **The one consequence, measured:** a re-pricing version inserted and deleted again in one
+    transaction is refused by THIS guard, although the net effect is zero. That errs toward
+    refusing.
+- **Why TRUNCATE is unconditional** (comment in `app.pay_truncate_guard`).
+  - **Where the condition came from:** the first proposal copied it from the DELETE guard's
+    shape, for symmetry. It was not kept for test organizations.
+  - **Measured before dropping it:** no test, script, seed or migration in the repository
+    truncates these tables. App roles have had no TRUNCATE grant since `202607100008`.
+  - **Mihai's argument holds:** a TRUNCATE on a grid with no confirmed session is just as
+    catastrophic, and there is no legitimate case against refusing it.
+
+**The test, `db/tests/pay_input_delete_guard.sql`, 18 points, written first:**
+- **Run first against the live schema, without the migration:** the 7 probes were ACCEPTED,
+  i.e. failing, and the 9 controls passed.
+- **With the migration:** everything passes, and the 6 SABOTAGEs flip.
+- **The probes** reproduce the table above to the leu: the grade-3 rate and Teodora's assignment
+  give 6 slots, 762,00 → unpriceable; the version in force with its rates gives all 46.
+- **New cases, each a design decision that is now tested rather than claimed:**
+  - a harmful delete AFTER a check forced earlier in the transaction is still refused. That is
+    why the capture keeps a counter, not a "checked" flag. Its SABOTAGE freezes the counter;
+  - a confirmation after a harmless delete is accepted. Its SABOTAGE removes the restriction to
+    the earlier slots;
+  - TRUNCATE is refused in a state where NO confirmed slot exists in any organization. The
+    precondition is measured as 0;
+  - `TRUNCATE clients CASCADE` is refused by the trigger on `groups`. The message names
+    `groups`, so the refusal is attributed to its mechanism (§27, the protection rule).
+
+**Measured limits, all in the migration header:**
+- **A delete followed by an identical re-insert** is refused by the INSERT guard, which judges
+  its insert alone. It is not refused by this guard, for which the net effect is zero.
+- **The deliberate bypasses:** whoever owns the table can use `DISABLE TRIGGER`, `DROP TRIGGER`,
+  the `app.grid_guard_undoing` flag set by hand, and `SET session_replication_role = replica`.
+  The last is **measured: allowed for the migration role, and it silences every trigger,
+  foreign keys included.** These guards stop a mistake, not a deliberate act; the deliberate
+  act is visible in the migration that does it.
+- **DELETE on `public.sessions` is NOT guarded.** `service_role` holds DELETE there, and deleting
+  a confirmed session removes its pay outright. A group with sessions cannot be deleted at all,
+  but that is the key's protection (`sessions_group_id_org_fkey`), not this guard's.
+  - **Which family it belongs to:** `sessions` (items 166, 199).
+  - **Why it stays open:** named, not built, because it was not asked for.
+- **No foreign key into or out of the 10 tables cascades** (all are `no action`, measured). No
+  cascaded delete reaches them today. If one is ever added, the row triggers fire on cascaded
+  deletes anyway.
+
+**Blocked on:** nothing. **Re-verify when:** a table is added to the pay inputs (it needs all
+three triggers), or a cascade is added toward one of the 10.
+**Lives in:** `202611240001`, `db/tests/pay_input_delete_guard.sql`, item 194 (the first time),
+items 196 and 198, §26, §27.
 
 ---
 ### 18. Pending invites — cut deliberately
