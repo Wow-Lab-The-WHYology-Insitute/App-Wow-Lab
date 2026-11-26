@@ -369,9 +369,28 @@ is in Romanian; code, comments, commits and this file are in English.
     reversible operations.
   - **TRUNCATE:** refused unconditionally (P0W03).
   - **Test:** `db/tests/pay_input_delete_guard.sql`, 18 points.
-  - **Still unguarded:** DELETE on `sessions` (`service_role` holds it), and the deliberate
-    bypasses (`DISABLE TRIGGER`, `session_replication_role = replica`, measured allowed).
+  - **Still unguarded:** the deliberate bypasses. They are in "Running things" below, not only
+    here.
   - **Before guarding anything, ask:** ALL verbs, ALL mechanisms, ALL writers.
+- **Item 209, BUILT 2026-11-26 (`202611260001`) — DELETE of a confirmed or approved session is
+  refused (P0W04); TRUNCATE of `sessions` is refused unconditionally.** No sanctioned path: a
+  session not to be paid is CANCELLED.
+  - **Direct refusal, not capture:** measured, deleting all 176 unconfirmed sessions moved no
+    confirmed pay.
+  - **Same-transaction clear-then-delete** is refused too, read from `row_history`.
+  - **History:** 41 confirmed sessions were ever deleted, all in Test Org B (verification
+    cleanups); 0 in wow-lab.
+  - **Still open:** clearing in one transaction and deleting in a later one (item 199).
+- **Item 210, REPORT 2026-11-26 — which conventions (§17–§27) leave something that runs.**
+  - **Executable:** §22, §26, and §27 in its instances. **Partly:** §18–§20, §24, §25.
+    **Reminders only:** §17, §17b, §17c, §21, §23.
+  - **§17's own worked example is stale:** the 11.1% uplift IS baked into 111–150 since
+    2026-10-30. Reported, not fixed.
+  - **Candidate tests await Mihai.**
+- **Item 184, measured again 2026-11-26: since Cătălina's evening of 12.11 (ten confirmations),
+  ZERO writes by any real person.**
+  - Lorina and Teodora: never.
+  - 12 workshops became past between 14.11 and 25.11: 0 confirmed (Cătălina 8, Lorina 4).
   - The grade rule, induced: by session date, the latest `effective_from` on or before it.
 - **Item 197, 2026-11-16 — the progression rule cannot be derived from the timesheet.**
   - **Why:** the same step happens at 10 to 109 hours, and levels go DOWN, which no hours rule can
@@ -408,6 +427,20 @@ If the above list looks stale (dates have passed, an item below has clearly move
 - `npx supabase db push --linked` — apply pending migrations to the linked remote project (there
   is no local Docker stack in this environment; `supabase db push` talks to the real database).
   Always check `npx supabase migration list --linked` for pending migrations before and after.
+- **The pay guards stop a MISTAKE, not a deliberate act. Read this before trusting "the guard
+  refuses any write, by any writer, migrations included".**
+  - **What they cover:** the triggers of items 194, 196, 208 and 209. They refuse INSERT, UPDATE,
+    DELETE and TRUNCATE on the pay inputs and on confirmed sessions, by any writer that leaves
+    triggers on.
+  - **Every one of them is switched off by:**
+    - `SET session_replication_role = replica`. **Measured 2026-11-24: the migration role is
+      allowed to set it, and it silences EVERY trigger, foreign keys included.**
+    - `ALTER TABLE ... DISABLE TRIGGER` / `DROP TRIGGER`, by the table's owner.
+    - setting `app.grid_guard_undoing = on` by hand, the flag the guards' own undo uses.
+  - **Never use any of these in a migration to get past a refusal.** The refusal is the answer:
+    a correction is a new version (§26), and a session not to be paid is cancelled.
+  - **If one is ever truly needed,** the migration says so in its header, with the reason, like
+    any other §23-style deliberate act.
 - `npx tsx scripts/run_rls_suite.ts` — the full RLS + business-logic test suite
   (`db/tests/*.sql`). Run after any migration touching `CREATE POLICY`/`ALTER POLICY`/
   `DROP POLICY`, or any migration renaming/dropping a column a policy or test reads. Takes several

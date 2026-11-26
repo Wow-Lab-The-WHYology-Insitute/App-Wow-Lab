@@ -261,6 +261,7 @@ const TRIAGE: Record<number, Triage> = {
   190: { kind: "not-drift", why: "a record", on: "2026-11-16" },
   192: { kind: "not-drift", why: "parked on purpose, named, unscheduled", on: "2026-11-16" },
   196: { kind: "not-drift", why: "decided, in flight (item 198 wave 1 first)", on: "2026-11-16" },
+  199: { kind: "not-drift", why: "point 1 held on purpose: it cannot ship without point 2's refusal, which waits on Anca's question 11; points 4-5 wait on question 12", on: "2026-11-26" },
   200: { kind: "not-drift", why: "the check itself is built; the four it tracks are listed above under DECIDED, NOT DONE", on: "2026-11-16" },
 };
 

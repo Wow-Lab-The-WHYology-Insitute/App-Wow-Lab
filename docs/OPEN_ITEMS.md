@@ -9015,6 +9015,8 @@ Both guards live on **UPDATE**. Item 91 (202609220001-2) revoked `authenticated`
 
 **What NOT to build in response to this, same reasoning as items 163/164:** revoking `authenticated`'s table-level INSERT on `sessions` and routing creation through a new `SECURITY DEFINER` function the way item 91 did for UPDATE is the eventual right shape — but building it now, against a trigger that hasn't fired, for three roles who have never actually done this, would be designing the function's column-narrowing from a guess about which columns ever need restricting at creation (today: none of them do, through the one form that exists).
 
+**Linked 2026-11-26: item 209 below is the same family.** DELETE on `sessions` is refused
+now for a confirmed or approved session; this item's INSERT gap is still open.
 **Lives in:** `sessions`' own grants (`information_schema.column_privileges`, confirmed live) and its `"authenticated insert sessions"` RLS policy; `app/(app)/groups/actions.ts` (`addSession`, the one real path); `supabase/migrations/202609220001` (item 91 — UPDATE-only re-routing, the precedent this item asks be revisited if the trigger fires); `202610220001` and `202610280001` (the two UPDATE-only guards this gap sits beside); `DATABASE_CONVENTIONS.md` §19.
 
 ---
@@ -10036,6 +10038,27 @@ confirmed 8 of them. "Unconfirmed" was a proxy for "generated", and it was preci
 real use exists to change. Corrected to count `planned` only, with the reason written beside it.
 It is the same shape as §17c: a check whose correctness rested on an unwritten property of the
 data.
+
+**MEASURED AGAIN 2026-11-26, twelve days after the last measurement (Mihai's request).** The
+instruments: `row_history` actor for writes (§24's instrument addendum), plus `auth.sessions`
+`refreshed_at` and `updated_at`.
+- **Confirmations by a real trainer since 12.11:** only the ten already recorded. Cătălina
+  confirmed them on 12.11 between 20:46 and 20:51 UTC (session dates 28.10–11.11). **Nothing
+  since then, by anyone.**
+- **Cătălina:**
+  - **Has she come back?** No. Her last `auth.sessions` refresh was 12.11 20:43, and her last
+    write 12.11 20:51.
+  - **Anything else she wrote:** one more write that evening, at 20:49, on group `c1…a2`. It
+    changed no field: a save of the group form with nothing in it.
+  - **"Retrage":** never used, in her whole history (0 withdrawals).
+- **Lorina:** never wrote anything. Last sign-in 29.10; that session was never refreshed.
+- **Teodora:** never wrote anything. Last sign-in 07.09; that session was never refreshed.
+- **Workshops that became past in the two weeks (session date 14.11–25.11, wow-lab):**
+  - **12 held** (none cancelled), and **0 of them confirmed**;
+  - **Cătălina:** 8 principal slots; **Lorina:** 4 principal slots.
+- **Writes by anyone in the last 48 hours:** none.
+- **In one sentence: since 12.11 20:51, zero, everywhere.** The confirmation path has been used
+  on exactly one evening, by one person.
 
 **Blocked on:** nothing technical; this is a measurement. **Re-verify when:** Lorina or Teodora confirms a session through the app for the first time; when Cătălina's ten are approved (the second half of item 186's live case).
 **Lives in:** item 164 above (human-adoption steps having no mechanism — the same gap, now with a number); the "Readiness before invitation" standing decision at the top of this register (condition 2, still genuinely unmet); item 152/176 above (the two sessions this directly concerns); item 183 above (the Lycée addendum, among this item's own past-unconfirmed table); item 185 below (the approval gap this item's correction says is additive, not exculpatory); item 186 below (built, the day after this correction); `public.row_history`, `auth.users`, `auth.audit_log_entries` (empty, org-wide).
@@ -11891,6 +11914,9 @@ sanctioned path).
 **Re-verify when:** anything here is built. Re-run the approved-swap probe; it must refuse, and
 the unapproved swap must clear exactly the swapped slot's confirmation and leave the other slot
 alone.
+**Linked 2026-11-26: item 209 below, the same family.** DELETE of a confirmed session is
+refused now (`202611260001`). The bypass that remains is this item's own: clearing a
+confirmation by UPDATE in one transaction, then deleting in a later one.
 **Lives in:** nothing changed. Item 196 (P7, P8), item 184 (the two defects), item 152 (the same
 shape, through a migration), item 186 (approval and the unbuilt withdrawal), §19.
 
@@ -12226,7 +12252,7 @@ its own rolled-back subtransaction would vanish from any table.
   a confirmed session removes its pay outright. A group with sessions cannot be deleted at all,
   but that is the key's protection (`sessions_group_id_org_fkey`), not this guard's.
   - **Which family it belongs to:** `sessions` (items 166, 199).
-  - **Why it stays open:** named, not built, because it was not asked for.
+  - **BUILT 2026-11-26 as item 209 below,** on Mihai's instruction.
 - **No foreign key into or out of the 10 tables cascades** (all are `no action`, measured). No
   cascaded delete reaches them today. If one is ever added, the row triggers fire on cascaded
   deletes anyway.
@@ -12235,6 +12261,132 @@ its own rolled-back subtransaction would vanish from any table.
 three triggers), or a cascade is added toward one of the 10.
 **Lives in:** `202611240001`, `db/tests/pay_input_delete_guard.sql`, item 194 (the first time),
 items 196 and 198, §26, §27.
+
+---
+### 209. DELETE on `sessions` — a confirmed session's pay is not moved, it is ELIMINATED. BUILT 2026-11-26 (`202611260001`)
+
+**Mihai's form (2026-11-26):** REFUSED, with no sanctioned path. A session that should not be
+paid is CANCELLED: the status is the correct expression, the same way a correction is a new
+version. Deletion expresses nothing legitimate. It is the same family as items 166 and 199 above:
+`sessions`' own pay columns and verbs.
+
+**Checked first: has a confirmed session ever been deleted? Report, not repair.** The instrument
+is `row_history`: `row_history_capture` runs `BEFORE DELETE OR UPDATE` on `sessions`, and its
+history starts 2026-08-13.
+- **104 sessions ever deleted**, all with a **NULL actor** (scripts, migrations or
+  `service_role`). The first was 2026-09-01, the last 2026-11-13.
+- **wow-lab: 9 deletes, none carrying a trainer's confirmation.**
+  - **6 on 01.09:** the seed purge. One had `status = 'confirmed'`, the old status value, with no
+    trainer on it.
+  - **3** were created and deleted within seconds (17.09, 21.09).
+- **Test Org B: 95 deletes, 41 of them confirmed, 1 also approved.** The approved one is session
+  976a69a0, dated 16.09, approved and deleted on 13.11.
+  - **The dates:** 15.09–20.10 and 13.11.
+  - **The pattern:** each was confirmed seconds or minutes before its delete. These were
+    verification runs cleaned up by hand.
+  - **Not from any script in the repository:** all 4 scripts that delete sessions roll back. The
+    database holds nothing more about who ran them.
+
+**Measured what the guard needs, and chose the direct refusal, not item 208's capture.**
+- **Why capture is not needed:** capture is for a delete that changes pay held by OTHER rows.
+- **Induced:** all 176 unconfirmed sessions of 226, in every organization, deleted in one
+  rolled-back transaction. **Every organization's confirmed pay was identical before and after**
+  (wow-lab 46 slots, Test Org B 6, 0 moved).
+- **So:** a session's pay depends on no other session row, and the deleted row alone says
+  whether it carried confirmed pay.
+- **§24's counter-reciprocal, written in the migration:** this holds for today's pay rules. A
+  future rule that reads across sessions makes it stale; re-measure before adding one.
+
+**What was built:**
+- **`app.session_delete_guard`,** a `BEFORE DELETE` row trigger. It refuses (P0W04) a session
+  with any slot confirmed or approved.
+- **It also refuses the clear-then-delete path:** a session whose confirmation or approval was
+  cleared by an UPDATE earlier in the SAME transaction. That is read from `row_history`, whose
+  UPDATE rows carry the old values at `changed_at = now()`.
+- **TRUNCATE:** refused unconditionally, with item 208's function.
+- **The test, `db/tests/session_delete_guard.sql`, 8 points, written first:**
+  - against the live schema, the 4 probes were accepted (failing) and the controls passed;
+  - with the migration, all pass, and the 3 SABOTAGEs flip;
+  - an approval was written inside the test, because **no approval exists in any organization
+    today** (measured).
+- **Not covered, named:**
+  - **Clearing in one transaction, deleting in a later one.** The clearing itself is the
+    unguarded write, item 199's sessions pay columns.
+  - **The deliberate bypasses,** now in CLAUDE.md's running section (Mihai, 2026-11-26).
+- **What changes in practice:** a live verification in Test Org B can no longer delete its
+  confirmed session afterwards. It cancels it, or runs in a transaction that rolls back.
+
+**Blocked on:** nothing. **Re-verify when:** a pay rule starts reading across sessions (re-run
+the induced delete above), or item 199's UPDATE guard is built (then the later-transaction path
+closes too).
+**Lives in:** `202611260001`, `db/tests/session_delete_guard.sql`, items 166, 199 and 208 above,
+§26, §27.
+
+---
+### 210. Which conventions leave something that runs, and which are only reminders — §17–§27, REPORT, nothing built
+
+**The test (Mihai, 2026-11-26, from §27's count):** a convention that works leaves an ARTIFACT
+that runs, not an intention. Each convention was checked for what it leaves that fails without
+anyone remembering it.
+
+**Executable** (leaves something that says no on its own):
+- **§22:** one resolver for "the version in force". `db/tests/grid_version_in_force.sql`, with a
+  SABOTAGE that replaces the resolver.
+- **§26:** the pay guards (items 194, 196, 208 and 209 above). They are triggers, and each has
+  tests with SABOTAGE.
+- **§27, in its instances:** the controls and SABOTAGEs in the test files. The suite refuses a
+  SABOTAGE that passes, and the class checks in `cross_org_write_isolation.sql` (points 13 and
+  15) fail on keys not yet written.
+  - **What it does NOT check:** that a probe HAS a control. That part is still a habit.
+
+**Partly executable** (an artifact for the cases already met; the rule for the next case is a
+habit):
+- **§18,** no calendar means no dates. The refusal lives in `202610200009`, a one-off migration
+  that has already run. `school_calendar_closures.sql` checks today's schedule against today's
+  calendars.
+  - **Not yet covered:** the 2027–2028 generation will be new code, which has to remember the
+    refusal.
+- **§19,** the recorded actor. It is asserted for the paths that have tests
+  (`pay_input_guard.sql`, `session_pay_approval.sql`); a new write path has no check.
+- **§20,** a negative result is recorded. `school_calendar_closures.sql` asserts the
+  non-blocking rows exist; the general rule is a habit.
+- **§24,** induce, do not reason. Block 4 of `session_pay_approval.sql` is one induced instance;
+  every future claim is a habit.
+- **§25,** walk the real account. Many test files use the real accounts by email; the rule for a
+  new gate is a habit.
+
+**Reminders only** (prose; nothing runs):
+- **§17,** a correct decision with a wrong reason. By its own text it has "no failing test".
+  - **Found while classifying, report only, NOT fixed:** §17's own worked example is stale. It
+    says "there was never an uplift inside those rates (item 147)". Since 2026-10-30, item 147
+    resolved to 111–150, with the 11.1% baked in.
+  - **What else says so:** Anca confirmed it three times (item 185). `202611090006`'s comments
+    state it as the current reason.
+  - **So the example's "wrong reason" is the right one again,** and nothing flagged it: §17
+    happening to §17's own text.
+- **§17b,** a decision about surface not built yet. It says itself that there is nothing to test.
+- **§17c,** a written assumption beside a derivation. It says itself that it is found by
+  reading. Its own advice, that an assumption that can be a filter should be the filter, is the
+  route by which such an assumption leaves this group.
+- **§21,** a control labelled with its assertion. It lives in i18n strings, with no test.
+- **§23,** a NULL actor is documented in the migration header. Nothing checks that a migration
+  writing without an actor carries that header.
+
+**Candidates, for Mihai (not built):**
+- **To become tests:**
+  - **§18:** a generation function, with the refusal as its test, instead of a one-off migration.
+  - **§19:** a class check that every DEFINER write function on an audited table sets the actor.
+  - **§23:** a migration lint that flags writes to audited tables without a §23 line in the
+    header.
+  - **§27:** a check that every probe block in `db/tests` has a CONTROL row.
+- **To be recognised as documentation:** §17, §17b, §21. Their objects are prose and screens,
+  which have nothing to fail on.
+- **§17c** is both: documentation for the general habit, and a filter wherever the assumption
+  can be expressed as one.
+
+**Blocked on:** Mihai's choice among the candidates. **Lives in:**
+`docs/DATABASE_CONVENTIONS.md` §17–§27 (§27 carries the general consequence), item 147 above
+(the stale §17 example).
 
 ---
 ### 18. Pending invites — cut deliberately

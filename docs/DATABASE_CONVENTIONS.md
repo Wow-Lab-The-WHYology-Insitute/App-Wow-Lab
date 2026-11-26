@@ -1220,11 +1220,21 @@ catches its own author is a different thing from one that documents past mistake
 | 3 | same commit | `pay_input_guard.sql` | "accepted" on a deferred key: the block never reached the check |
 | 4 | 2026-11-17 16:14, `5af0d46` | the author function, points 12–14 | the SABOTAGE PASSED: the group had no earlier history, so a free search also returned one row |
 
-- **What the count says:**
-  - **The rule did not stop the mistake.** Its author made it four times right after writing it.
-  - **What caught it, every time,** was the control or SABOTAGE inside the test file itself.
-  - **So the control is part of the test, not a review step.** A rule that relies on remembering
-    it would have caught none of the four.
+- **What the count says (Mihai, 2026-11-26), more important than the count itself:** the rule did
+  not prevent the mistake. Its author made it four times right after writing it. What caught it,
+  every time, was the control or the SABOTAGE inside the test file.
+
+**The general consequence: a convention that works leaves behind an ARTIFACT THAT RUNS, not an
+intention.**
+- **The four catches were not moments of vigilance.** They were tests that said no.
+- **A convention that exists only as prose** works only when someone remembers it at the right
+  moment, and the count above shows that its own author does not, reliably.
+- **So every convention here is either:**
+  - **executable:** it leaves a test, a trigger, a constraint or a refusal that fails without
+    anyone remembering it;
+  - **or documentation,** recognised as such: useful to read, with no claim to catch anything.
+- **A convention in the second group that could be in the first is a candidate test.** The
+  classification of §17–§27 by this test is `OPEN_ITEMS.md` item 210.
 - **Negative result, recorded (§20):** the next build, item 208 on 2026-11-24 (18 points), produced
   no fifth catch. Each control asserts it is non-empty. Point 12's refusal is attributed to its
   table by its message, which is the protection rule above, applied before it was needed.
