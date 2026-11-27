@@ -50,6 +50,7 @@ rollback;
 -- ============================================================================
 -- Point 2 -- PROBE: deleting a confirmed, unapproved wow-lab session is
 -- refused (P0W04).
+-- §27 control: point 1.
 -- ============================================================================
 begin;
   create temp table r (k text, v text) on commit drop;
@@ -82,6 +83,7 @@ rollback;
 -- Point 3 -- PROBE: deleting an APPROVED session is refused. No approval
 -- exists in any organization today (measured 2026-11-26), so one is written
 -- inside this rolled-back transaction, on a confirmed slot, as approval does.
+-- §27 control: point 1.
 -- ============================================================================
 begin;
   create temp table r (k text, v text) on commit drop;
@@ -159,6 +161,12 @@ rollback;
 begin;
   create temp table r (k text, v text) on commit drop;
   do $$
+  begin
+    truncate public.contract_type_uplift_rates;
+    insert into r values ('control', 'accepted');
+  exception when others then insert into r values ('control', 'refused ' || sqlstate);
+  end $$;
+  do $$
   declare m text;
   begin
     truncate public.sessions cascade;
@@ -169,8 +177,11 @@ begin;
       insert into r values ('probe', 'refused P0W03'), ('message', m);
     when others then insert into r values ('probe', 'other ' || sqlstate);
   end $$;
-  select 'TRUNCATE of sessions is refused (P0W03)' as check_name,
-    (select v from r where k = 'probe') as actual, 'refused P0W03' as expected, (select v from r where k = 'probe') = 'refused P0W03' as pass
+  select 'CONTROL: TRUNCATE of an unguarded pay table is accepted' as check_name,
+    (select v from r where k = 'control') as actual, 'accepted' as expected, (select v from r where k = 'control') = 'accepted' as pass
+  union all
+  select 'TRUNCATE of sessions is refused (P0W03)',
+    (select v from r where k = 'probe'), 'refused P0W03', (select v from r where k = 'probe') = 'refused P0W03'
   union all
   select 'the refusal names sessions', (select v from r where k = 'message'), 'TRUNCATE of sessions ...',
     coalesce((select v like 'TRUNCATE of sessions %' from r where k = 'message'), false);

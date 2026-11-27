@@ -229,6 +229,7 @@ rollback;
 -- Every write goes through the routing functions, impersonated, never as the
 -- connecting role -- otherwise this would prove the UPDATE works and nothing
 -- about who is allowed to issue it.
+-- §27 control: none -- not a refusal: "cannot" here describes what one row cannot hold, the check is a count of history rows.
 begin;
   create temp table r (what text, val text) on commit drop;
   -- The blocks below impersonate (set local role authenticated), and a temp

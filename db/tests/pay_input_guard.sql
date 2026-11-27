@@ -41,6 +41,7 @@ rollback;
 -- ============================================================================
 -- Point 2 -- a retroactive PROMOTION that re-prices confirmed pay is refused,
 -- and the refusal says what moved (item 196, P3: Teodora 4 from 02.09).
+-- §27 control: point 1.
 -- ============================================================================
 begin;
   create temp table r (k text, v text) on commit drop;
@@ -71,6 +72,7 @@ rollback;
 -- Point 3 -- a retroactive DEMOTION is refused the same way, and the
 -- statement carries the NEGATIVE delta (item 196 P4, item 197 point 3: a
 -- grade model must support going down, and so must its guard).
+-- §27 control: point 1.
 -- ============================================================================
 begin;
   create temp table r (k text, v text) on commit drop;
@@ -169,7 +171,7 @@ begin;
   select 'apply with a statement that is not the recomputation is refused as stale',
     (select v->>'error' from r where k = 'stale'), 'declaration_stale', (select v->>'error' from r where k = 'stale') = 'declaration_stale'
   union all
-  select 'apply with the confirmed statement passes',
+  select 'CONTROL: apply with the confirmed statement passes',
     (select v::text from r where k = 'apply'), 'ok', coalesce((select (v->>'ok')::boolean from r where k = 'apply'), false)
   union all
   select 'Teodora now resolves to grade 4 on 16.09',
@@ -214,6 +216,7 @@ rollback;
 -- Point 7 -- the gate (§25, walked by real accounts): a trainer cannot
 -- preview a grade change; a person who does not belong to the organization
 -- cannot be given a grade in it.
+-- §27 control: point 5.
 -- ============================================================================
 begin;
   create temp table r (k text, v jsonb) on commit drop;

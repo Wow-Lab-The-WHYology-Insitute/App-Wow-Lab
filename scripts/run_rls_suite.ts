@@ -46,6 +46,7 @@ import { join } from "path";
 import { tmpdir } from "os";
 import { execFileSync } from "child_process";
 import { acquireSuiteLock } from "./rls_suite_lock";
+import { checkControls, againstBaseline, type CheckedBlock } from "./test_controls_check";
 
 const TESTS_DIR = "db/tests";
 
@@ -54,19 +55,26 @@ type BlockResult =
   | { kind: "error"; message: string }
   | { kind: "rows"; rows: Row[] };
 
-function splitBlocks(sql: string): string[] {
+// The comment lines between one block's `rollback;` and the next `begin;`
+// are that block's header: where it says which point it is and, for §27,
+// which point is its control (test_controls_check.ts).
+function splitBlocks(sql: string): { sql: string; header: string }[] {
   const lines = sql.split("\n");
-  const blocks: string[] = [];
+  const blocks: { sql: string; header: string }[] = [];
   let current: string[] | null = null;
+  let header: string[] = [];
   for (const line of lines) {
     if (/^begin;\s*$/.test(line)) {
       current = [line];
     } else if (current) {
       current.push(line);
       if (/^rollback;\s*$/.test(line)) {
-        blocks.push(current.join("\n"));
+        blocks.push({ sql: current.join("\n"), header: header.join("\n") });
         current = null;
+        header = [];
       }
+    } else if (/^\s*--/.test(line)) {
+      header.push(line);
     }
   }
   return blocks;
@@ -138,6 +146,7 @@ function main() {
   let totalFail = 0;
   let totalErrors = 0;
   const failures: string[] = [];
+  const checked: CheckedBlock[] = [];
 
   try {
     for (const file of files) {
@@ -146,7 +155,7 @@ function main() {
       const blocks = splitBlocks(sql);
       console.log(`\n${file} (${blocks.length} block${blocks.length === 1 ? "" : "s"})`);
 
-      blocks.forEach((block, i) => {
+      blocks.forEach(({ sql: block, header }, i) => {
         const result = runBlock(block, tmpDir, i);
         if (result.kind === "error") {
           totalErrors++;
@@ -162,6 +171,7 @@ function main() {
           failures.push(`${file} block ${i + 1}: no rows returned`);
           return;
         }
+        checked.push({ file, index: i + 1, header, rows: result.rows });
         for (const row of result.rows) {
           const name = row.check_name ?? "(unnamed check)";
           // SABOTAGE checks deliberately break a policy and assert the
@@ -189,6 +199,15 @@ function main() {
   } finally {
     rmSync(tmpDir, { recursive: true, force: true });
   }
+
+  // §27, executable: every block that asserts a refusal has a control.
+  const { violations, declaredNone } = checkControls(checked);
+  const baselineFailures = againstBaseline(violations);
+  console.log(`\n§27 controls: ${violations.length} probe block(s) without a control (baseline-checked), ${declaredNone.length} declared none.`);
+  for (const v of violations) console.log(`  ${v.file} block ${v.index}${v.point ? ` (point ${v.point})` : ""}: ${v.why} -- ${v.probes[0]}`);
+  for (const d of declaredNone) console.log(`  declared none: ${d.file} block ${d.index}${d.point ? ` (point ${d.point})` : ""}: ${d.reason}`);
+  for (const f of baselineFailures) failures.push(`§27 controls: ${f}`);
+  if (process.env.RLS_SUITE_DUMP) writeFileSync(process.env.RLS_SUITE_DUMP, JSON.stringify(checked, null, 1));
 
   console.log(`\n${"=".repeat(70)}`);
   console.log(`${totalPass} passed, ${totalFail} failed, ${totalErrors} block error(s) across ${files.length} files.`);

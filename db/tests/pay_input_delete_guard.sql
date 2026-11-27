@@ -57,6 +57,7 @@ rollback;
 -- ============================================================================
 -- Point 2 -- PROBE: deleting the grade-3 rate (Teodora's 6 confirmed slots)
 -- is refused (P0W01), and the refusal says the slots became unpriceable.
+-- §27 control: point 1.
 -- ============================================================================
 begin;
   create temp table r (k text, v text) on commit drop;
@@ -124,6 +125,7 @@ rollback;
 
 -- ============================================================================
 -- Point 4 -- PROBE: deleting Teodora's grade assignment is refused (P0W01).
+-- §27 control: point 3.
 -- ============================================================================
 begin;
   create temp table r (k text, v text) on commit drop;
@@ -186,6 +188,7 @@ rollback;
 -- Point 6 -- PROBE: the version in force deleted together with its rates
 -- (rates first: the order the foreign key does NOT stop) is refused, and the
 -- refusal covers every confirmed, unapproved wow-lab slot.
+-- §27 control: point 5.
 -- ============================================================================
 begin;
   create temp table r (k text, v text) on commit drop;
@@ -225,6 +228,7 @@ rollback;
 -- transaction is still judged. A harmless delete, constraints forced
 -- immediate (the check runs and passes), then the grade-3 rate deleted and
 -- forced again: refused. A check that ran once must not excuse what follows.
+-- §27 control: point 1.
 -- ============================================================================
 begin;
   create temp table r (k text, v text) on commit drop;
@@ -347,6 +351,7 @@ rollback;
 -- Every confirmation in every organization cleared first, inside this
 -- rolled-back transaction, so no confirmed slot exists anywhere -- measured,
 -- not assumed -- and TRUNCATE is still refused.
+-- §27 control: point 10.
 -- ============================================================================
 begin;
   create temp table r (k text, v text) on commit drop;
@@ -372,6 +377,7 @@ rollback;
 -- ============================================================================
 -- Point 12 -- TRUNCATE ... CASCADE from an UNGUARDED parent is refused when
 -- it reaches a guarded table: TRUNCATE clients CASCADE reaches groups.
+-- §27 control: point 10.
 -- ============================================================================
 begin;
   create temp table r (k text, v text) on commit drop;
