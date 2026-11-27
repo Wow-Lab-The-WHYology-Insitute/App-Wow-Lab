@@ -381,12 +381,24 @@ is in Romanian; code, comments, commits and this file are in English.
   - **History:** 41 confirmed sessions were ever deleted, all in Test Org B (verification
     cleanups); 0 in wow-lab.
   - **Still open:** clearing in one transaction and deleting in a later one (item 199).
-- **Item 210, REPORT 2026-11-26 — which conventions (§17–§27) leave something that runs.**
-  - **Executable:** §22, §26, and §27 in its instances. **Partly:** §18–§20, §24, §25.
-    **Reminders only:** §17, §17b, §17c, §21, §23.
-  - **§17's own worked example is stale:** the 11.1% uplift IS baked into 111–150 since
-    2026-10-30. Reported, not fixed.
-  - **Candidate tests await Mihai.**
+- **Item 210 — which conventions (§17–§27) leave something that runs. Two candidates BUILT
+  2026-11-27.**
+  - **§27, in the suite:** `scripts/test_controls_check.ts`. A block asserting a refusal needs a
+    control row, a `§27 control: point N`, or a visible `§27 control: none -- <reason>`.
+    - **Baseline:** 42 blocks in 19 files written before §27, exact.
+    - **Its own test:** `scripts/test_test_controls_check.ts`.
+  - **§19, PENDING:** `db/tests/pending/actor_pinned_to_caller.sql` fails on 10 `*_by` columns
+    that app users can write with ANYONE's id. Induced: a grade version in the owner's name is
+    accepted. It waits on Mihai's choice of UPDATE meaning for 3 of them.
+  - **Documentation, recognised as such:** §17, §17b and §21. §17's stale example is entry 1 of
+    the re-reading log at the end of `DATABASE_CONVENTIONS.md`.
+- **Item 211, MEASURED 2026-11-27 — a reminder to trainers. Nothing built.**
+  - **What a message would contain:** Cătălina 8 (from 16.11), Lorina 12 (from 14.10, the item 152
+    pair), Teodora 0 (and no future sessions).
+  - **12.11 was NOT an email:** Cătălina used a session from 06.09. Every email we know of was
+    awaited, and there are no open data.
+  - **The app sends nothing but Auth mail,** so the first reminder is an infrastructure decision
+    (sender, schedule, send log).
 - **Item 184, measured again 2026-11-26: since Cătălina's evening of 12.11 (ten confirmations),
   ZERO writes by any real person.**
   - Lorina and Teodora: never.
@@ -441,6 +453,10 @@ If the above list looks stale (dates have passed, an item below has clearly move
     a correction is a new version (§26), and a session not to be paid is cancelled.
   - **If one is ever truly needed,** the migration says so in its header, with the reason, like
     any other §23-style deliberate act.
+- **The suite also enforces §27** (`scripts/test_controls_check.ts`, item 210). A new test block
+  that asserts a refusal must carry a control row, or declare `-- §27 control: point N` or
+  `-- §27 control: none -- <reason>` in its header comment. Fixing an old one means lowering
+  that file's number in `BASELINE`.
 - `npx tsx scripts/run_rls_suite.ts` — the full RLS + business-logic test suite
   (`db/tests/*.sql`). Run after any migration touching `CREATE POLICY`/`ALTER POLICY`/
   `DROP POLICY`, or any migration renaming/dropping a column a policy or test reads. Takes several

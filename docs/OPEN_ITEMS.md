@@ -12384,9 +12384,144 @@ habit):
 - **§17c** is both: documentation for the general habit, and a filter wherever the assumption
   can be expressed as one.
 
-**Blocked on:** Mihai's choice among the candidates. **Lives in:**
-`docs/DATABASE_CONVENTIONS.md` §17–§27 (§27 carries the general consequence), item 147 above
-(the stale §17 example).
+**DECIDED 2026-11-27 (Mihai): build two, not four.**
+- **§27** first, because it caught four things in a week and nothing checked that it was applied:
+  "a convention that catches that often and is not checked is the closest to slipping".
+- **§19,** violated three times (152, the trainer swap, the cancellation).
+- **Stay on the list, not now:** the §18 generator and the §23 migration lint.
+- **Recognised as documentation:** §17, §17b and §21, each now carrying a status line.
+- **§17's stale example** is the first entry of the new re-reading log at the end of
+  `DATABASE_CONVENTIONS.md`. The rule: a convention citing code carries a date and is re-read.
+
+**§27, BUILT and in the suite:** `scripts/test_controls_check.ts`, run by `run_rls_suite.ts` on
+the rows each block returns. Its own test is `scripts/test_test_controls_check.ts`, 13 cases,
+the first the sabotage.
+- **The first run failed, as it had to:** 57 probe blocks without a control.
+  - **2 were the rule's own false positives,** "(not blocked)" and "the rejected row". The rule
+    now needs the predicate form ("is refused"), with both as test cases.
+  - **The second of them** (`lesson_plan_catalogue` block 4) still tripped the narrowed rule,
+    on "the single row cannot hold". It is declared `none` in its header, with that reason.
+  - **13 were in this week's own files** (`pay_input_guard`, `pay_input_delete_guard`,
+    `session_delete_guard`). Each had its control in another point and now declares it;
+    `session_delete_guard` point 5 got a control of its own.
+  - **42 blocks in 19 files written before §27** (13 + 2 + 42 = 57) form an exact BASELINE in
+    the check. A new
+    violation fails the suite; a fixed one fails it until the number is lowered.
+- **Not seen by it:** the empty-band direction of §27, and a probe worded without a refusal word.
+
+**§19, BUILT as a test, PENDING:** `db/tests/pending/actor_pinned_to_caller.sql`, run against the
+live schema. It fails exactly where measured:
+- **`row_history.actor_user_id` is not the problem.** It is automatic: `app.current_user_id()`,
+  i.e. `auth.uid()`. Point 5 pins that.
+- **The `*_by` columns are where the writer chooses.**
+  - **11 are writable in fact by an app user** (column grant plus an INSERT policy). The
+    measurement first counted 12: `admin_rate_versions` has the grant but no INSERT policy, so
+    nobody can insert.
+  - **Only `payroll_periods.closed_by` is pinned** (`WITH CHECK closed_by =
+    app.current_user_id()`). Point 2 shows that pin working, induced: someone else's id gives
+    42501, one's own is accepted.
+  - **The other 10 accept any user id:** `created_by` on 6 version tables, `set_by` on
+    `trainer_grade_assignments` and `trainer_home_cities`, `assigned_by`, `uploaded_by`.
+  - **Induced, point 3:** a Finance Operations account creates a grade version with `created_by`
+    = the Organization Owner, and it is ACCEPTED. `/payroll` would show the owner as its author.
+- **The 5 functions that write a `*_by` column** all take it from the caller. Point 4 closes that
+  list: a new function naming one fails until registered.
+- **SABOTAGEs:** the `closed_by` pin removed; an unregistered writer added. Both flip.
+
+**THE DECISION THE REPAIR NEEDS, Mihai's, which is why the test waits in `pending/`:**
+- **INSERT, on the 10:** pin with `WITH CHECK <col> = app.current_user_id()`. This is the
+  precedent already live on `closed_by`, and migrations and `service_role` are unaffected
+  (RLS).
+- **UPDATE, on the 3 columns app users can also UPDATE** (`file_refs.uploaded_by`,
+  `trainer_home_cities.set_by`, `user_org_roles.assigned_by`). What the column means decides
+  the form:
+  - "who did it ORIGINALLY": immutable on update;
+  - "who changed it last": pinned to the updater.
+  - **The difference shows on `uploaded_by`:** someone renaming a file would become its uploader
+    under the second form.
+- **Checked before writing this:** the two direct app writes (`assigned_by: check.actorUserId`,
+  `closed_by: user.id`) already send the caller. So the INSERT pin breaks no app path that was
+  read.
+
+**Blocked on:** Mihai, on the UPDATE meaning of the 3 columns (and on whether the INSERT pin
+goes ahead alone). **Lives in:** `docs/DATABASE_CONVENTIONS.md` §17–§27 (§27 carries the general
+consequence and the check; §19 the pending test; the re-reading log at the end), item 147 above
+(the stale §17 example), `scripts/test_controls_check.ts`, `scripts/run_rls_suite.ts`.
+
+---
+### 211. A reminder to trainers — MEASURED 2026-11-27, nothing built
+
+**Why it was held, and why that reason is gone (Mihai):** on 12.11 nobody knew whether the screen
+worked. Cătălina then confirmed 10 in five minutes, on her own. Measure before building:
+
+**1. What a message would contain, today, per real trainer** (wow-lab; past, not cancelled,
+unconfirmed slots):
+
+| trainer | past unconfirmed | oldest | newest | where |
+|---|---|---|---|---|
+| Cătălina Moale | **8** | 16.11 | 25.11 | Lycée ×4, Avenor ×4 |
+| Lorina Ciurusniuc | **12** | 14.10 | 25.11 | Școala Germană, all 12 |
+| Teodora Merișan | **0** | — | — | — |
+
+- **Cancelled sessions are not counted** (Cătălina 4, Lorina 2). Counting them is the `/my-work`
+  banner defect, item 199.
+- **Lorina's oldest two, 14.10, are item 152/176's pair.** Their confirmation was withdrawn by
+  `202610300008` because nothing supported it. A reminder would ask her to assert them, and her
+  own assertion is exactly the fact those rows lack. It would be the first real answer to item
+  152, not a side effect.
+- **Teodora has nothing past unconfirmed, and nothing in the future either:** 0 sessions from
+  today on. A message to her would be empty. Why she has no schedule is not this item's question.
+
+**2. Has a trainer ever opened an email from the application? What we know is thinner than the
+prompt assumed.**
+- **The premise, corrected:** "Cătălina's magic link worked on 12.11" is NOT what happened.
+  - **No link was sent to her on 12.11.** Her `recovery_sent_at` (the last link) is 06.09
+    17:06:09.
+  - **On 12.11 she used the session created 06.09 17:06:29 from that link,** refreshed on 12.11
+    at 20:43 (`auth.sessions`).
+  - **So 12.11 proves the screen works.** It proves nothing about email.
+- **What exists, per person:** only the LAST link sent survives (`recovery_sent_at`). Each one
+  was a link the person had just requested at the login page:
+
+| trainer | last link sent | signed in | gap |
+|---|---|---|---|
+| Cătălina | 06.09 17:06:09 | 06.09 17:06:29 | 20 s |
+| Teodora | 07.09 15:51:54 | 07.09 15:52:07 | 13 s |
+| Lorina | 29.10 17:10:55 | 29.10 19:53:25 | 2 h 42 min |
+
+- **What we do not have:**
+  - opens of any kind: no open tracking, and `auth.audit_log_entries` holds 0 rows;
+  - any email that was NOT requested by the person;
+  - the earlier links (each overwritten).
+- **Not reachable:** the WOW LAB sending account. Auth mail goes through `smtp.resend.com` from
+  `send.wowlab.ro`. The Resend account connected to this workspace holds one domain,
+  `hyperfit.ro` (another client, open tracking off), and was not read further.
+- **So:** every email we know about was opened because it was awaited. Whether an unsolicited
+  one arrives (spam, promotions tab) or is opened, nothing measures.
+
+**3. Does anything in the application send anything to anyone? No, except authentication.**
+- **The only sender is Supabase Auth:** the invite and magic-link templates over Resend SMTP.
+  They are triggered by a person, either at the login page or by an admin's Invite/Resend in
+  `/admin/users`.
+- **What does not exist:**
+  - an email dependency in `package.json`;
+  - a server-side send in `app/` or `lib/`;
+  - an edge function;
+  - a schedule (`vercel.json` has none, and no `pg_cron`);
+  - `pg_net` or any outbound HTTP;
+  - a table recording a message sent.
+- **`RESEND_API_KEY` is read only** when `supabase config push` runs (`supabase/config.toml`).
+  Nothing in the application reads it.
+- **So the first reminder is an infrastructure decision, not a feature:**
+  - **a sender:** Supabase Auth SMTP sends only its own templates;
+  - **a schedule:** a reminder is sent without anyone asking;
+  - **a record** of what was sent to whom, so a message is not sent twice;
+  - **a stance on unsolicited mail** to contractors.
+
+**Blocked on:** Mihai's decision whether to take the infrastructure step at all. **Re-verify
+when:** before any message is drafted. Re-count point 1 on the day; it moves every week.
+**Lives in:** `auth.users.recovery_sent_at`, `auth.sessions`, `supabase/config.toml`
+(`[auth.email.smtp]`), items 152/176 (Lorina's 14.10 pair), 184, 199.
 
 ---
 ### 18. Pending invites — cut deliberately

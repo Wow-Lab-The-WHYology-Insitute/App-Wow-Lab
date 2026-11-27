@@ -303,6 +303,14 @@ still the right call" but **"is this still the right call for the reason written
 come apart silently, and only the first one has tests. Worth looking for deliberately — a decision
 whose stated reason no longer holds is a trap with no tripwire.
 
+**Re-read 2026-11-27: the worked case above is STALE, and the principle stands.** It was written
+while the grid was 100–135. Since 2026-10-30 (item 147) the grid is 111–150 with the 11.1% baked
+in, confirmed by Anca three times (item 185). The reason the case calls wrong is the right one
+again; `202611090006` states it as current. The first entry of the re-reading log at the end of
+this file.
+
+**Status (2026-11-27, `OPEN_ITEMS.md` item 210): documentation.** Its object is prose, with nothing to fail on. It is recognised as such, and makes no claim to catch anything.
+
 ### 17b. The second form: a correct decision with nothing to appeal to
 
 The same failure has a mirror image, and it is easier to miss because there is no wrong sentence to
@@ -327,6 +335,8 @@ obligation is to **reopen the item rather than choose freshly** — because choo
 indistinguishable from the decision never having been made. Where the decision exists only as
 intent, say so in it; an item that reads as though it governs five screens when it can only defend
 two is itself a wrong reason of the §17 kind.
+
+**Status (2026-11-27, `OPEN_ITEMS.md` item 210): documentation.** Its object is prose, with nothing to fail on. It is recognised as such, and makes no claim to catch anything.
 
 ### 17c. The third form: correct code, changed world
 
@@ -512,6 +522,14 @@ did the second through a live code path, measured 2026-11-16, before this was wr
 - **A cancellation:** nobody takes it over; the record only contradicts it. Nothing is detached
   and nothing erased; the contradiction is refused and returned to a person (item 199).
 
+**Made executable 2026-11-27, and pending (item 210).** `db/tests/pending/actor_pinned_to_caller.sql`.
+- **What it found:** `row_history`'s actor is automatic (`auth.uid()`). The `*_by` columns are
+  where the writer chooses the value.
+- **Of the 11 an app user can in fact INSERT,** only `payroll_periods.closed_by` is pinned to the
+  caller. The other 10 accept any user id, induced: a grade version created in someone else's
+  name is accepted.
+- **When it enters the suite:** with the repair Mihai chooses.
+
 **Lives in:** `OPEN_ITEMS.md` items 152, 157, 159 and 199; §17 (the general form — a correct decision
 with a wrong reason); `supabase/migrations/202610200007_correct_cancellation_actor.sql`.
 
@@ -662,6 +680,8 @@ is that the row records who did the thing.
 **Lives in:** `app/(app)/groups/i18n.ts` (`confirmation_confirm_button`, `confirmation_undo_button`,
 `confirmation_not_yet`); `app/(app)/groups/[id]/group-detail-client.tsx` (`ConfirmationControl`);
 `OPEN_ITEMS.md` item 161; §19 (whose name goes on the row the control writes).
+
+**Status (2026-11-27, `OPEN_ITEMS.md` item 210): documentation.** Its object is a screen's wording, with nothing to fail on. It is recognised as such, and makes no claim to catch anything.
 
 ## 22. A screen that labels something "current" asks the same function the engine asks
 
@@ -1239,9 +1259,35 @@ intention.**
   no fifth catch. Each control asserts it is non-empty. Point 12's refusal is attributed to its
   table by its message, which is the protection rule above, applied before it was needed.
 
+**Made executable 2026-11-27 (Mihai; `OPEN_ITEMS.md` item 210).** `scripts/test_controls_check.ts`
+runs inside `run_rls_suite.ts`, on the rows each block actually returns.
+- **What it fails:** a block that asserts a refusal without a control row, a declared
+  `§27 control: point N` that holds one, or a visible `§27 control: none -- <reason>`.
+- **The first run:** 57 blocks. Two were false positives of the rule ("not blocked", "the rejected
+  row"); the rule was narrowed to the predicate form, and its own test covers both. 13 were in
+  this week's files, with the control in another point, now declared. 42 blocks in 19 files
+  written before §27 form an exact BASELINE, which a new violation breaks and a fix must lower.
+- **Its own test:** `scripts/test_test_controls_check.ts`. Its first case is the sabotage: a probe
+  alone must be flagged.
+- **What it cannot see:** the other direction, "a pass on an empty band". That stays a habit.
+
 **Relation to §24:** §24 says to induce the real mutation rather than reason about the schema.
 §27 says the induced mutation must be built so that its outcome can only mean one thing. Inducing
 the wrong thing faithfully is still the wrong thing.
 
 **Lives in:** `db/tests/cross_org_write_isolation.sql`; `OPEN_ITEMS.md` item 198 (the three
 instances, as they happened); §24, §26.
+
+## Re-reading log — conventions that carry examples from the code age like screens do
+
+**Why this exists (Mihai, 2026-11-27).** A convention that cites the code, a migration, a figure
+or a decision as its example is a claim about the world at a date. Nothing re-reads it, so it ages
+silently, exactly like the screens §17c is about.
+- **So every such example carries the date it was true on.**
+- **The section is re-read** when the code it cites changes, and at least once per term.
+- **Each re-reading is an entry here:** what was re-read, what was stale, and what was done.
+
+| # | date | section | finding | done |
+|---|---|---|---|---|
+| 1 | 2026-11-27 | §17 | Its worked case ("there was never an uplift inside those rates") was true while the grid was 100–135. Since 2026-10-30 the grid is 111–150 with the 11.1% baked in (item 147, Anca ×3, `202611090006`). The "wrong reason" is the right one again. §17 happened to its own text. | marked stale in place; the principle is unchanged; no example substituted yet |
+
