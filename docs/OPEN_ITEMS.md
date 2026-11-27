@@ -12443,8 +12443,71 @@ live schema. It fails exactly where measured:
   `closed_by: user.id`) already send the caller. So the INSERT pin breaks no app path that was
   read.
 
-**Blocked on:** Mihai, on the UPDATE meaning of the 3 columns (and on whether the INSERT pin
-goes ahead alone). **Lives in:** `docs/DATABASE_CONVENTIONS.md` §17–§27 (§27 carries the general
+**DECIDED AND BUILT 2026-11-27 (`202611270001`), apart from `assigned_by`.**
+
+**Mihai's general rule, now in §19:** a `*_by` column answers "who did the ACT this row records".
+- If the row records ONE act, the column is immutable, and a new act is a new row.
+- If the row is the record of a current state, the column says who set it last.
+
+**What was built:**
+- **INSERT, the 10:** pinned with `WITH CHECK <col> = app.current_user_id()`.
+- **`file_refs.uploaded_by`:** IMMUTABLE for app users. The UPDATE grant now covers every other
+  column; the table has 0 rows today.
+- **`trainer_home_cities.set_by`:** pinned to the updater. There are 11 rows and 0 updates ever,
+  and the app only reads this table.
+- **The test moved into the suite** (`db/tests/actor_pinned_to_caller.sql`, 13 blocks):
+  - against the live schema, points 1, 3, 9 and 10 failed and their controls passed;
+  - with the migration, everything passes and the 5 SABOTAGEs flip.
+- **The full suite then failed on ONE old block, and the old block was wrong.**
+  - **Where:** `rls_ws_d_write.sql` block 1, written 2026-07-10.
+  - **What it did:** it inserted a role assignment as the owner with NO `assigned_by` (42501
+    under the new pin). An assignment with no author is exactly what §19 now forbids, and the
+    suite itself had been writing one.
+  - **The fix:** the test now names the owner as `assigned_by`, with the reason beside it. The
+    rule was not loosened.
+- **Suite after the fix:** 622 passed, 0 failed, 37 files; §27 line "42 baseline-checked, 1
+  declared none". 7 blocks of `cross_org_write_isolation.sql` (5–11) ERRORED on a network
+  failure (`LegacyDbConfigLoginRoleNetworkError ... TransportError`), not on an assertion.
+  Rerun alone the same day: all their checks pass, and their 3 SABOTAGEs flip.
+
+**A correction to the premise of the INSERT decision.** "The two direct writes already send the
+right id" is true, but only one of them is covered by the new pin.
+- **`payroll_periods.closed_by`** goes through the user's client.
+- **`user_org_roles.assigned_by`** goes through the SERVICE-ROLE client (`/admin/users`), which
+  RLS never sees.
+  - **What its correctness rests on:** the application code (`check.actorUserId`, the session
+    user), not on the database.
+  - **What the new pin covers there:** only a raw POST by an `org.members.manage` holder.
+
+**`assigned_by`, MEASURED, not repaired (Mihai: "nu o repara pe presupunere"):**
+- **What else is on the row:** `id`, `organization_id`, `user_id`, `role_id`, `assigned_at`,
+  `assigned_by`, `created_at`, `updated_at`.
+  - **There is no note and no date of its own.** No column could legitimately be edited
+    without editing the assignment itself.
+  - **Keys:** unique `(organization_id, user_id, role_id)`; one role-less membership row per
+    `(organization_id, user_id)`.
+- **Does the assignment change in place? Never, in the application.** Saving roles in
+  `/admin/users` DELETEs all of the person's rows in the organization and INSERTs the new set,
+  with the caller as `assigned_by`. The application already models an assignment as an ACT: a new
+  assignment is a new row.
+- **History:** 46 deletes. Exactly 1 UPDATE ever (2026-08-12): `handle_deleted_auth_user`
+  nulling `assigned_by` when a test account was deleted. 0 in-place re-assignments.
+- **The answer to Mihai's question:** the row is an act, and nothing models it as a state.
+  - **The UPDATE grant `authenticated` holds on `user_org_roles` is used by nothing in the
+    application.** It is the only way to change an assignment in place: a raw PATCH could switch
+    `role_id` while `assigned_by` and `assigned_at` still name the original assigner. That is
+    exactly the "column lies" case.
+  - **By the rule:** immutable, with the UPDATE grant removed for app users.
+    `handle_deleted_auth_user` (DEFINER) would be unaffected.
+  - **Not done:** Mihai decides.
+- **Two side findings, reported:**
+  - **Every role change made in `/admin/users` writes `row_history` with a NULL actor** (46 of 46
+    deletes). The service-role client carries no `auth.uid()`. The real actor survives only in
+    the new rows' `assigned_by` and in `audit_log`. That is §23's state, without §23's
+    documentation.
+  - **21 of the 84 rows have `assigned_by` NULL.** Their origin was not traced this round.
+
+**Blocked on:** Mihai, for `user_org_roles.assigned_by` (the measurement above). **Lives in:** `docs/DATABASE_CONVENTIONS.md` §17–§27 (§27 carries the general
 consequence and the check; §19 the pending test; the re-reading log at the end), item 147 above
 (the stale §17 example), `scripts/test_controls_check.ts`, `scripts/run_rls_suite.ts`.
 
@@ -12518,8 +12581,35 @@ prompt assumed.**
   - **a record** of what was sent to whom, so a message is not sent twice;
   - **a stance on unsolicited mail** to contractors.
 
-**Blocked on:** Mihai's decision whether to take the infrastructure step at all. **Re-verify
-when:** before any message is drafted. Re-count point 1 on the day; it moves every week.
+**DECIDED 2026-11-27 (Mihai): do NOT build the infrastructure. Test the question first, by hand,
+without code.**
+- **Why:** the application has no sending mechanism at all, so the first reminder would mean four
+  unresolved decisions (sender, schedule, send log, unsolicited mail to PFA contractors).
+- **And it is not known that the email arrives:** all 3 known links were requested on the spot.
+  An unsolicited email has never been sent, by anyone, to anyone.
+- **The test:** Mihai writes to Lorina on WhatsApp.
+  - It worked once (Cătălina, 10 confirmations in five minutes). If it works a second time, on
+    a person who has never written anything, we know what we would be automating.
+  - If it does not, the problem is not the reminder, and infrastructure would not have helped.
+- **The gain on the side (Mihai):** Lorina's two 14.10 workshops are item 152's pair, whose
+  confirmation was withdrawn because nothing supported it. A message to her asks for exactly the
+  assertion missing for a month. If she confirms even one, item 152 closes by the only correct
+  method: from the person who was in the room.
+
+**The baseline, measured 2026-11-27, for the comparison at 48 hours:**
+- **Lorina:** 12 past, unconfirmed slots: 14.10 ×2, 28.10 ×2, 04.11 ×2, 11.11 ×2, 18.11 ×2,
+  25.11 ×2, all Școala Germană.
+  - **Writes:** none ever, in `row_history`.
+  - **Auth:** one session, created 29.10 19:53 and never refreshed. The last link was 29.10.
+- **Measure at 48 hours from Mihai's message:**
+  - did she sign in (`auth.sessions`, `recovery_sent_at`)?
+  - did she confirm, and how many of the 12 (`row_history` actor)?
+  - the 14.10 pair specifically.
+- **The start of the 48 hours is the moment Mihai sends.** He gives it; the database cannot
+  know it.
+
+**Blocked on:** Mihai's WhatsApp message to Lorina. **Re-verify when:** 48 hours after it. Count
+anything new that became past in between separately, so it is not read as part of the 12.
 **Lives in:** `auth.users.recovery_sent_at`, `auth.sessions`, `supabase/config.toml`
 (`[auth.email.smtp]`), items 152/176 (Lorina's 14.10 pair), 184, 199.
 

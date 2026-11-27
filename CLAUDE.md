@@ -387,9 +387,14 @@ is in Romanian; code, comments, commits and this file are in English.
     control row, a `§27 control: point N`, or a visible `§27 control: none -- <reason>`.
     - **Baseline:** 42 blocks in 19 files written before §27, exact.
     - **Its own test:** `scripts/test_test_controls_check.ts`.
-  - **§19, PENDING:** `db/tests/pending/actor_pinned_to_caller.sql` fails on 10 `*_by` columns
-    that app users can write with ANYONE's id. Induced: a grade version in the owner's name is
-    accepted. It waits on Mihai's choice of UPDATE meaning for 3 of them.
+  - **§19, BUILT 2026-11-27 (`202611270001`), `db/tests/actor_pinned_to_caller.sql`:** the 10
+    `*_by` columns that app users could write with ANYONE's id are pinned on INSERT.
+    `file_refs.uploaded_by` is immutable, and `trainer_home_cities.set_by` is pinned on UPDATE.
+    - **The rule, now in §19:** a row that records an ACT gets an immutable `*_by`, and a new
+      act is a new row. A row recording a current STATE gets "set last by".
+    - **`user_org_roles.assigned_by` on UPDATE:** measured (the app re-assigns by DELETE plus
+      INSERT through the service-role client, and the UPDATE grant is used by nothing).
+      Mihai's to decide.
   - **Documentation, recognised as such:** §17, §17b and §21. §17's stale example is entry 1 of
     the re-reading log at the end of `DATABASE_CONVENTIONS.md`.
 - **Item 211, MEASURED 2026-11-27 — a reminder to trainers. Nothing built.**
@@ -399,6 +404,9 @@ is in Romanian; code, comments, commits and this file are in English.
     awaited, and there are no open data.
   - **The app sends nothing but Auth mail,** so the first reminder is an infrastructure decision
     (sender, schedule, send log).
+  - **DECIDED: no infrastructure.** Mihai writes to Lorina on WhatsApp first. Measure 48 hours
+    after he gives the time: did she sign in, how many of her 12 did she confirm, and the 14.10
+    pair (item 152).
 - **Item 184, measured again 2026-11-26: since Cătălina's evening of 12.11 (ten confirmations),
   ZERO writes by any real person.**
   - Lorina and Teodora: never.

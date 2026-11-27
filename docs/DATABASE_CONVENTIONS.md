@@ -522,13 +522,34 @@ did the second through a live code path, measured 2026-11-16, before this was wr
 - **A cancellation:** nobody takes it over; the record only contradicts it. Nothing is detached
   and nothing erased; the contradiction is refused and returned to a person (item 199).
 
-**Made executable 2026-11-27, and pending (item 210).** `db/tests/pending/actor_pinned_to_caller.sql`.
-- **What it found:** `row_history`'s actor is automatic (`auth.uid()`). The `*_by` columns are
+**What a `*_by` column means, the general rule (Mihai, 2026-11-27).** A `*_by` column answers
+"who did the ACT this row records".
+- **If the row records ONE ACT, the column is immutable, and a new act is a NEW ROW.** An upload
+  is an act: `file_refs.uploaded_by` cannot be changed by an app user. A rename is not an upload.
+- **If the row is the record of a CURRENT STATE, the column says who set it last.** A trainer's
+  home city is one current fact: `trainer_home_cities.set_by` is pinned to whoever updates.
+- **A mutable column on an act-row hides a missing model; it does not repair it.** If an act can
+  be changed in place, the column lies for every other edit of the row. This is the same
+  reasoning as `contracts.amends_contract_id` and `corrects_version_id` (§26): the change is a
+  new row pointing at the old one.
+- **On INSERT, always:** the column is the caller (`WITH CHECK <col> = app.current_user_id()`).
+  RLS only: migrations and `service_role` are governed by §23.
+
+**Made executable 2026-11-27 (item 210), `db/tests/actor_pinned_to_caller.sql`.**
+- **What was found:** `row_history`'s actor is automatic (`auth.uid()`). The `*_by` columns are
   where the writer chooses the value.
-- **Of the 11 an app user can in fact INSERT,** only `payroll_periods.closed_by` is pinned to the
-  caller. The other 10 accept any user id, induced: a grade version created in someone else's
-  name is accepted.
-- **When it enters the suite:** with the repair Mihai chooses.
+  - Of the 11 an app user can in fact INSERT, only `payroll_periods.closed_by` was pinned.
+  - The other 10 accepted any user id. Induced: a grade version created in the Organization
+    Owner's name was accepted.
+- **Repaired by `202611270001`:**
+  - the 10 INSERT pins;
+  - `uploaded_by` made immutable for app users;
+  - `trainer_home_cities.set_by` pinned on UPDATE.
+- **What the test checks:**
+  - **Both classes:** a `*_by` column not yet written fails until pinned.
+  - **The functions that write a `*_by` column:** a closed, registered list.
+  - **Induced probes:** each with its control and its SABOTAGE.
+- **Waiting by name:** `user_org_roles.assigned_by` on UPDATE, Mihai's to decide.
 
 **Lives in:** `OPEN_ITEMS.md` items 152, 157, 159 and 199; §17 (the general form — a correct decision
 with a wrong reason); `supabase/migrations/202610200007_correct_cancellation_actor.sql`.
