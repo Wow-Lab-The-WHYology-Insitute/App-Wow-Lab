@@ -59,6 +59,7 @@ begin;
   -- Resolved while still privileged -- referenced after the role switch
   -- below, where authenticated has no SELECT on users.email (2026-09-22 fix).
   select set_config('app.fixture_catalina', (select id::text from public.users where email = 'test+catalina@wowlab.dev'), true);
+  select set_config('app.fixture_owner_a', (select id::text from public.users where email = 'test+owner-a@wowlab.dev'), true);
 
   select set_config('role', 'authenticated', true);
 
@@ -99,11 +100,15 @@ begin;
     ) = current_setting('app.test_org_wow_lab')::uuid as pass;
 
   with inserted as (
-    insert into public.user_org_roles (organization_id, user_id, role_id)
+    -- assigned_by is the caller since 202611270001 (§19, item 210): an
+    -- assignment written with no author is now refused, and this insert
+    -- used to be one.
+    insert into public.user_org_roles (organization_id, user_id, role_id, assigned_by)
     select
       current_setting('app.test_org_wow_lab')::uuid,
       current_setting('app.fixture_catalina')::uuid,
-      (select id from public.roles where key = 'trainer')
+      (select id from public.roles where key = 'trainer'),
+      current_setting('app.fixture_owner_a')::uuid
     returning id
   )
   select

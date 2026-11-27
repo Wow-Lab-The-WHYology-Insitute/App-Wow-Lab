@@ -1,8 +1,6 @@
--- db/tests/pending/actor_pinned_to_caller.sql
--- PENDING (not run by the suite, which reads only db/tests/*.sql): it FAILS
--- against the live schema today, on purpose, and enters the suite in the
--- same commit as the repair Mihai chooses (OPEN_ITEMS item 210). Delete this
--- header when it moves.
+-- db/tests/actor_pinned_to_caller.sql
+-- Written first and run FAILING from db/tests/pending/ (2026-11-27); entered
+-- the suite with 202611270001 (OPEN_ITEMS item 210).
 --
 -- §19, made executable (Mihai, 2026-11-27): the recorded actor is who did
 -- the thing. Measured first, 2026-11-27:
@@ -22,7 +20,8 @@
 
 -- ============================================================================
 -- Point 1 -- the class, INSERT: every `*_by` column an app user can INSERT
--- is pinned to the caller by an INSERT policy's WITH CHECK. FAILS today (10).
+-- is pinned to the caller by an INSERT policy's WITH CHECK. Failed on 10
+-- before 202611270001; the check for columns not yet written.
 -- ============================================================================
 begin;
   select 'every *_by column app users can INSERT is pinned to the caller' as check_name,
@@ -91,9 +90,9 @@ rollback;
 
 -- ============================================================================
 -- Point 3 -- PROBE, induced: the same account inserting a grade version with
--- created_by = SOMEONE ELSE. FAILS today: accepted, and /payroll would show
--- the other person as its author. CONTROL: its own id, accepted. Dated 2099
--- so item 194's guard has nothing to protect.
+-- created_by = SOMEONE ELSE is refused. Before 202611270001 it was ACCEPTED,
+-- and /payroll would have shown the other person as its author. CONTROL: its
+-- own id, accepted. Dated 2099 so item 194's guard has nothing to protect.
 -- ============================================================================
 begin;
   create temp table r (k text, v text) on commit drop;
@@ -223,4 +222,192 @@ begin;
         and n.nspname || '.' || p.proname not in ('app.grade_assignment_write', 'app.grid_correction_write',
           'app.rpc_create_grid_version', 'app.rpc_cancel_session', 'app.rpc_decide_session_lesson_plan',
           'public.handle_deleted_auth_user', 'app.correction_statement_author')) as pass;
+rollback;
+
+-- ============================================================================
+-- Point 8 -- the class, UPDATE: every `*_by` column an app user can UPDATE is
+-- pinned to the updater by an UPDATE policy -- the "current state" form of
+-- the rule (§19). An "act" column is not updatable at all (point 9). One
+-- column waits on Mihai's decision and is listed BY NAME in `actual`, never
+-- silently passed: user_org_roles.assigned_by (item 210).
+-- ============================================================================
+begin;
+  create temp table waiting (c text) on commit drop;
+  insert into waiting values ('user_org_roles.assigned_by');
+  create temp table unpinned on commit drop as
+  select cp.table_name || '.' || cp.column_name c
+  from information_schema.column_privileges cp
+  where cp.table_schema = 'public' and cp.grantee = 'authenticated' and cp.privilege_type = 'UPDATE'
+    and cp.column_name ~ '_by$'
+    and not exists (
+      select 1 from pg_catalog.pg_policy p
+      where p.polrelid = format('public.%I', cp.table_name)::regclass and p.polcmd in ('w', '*')
+        and pg_get_expr(p.polwithcheck, p.polrelid) ~ ('\m' || cp.column_name || '\s*=\s*(app\.current_user_id\(\)|auth\.uid\(\))'));
+  select 'every *_by column app users can UPDATE is pinned to the updater, or waits by name' as check_name,
+    coalesce((select string_agg(c, ', ') from unpinned where c not in (select c from waiting)), 'none')
+      || ' / waiting: ' || coalesce((select string_agg(c, ', ') from unpinned where c in (select c from waiting)), 'none') as actual,
+    'none / waiting: user_org_roles.assigned_by' as expected,
+    not exists (select 1 from unpinned where c not in (select c from waiting)) as pass;
+rollback;
+
+-- ============================================================================
+-- Point 9 -- file_refs.uploaded_by is IMMUTABLE for app users (the upload is
+-- an act; a rename is not). An org member changing uploaded_by on a row is
+-- refused (42501); CONTROL: the same member changing mime_type, accepted.
+-- ============================================================================
+begin;
+  create temp table r (k text, v text) on commit drop;
+  grant all on r to authenticated;
+  select set_config('test.me', (select id::text from public.users where email = 'maxdigitalro@gmail.com'), true);
+  select set_config('test.other', (select id::text from public.users where email = 'test+finance-ops-a@wowlab.dev'), true);
+  insert into public.file_refs (id, organization_id, storage_path, mime_type, byte_size, uploaded_by)
+  values ('77777777-0000-0000-0000-000000000f21', (select id from public.organizations where slug = 'wow-lab'),
+          'item-210/test.pdf', 'application/pdf', 1, current_setting('test.me')::uuid);
+  select set_config('request.jwt.claims', json_build_object('sub', current_setting('test.me'), 'role', 'authenticated')::text, true);
+  select set_config('role', 'authenticated', true);
+  do $$
+  declare n int;
+  begin
+    update public.file_refs set mime_type = 'application/x-pdf' where id = '77777777-0000-0000-0000-000000000f21';
+    get diagnostics n = row_count;
+    insert into r values ('control', case when n = 1 then 'accepted' else 'no row' end);
+  exception when others then insert into r values ('control', 'refused ' || sqlstate);
+  end $$;
+  do $$
+  begin
+    update public.file_refs set uploaded_by = current_setting('test.other')::uuid where id = '77777777-0000-0000-0000-000000000f21';
+    insert into r values ('probe', 'accepted');
+  exception when others then insert into r values ('probe', 'refused ' || sqlstate);
+  end $$;
+  select set_config('role', 'postgres', true);
+  select 'CONTROL: an org member changing a file''s mime_type is accepted (one row)' as check_name,
+    (select v from r where k = 'control') as actual, 'accepted' as expected, (select v from r where k = 'control') = 'accepted' as pass
+  union all
+  select 'an org member changing a file''s uploaded_by is refused (42501)',
+    (select v from r where k = 'probe'), 'refused 42501', (select v from r where k = 'probe') = 'refused 42501';
+rollback;
+
+-- ============================================================================
+-- Point 10 -- trainer_home_cities.set_by says who set the city LAST: an
+-- update recording someone else is refused (42501); CONTROL: the same update
+-- in the updater's own name, accepted.
+-- ============================================================================
+begin;
+  create temp table r (k text, v text) on commit drop;
+  grant all on r to authenticated;
+  select set_config('test.me', (select id::text from public.users where email = 'maxdigitalro@gmail.com'), true);
+  select set_config('test.other', (select id::text from public.users where email = 'test+finance-ops-a@wowlab.dev'), true);
+  select set_config('test.row', (select id::text from public.trainer_home_cities
+    where organization_id = (select id from public.organizations where slug = 'wow-lab') order by id limit 1), true);
+  select set_config('request.jwt.claims', json_build_object('sub', current_setting('test.me'), 'role', 'authenticated')::text, true);
+  select set_config('role', 'authenticated', true);
+  do $$
+  begin
+    update public.trainer_home_cities set city = city, set_by = current_setting('test.other')::uuid where id = current_setting('test.row')::uuid;
+    insert into r values ('probe', 'accepted');
+  exception when others then insert into r values ('probe', 'refused ' || sqlstate);
+  end $$;
+  do $$
+  declare n int;
+  begin
+    update public.trainer_home_cities set city = city, set_by = current_setting('test.me')::uuid where id = current_setting('test.row')::uuid;
+    get diagnostics n = row_count;
+    insert into r values ('control', case when n = 1 then 'accepted' else 'no row' end);
+  exception when others then insert into r values ('control', 'refused ' || sqlstate);
+  end $$;
+  select set_config('role', 'postgres', true);
+  select 'CONTROL: a home city updated in the updater''s own name is accepted (one row)' as check_name,
+    (select v from r where k = 'control') as actual, 'accepted' as expected, (select v from r where k = 'control') = 'accepted' as pass
+  union all
+  select 'a home city updated in SOMEONE ELSE''s name is refused (42501)',
+    (select v from r where k = 'probe'), 'refused 42501', (select v from r where k = 'probe') = 'refused 42501';
+rollback;
+
+-- ============================================================================
+-- Point 11 -- SABOTAGE for point 3: the created_by pin removed from the grade
+-- versions' INSERT policy. A version in someone else's name gets in.
+-- ============================================================================
+begin;
+  create temp table r (k text, v text) on commit drop;
+  grant all on r to authenticated;
+  do $$
+  declare v_name text; v_check text;
+  begin
+    select polname, pg_get_expr(polwithcheck, polrelid) into v_name, v_check
+    from pg_catalog.pg_policy where polrelid = 'public.trainer_grade_versions'::regclass and polcmd = 'a';
+    execute format('alter policy %I on public.trainer_grade_versions with check (%s)', v_name,
+                   regexp_replace(v_check, '\s*AND\s*\(created_by = app\.current_user_id\(\)\)', ''));
+  end $$;
+  select set_config('test.me', (select id::text from public.users where email = 'test+finance-ops-a@wowlab.dev'), true);
+  select set_config('test.other', (select id::text from public.users where email = 'maxdigitalro@gmail.com'), true);
+  select set_config('test.org', (select id::text from public.organizations where slug = 'wow-lab'), true);
+  select set_config('request.jwt.claims', json_build_object('sub', current_setting('test.me'), 'role', 'authenticated')::text, true);
+  select set_config('role', 'authenticated', true);
+  do $$
+  begin
+    insert into public.trainer_grade_versions (organization_id, effective_date, created_by, note)
+    values (current_setting('test.org')::uuid, '2099-01-01', current_setting('test.other')::uuid, 'item 210 sabotage');
+    insert into r values ('other', 'accepted');
+  exception when others then insert into r values ('other', 'refused ' || sqlstate);
+  end $$;
+  select set_config('role', 'postgres', true);
+  select 'SABOTAGE: a grade version created in someone else''s name is refused, same assertion as point 3, pin removed' as check_name,
+    (select v from r) as actual, 'refused 42501' as expected, (select v from r) = 'refused 42501' as pass;
+rollback;
+
+-- ============================================================================
+-- Point 12 -- SABOTAGE for point 9: UPDATE on uploaded_by granted back.
+-- ============================================================================
+begin;
+  create temp table r (k text, v text) on commit drop;
+  grant all on r to authenticated;
+  grant update (uploaded_by) on public.file_refs to authenticated;
+  select set_config('test.me', (select id::text from public.users where email = 'maxdigitalro@gmail.com'), true);
+  select set_config('test.other', (select id::text from public.users where email = 'test+finance-ops-a@wowlab.dev'), true);
+  insert into public.file_refs (id, organization_id, storage_path, mime_type, byte_size, uploaded_by)
+  values ('77777777-0000-0000-0000-000000000f22', (select id from public.organizations where slug = 'wow-lab'),
+          'item-210/sabotage.pdf', 'application/pdf', 1, current_setting('test.me')::uuid);
+  select set_config('request.jwt.claims', json_build_object('sub', current_setting('test.me'), 'role', 'authenticated')::text, true);
+  select set_config('role', 'authenticated', true);
+  do $$
+  begin
+    update public.file_refs set uploaded_by = current_setting('test.other')::uuid where id = '77777777-0000-0000-0000-000000000f22';
+    insert into r values ('probe', 'accepted');
+  exception when others then insert into r values ('probe', 'refused ' || sqlstate);
+  end $$;
+  select set_config('role', 'postgres', true);
+  select 'SABOTAGE: an org member changing a file''s uploaded_by is refused, same assertion as point 9, grant restored' as check_name,
+    (select v from r) as actual, 'refused 42501' as expected, (select v from r) = 'refused 42501' as pass;
+rollback;
+
+-- ============================================================================
+-- Point 13 -- SABOTAGE for point 10: the set_by pin removed from the UPDATE
+-- policy. A city recorded as set by someone else gets in.
+-- ============================================================================
+begin;
+  create temp table r (k text, v text) on commit drop;
+  grant all on r to authenticated;
+  do $$
+  declare v_name text; v_check text;
+  begin
+    select polname, pg_get_expr(polwithcheck, polrelid) into v_name, v_check
+    from pg_catalog.pg_policy where polrelid = 'public.trainer_home_cities'::regclass and polcmd = 'w';
+    execute format('alter policy %I on public.trainer_home_cities with check (%s)', v_name,
+                   regexp_replace(v_check, '\s*AND\s*\(set_by = app\.current_user_id\(\)\)', ''));
+  end $$;
+  select set_config('test.me', (select id::text from public.users where email = 'maxdigitalro@gmail.com'), true);
+  select set_config('test.other', (select id::text from public.users where email = 'test+finance-ops-a@wowlab.dev'), true);
+  select set_config('test.row', (select id::text from public.trainer_home_cities
+    where organization_id = (select id from public.organizations where slug = 'wow-lab') order by id limit 1), true);
+  select set_config('request.jwt.claims', json_build_object('sub', current_setting('test.me'), 'role', 'authenticated')::text, true);
+  select set_config('role', 'authenticated', true);
+  do $$
+  begin
+    update public.trainer_home_cities set city = city, set_by = current_setting('test.other')::uuid where id = current_setting('test.row')::uuid;
+    insert into r values ('probe', 'accepted');
+  exception when others then insert into r values ('probe', 'refused ' || sqlstate);
+  end $$;
+  select set_config('role', 'postgres', true);
+  select 'SABOTAGE: a home city updated in someone else''s name is refused, same assertion as point 10, pin removed' as check_name,
+    (select v from r) as actual, 'refused 42501' as expected, (select v from r) = 'refused 42501' as pass;
 rollback;
